@@ -1,6 +1,8 @@
-import { render, screen } from "@testing-library/react";
+import { createRef } from "react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { axe } from "vitest-axe";
+import { vi } from "vitest";
 import { Table } from "./Table";
 
 type Driver = {
@@ -261,5 +263,78 @@ describe("Table", () => {
       render(<Table ref={ref} columns={columns} data={data} rowKey={(r) => r.name} />);
       expect(ref.current).toBeInstanceOf(HTMLDivElement);
     });
+  });
+});
+
+describe("Table horizontal scroll region", () => {
+  let notifyResize: () => void = () => {};
+
+  beforeEach(() => {
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(callback: ResizeObserverCallback) {
+          notifyResize = () => callback([], this as unknown as ResizeObserver);
+        }
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      }
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const setWidths = (el: HTMLElement, scrollWidth: number, clientWidth: number) => {
+    Object.defineProperty(el, "scrollWidth", { configurable: true, value: scrollWidth });
+    Object.defineProperty(el, "clientWidth", { configurable: true, value: clientWidth });
+  };
+
+  const renderTable = () => {
+    const view = render(<Table columns={columns} data={data} rowKey={(r) => r.name} />);
+    return view.container.firstElementChild as HTMLElement;
+  };
+
+  it("is not a tab stop while the table fits", () => {
+    const wrapper = renderTable();
+    setWidths(wrapper, 300, 300);
+    act(() => notifyResize());
+    expect(wrapper).not.toHaveAttribute("tabindex");
+    expect(wrapper).not.toHaveAttribute("role");
+  });
+
+  it("becomes a focusable, labelled group once it overflows, so keyboard users can scroll it", () => {
+    const wrapper = renderTable();
+    setWidths(wrapper, 520, 280);
+    act(() => notifyResize());
+    expect(wrapper).toHaveAttribute("tabindex", "0");
+    expect(screen.getByRole("group", { name: "Scrollable content" })).toBe(wrapper);
+    // A group, not a region: several tables on a page must not each add a page landmark.
+    expect(screen.queryByRole("region")).not.toBeInTheDocument();
+  });
+
+  it("stops being a tab stop when it no longer overflows", () => {
+    const wrapper = renderTable();
+    setWidths(wrapper, 520, 280);
+    act(() => notifyResize());
+    setWidths(wrapper, 280, 280);
+    act(() => notifyResize());
+    expect(wrapper).not.toHaveAttribute("tabindex");
+  });
+
+  it("still forwards its ref to the wrapper", () => {
+    const ref = createRef<HTMLDivElement>();
+    const { container } = render(
+      <Table ref={ref} columns={columns} data={data} rowKey={(r) => r.name} />
+    );
+    expect(ref.current).toBe(container.firstElementChild);
+  });
+
+  it("renders without ResizeObserver (server render, old browsers)", () => {
+    vi.unstubAllGlobals();
+    vi.stubGlobal("ResizeObserver", undefined);
+    expect(() => renderTable()).not.toThrow();
   });
 });

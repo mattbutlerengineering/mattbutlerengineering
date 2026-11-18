@@ -1,5 +1,27 @@
 # @mattbutlerengineering/rialto
 
+## 0.10.19
+
+### Patch Changes
+
+- [#9043](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9043) [`90f8d67`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/90f8d671c640779a551aadd03f99ac508b79ec1e) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - GlobalNav brand link keeps a 24px minimum hit area (WCAG 2.5.8); it was 23px tall.
+
+- [#9035](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9035) [`12d48db`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/12d48db647caea76e8e0d1a9a7ad8f027dc7089c) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - PinInput cells shrink to the container, so a 6-digit code stays inside a narrow card instead of painting past it.
+
+- [#9050](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9050) [`5c9473d`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/5c9473d2ca7834856b57f6819741404ea48ac4f9) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - A default horizontal Divider keeps the md vertical margin, so compact is the smaller gap and a bare rule no longer sits flush against the next control.
+
+- [#9044](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9044) [`17b97b0`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/17b97b04e947284ef11b4f5d84e3513db2f7b1f0) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Context menus open from the keyboard, and dismissing a focused toast returns focus instead of dropping it on the page.
+
+## 0.10.18
+
+### Patch Changes
+
+- [#9025](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9025) [`3a2c247`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/3a2c247fd1d88f51ddce98b44f7c0e80ad738666) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Footer links keep a 24px minimum hit area (WCAG 2.5.8); they were 20px tall.
+
+- [#9031](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9031) [`24e909e`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/24e909e91b47dd7f9b80539bb30c620cc2d9db47) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - `Table`'s scrolling wrapper is now `role="group"` instead of `role="region"` while it overflows. Every overflowing table shared the "Scrollable content" name, so a page with several tables failed axe `landmark-unique`. The wrapper stays focusable and labelled.
+
+- [#9023](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9023) [`a3fe424`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/a3fe4245e6cc738d37c0b4aa6bca6d93ce86d16a) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Make `Table`'s horizontally scrolling wrapper keyboard-reachable while it actually overflows: it now gets `tabIndex={0}`, `role="region"` and the localized "Scrollable content" label (the same as `ScrollArea`), plus the focus ring. A table that fits adds no tab stop. Previously a table with no sortable columns that scrolled on a narrow screen could not be scrolled from the keyboard (axe `scrollable-region-focusable`).
+
 ## 0.10.17
 
 ### Patch Changes

@@ -29,6 +29,14 @@ describe("playground a11y contrast (#7245)", () => {
     expect(rule![1]).toMatch(/color:\s*var\(--rialto-text-secondary\)/);
   });
 
+  it("header ghost buttons keep a 24px minimum target (WCAG 2.5.8)", () => {
+    const rule = read("src/components/AppShell.module.css").match(
+      /\.actions \.headerGhost\s*\{([^}]*)\}/
+    );
+    expect(rule).not.toBeNull();
+    expect(rule![1]).toMatch(/min-block-size:\s*(2[4-9]|[3-9]\d)px/);
+  });
+
   it("inspector empty state uses the secondary text token on the recessed surface", () => {
     const rule = read("src/components/JsonInspector.module.css").match(/\.empty\s*\{([^}]*)\}/);
     expect(rule![1]).toMatch(/color:\s*var\(--rialto-text-secondary\)/);

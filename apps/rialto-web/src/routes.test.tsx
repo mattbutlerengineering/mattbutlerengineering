@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import type { ReactNode } from "react";
+import { Children, isValidElement, type ReactElement, type ReactNode } from "react";
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, matchRoutes } from "react-router";
@@ -73,6 +73,7 @@ vi.mock("@mattbutlerengineering/rialto", () => {
 });
 
 import { routeTree } from "./routes";
+import { DocumentTitle } from "./document-title";
 import { DEMO_ROUTES } from "./data/demo-routes";
 import { DEMO_PAGES } from "./data/nav-sections";
 import { SignIn } from "./pages/auth/SignIn";
@@ -247,5 +248,42 @@ describe("post-deploy smoke coverage (#8892)", () => {
     for (const entry of list.excluded) expect(entry.reason.length).toBeGreaterThan(0);
     const stale = [...list.covered, ...list.excluded].filter((e) => !walked.has(e.path));
     expect(stale).toEqual([]);
+  });
+});
+
+describe("route document titles", () => {
+  /** The title a matched leaf route sets, found in its element's direct children. */
+  function titleFor(appPath: string): string | undefined {
+    const element = matchRoutes(routeTree, appPath, BASENAME)?.at(-1)?.route.element;
+    if (!isValidElement<{ children?: ReactNode }>(element)) return undefined;
+    const found = Children.toArray(element.props.children).find(
+      (child): child is ReactElement<{ title: string }> =>
+        isValidElement(child) && child.type === DocumentTitle
+    );
+    return found?.props.title;
+  }
+
+  it.each([
+    [DEMO_ROUTES.signIn, "Sign In"],
+    [DEMO_ROUTES.signUp, "Sign Up"],
+    [DEMO_ROUTES.sessionExpired, "Session Expired"],
+    [DEMO_ROUTES.dashboard, "Pit Wall"],
+    [DEMO_ROUTES.teamCreate, "Team Create"],
+    [DEMO_ROUTES.layouts, "Layout Demo"],
+    [DEMO_ROUTES.telemetry, "Telemetry HUD"],
+    [DEMO_ROUTES.authFlow, "Auth Flow"],
+    [DEMO_ROUTES.drivers, "Drivers CRUD"],
+    [DEMO_ROUTES.driverNew, "New Driver"],
+    [DEMO_ROUTES.driver("1"), "Driver"],
+    [DEMO_ROUTES.driverEdit("1"), "Edit Driver"],
+    ["/demos/visual-test", "Visual Test"],
+    ["/visual-test", "Visual Test"],
+    ["/privacy", "Privacy Policy"],
+  ])("%s sets the title %s", (path, title) => {
+    expect(titleFor(`${BASENAME}${path}`)).toBe(title);
+  });
+
+  it("the demos index is titled", () => {
+    expect(titleFor(`${BASENAME}/demos`)).toBe("Demos");
   });
 });

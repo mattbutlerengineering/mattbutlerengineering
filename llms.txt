@@ -833,6 +833,11 @@
       export const tableCatalogMeta: unknown;
     </item>
   </file>
+  <file path="packages/rialto/src/components/Table/useOverflowingX.ts">
+    <item priority="high">
+      export function useOverflowingX(): readonly [(node: HTMLElement | null) => void, boolean] { /* ... */ }
+    </item>
+  </file>
   </section>
   <section priority="medium" role="Tabs">
   <file path="packages/rialto/src/components/Tabs/Tabs.catalog.ts">
@@ -5941,6 +5946,49 @@
       export function findShippedFeature(slug: string): ShippedFeature | undefined { /* ... */ }
     </item>
   </file>
+  <file path="apps/marketing/src/data/shipped-videos.ts">
+    <item priority="low">
+      interface ShippedVideo {
+        slug: string;
+        src: string;
+        title: string;
+        transcript: string;
+        recordedAt: string;
+      }
+    </item>
+    <item priority="low">
+      interface ShippedVideosFile {
+        videos: readonly ShippedVideo[];
+      }
+    </item>
+    <item priority="medium">
+      function isObj(value: unknown): value is Record<string, unknown> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isShippedVideo(value: unknown): value is ShippedVideo { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isShippedVideosFile(value: unknown): value is ShippedVideosFile { /* ... */ }
+    </item>
+    <item priority="high">
+      export function selectShippedVideos(raw: unknown): readonly ShippedVideo[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function findShippedVideoIn(
+        videos: readonly ShippedVideo[],
+        slug: string
+      ): ShippedVideo | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      export function latestShippedVideoIn(videos: readonly ShippedVideo[]): ShippedVideo | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      export const findShippedVideo: unknown;
+    </item>
+    <item priority="high">
+      export const latestShippedVideo: unknown;
+    </item>
+  </file>
   <file path="apps/marketing/src/data/status-probes.ts">
     <item priority="high">
       export const STATUS_SERVICES: unknown;
@@ -6863,11 +6911,17 @@
     <item priority="high">
       export function nextIsoDay(iso: string | null): string | undefined { /* ... */ }
     </item>
+    <item priority="high">
+      export function todayIso(now: Date = new Date()): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function laterIso(a?: string, b?: string): string | undefined { /* ... */ }
+    </item>
     <item priority="low">
       type FieldErrors = Record<string, string>;
     </item>
     <item priority="high">
-      export function validateDates(state: BookingWizardState): FieldErrors { /* ... */ }
+      export function validateDates(state: BookingWizardState, now: Date = new Date()): FieldErrors { /* ... */ }
     </item>
     <item priority="high">
       export function validateRoom(state: BookingWizardState): FieldErrors { /* ... */ }
@@ -6882,10 +6936,18 @@
       export function validatePayment(state: BookingWizardState, now: Date = new Date()): FieldErrors { /* ... */ }
     </item>
     <item priority="high">
-      export function validateStep(stepIndex: number, state: BookingWizardState): FieldErrors { /* ... */ }
+      export function validateStep(
+        stepIndex: number,
+        state: BookingWizardState,
+        now: Date = new Date()
+      ): FieldErrors { /* ... */ }
     </item>
     <item priority="high">
-      export function isStepComplete(stepIndex: number, state: BookingWizardState): boolean { /* ... */ }
+      export function isStepComplete(
+        stepIndex: number,
+        state: BookingWizardState,
+        now: Date = new Date()
+      ): boolean { /* ... */ }
     </item>
     <item priority="low">
       interface AdvanceResult {
@@ -6895,7 +6957,11 @@
       }
     </item>
     <item priority="high">
-      export function attemptAdvance(current: number, state: BookingWizardState): AdvanceResult { /* ... */ }
+      export function attemptAdvance(
+        current: number,
+        state: BookingWizardState,
+        now: Date = new Date()
+      ): AdvanceResult { /* ... */ }
     </item>
     <item priority="high">
       export function goBack(current: number): number { /* ... */ }
@@ -7057,6 +7123,23 @@
     </item>
     <item priority="high">
       export function launchSummary(state: OnboardingState): SummaryRow[] { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/rialto-web/src/pages/examples/settings-example.ts">
+    <item priority="low">
+      interface ProfileDraft {
+        fullName: string;
+        email: string;
+      }
+    </item>
+    <item priority="low">
+      interface ProfileErrors {
+        fullName?: string;
+        email?: string;
+      }
+    </item>
+    <item priority="high">
+      export function validateProfile(draft: ProfileDraft): ProfileErrors { /* ... */ }
     </item>
   </file>
   </section>
@@ -10879,10 +10962,10 @@
     <item priority="low">
       interface RialtoMessages {
         dismiss: string;
+        dismissNotification: string;
         close: string;
         closeDialog: string;
         dialog: string;
-        drawer: string;
       }
     </item>
     <item priority="high">
@@ -13311,6 +13394,23 @@
   </file>
   </section>
   <section priority="medium" role="pwa">
+  <file path="apps/marketing/pwa/route-html.ts">
+    <item priority="medium">
+      function replaceOnce(html: string, pattern: RegExp, replacement: string, label: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function metaTag(attribute: "name" | "property", key: string): RegExp { /* ... */ }
+    </item>
+    <item priority="high">
+      export function prerenderableRoutes(routes: readonly RouteMeta[]): readonly RouteMeta[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function renderRouteHtml(shell: string, meta: RouteMeta): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function routeHtmlPlugin(routes: readonly RouteMeta[]): Plugin { /* ... */ }
+    </item>
+  </file>
   <file path="apps/marketing/pwa/workbox-options.ts">
     <item priority="low">
       interface ServiceWorkerRuntimeRoute {
@@ -27845,6 +27945,134 @@
       function runRestFallback(rest: Run, cmd: string, args: string[], execErr: unknown): string { /* ... */ }
     </item>
   </file>
+  <file path="packages/hospitality-sidenav/src/i18n.ts">
+    <item priority="high">
+      export const SIDENAV_LOCALES: unknown;
+    </item>
+    <item priority="low">
+      type SideNavLocale = (typeof SIDENAV_LOCALES)[number];
+    </item>
+    <item priority="low">
+      type CatalogKey = keyof typeof EN;
+    </item>
+    <item priority="high">
+      type Catalog = Readonly<Record<CatalogKey, string>>;
+    </item>
+    <item priority="high">
+      export const CATALOGS: Readonly<Record<SideNavLocale, Catalog>>;
+    </item>
+    <item priority="high">
+      export function resolveLocale(locale: string): SideNavLocale { /* ... */ }
+    </item>
+    <item priority="high">
+      export function translate(
+        locale: string,
+        key: CatalogKey,
+        params: Readonly<Record<string, string | number>> = {}
+      ): string { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/hospitality-sidenav/src/sections.ts">
+    <item priority="high">
+      export const ACCOUNT_SECTION_ID: unknown;
+    </item>
+    <item priority="high">
+      type Translate = (key: CatalogKey, params?: Readonly<Record<string, string...;
+    </item>
+    <item priority="medium">
+      function account(t: Translate): NavSection { /* ... */ }
+    </item>
+    <item priority="medium">
+      function admin(t: Translate): NavSection { /* ... */ }
+    </item>
+    <item priority="medium">
+      function tools(t: Translate): NavSection { /* ... */ }
+    </item>
+    <item priority="medium">
+      function setupSections(props: SideNavProps, t: Translate): readonly NavSection[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function operationalSections(props: SideNavProps, t: Translate): readonly NavSection[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function sections(props: SideNavProps): readonly NavSection[] { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/hospitality-sidenav/src/types.ts">
+    <item priority="high">
+      export const SIDENAV_CONTRACT: unknown;
+    </item>
+    <item priority="low">
+      type NavAction = { readonly type: "route"; read | { readonly type: "chat" } | { readonly type: "signout" };
+    </item>
+    <item priority="low">
+      interface NavItem {
+        id: string;
+        label: string;
+        action: NavAction;
+        badge?: string;
+      }
+    </item>
+    <item priority="low">
+      interface NavSection {
+        id?: string;
+        label?: string;
+        items: readonly NavItem[];
+      }
+    </item>
+    <item priority="high">
+      export const READINESS_STATUSES: unknown;
+    </item>
+    <item priority="low">
+      type ReadinessStatus = (typeof READINESS_STATUSES)[number];
+    </item>
+    <item priority="low">
+      interface SideNavReadiness {
+        status: ReadinessStatus;
+        steps: readonly string[];
+      }
+    </item>
+    <item priority="low">
+      interface SideNavProps {
+        contract: number;
+        pathname: string;
+        locale: string;
+        direction: "ltr" | "rtl";
+        flags: {
+          /** A display hint only. `RequireAdmin` and the API...;
+      }
+    </item>
+    <item priority="low">
+      interface SideNavSlots {
+        header: HTMLElement;
+        footer: HTMLElement;
+      }
+    </item>
+    <item priority="low">
+      interface SideNavHandle {
+        
+      }
+    </item>
+  </file>
+  <file path="packages/hospitality-sidenav/src/validate-props.ts">
+    <item priority="high">
+      class SideNavContractError {
+        
+      }
+    </item>
+    <item priority="medium">
+      function fail(message: string): never { /* ... */ }
+    </item>
+    <item priority="medium">
+      function checkKeys(where: string, value: Record<string, unknown>, allowed: ReadonlySet<string>) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function checkString(where: string, value: unknown): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function assertSideNavProps(value: unknown): asserts value is SideNavProps { /* ... */ }
+    </item>
+  </file>
   <file path="packages/rialto-catalog/src/catalog-meta.ts">
     <item priority="low">
       type CatalogCharLimits = Readonly<Record<string, number>>;
@@ -31684,7 +31912,7 @@
       ): boolean { /* ... */ }
     </item>
   </file>
-  <file path="apps/marketing/src/utils/route-meta.ts">
+  <file path="apps/marketing/src/utils/route-meta-data.ts">
     <item priority="low">
       interface RouteMeta {
         pattern: string;
@@ -31693,6 +31921,14 @@
         indexable?: boolean;
       }
     </item>
+    <item priority="high">
+      export const SITE_ORIGIN: unknown;
+    </item>
+    <item priority="high">
+      export const ROUTE_META: readonly RouteMeta[];
+    </item>
+  </file>
+  <file path="apps/marketing/src/utils/route-meta.ts">
     <item priority="high">
       interface HeadSnapshot {
         title: string;

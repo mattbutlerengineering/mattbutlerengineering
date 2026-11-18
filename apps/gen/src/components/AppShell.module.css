@@ -39,6 +39,8 @@
   cursor: pointer;
   color: inherit;
   font: inherit;
+  /* 32px matches .panelToggle and clears the 24px WCAG 2.2 target minimum. */
+  min-block-size: 32px;
 }
 
 .logoButton > span {
@@ -117,6 +119,11 @@
   justify-content: flex-end;
   gap: var(--rialto-space-sm);
   max-inline-size: 100%;
+}
+
+/* The sm ghost button renders 23.3px tall, under the 24px WCAG 2.5.8 target minimum. */
+.actions .headerGhost {
+  min-block-size: 32px;
 }
 
 /* Header ghost buttons: the default ghost foreground misses 4.5:1 on the header surface (#7245). */

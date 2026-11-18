@@ -79,3 +79,10 @@
   font-size: var(--rialto-text-xs);
   color: var(--rialto-text-tertiary);
 }
+
+.latest {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-md);
+  margin-bottom: var(--rialto-space-2xl);
+}

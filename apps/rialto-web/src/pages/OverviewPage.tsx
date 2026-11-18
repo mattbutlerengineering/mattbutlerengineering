@@ -160,7 +160,13 @@ export function OverviewPage() {
               Install the Rialto package and wrap your app with{" "}
               <code className={styles.code}>RialtoProvider</code>:
             </Text>
-            <div className={styles.codeBlock}>
+            <div
+              className={styles.codeBlock}
+              // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- the snippet scrolls sideways on narrow screens, so it must be keyboard reachable
+              tabIndex={0}
+              role="group"
+              aria-label="Install snippet"
+            >
               <pre className={styles.pre}>
                 <code>
                   {`import { RialtoProvider } from '@mattbutlerengineering/rialto';

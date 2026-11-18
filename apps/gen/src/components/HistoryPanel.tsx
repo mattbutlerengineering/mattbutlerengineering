@@ -191,6 +191,7 @@ export function HistoryPanel({
           type="text"
           className={styles.searchInput}
           placeholder="Search prompts..."
+          aria-label="Search prompts"
           value={searchTerm}
           onChange={(e) => handleSearchChange(e.target.value)}
         />

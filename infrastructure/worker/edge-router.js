@@ -276,6 +276,12 @@ export default {
     const appUrl = new URL(strippedPath + url.search, bindingOrigin);
     const appHeaders = new Headers(request.headers);
     appHeaders.set("X-Request-ID", requestId);
+    // Browsers that cached HTML with an ETag would get a 304 whose fresh CSP
+    // nonce no longer matches the cached body. Force a full 200 for pages.
+    if ((request.headers.get("Accept") ?? "").includes("text/html")) {
+      appHeaders.delete("If-None-Match");
+      appHeaders.delete("If-Modified-Since");
+    }
     const appRequest = new Request(appUrl, {
       method: request.method,
       headers: appHeaders,

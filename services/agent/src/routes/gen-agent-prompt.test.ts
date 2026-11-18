@@ -261,6 +261,18 @@ describe("chat component reference", () => {
     expect(prompt).toMatch(/render_component[^.\n]*elements/);
     expect(prompt).toMatch(/never write JSON[^.\n]*reply/i);
   });
+
+  // Live chat batch 10 (F36): the model wrote `ReservationList(reservations=[...])`
+  // as reply text, with no render_component call. A component name is an element
+  // type, not a function, and the prompt shows the call once so it is copied.
+  it("says component names are not callable and shows one render_component call", () => {
+    const prompt = buildAgentSystemPrompt({ venueId: "v", now: NOW, catalogPrompt: "CATALOG" });
+
+    expect(prompt).toMatch(/never write a component name followed by parentheses/i);
+    expect(prompt).toMatch(
+      /render_component[^\n]*\{"elements":\[\{"id":"[^"]+","type":"StatusLED"/
+    );
+  });
 });
 
 // #7927: guest profile changes from the chat.

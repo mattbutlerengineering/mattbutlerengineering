@@ -198,6 +198,29 @@ describe("response-formatter", () => {
       expect(result.headers.get("Cache-Control")).toBe("public, max-age=31536000, immutable");
     });
 
+    it("drops validators from HTML so a 304 never pairs a fresh nonce with a cached body", () => {
+      const response = new Response("<html></html>", {
+        status: 200,
+        headers: {
+          "Content-Type": "text/html",
+          ETag: '"abc"',
+          "Last-Modified": "Mon, 16 Nov 2026 00:00:00 GMT",
+        },
+      });
+      const result = addHeaders(response, "/", generateNonce(), null);
+      expect(result.headers.get("ETag")).toBeNull();
+      expect(result.headers.get("Last-Modified")).toBeNull();
+    });
+
+    it("keeps validators on hashed assets", () => {
+      const response = new Response("x", {
+        status: 200,
+        headers: { "Content-Type": "text/css", ETag: '"abc"' },
+      });
+      const result = addHeaders(response, "/assets/main.abc.css", generateNonce(), null);
+      expect(result.headers.get("ETag")).toBe('"abc"');
+    });
+
     it("sets must-revalidate cache for HTML responses", async () => {
       const response = new Response("<html></html>", {
         status: 200,

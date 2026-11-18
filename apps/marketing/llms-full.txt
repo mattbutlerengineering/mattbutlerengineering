@@ -656,6 +656,57 @@
       return SHIPPED_FEATURES.find((feature) => feature.slug === slug);
     }
   </file>
+  <file path="src/data/shipped-videos.ts">
+    export interface ShippedVideo {
+      readonly slug: string;
+      /** Same-origin path under `/videos/`, always an `.mp4`. */
+      readonly src: string;
+      readonly title: string;
+      /** Narration text, shown under the player for accessibility. */
+      readonly transcript: string;
+      /** Calendar date, `YYYY-MM-DD`. */
+      readonly recordedAt: string;
+    }
+    export interface ShippedVideosFile {
+      readonly videos: readonly ShippedVideo[];
+    }
+    function isObj(value: unknown): value is Record<string, unknown> {
+      return typeof value === "object" && value !== null && !Array.isArray(value);
+    }
+    function isShippedVideo(value: unknown): value is ShippedVideo {
+      if (!isObj(value)) return false;
+      return (
+        isNonEmptyString(value.slug) &&
+        isNonEmptyString(value.title) &&
+        isNonEmptyString(value.transcript) &&
+        isNonEmptyString(value.recordedAt) &&
+        !Number.isNaN(Date.parse(value.recordedAt)) &&
+        isNonEmptyString(value.src) &&
+        VIDEO_SRC.test(value.src) &&
+        !value.src.includes("..")
+      );
+    }
+    export function isShippedVideosFile(value: unknown): value is ShippedVideosFile {
+      return isObj(value) && Array.isArray(value.videos) && value.videos.every(isShippedVideo);
+    }
+    export function selectShippedVideos(raw: unknown): readonly ShippedVideo[] {
+      if (!isShippedVideosFile(raw)) return [];
+      return [...raw.videos].sort((a, b) => Date.parse(b.recordedAt) - Date.parse(a.recordedAt));
+    }
+    export function findShippedVideoIn(
+      videos: readonly ShippedVideo[],
+      slug: string
+    ): ShippedVideo | undefined {
+      return videos.find((video) => video.slug === slug);
+    }
+    export function latestShippedVideoIn(videos: readonly ShippedVideo[]): ShippedVideo | undefined {
+      return videos[0];
+    }
+    export const findShippedVideo = (slug: string): ShippedVideo | undefined =>
+      findShippedVideoIn(SHIPPED_VIDEOS, slug);
+    export const latestShippedVideo = (): ShippedVideo | undefined =>
+      latestShippedVideoIn(SHIPPED_VIDEOS);
+  </file>
   <file path="src/data/status-probes.ts">
     export const STATUS_SERVICES = [
       { name: "Users API", url: "/api/v1/users/health" },
@@ -1179,6 +1230,88 @@
   </file>
   </section>
   <section priority="medium" role="pwa">
+  <file path="pwa/route-html.ts">
+    function replaceOnce(html: string, pattern: RegExp, replacement: string, label: string): string {
+      const matches = html.match(new RegExp(pattern.source, "g")) ?? [];
+      if (matches.length !== 1) {
+        throw new Error(
+          `route-html: expected exactly one ${label} tag in the built index.html, found ${matches.length}`
+        );
+      }
+      return html.replace(pattern, () => replacement);
+    }
+    function metaTag(attribute: "name" | "property", key: string): RegExp {
+      return new RegExp(`<meta\\s+${attribute}="${escapeRegExp(key)}"\\s+content="[^"]*"\\s*/>`);
+    }
+    export function prerenderableRoutes(routes: readonly RouteMeta[]): readonly RouteMeta[] {
+      return routes.filter(
+        (route) =>
+          route.pattern !== "/" &&
+          route.pattern !== "*" &&
+          !route.pattern.includes(":") &&
+          route.indexable !== false
+      );
+    }
+    export function renderRouteHtml(shell: string, meta: RouteMeta): string {
+      const title = escapeHtml(meta.title);
+      const description = escapeHtml(meta.description);
+      const url = `${SITE_ORIGIN}${meta.pattern}`;
+    
+      let html = replaceOnce(shell, /<title>[^<]*<\/title>/, `<title>${title}</title>`, "title");
+      html = replaceOnce(
+        html,
+        metaTag("name", "description"),
+        `<meta name="description" content="${description}" />`,
+        "description"
+      );
+      html = replaceOnce(
+        html,
+        /<link rel="canonical" href="[^"]*"\s*\/>/,
+        `<link rel="canonical" href="${url}" />`,
+        "canonical"
+      );
+      const social: ReadonlyArray<readonly ["name" | "property", string, string]> = [
+        ["property", "og:title", title],
+        ["property", "og:description", description],
+        ["property", "og:url", url],
+        ["name", "twitter:title", title],
+        ["name", "twitter:description", description],
+      ];
+      for (const [attribute, key, content] of social) {
+        html = replaceOnce(
+          html,
+          metaTag(attribute, key),
+          `<meta ${attribute}="${key}" content="${content}" />`,
+          key
+        );
+      }
+      return html;
+    }
+    export function routeHtmlPlugin(routes: readonly RouteMeta[]): Plugin {
+      const targets = prerenderableRoutes(routes);
+      return {
+        name: "mbe:route-html",
+        apply: "build",
+        generateBundle: {
+          order: "post",
+          handler(_options, bundle) {
+            const shell = bundle["index.html"];
+            if (shell === undefined || shell.type !== "asset") {
+              throw new Error("route-html: index.html was not emitted before route pages");
+            }
+            const source = String(shell.source);
+            for (const meta of targets) {
+              this.emitFile({
+                type: "asset",
+                fileName: `${meta.pattern.slice(1)}.html`,
+                source: renderRouteHtml(source, meta),
+              });
+            }
+          },
+        },
+      };
+    }
+  </file>
   <file path="pwa/workbox-options.ts">
     export interface ServiceWorkerRuntimeRoute {
       readonly urlPattern: RegExp | string;
@@ -1309,7 +1442,7 @@
       return ageHours > thresholdHours;
     }
   </file>
-  <file path="src/utils/route-meta.ts">
+  <file path="src/utils/route-meta-data.ts">
     export interface RouteMeta {
       readonly pattern: string;
       readonly title: string;
@@ -1317,6 +1450,56 @@
       /** False for the soft-404 catch-all: no canonical, robots noindex. */
       readonly indexable?: boolean;
     }
+    export const SITE_ORIGIN = "https://mattbutlerengineering.com";
+    export const ROUTE_META: readonly RouteMeta[] = [
+      {
+        pattern: "/status",
+        title: `System Status — ${SITE_NAME}`,
+        description:
+          "Live health of the API services and static sites behind mattbutlerengineering.com.",
+      },
+      {
+        pattern: "/metrics",
+        title: `Quality Metrics — ${SITE_NAME}`,
+        description:
+          "Public AI Codebase Maturity Model metrics: current level, behavioral gates, agent performance and history.",
+      },
+      {
+        pattern: "/acmm",
+        title: `ACMM Dashboard — ${SITE_NAME}`,
+        description:
+          "Repo-level audit against the AI Codebase Maturity Model, with detected criteria by level.",
+      },
+      {
+        pattern: "/ai-health",
+        title: `AI Health Dashboard — ${SITE_NAME}`,
+        description:
+          "Live metrics for the AI agent system: sensors, CI, pull requests, queue efficiency and review burden.",
+      },
+      {
+        pattern: "/shipped",
+        title: `Shipped by the Factory — ${SITE_NAME}`,
+        description:
+          "Features the AI software factory proposed, decomposed and shipped, with their pull requests.",
+      },
+      {
+        pattern: "/shipped/:slug",
+        title: `Shipped Story — ${SITE_NAME}`,
+        description:
+          "How one feature went from proposal to decomposition to merged pull requests in the software factory.",
+      },
+      {
+        pattern: "*",
+        title: `Page not found — ${SITE_NAME}`,
+        description: "This page does not exist on mattbutlerengineering.com.",
+        // The SPA answers unknown paths with this shell and HTTP 200. A canonical
+        // pointing at the homepage would tell search engines every missing URL is
+        // a duplicate of home.
+        indexable: false,
+      },
+    ];
+  </file>
+  <file path="src/utils/route-meta.ts">
     interface HeadSnapshot {
       readonly title: string;
       readonly description: string;

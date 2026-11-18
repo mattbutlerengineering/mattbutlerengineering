@@ -38,7 +38,7 @@ const CASES: readonly Case[] = [
   {
     name: "ToastAnimated",
     ui: () => <ToastAnimated toasts={toasts} onDismiss={noop} />,
-    checks: [["button", "Dismiss", esMX.dismiss]],
+    checks: [["button", "Dismiss notification", esMX.dismissNotification]],
   },
   {
     name: "ToastProvider",

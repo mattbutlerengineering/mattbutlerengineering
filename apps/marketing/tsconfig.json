@@ -8,6 +8,5 @@
       "@gen/*": ["../gen/src/*"]
     }
   },
-  "include": ["src", "../gen/src"],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  "include": ["src", "../gen/src"]
 }

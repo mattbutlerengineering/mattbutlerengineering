@@ -1,6 +1,8 @@
 import { Link, useParams } from "react-router";
 import { Card, Badge, Heading, Text } from "@mattbutlerengineering/rialto";
 import { findShippedFeature } from "../data/shipped-features.js";
+import { findShippedVideo } from "../data/shipped-videos.js";
+import { ShippedVideo } from "../components/ShippedVideo.js";
 import type { ShippedPr } from "../data/shipped-features.js";
 import { formatDate, formatWallClock } from "../utils/formatters.js";
 import { NotFoundPage } from "./NotFoundPage.js";
@@ -31,6 +33,7 @@ export function ShippedStoryPage() {
   const feature = findShippedFeature(slug);
   if (feature === undefined) return <NotFoundPage />;
 
+  const video = findShippedVideo(feature.slug);
   const prs = feature.children.flatMap((child) => child.prs);
 
   return (
@@ -52,6 +55,13 @@ export function ShippedStoryPage() {
         {formatWallClock(feature.wallClockHours)}, last merged{" "}
         <time dateTime={feature.lastMergedAt}>{formatDate(feature.lastMergedAt)}</time>
       </Text>
+
+      {video !== undefined && (
+        <section className={styles.section}>
+          <Heading level={2}>Watch the demo</Heading>
+          <ShippedVideo video={video} />
+        </section>
+      )}
 
       {feature.proposalEvidence !== null && (
         <section className={styles.section}>

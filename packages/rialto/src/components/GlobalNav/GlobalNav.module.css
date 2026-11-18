@@ -29,6 +29,11 @@
   color: var(--rialto-text-primary);
   text-decoration: none;
   flex-shrink: 0;
+  /* WCAG 2.5.8: an inline link is only as tall as its line (23px at
+     text-md); keep the hit area at the 24px minimum. */
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 24px;
 }
 
 .brand:hover {

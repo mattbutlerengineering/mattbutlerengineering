@@ -191,7 +191,11 @@ function MyComponent() {
             { label: "Role", value: "role=status (default) or role=alert (error)" },
             { label: "Live region", value: "aria-live=polite announces to screen readers" },
             { label: "Dismiss", value: "Dismiss button has aria-label='Dismiss notification'" },
-            { label: "Focus", value: "Focus is not moved to the toast — non-interrupting" },
+            {
+              label: "Focus",
+              value:
+                "Focus stays put when a toast appears. Dismissing the focused toast moves focus to the next toast's Dismiss button, or back to the previously focused control when none remain.",
+            },
           ]}
         />
       </Section>

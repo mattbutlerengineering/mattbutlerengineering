@@ -2135,6 +2135,23 @@
       },
     } satisfies CatalogMeta;
   </file>
+  <file path="packages/rialto/src/components/Table/useOverflowingX.ts">
+    export function useOverflowingX(): readonly [(node: HTMLElement | null) => void, boolean] {
+      const [node, setNode] = useState<HTMLElement | null>(null);
+      const [overflowing, setOverflowing] = useState(false);
+    
+      useEffect(() => {
+        if (node === null || typeof ResizeObserver === "undefined") return undefined;
+        const measure = () => setOverflowing(node.scrollWidth > node.clientWidth);
+        const observer = new ResizeObserver(measure);
+        observer.observe(node);
+        if (node.firstElementChild) observer.observe(node.firstElementChild);
+        return () => observer.disconnect();
+      }, [node]);
+    
+      return [setNode, overflowing];
+    }
+  </file>
   </section>
   <section priority="medium" role="Tabs">
   <file path="packages/rialto/src/components/Tabs/Tabs.catalog.ts">
@@ -16736,6 +16753,57 @@
       return SHIPPED_FEATURES.find((feature) => feature.slug === slug);
     }
   </file>
+  <file path="apps/marketing/src/data/shipped-videos.ts">
+    export interface ShippedVideo {
+      readonly slug: string;
+      /** Same-origin path under `/videos/`, always an `.mp4`. */
+      readonly src: string;
+      readonly title: string;
+      /** Narration text, shown under the player for accessibility. */
+      readonly transcript: string;
+      /** Calendar date, `YYYY-MM-DD`. */
+      readonly recordedAt: string;
+    }
+    export interface ShippedVideosFile {
+      readonly videos: readonly ShippedVideo[];
+    }
+    function isObj(value: unknown): value is Record<string, unknown> {
+      return typeof value === "object" && value !== null && !Array.isArray(value);
+    }
+    function isShippedVideo(value: unknown): value is ShippedVideo {
+      if (!isObj(value)) return false;
+      return (
+        isNonEmptyString(value.slug) &&
+        isNonEmptyString(value.title) &&
+        isNonEmptyString(value.transcript) &&
+        isNonEmptyString(value.recordedAt) &&
+        !Number.isNaN(Date.parse(value.recordedAt)) &&
+        isNonEmptyString(value.src) &&
+        VIDEO_SRC.test(value.src) &&
+        !value.src.includes("..")
+      );
+    }
+    export function isShippedVideosFile(value: unknown): value is ShippedVideosFile {
+      return isObj(value) && Array.isArray(value.videos) && value.videos.every(isShippedVideo);
+    }
+    export function selectShippedVideos(raw: unknown): readonly ShippedVideo[] {
+      if (!isShippedVideosFile(raw)) return [];
+      return [...raw.videos].sort((a, b) => Date.parse(b.recordedAt) - Date.parse(a.recordedAt));
+    }
+    export function findShippedVideoIn(
+      videos: readonly ShippedVideo[],
+      slug: string
+    ): ShippedVideo | undefined {
+      return videos.find((video) => video.slug === slug);
+    }
+    export function latestShippedVideoIn(videos: readonly ShippedVideo[]): ShippedVideo | undefined {
+      return videos[0];
+    }
+    export const findShippedVideo = (slug: string): ShippedVideo | undefined =>
+      findShippedVideoIn(SHIPPED_VIDEOS, slug);
+    export const latestShippedVideo = (): ShippedVideo | undefined =>
+      latestShippedVideoIn(SHIPPED_VIDEOS);
+  </file>
   <file path="apps/marketing/src/data/status-probes.ts">
     export const STATUS_SERVICES = [
       { name: "Users API", url: "/api/v1/users/health" },
@@ -20395,12 +20463,25 @@
       if (utc == null) return undefined;
       return new Date(utc + MS_PER_DAY).toISOString().slice(0, 10);
     }
+    export function todayIso(now: Date = new Date()): string {
+      const month = String(now.getMonth() + 1).padStart(2, "0");
+      const day = String(now.getDate()).padStart(2, "0");
+      return `${now.getFullYear()}-${month}-${day}`;
+    }
+    export function laterIso(a?: string, b?: string): string | undefined {
+      if (!a) return b;
+      if (!b) return a;
+      return a > b ? a : b;
+    }
     export type FieldErrors = Record<string, string>;
-    export function validateDates(state: BookingWizardState): FieldErrors {
+    export function validateDates(state: BookingWizardState, now: Date = new Date()): FieldErrors {
       const errors: FieldErrors = {};
+      const today = todayIso(now);
       if (!state.checkIn) errors.checkIn = "Choose a check-in date.";
+      else if (state.checkIn < today) errors.checkIn = "Check-in can't be in the past.";
       if (!state.checkOut) errors.checkOut = "Choose a check-out date.";
-      if (state.checkIn && state.checkOut && state.checkOut <= state.checkIn) {
+      else if (state.checkOut < today) errors.checkOut = "Check-out can't be in the past.";
+      else if (state.checkIn && state.checkOut <= state.checkIn) {
         errors.checkOut = "Check-out must be after check-in.";
       }
       return errors;
@@ -20444,20 +20525,42 @@
       }
       return errors;
     }
-    export function validateStep(stepIndex: number, state: BookingWizardState): FieldErrors {
-      const validator = STEP_VALIDATORS[stepIndex];
-      return validator ? validator(state) : {};
+    export function validateStep(
+      stepIndex: number,
+      state: BookingWizardState,
+      now: Date = new Date()
+    ): FieldErrors {
+      switch (stepIndex) {
+        case 0:
+          return validateDates(state, now);
+        case 1:
+          return validateRoom(state);
+        case 2:
+          return validateGuest(state);
+        case 3:
+          return validatePayment(state, now);
+        default:
+          return {};
+      }
     }
-    export function isStepComplete(stepIndex: number, state: BookingWizardState): boolean {
-      return Object.keys(validateStep(stepIndex, state)).length === 0;
+    export function isStepComplete(
+      stepIndex: number,
+      state: BookingWizardState,
+      now: Date = new Date()
+    ): boolean {
+      return Object.keys(validateStep(stepIndex, state, now)).length === 0;
     }
     export interface AdvanceResult {
       step: number;
       errors: FieldErrors;
       advanced: boolean;
     }
-    export function attemptAdvance(current: number, state: BookingWizardState): AdvanceResult {
-      const errors = validateStep(current, state);
+    export function attemptAdvance(
+      current: number,
+      state: BookingWizardState,
+      now: Date = new Date()
+    ): AdvanceResult {
+      const errors = validateStep(current, state, now);
       if (Object.keys(errors).length > 0) {
         return { step: current, errors, advanced: false };
       }
@@ -20754,6 +20857,24 @@
         { label: "Instant booking", value: state.instantBooking ? "On" : "Off" },
         { label: "Deposit required", value: state.requireDeposit ? "Yes" : "No" },
       ];
+    }
+  </file>
+  <file path="apps/rialto-web/src/pages/examples/settings-example.ts">
+    export interface ProfileDraft {
+      fullName: string;
+      email: string;
+    }
+    export interface ProfileErrors {
+      fullName?: string;
+      email?: string;
+    }
+    export function validateProfile(draft: ProfileDraft): ProfileErrors {
+      const errors: ProfileErrors = {};
+      if (!draft.fullName.trim()) errors.fullName = "Full name is required.";
+      const email = draft.email.trim();
+      if (!email) errors.email = "Email is required.";
+      else if (!EMAIL.test(email)) errors.email = "Enter a valid email address.";
+      return errors;
     }
   </file>
   </section>
@@ -30809,8 +30930,10 @@
       readonly risky: string;
     }
     export interface RialtoMessages {
-      /** Accessible name of a control that dismisses a notice (Alert, Banner, Toast). */
+      /** Accessible name of a control that dismisses a notice (Alert, Banner). */
       readonly dismiss: string;
+      /** Accessible name of the Toast dismiss button. */
+      readonly dismissNotification: string;
       /** Accessible name of a control that closes a surface (Drawer, Popover). */
       readonly close: string;
       /** Accessible name of the Dialog close button. */
@@ -31040,6 +31163,7 @@
     }
     export const enUS: RialtoMessages = {
       dismiss: "Dismiss",
+      dismissNotification: "Dismiss notification",
       close: "Close",
       closeDialog: "Close dialog",
       dialog: "Dialog",
@@ -33455,6 +33579,7 @@
   <file path="packages/rialto/src/i18n/locales/es-MX.ts">
     export const esMX: RialtoMessages = {
       dismiss: "Descartar",
+      dismissNotification: "Descartar notificación",
       close: "Cerrar",
       closeDialog: "Cerrar diálogo",
       dialog: "Diálogo",
@@ -33622,6 +33747,7 @@
   <file path="packages/rialto/src/i18n/locales/fr-CA.ts">
     export const frCA: RialtoMessages = {
       dismiss: "Ignorer",
+      dismissNotification: "Ignorer la notification",
       close: "Fermer",
       closeDialog: "Fermer la boîte de dialogue",
       dialog: "Boîte de dialogue",
@@ -38440,6 +38566,88 @@
   </file>
   </section>
   <section priority="medium" role="pwa">
+  <file path="apps/marketing/pwa/route-html.ts">
+    function replaceOnce(html: string, pattern: RegExp, replacement: string, label: string): string {
+      const matches = html.match(new RegExp(pattern.source, "g")) ?? [];
+      if (matches.length !== 1) {
+        throw new Error(
+          `route-html: expected exactly one ${label} tag in the built index.html, found ${matches.length}`
+        );
+      }
+      return html.replace(pattern, () => replacement);
+    }
+    function metaTag(attribute: "name" | "property", key: string): RegExp {
+      return new RegExp(`<meta\\s+${attribute}="${escapeRegExp(key)}"\\s+content="[^"]*"\\s*/>`);
+    }
+    export function prerenderableRoutes(routes: readonly RouteMeta[]): readonly RouteMeta[] {
+      return routes.filter(
+        (route) =>
+          route.pattern !== "/" &&
+          route.pattern !== "*" &&
+          !route.pattern.includes(":") &&
+          route.indexable !== false
+      );
+    }
+    export function renderRouteHtml(shell: string, meta: RouteMeta): string {
+      const title = escapeHtml(meta.title);
+      const description = escapeHtml(meta.description);
+      const url = `${SITE_ORIGIN}${meta.pattern}`;
+    
+      let html = replaceOnce(shell, /<title>[^<]*<\/title>/, `<title>${title}</title>`, "title");
+      html = replaceOnce(
+        html,
+        metaTag("name", "description"),
+        `<meta name="description" content="${description}" />`,
+        "description"
+      );
+      html = replaceOnce(
+        html,
+        /<link rel="canonical" href="[^"]*"\s*\/>/,
+        `<link rel="canonical" href="${url}" />`,
+        "canonical"
+      );
+      const social: ReadonlyArray<readonly ["name" | "property", string, string]> = [
+        ["property", "og:title", title],
+        ["property", "og:description", description],
+        ["property", "og:url", url],
+        ["name", "twitter:title", title],
+        ["name", "twitter:description", description],
+      ];
+      for (const [attribute, key, content] of social) {
+        html = replaceOnce(
+          html,
+          metaTag(attribute, key),
+          `<meta ${attribute}="${key}" content="${content}" />`,
+          key
+        );
+      }
+      return html;
+    }
+    export function routeHtmlPlugin(routes: readonly RouteMeta[]): Plugin {
+      const targets = prerenderableRoutes(routes);
+      return {
+        name: "mbe:route-html",
+        apply: "build",
+        generateBundle: {
+          order: "post",
+          handler(_options, bundle) {
+            const shell = bundle["index.html"];
+            if (shell === undefined || shell.type !== "asset") {
+              throw new Error("route-html: index.html was not emitted before route pages");
+            }
+            const source = String(shell.source);
+            for (const meta of targets) {
+              this.emitFile({
+                type: "asset",
+                fileName: `${meta.pattern.slice(1)}.html`,
+                source: renderRouteHtml(source, meta),
+              });
+            }
+          },
+        },
+      };
+    }
+  </file>
   <file path="apps/marketing/pwa/workbox-options.ts">
     export interface ServiceWorkerRuntimeRoute {
       readonly urlPattern: RegExp | string;
@@ -41053,6 +41261,7 @@
         "Ask only for details the user has to decide, such as guest name, party size, or time. When a reservation's end time isn't given, use two hours after the start.",
         "Reply in short, plain sentences in the user's language. Don't use markdown: the chat shows plain text.",
         "Show elements only by calling render_component with an elements array: each element has a unique id, a type from the components below, its props, and children as a list of other elements' ids; an element no other element lists is shown at the top level. Never write JSON, element specs or patch lines in your reply text.",
+        'A component name is an element type, not a function: never write a component name followed by parentheses, like ReservationList(...) or StatusLED(...), in your reply. Make the tool call instead, for example render_component with {"elements":[{"id":"t1","type":"StatusLED","props":{"label":"B1","variant":"success"}}]}, then add a sentence only if it helps.',
         "Use render_component only for structured data such as lists of reservations, tables, or time slots. Never use it to repeat a sentence. Keep component titles under 60 characters.",
         "Pick the element that fits the data, one shape per line below.",
         "Reservations from list_today_reservations or lookup_reservation: show them as ReservationList, in arrival order, with each row's localTime as the time, its status copied as is, and its guestName as the guest (leave guest out for a walk-in). For tonight questions, leave cancelled and no-show rows out. When the rows span more than one date, write each row's date and time together as its time, in the user's language and their usual clock.",
@@ -91229,6 +91438,222 @@
       }
     }
   </file>
+  <file path="packages/hospitality-sidenav/src/i18n.ts">
+    export const SIDENAV_LOCALES = ["en-US", "en-GB", "es-MX", "fr-CA"] as const;
+    export type SideNavLocale = (typeof SIDENAV_LOCALES)[number];
+    export type CatalogKey = keyof typeof EN;
+    type Catalog = Readonly<Record<CatalogKey, string>>;
+    export const CATALOGS: Readonly<Record<SideNavLocale, Catalog>> = {
+      "en-US": EN,
+      "en-GB": EN,
+      "es-MX": ES_MX,
+      "fr-CA": FR_CA,
+    };
+    export function resolveLocale(locale: string): SideNavLocale {
+      return SIDENAV_LOCALES.find((known) => known === locale) ?? "en-US";
+    }
+    export function translate(
+      locale: string,
+      key: CatalogKey,
+      params: Readonly<Record<string, string | number>> = {}
+    ): string {
+      return CATALOGS[resolveLocale(locale)][key].replace(
+        /\{\{(\w+)\}\}/g,
+        (placeholder, name: string) => (name in params ? String(params[name]) : placeholder)
+      );
+    }
+  </file>
+  <file path="packages/hospitality-sidenav/src/sections.ts">
+    export const ACCOUNT_SECTION_ID = "Account";
+    type Translate = (key: CatalogKey, params?: Readonly<Record<string, string | number>>) => string;
+    function account(t: Translate): NavSection {
+      return section({
+        id: ACCOUNT_SECTION_ID,
+        label: t("nav.sections.account"),
+        items: [
+          route("profile", t("nav.items.profile"), "/profile"),
+          route("settings", t("nav.items.settings"), "/settings"),
+          { id: "signout", label: t("nav.items.signOut"), action: { type: "signout" } },
+        ],
+      });
+    }
+    function admin(t: Translate): NavSection {
+      return section({
+        id: "Admin",
+        label: t("nav.sections.admin"),
+        items: [route("admin", t("nav.items.users"), "/admin")],
+      });
+    }
+    function tools(t: Translate): NavSection {
+      return section({
+        id: "Tools",
+        label: t("nav.sections.tools"),
+        items: [{ id: "chat", label: t("nav.items.chat"), action: { type: "chat" } }],
+      });
+    }
+    function setupSections(props: SideNavProps, t: Translate): readonly NavSection[] {
+      const getStarted = section({
+        id: "Get Started",
+        label: t("nav.sections.getStarted"),
+        items: [
+          {
+            ...route(SETUP_ITEM_ID, t("nav.items.venueSetup"), SETUP_PATH),
+            badge: t("setup.count", { done: props.readiness.steps.length, total: SETUP_STEP_COUNT }),
+          },
+        ],
+      });
+      return props.flags.isAdmin ? [getStarted, account(t), admin(t)] : [getStarted, account(t)];
+    }
+    function operationalSections(props: SideNavProps, t: Translate): readonly NavSection[] {
+      const primary = section({
+        items: [
+          route("briefing", t("nav.items.tonightsService"), "/briefing"),
+          route("timeline", t("nav.items.timeline"), "/timeline"),
+          route("reservations", t("nav.items.reservations"), "/reservations"),
+          route("waitlist", t("nav.items.waitlist"), "/waitlist"),
+          route("guests", t("nav.items.guests"), "/guests"),
+          route("home", t("nav.items.dashboard"), "/dashboard"),
+        ],
+      });
+      const manage = section({
+        id: "Manage",
+        label: t("nav.sections.manage"),
+        items: [
+          route("availability", t("nav.items.availability"), AVAILABILITY_PATH),
+          route(SETUP_ITEM_ID, t("nav.items.venueSetup"), SETUP_PATH),
+          route("menus", t("nav.items.menus"), "/menus"),
+          route("booking-widget", t("nav.items.bookingWidget"), "/booking-widget"),
+        ],
+      });
+      return props.flags.isAdmin
+        ? [primary, manage, account(t), admin(t)]
+        : [primary, manage, account(t)];
+    }
+    export function sections(props: SideNavProps): readonly NavSection[] {
+      const t: Translate = (key, params) => translate(props.locale, key, params);
+      const base =
+        props.readiness.status === "operational"
+          ? operationalSections(props, t)
+          : setupSections(props, t);
+      return freeze([...base, tools(t)]);
+    }
+  </file>
+  <file path="packages/hospitality-sidenav/src/types.ts">
+    export const SIDENAV_CONTRACT = 1;
+    export type NavAction =
+      | { readonly type: "route"; readonly path: string }
+      | { readonly type: "chat" }
+      | { readonly type: "signout" };
+    export interface NavItem {
+      readonly id: string;
+      readonly label: string;
+      readonly action: NavAction;
+      /** Short status text after the label, e.g. the pre-launch progress count. */
+      readonly badge?: string;
+    }
+    export interface NavSection {
+      /** Locale-independent identity; collapse state is persisted under it. */
+      readonly id?: string;
+      readonly label?: string;
+      readonly items: readonly NavItem[];
+    }
+    export const READINESS_STATUSES = ["loading", "no-venue", "setup", "operational"] as const;
+    export type ReadinessStatus = (typeof READINESS_STATUSES)[number];
+    export interface SideNavReadiness {
+      readonly status: ReadinessStatus;
+      /** Names of the launch steps already done; only the count is shown. */
+      readonly steps: readonly string[];
+    }
+    export interface SideNavProps {
+      readonly contract: number;
+      /** The router-relative path, e.g. `/timeline`. */
+      readonly pathname: string;
+      /** A BCP 47 tag; unknown ones render en-US. */
+      readonly locale: string;
+      readonly direction: "ltr" | "rtl";
+      readonly flags: {
+        /** A display hint only. `RequireAdmin` and the API stay the enforcement. */
+        readonly isAdmin: boolean;
+      };
+      readonly readiness: SideNavReadiness;
+      /** Owned by hospitality; only affects screens narrower than 768px. */
+      readonly isMobileOpen: boolean;
+      readonly onAction: (action: NavAction) => void;
+      readonly onMobileClose: () => void;
+      /** Called once if the remote's root fails while rendering, so the host can swap to its fallback. */
+      readonly onRenderError?: (error: Error) => void;
+    }
+    export interface SideNavSlots {
+      readonly header: HTMLElement;
+      readonly footer: HTMLElement;
+    }
+    export interface SideNavHandle {
+      update(props: SideNavProps): void;
+      slots(): SideNavSlots;
+      unmount(): void;
+    }
+  </file>
+  <file path="packages/hospitality-sidenav/src/validate-props.ts">
+    export class SideNavContractError extends Error {
+      constructor(message: string) {
+        super(message);
+        this.name = "SideNavContractError";
+      }
+    }
+    function fail(message: string): never {
+      throw new SideNavContractError(message);
+    }
+    function checkKeys(where: string, value: Record<string, unknown>, allowed: ReadonlySet<string>) {
+      for (const key of Object.keys(value)) {
+        if (TOKEN_KEY.test(key)) fail(`${where}.${key}: a token can not cross the seam`);
+        if (!allowed.has(key)) fail(`${where}.${key}: not part of the contract (plain props only)`);
+        if (isReactElement(value[key])) fail(`${where}.${key}: a React element can not cross the seam`);
+      }
+    }
+    function checkString(where: string, value: unknown): string {
+      if (typeof value !== "string") return fail(`${where}: expected a string`);
+      if (JWT_SHAPE.test(value)) fail(`${where}: looks like a token, which can not cross the seam`);
+      return value;
+    }
+    export function assertSideNavProps(value: unknown): asserts value is SideNavProps {
+      if (!isRecord(value)) return fail("props: expected an object");
+      checkKeys("props", value, TOP_LEVEL_KEYS);
+    
+      if (value["contract"] !== SIDENAV_CONTRACT) {
+        fail(`contract: expected ${String(SIDENAV_CONTRACT)}, got ${String(value["contract"])}`);
+      }
+      checkString("pathname", value["pathname"]);
+      checkString("locale", value["locale"]);
+      if (value["direction"] !== "ltr" && value["direction"] !== "rtl") {
+        fail("direction: expected ltr or rtl");
+      }
+    
+      const flags = value["flags"];
+      if (!isRecord(flags)) return fail("flags: expected an object");
+      checkKeys("flags", flags, FLAG_KEYS);
+      if (typeof flags["isAdmin"] !== "boolean") fail("flags.isAdmin: expected a boolean");
+    
+      const readiness = value["readiness"];
+      if (!isRecord(readiness)) return fail("readiness: expected an object");
+      checkKeys("readiness", readiness, READINESS_KEYS);
+      const status = readiness["status"];
+      const steps = readiness["steps"];
+      if (!READINESS_STATUSES.some((known) => known === status)) {
+        fail("readiness.status: not a known status");
+      }
+      if (!Array.isArray(steps) || !steps.every((step) => typeof step === "string")) {
+        fail("readiness.steps: expected an array of strings");
+      }
+    
+      if (typeof value["isMobileOpen"] !== "boolean") fail("isMobileOpen: expected a boolean");
+      for (const callback of ["onAction", "onMobileClose"]) {
+        if (typeof value[callback] !== "function") fail(`${callback}: expected a function`);
+      }
+      if (value["onRenderError"] !== undefined && typeof value["onRenderError"] !== "function") {
+        fail("onRenderError: expected a function");
+      }
+    }
+  </file>
   <file path="packages/rialto-catalog/src/catalog-meta.ts">
     export type CatalogCharLimits = Readonly<Record<string, number>>;
     export type CatalogAliases = Readonly<Record<string, string>>;
@@ -100746,7 +101171,7 @@
       return ageHours > thresholdHours;
     }
   </file>
-  <file path="apps/marketing/src/utils/route-meta.ts">
+  <file path="apps/marketing/src/utils/route-meta-data.ts">
     export interface RouteMeta {
       readonly pattern: string;
       readonly title: string;
@@ -100754,6 +101179,56 @@
       /** False for the soft-404 catch-all: no canonical, robots noindex. */
       readonly indexable?: boolean;
     }
+    export const SITE_ORIGIN = "https://mattbutlerengineering.com";
+    export const ROUTE_META: readonly RouteMeta[] = [
+      {
+        pattern: "/status",
+        title: `System Status — ${SITE_NAME}`,
+        description:
+          "Live health of the API services and static sites behind mattbutlerengineering.com.",
+      },
+      {
+        pattern: "/metrics",
+        title: `Quality Metrics — ${SITE_NAME}`,
+        description:
+          "Public AI Codebase Maturity Model metrics: current level, behavioral gates, agent performance and history.",
+      },
+      {
+        pattern: "/acmm",
+        title: `ACMM Dashboard — ${SITE_NAME}`,
+        description:
+          "Repo-level audit against the AI Codebase Maturity Model, with detected criteria by level.",
+      },
+      {
+        pattern: "/ai-health",
+        title: `AI Health Dashboard — ${SITE_NAME}`,
+        description:
+          "Live metrics for the AI agent system: sensors, CI, pull requests, queue efficiency and review burden.",
+      },
+      {
+        pattern: "/shipped",
+        title: `Shipped by the Factory — ${SITE_NAME}`,
+        description:
+          "Features the AI software factory proposed, decomposed and shipped, with their pull requests.",
+      },
+      {
+        pattern: "/shipped/:slug",
+        title: `Shipped Story — ${SITE_NAME}`,
+        description:
+          "How one feature went from proposal to decomposition to merged pull requests in the software factory.",
+      },
+      {
+        pattern: "*",
+        title: `Page not found — ${SITE_NAME}`,
+        description: "This page does not exist on mattbutlerengineering.com.",
+        // The SPA answers unknown paths with this shell and HTTP 200. A canonical
+        // pointing at the homepage would tell search engines every missing URL is
+        // a duplicate of home.
+        indexable: false,
+      },
+    ];
+  </file>
+  <file path="apps/marketing/src/utils/route-meta.ts">
     interface HeadSnapshot {
       readonly title: string;
       readonly description: string;

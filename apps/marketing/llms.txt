@@ -395,6 +395,49 @@
       export function findShippedFeature(slug: string): ShippedFeature | undefined { /* ... */ }
     </item>
   </file>
+  <file path="src/data/shipped-videos.ts">
+    <item priority="low">
+      interface ShippedVideo {
+        slug: string;
+        src: string;
+        title: string;
+        transcript: string;
+        recordedAt: string;
+      }
+    </item>
+    <item priority="low">
+      interface ShippedVideosFile {
+        videos: readonly ShippedVideo[];
+      }
+    </item>
+    <item priority="medium">
+      function isObj(value: unknown): value is Record<string, unknown> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isShippedVideo(value: unknown): value is ShippedVideo { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isShippedVideosFile(value: unknown): value is ShippedVideosFile { /* ... */ }
+    </item>
+    <item priority="high">
+      export function selectShippedVideos(raw: unknown): readonly ShippedVideo[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function findShippedVideoIn(
+        videos: readonly ShippedVideo[],
+        slug: string
+      ): ShippedVideo | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      export function latestShippedVideoIn(videos: readonly ShippedVideo[]): ShippedVideo | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      export const findShippedVideo: unknown;
+    </item>
+    <item priority="high">
+      export const latestShippedVideo: unknown;
+    </item>
+  </file>
   <file path="src/data/status-probes.ts">
     <item priority="high">
       export const STATUS_SERVICES: unknown;
@@ -501,6 +544,23 @@
   </file>
   </section>
   <section priority="medium" role="pwa">
+  <file path="pwa/route-html.ts">
+    <item priority="medium">
+      function replaceOnce(html: string, pattern: RegExp, replacement: string, label: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function metaTag(attribute: "name" | "property", key: string): RegExp { /* ... */ }
+    </item>
+    <item priority="high">
+      export function prerenderableRoutes(routes: readonly RouteMeta[]): readonly RouteMeta[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function renderRouteHtml(shell: string, meta: RouteMeta): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function routeHtmlPlugin(routes: readonly RouteMeta[]): Plugin { /* ... */ }
+    </item>
+  </file>
   <file path="pwa/workbox-options.ts">
     <item priority="low">
       interface ServiceWorkerRuntimeRoute {
@@ -583,7 +643,7 @@
       ): boolean { /* ... */ }
     </item>
   </file>
-  <file path="src/utils/route-meta.ts">
+  <file path="src/utils/route-meta-data.ts">
     <item priority="low">
       interface RouteMeta {
         pattern: string;
@@ -592,6 +652,14 @@
         indexable?: boolean;
       }
     </item>
+    <item priority="high">
+      export const SITE_ORIGIN: unknown;
+    </item>
+    <item priority="high">
+      export const ROUTE_META: readonly RouteMeta[];
+    </item>
+  </file>
+  <file path="src/utils/route-meta.ts">
     <item priority="high">
       interface HeadSnapshot {
         title: string;

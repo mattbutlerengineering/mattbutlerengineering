@@ -1,3 +1,9 @@
+/* Injected onto targets that were not already focusable, so Tab shows a ring. */
+.target:focus-visible {
+  outline: none;
+  box-shadow: var(--rialto-shadow-focus);
+}
+
 .menu {
   composes: glass from "../../styles/surfaces.module.css";
 

@@ -3,6 +3,7 @@ import type { RialtoMessages } from "../messages";
 /** Español (México). Machine-translated. */
 export const esMX: RialtoMessages = {
   dismiss: "Descartar",
+  dismissNotification: "Descartar notificación",
   close: "Cerrar",
   closeDialog: "Cerrar diálogo",
   dialog: "Diálogo",

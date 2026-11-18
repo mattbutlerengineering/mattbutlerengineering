@@ -5718,3 +5718,53 @@ None (`agent-skip` is empty).
 - **Coverage before this fire:** 100% (136/136 routes), not provisional.
 - **Pipeline bugs:** none.
 - **Observed but not filable (no rubric v1 tell covers it):** marketing `metrics` renders its full ~130-row history table inline at 8022px tall with no pagination or collapse — a usability problem, not a tell. The rialto-web component routes carrying the 375px overflow/overlap observations from 2026-11-15/16 were not due this fire, so none of those could be re-confirmed.
+
+## 2026-11-17
+
+**Sensors:** 17/18 available (status: Healthy — ACMM L5 73/84, CI 100% (23/23), mutationScore 99.07% PASS, queueEfficiency composite 0.918)
+**Sentry triage:** skipped — Sentry MCP auth expired (re-authorization required)
+**Regressions:** 0 detected, 0 issues created
+**Verifications:** 5 checked (48h window), 0 verified, 0 failed/reopened — all 5 skipped for lack of comparable signal (#9011/#9010/#9009 need a fresh Lighthouse/audit inventory; #9001/#8994 have no CI runs to compare against)
+**AI issue feedback:** 8 categories updated; acmm rejection rate 33% (3 total, above the 30% false-positive note threshold but n is small); agent-failed 100% (n=1, noise); all other categories ≤15% rejected
+**Skill proposals:** 0 (Tuesday — Friday-only)
+**Threshold notes:** auto-tuner applied 1 adjustment (acmm: 1.72 → 1.731, headroom). 30-day verification log: 115/123 entries are confidence=skip (no comparable signal available this cloud environment has no egress to re-run audits/Lighthouse); of the 8 determinable entries, 6 verified / 2 failed (75% effectiveness) — above the 50% threshold, but coverage is too thin to treat as conclusive. acmm's 33% rejection rate is the one category worth a human look if it persists.
+
+## 2026-11-18 — progress-tracker
+
+### Metrics
+
+| Metric                                         | Value                                                                                                                  |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Created (7d, audit+ci-fix)                     | 49 (audit 23, ci-fix 26)                                                                                               |
+| Closed (7d, audit+ci-fix)                      | 47 (audit 21, ci-fix 26)                                                                                               |
+| Closure Rate                                   | 95.9% — green                                                                                                          |
+| Time-to-Close (mean)                           | ~63.6h — yellow (24-72h band)                                                                                          |
+| Agent Success                                  | 1/1 = 100% (1 has-pr / 0 agent-failed open at snapshot; n=1, low signal)                                               |
+| CI Pass (main, last 20 runs, skipped excluded) | 10/10 = 100% — green                                                                                                   |
+| Queue (ready)                                  | 0 — green (was 0 before this run too; both promoted-and-claimed issues left no ready backlog)                          |
+| Stale (ready>7d)                               | 0 — green                                                                                                              |
+| Blocked (agent-failed)                         | 0 — green                                                                                                              |
+| Skipped (agent-skip)                           | 0 — green                                                                                                              |
+| Daily Spend (attributed)                       | $0 today via recordSpend; 2 queue-worker sessions dispatched this run, cost_usd not recorded                           |
+| 7d Spend (attributed)                          | $2.44 + 2,008,299 tokens across 17 queue-worker sessions with unknown cost (52 rows missing usage; #5885 gap persists) |
+| Cost/Issue                                     | unknown — cost_usd null on all attributed queue-worker rows this window                                                |
+
+### Patterns
+
+- **implement-queue iteration this run:** backlog of `ready` issues was fully empty going in (0 ready, 9 stateless candidates); promoted 3 well-specified stateless issues (#9028, #9007, #9006), but the zone-spread batch selector (strict main) deferred #9006 (same `apps/marketing` zone as #9007) to a later batch — only #9028 and #9007 claimed.
+- #9028 (picomatch audit-ignore) turned out already resolved by a separate merged PR (#9029) that beat this routine to it — evidence posted, but closing the issue was denied by the auto-mode permission classifier (`[Undermining Oversight]`), same shape as the merge-denial pattern below. Left `needs-review` for a human to close.
+- #9007 → PR #9045, universal review passed (score 9/10), CI Gate green, but `gh pr merge --auto` was denied by the classifier (`[Destructive or Unwanted Actions]`, same family as #6125's `[Merge Without Review]`). Posted the verdict comment, left it "reviewed, green, awaiting human merge," pushed a notification to the Owner.
+- **Recurring audit-fix pattern:** 5 of the 9 stateless issues found this run were "follow-up to #N (closed)" site-audit findings where the live site still showed the original (or a partial) defect after the prior issue closed (#9042←#8705, #9033←#8980, #9016←#8632, #9007←#8627, #9006←#8626), spanning Nov 15-17. Filed as a new meta-improvement issue, #9047 — the audit-close-without-full-verification pattern looked distinct enough from anything currently open to be worth tracking on its own.
+- A fourth driver claimed #9006 independently mid-run (labeled `in-progress` by the "Meta Muse AI" GitHub App at 01:34 UTC, after this session had already deferred it back to `ready`) — not touched by this session, noted only.
+- CI on `main` fully green (100%, 10/10 non-skipped) over the last 20 runs — stable.
+- Cost-attribution gap (#5885) persists and widened slightly: 52/69 `metrics/queue-telemetry.jsonl` rows in the 7d window still lack `cost_usd`.
+
+### Recommendations
+
+- Owner: close #9028 by hand (evidence + duplicate-PR link already on the issue) and merge #9045 by hand (already pushed as a notification).
+- #9047 (new meta-improvement) proposes requiring audit-close evidence to enumerate every acceptance bullet verified live, or to file the remainder as a linked follow-up at close time, instead of letting the next day's full-site audit rediscover it.
+- #9006 is now claimed by another driver (Meta Muse AI) — no action needed from this queue; will re-check next iteration if it reverts to `ready`.
+
+### Skipped Issues
+
+None (`agent-skip` is empty).

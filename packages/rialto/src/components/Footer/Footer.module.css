@@ -97,6 +97,11 @@
   color: var(--rialto-text-tertiary);
   text-decoration: none;
   font-size: var(--rialto-text-sm);
+  /* WCAG 2.5.8: an inline link is only as tall as its line (20px at
+     text-sm); keep the hit area at the 24px minimum. */
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 24px;
   border-radius: var(--rialto-radius-sharp);
   transition: color var(--rialto-duration-standard) ease;
 }

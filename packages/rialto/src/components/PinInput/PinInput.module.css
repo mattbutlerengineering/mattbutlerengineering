@@ -3,6 +3,10 @@
   display: flex;
   flex-direction: column;
   gap: var(--rialto-space-2xs);
+  /* Content-sized on a wide row, and never wider than the parent. A 6-digit
+     row is 328px (48px cells + 8px gaps) and overflows a padded card at 375px. */
+  width: max-content;
+  max-width: 100%;
 }
 
 /* ── Label ───────────────────────────────────── */
@@ -15,8 +19,11 @@
 
 /* ── Cell row ────────────────────────────────── */
 .cells {
-  display: inline-flex;
+  display: flex;
   gap: var(--rialto-space-xs);
+  width: max-content;
+  max-width: 100%;
+  min-width: 0;
 }
 
 /* ── Individual cell ─────────────────────────── */
@@ -24,8 +31,18 @@
   composes: recessed from "../../styles/surfaces.module.css";
   composes: focusRing from "../../styles/surfaces.module.css";
 
+  /* Preferred size is the flex basis. min-width: 0 lets the input shrink
+     below its intrinsic minimum; aspect-ratio keeps the cell square. */
+  flex: 0 1 48px;
   width: 48px;
-  height: 48px;
+  min-width: 0;
+  max-width: 48px;
+  height: auto;
+  min-height: 0;
+  aspect-ratio: 1;
+  /* The default line box is taller than a squeezed cell, which stretched
+     large 8-digit rows into pills. 1 lets the aspect ratio stay square. */
+  line-height: 1;
   border-radius: var(--rialto-radius-default);
   font-family: var(--rialto-font-mono);
   font-size: var(--rialto-text-lg);
@@ -53,15 +70,17 @@
 
 /* ── Size: sm ────────────────────────────────── */
 .sm .cell {
+  flex-basis: 40px;
   width: 40px;
-  height: 40px;
+  max-width: 40px;
   font-size: var(--rialto-text-base);
 }
 
 /* ── Size: lg ────────────────────────────────── */
 .lg .cell {
+  flex-basis: 56px;
   width: 56px;
-  height: 56px;
+  max-width: 56px;
   font-size: var(--rialto-text-xl);
 }
 

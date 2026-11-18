@@ -2036,6 +2036,23 @@
       },
     } satisfies CatalogMeta;
   </file>
+  <file path="src/components/Table/useOverflowingX.ts">
+    export function useOverflowingX(): readonly [(node: HTMLElement | null) => void, boolean] {
+      const [node, setNode] = useState<HTMLElement | null>(null);
+      const [overflowing, setOverflowing] = useState(false);
+    
+      useEffect(() => {
+        if (node === null || typeof ResizeObserver === "undefined") return undefined;
+        const measure = () => setOverflowing(node.scrollWidth > node.clientWidth);
+        const observer = new ResizeObserver(measure);
+        observer.observe(node);
+        if (node.firstElementChild) observer.observe(node.firstElementChild);
+        return () => observer.disconnect();
+      }, [node]);
+    
+      return [setNode, overflowing];
+    }
+  </file>
   </section>
   <section priority="medium" role="Tabs">
   <file path="src/components/Tabs/Tabs.catalog.ts">
@@ -4002,8 +4019,10 @@
       readonly risky: string;
     }
     export interface RialtoMessages {
-      /** Accessible name of a control that dismisses a notice (Alert, Banner, Toast). */
+      /** Accessible name of a control that dismisses a notice (Alert, Banner). */
       readonly dismiss: string;
+      /** Accessible name of the Toast dismiss button. */
+      readonly dismissNotification: string;
       /** Accessible name of a control that closes a surface (Drawer, Popover). */
       readonly close: string;
       /** Accessible name of the Dialog close button. */
@@ -4233,6 +4252,7 @@
     }
     export const enUS: RialtoMessages = {
       dismiss: "Dismiss",
+      dismissNotification: "Dismiss notification",
       close: "Close",
       closeDialog: "Close dialog",
       dialog: "Dialog",
@@ -4453,6 +4473,7 @@
   <file path="src/i18n/locales/es-MX.ts">
     export const esMX: RialtoMessages = {
       dismiss: "Descartar",
+      dismissNotification: "Descartar notificación",
       close: "Cerrar",
       closeDialog: "Cerrar diálogo",
       dialog: "Diálogo",
@@ -4620,6 +4641,7 @@
   <file path="src/i18n/locales/fr-CA.ts">
     export const frCA: RialtoMessages = {
       dismiss: "Ignorer",
+      dismissNotification: "Ignorer la notification",
       close: "Fermer",
       closeDialog: "Fermer la boîte de dialogue",
       dialog: "Boîte de dialogue",

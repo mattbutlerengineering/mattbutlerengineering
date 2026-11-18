@@ -132,6 +132,11 @@
   overflow: auto;
 }
 
+.codeBlock:focus-visible {
+  outline: none;
+  box-shadow: var(--rialto-shadow-focus);
+}
+
 .pre {
   margin: 0;
   padding: var(--rialto-space-md);
