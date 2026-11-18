@@ -392,7 +392,38 @@ describe("hook seam: Bash hooks read the command from the stdin payload", () => 
       const result = run("pre-push-typecheck.sh", bashPayloadFor("git push origin HEAD"), work);
       expect(result.stderr).toContain("BLOCK: typecheck failed");
       expect(result.status).toBe(2);
-      expect(readFileSync(pnpmLog, "utf8")).toContain("-r --parallel typecheck");
+      expect(readFileSync(pnpmLog, "utf8")).toContain("turbo run typecheck");
+    },
+    SEAM_TIMEOUT_MS
+  );
+
+  it(
+    "pre-push-typecheck typechecks a new branch with no upstream against origin/main (#9065)",
+    () => {
+      const work = gitFixtureAheadOfOrigin();
+      git(work, "checkout", "-qb", "new-branch");
+      const result = run("pre-push-typecheck.sh", bashPayloadFor("git push -u origin HEAD"), work);
+      expect(result.stderr).toContain("BLOCK: typecheck failed");
+      expect(result.status).toBe(2);
+      const calls = readFileSync(pnpmLog, "utf8");
+      expect(calls).toContain("turbo");
+      expect(calls).toContain("--filter=...[origin/main]");
+    },
+    SEAM_TIMEOUT_MS
+  );
+
+  it(
+    "pre-push-typecheck skips a new branch whose diff against origin/main has no .ts change (#9065)",
+    () => {
+      const work = gitFixtureAheadOfOrigin();
+      git(work, "reset", "-q", "--hard", "origin/main");
+      git(work, "checkout", "-qb", "docs-branch");
+      writeFileSync(join(work, "README.md"), "docs\n");
+      git(work, "add", "README.md");
+      git(work, "commit", "-qm", "docs");
+      const result = run("pre-push-typecheck.sh", bashPayloadFor("git push -u origin HEAD"), work);
+      expect(result.status).toBe(0);
+      expect(existsSync(pnpmLog), "typechecked a docs-only branch").toBe(false);
     },
     SEAM_TIMEOUT_MS
   );
@@ -639,7 +670,7 @@ describe("hook seam: Bash hooks read the command from the stdin payload", () => 
       );
       expect(result.stderr).toContain("BLOCK: typecheck failed");
       expect(result.status).toBe(2);
-      expect(readFileSync(pnpmLog, "utf8")).toContain("-r --parallel typecheck");
+      expect(readFileSync(pnpmLog, "utf8")).toContain("turbo run typecheck");
     },
     SEAM_TIMEOUT_MS
   );

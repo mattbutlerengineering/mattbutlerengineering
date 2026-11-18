@@ -15,7 +15,7 @@
  */
 
 import { existsSync, readFileSync, statSync } from "node:fs";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -173,6 +173,41 @@ function runBootstrapStep(step, repoRoot, exec) {
   });
 }
 
+const WORKTREE_HOOKS_PATH = ".husky/_";
+
+/**
+ * A linked worktree inherits the shared `core.hooksPath`, which may be an
+ * absolute path into the MAIN checkout's `.husky/_` — so the branch's own hook
+ * edits never run (#9067). Pin a per-worktree relative path (resolved against
+ * the worktree top level) via `extensions.worktreeConfig` + `--worktree`.
+ * Returns true when it changed anything; false in the main checkout or when
+ * already set. The main checkout's config is never written.
+ */
+export function ensureWorktreeHooksPath(repoRoot = REPO_ROOT) {
+  const git = (...args) =>
+    execFileSync("git", ["-C", repoRoot, ...args], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  const gitDir = git("rev-parse", "--path-format=absolute", "--git-dir");
+  const commonDir = git("rev-parse", "--path-format=absolute", "--git-common-dir");
+  if (gitDir === commonDir) return false;
+
+  // `git config --get` exits 1 for an unset key, so read stdout without
+  // throwing. Without the extension, `--worktree` reads the shared config,
+  // where husky's relative value already resolves per worktree.
+  const current = spawnSync(
+    "git",
+    ["-C", repoRoot, "config", "--worktree", "--get", "core.hooksPath"],
+    { encoding: "utf8" }
+  ).stdout.trim();
+  if (current === WORKTREE_HOOKS_PATH) return false;
+
+  git("config", "extensions.worktreeConfig", "true");
+  git("config", "--worktree", "core.hooksPath", WORKTREE_HOOKS_PATH);
+  return true;
+}
+
 export function runBootstrap(argv = [], { repoRoot = REPO_ROOT, exec = execFileSync } = {}) {
   const checkOnly = argv.includes("--check");
   const steps = probeBootstrapSteps(repoRoot);
@@ -182,6 +217,13 @@ export function runBootstrap(argv = [], { repoRoot = REPO_ROOT, exec = execFileS
 
   for (const step of steps) {
     runBootstrapStep(step, repoRoot, exec);
+  }
+
+  // After install: husky's `prepare` (re)writes the shared hooksPath.
+  if (ensureWorktreeHooksPath(repoRoot)) {
+    process.stdout.write(
+      `bootstrap-worktree: set per-worktree core.hooksPath=${WORKTREE_HOOKS_PATH}.\n`
+    );
   }
 }
 
