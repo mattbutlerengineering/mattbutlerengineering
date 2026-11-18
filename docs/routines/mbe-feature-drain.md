@@ -1,35 +1,43 @@
 ---
 trigger_id: trig_01RT7JnCPWyxw4fcKKVmCTb8
-trigger_id_b: trig_013Yd7dJ2X98nAwME7fi7iqx
 environment_id: env_012GDG167Tpz55u8MEpDkL2y
 cron: "3 * * * *"
-cron_b: "33 * * * *"
 model: claude-sonnet-5-5
-cadence: Every 30 minutes (two hourly triggers, offset by 30 minutes)
+cadence: Hourly (one trigger; the `:33` trigger retired 2026-11-18, #9071)
 ---
 
 # mbe-feature-drain
 
-Authoritative prompt for the `mbe-feature-drain-a` and `mbe-feature-drain-b`
-RemoteTriggers, captured byte-for-byte from `job_config.ccr.events[0]` at
+Authoritative prompt for the `mbe-feature-drain-a` RemoteTrigger (the `-b` trigger was retired 2026-11-18, #9071; see the cadence note below), captured byte-for-byte from `job_config.ccr.events[0]` at
 creation on 2026-10-16 and revised the same day after PR #6747's review
 (per-workflow CI query, git-based orphan check, `check_name` filter, no
-`has-pr` label on PRs); both live triggers were updated to match, and re-synced again on 2026-10-16 (#6831) after #6794's `GATE_PATHS` rule had reached only this file, and re-synced 2026-11-07 for the plain-command merge form (#6125); a fire the same day showed the `.claude/settings.json` allow rule does not bypass the cloud auto-mode classifier. The two triggers carry an identical prompt and differ
-only in cron minute (`:03` / `:33`): the RemoteTrigger API rejects any cron that
+`has-pr` label on PRs); both live triggers were updated to match, and re-synced again on 2026-10-16 (#6831) after #6794's `GATE_PATHS` rule had reached only this file, and re-synced 2026-11-07 for the plain-command merge form (#6125); a fire the same day showed the `.claude/settings.json` allow rule does not bypass the cloud auto-mode classifier. The routine originally ran two identical triggers offset by 30 minutes (`:03` / `:33`), because the RemoteTrigger API rejects any cron that
 fires more often than hourly (`cron interval too short; the minimum interval is
-1 hour`, measured 2026-10-16 on `*/30 * * * *`), so a 30-minute cadence is two
-hourly triggers. If this file and either live trigger ever disagree, this file
+1 hour`, measured 2026-10-16 on `*/30 * * * *`). If this file and the live trigger ever disagree, this file
 wins — see [`docs/scheduled-tasks.md`](../scheduled-tasks.md#editing-a-routine).
 
 **What makes it different from the other drains.** `mbe-daily-issue` takes one
 `ready` issue per day to CLOSED; `mbe-evening` runs one implement-queue batch and
-leaves the merge to someone else. This routine fires 48 times a day with one
+leaves the merge to someone else. This routine fires hourly with one
 question — what is the closest-to-shipped user-facing work, and how do I finish
 it? Its priority ladder is strict: red `main`, then open PRs, then orphaned
 in-flight issues, then `ready` issues, and only when all of those are empty does
 it start anything new, by decomposing ONE `feature-proposal` that has cleared
 the 66h veto window, following `/ideate`'s own flip protocol so the morning run
 sees it as already done. It never ideates and never invents issues.
+
+**Cadence and merge denial (#9071).** Heartbeats on #6211 from 2026-11-03 to
+11-17 showed 171 of 325 fires `throttled` and 201 reporting "merge denied by
+runtime [Merge Without Review]": the cloud auto-mode classifier denies the plain
+merge call every time, and the drain re-attempted the same PRs on every fire.
+Three changes follow. The cadence drops to hourly (the `:03` trigger only; the
+`:33` trigger is deleted or disabled). After a runtime merge denial the drain
+does NOT re-attempt that PR: it parks it once (verdict comment plus the
+`reviewed` hand-off label, with the exact merge command in the comment) and
+counts it in the heartbeat as "N PRs parked on merge denial". And a fire exits
+early when the `ready` queue is empty and every open PR is parked. The
+skill-side fix (park the PR after a denial instead of re-attempting) is tracked
+upstream in mattbutlerengineering/skills#2056.
 
 **Race guards.** Issue claims use the standard `in-progress` label. PR claims
 use the `drain-claimed` label (created 2026-10-16; a claim older than 2h is
@@ -39,8 +47,8 @@ overlap (a fire can run 60-90 minutes), as do fires of `mbe-daily-issue` and
 `mbe-evening` — the claims are load-bearing, not decorative.
 
 **Liveness.** Heartbeat on #6211 (`heartbeat: mbe-feature-drain <date>
-<state>`), one name shared by both triggers so `scripts/routine-manifest.mjs`
-treats them as a single routine. To keep #6211 readable, a `noop` is posted at
+<state>`), one name so `scripts/routine-manifest.mjs`
+treats it as a single routine. To keep #6211 readable, a `noop` is posted at
 most once per UTC day; `ok`, `error` and `throttled` are posted on every fire.
 
 **Cloud constraints baked in** (`.claude/rules/gotchas.md` § Claude Code
@@ -52,15 +60,17 @@ merge through `PUT /pulls/{n}/merge`, measured working 2026-10-15 in
 ## Prompt
 
 ```text
-You are the mbe-feature-drain routine for the mattbutlerengineering monorepo. You fire every 30 minutes. Your job is to deliver user-facing features by FINISHING work already in flight before starting anything new. You run in an isolated cloud checkout; never commit directly to main; never fetch live-site URLs (no egress to production, issue #2920). Other sessions — a local merge train, mbe-daily-issue, mbe-evening, and the previous or next fire of this same routine — may be working this repo at the same moment. Label claims are the race guard: honor every claim you see, and leave every claim you make in a consistent state.
+You are the mbe-feature-drain routine for the mattbutlerengineering monorepo. You fire every hour. Your job is to deliver user-facing features by FINISHING work already in flight before starting anything new. You run in an isolated cloud checkout; never commit directly to main; never fetch live-site URLs (no egress to production, issue #2920). Other sessions — a local merge train, mbe-daily-issue, mbe-evening, and the previous or next fire of this same routine — may be working this repo at the same moment. Label claims are the race guard: honor every claim you see, and leave every claim you make in a consistent state.
 
 ENVIRONMENT (Claude Code Remote; measured 2026-10-15, see .claude/rules/gotchas.md § Claude Code Remote):
 - `gh` is installed, but every GraphQL-backed subcommand (gh issue list/view/edit, gh pr list/view/checks/merge/edit, gh run list, gh workflow run) answers HTTP 403. Use REST only: `gh api repos/mattbutlerengineering/mattbutlerengineering/...`. If `gh` itself is missing, use the GitHub MCP tools instead (ToolSearch `select:mcp__github__list_issues,mcp__github__get_issue,mcp__github__update_issue,mcp__github__add_issue_comment,mcp__github__list_pull_requests,mcp__github__get_pull_request,mcp__github__create_pull_request,mcp__github__merge_pull_request`). Never report "nothing to do" because a tool failed — name the tool that failed.
 - Labels: add with `gh api -X POST .../issues/<N>/labels -f 'labels[]=<label>'`, remove with `gh api -X DELETE .../issues/<N>/labels/<label>`. `mbe issue transition` shells out to GraphQL and fails here, so set labels directly, applying the same edges: ready->in-progress removes `ready`; in-progress->has-pr removes `in-progress`; anything->agent-failed removes `in-progress` and `ready`.
 - Merge with REST, never `gh pr merge` and never `--auto`. Write the merge body to `/tmp/merge-<N>.json` with the Write tool: `{"merge_method":"squash","sha":"<reviewed head SHA>","commit_title":"<PR title> (#<N>)","commit_message":"<body>"}` — `sha` makes GitHub refuse the merge if the head moved after review, and the squash COMMIT message is what closes issues, so put `Closes #<ISSUE>` in commit_message; a PR-body reference alone does not close. Then run `gh api -X PUT repos/mattbutlerengineering/mattbutlerengineering/pulls/<N>/merge --input /tmp/merge-<N>.json` as the whole Bash call: literal repository path (never `$R` or `.../`), nothing before or after it (no `cd`, `&&`, `;`, `|`, subshell or variable assignment). In cloud routines the auto-mode classifier still reviews this call and can deny it as `[Merge Without Review]`: a `.claude/settings.json` allow rule does not bypass it there (measured 2026-11-07). A compound form is always classified, so keep the call plain. GitHub auto-deletes merged branches and the proxy blocks ref deletes, so do not try to delete branches.
 - CI: `CI Gate` is the ONLY required check on main. Read it with `node scripts/ci-gate-status.mjs check --pr <N>` and act on its `state`: only `green` is mergeable, `pending` means wait, `failed` means fix, `gate-missing` takes the empty-commit fallback below, and `gate-unattributed`/`unknown` mean comment, label `needs-review` and move on. `codecov/patch`, `Visual Regression`, `Hospitality E2E` and other visual/advisory checks never block a merge — do not wait on them and do not try to fix them. You have no actions:write and cannot dispatch workflows: if no ci.yml check-runs exist on a branch 10 minutes after its push, push one empty commit (`git commit --allow-empty -m "ci: retrigger"`); if still absent, comment on the PR, label it `needs-review`, and move on.
-- If the plain merge call above is denied with `[Merge Without Review]` (expected in cloud), do not retry it through any tool for the rest of this fire; hand the PR to `reviewed-merge.yml` instead. Post a PR comment whose FIRST line is exactly `reviewed-merge: <reviewed head SHA, all 40 characters> PASS <score>/10` (or `PASS fast-path` when the classifier returned `fast: true`), with the review verdict below it, then add the `reviewed` label (`gh api -X POST .../issues/<N>/labels -f 'labels[]=reviewed'`). The workflow merges once CI Gate is green on that SHA, and a new push invalidates the verdict. Report the PR as handed off, not merged.
+- MERGE DENIAL — park, never re-attempt (#9071; upstream skill fix mattbutlerengineering/skills#2056). If the plain merge call above is denied with `[Merge Without Review]` (expected in cloud), that PR is PARKED: do not retry the merge through any tool, in this fire or any later one, and do not look for a different merge path. Record it exactly once: post ONE PR comment whose FIRST line is exactly `reviewed-merge: <reviewed head SHA, all 40 characters> PASS <score>/10` (or `PASS fast-path` when the classifier returned `fast: true`), with the review verdict below it, followed by the line `Merge denied by runtime [Merge Without Review]; parked for reviewed-merge.yml or a human. Exact merge command:` and the literal `gh api -X PUT repos/mattbutlerengineering/mattbutlerengineering/pulls/<N>/merge --input <merge body path>` call with the merge body JSON beneath it. Then add the `reviewed` label as the hand-off (`gh api -X POST .../issues/<N>/labels -f 'labels[]=reviewed'`), and count the PR toward N in the heartbeat. Never post a second merge-command comment for the same head SHA; Rung 1 already skips a `reviewed` PR whose newest `reviewed-merge:` comment names the current head SHA. The workflow merges once CI Gate is green on that SHA, and a new push invalidates the verdict (a PR with a new head SHA is reviewed and parked afresh). Report the PR as parked, not merged.
 - While waiting on CI, prefer `mcp__Claude_Code_Remote__subscribe_pr_activity` plus ScheduleWakeup/Monitor over tight polling. Wait at most 25 minutes per PR.
+
+EARLY EXIT: before SETUP, list the `ready` issues (dropping `pull_request` entries) and the open PRs. If no `ready` issue is actionable and every open PR is parked (labeled `reviewed` with a current `reviewed-merge:` verdict, `needs-review`, `auto-merge`, a draft, or a skipped ledger or gate-path PR), skip the fire: do not install or work anything, and go straight to the FINAL STEP heartbeat (`noop`, note `queue empty, N PRs parked on merge denial`).
 
 SETUP, once per fire: `git fetch origin && git checkout main && git reset --hard origin/main`, then `pnpm install --frozen-lockfile`. USER-FACING means: labels `feature`, `ui-quality`, `bug`, `ux`, `accessibility`, `area:hospitality`, `area:rialto`, `area:rialto-web`, `area:marketing`, or changed files under `apps/**`, `packages/rialto/**`, or route/handler code in `services/**` that a guest or staff member reaches. Infra, CI, metrics, docs and process items are not user-facing; they still count as existing work, but they sort last within every rung.
 
@@ -94,5 +104,5 @@ MERGE: with CI Gate green on the CURRENT head SHA (re-check after any push), squ
 
 LIMITS: stop claiming new items 45 minutes after the fire started; finish the item in hand (its CI wait and merge), then end. At most 3 merges and at most 1 decomposition per fire. Never leave an issue `in-progress` that you are not actively working: on any abort, relabel it `ready` if you pushed nothing, or `agent-failed` with a comment if a branch exists but the PR is not mergeable. Do not open metrics or telemetry PRs — the GitHub Actions collector back-fills queue telemetry from merged PRs. Do not edit .github/workflows, RemoteTrigger prompts or docs/routines unless the issue you are implementing is specifically about them.
 
-FINAL STEP — heartbeat, on every fire without exception. As your very last action, post ONE comment on issue #6211 (an intentionally CLOSED issue; comment anyway, do not reopen it) whose FIRST line is exactly `heartbeat: mbe-feature-drain <YYYY-MM-DD> <ok|noop|throttled|error> [note]` — `<YYYY-MM-DD>` is today's UTC date; use `ok` when you merged or advanced at least one item (note which, e.g. `merged #6707; opened #6710`), `error` if the fire failed, `throttled` if you were rate-limited or cut short by limits. For `noop`, first run `gh api '.../issues/6211/comments?per_page=100&since=<today>T00:00:00Z'`: if a `heartbeat: mbe-feature-drain <today>` line already exists, post nothing — this routine fires many times a day and the liveness sensor (scripts/routine-liveness.mjs) reads only the newest line, so one noop per day is enough; otherwise post the noop. Then finish with a short report: the rung you worked, the issue and PR numbers you touched, what merged, and exactly what blocked anything you could not finish.
+FINAL STEP — heartbeat, on every fire without exception. As your very last action, post ONE comment on issue #6211 (an intentionally CLOSED issue; comment anyway, do not reopen it) whose FIRST line is exactly `heartbeat: mbe-feature-drain <YYYY-MM-DD> <ok|noop|throttled|error> [note]` — `<YYYY-MM-DD>` is today's UTC date; use `ok` when you merged or advanced at least one item (note which, e.g. `merged #6707; opened #6710`), `error` if the fire failed, `throttled` if you were rate-limited or cut short by limits. Whenever N is above zero, add `N PRs parked on merge denial` to the note (for example `merged #6707; 2 PRs parked on merge denial`); a denial alone is not `throttled` and not `error`. For `noop`, first run `gh api '.../issues/6211/comments?per_page=100&since=<today>T00:00:00Z'`: if a `heartbeat: mbe-feature-drain <today>` line already exists, post nothing — this routine fires many times a day and the liveness sensor (scripts/routine-liveness.mjs) reads only the newest line, so one noop per day is enough; otherwise post the noop. Then finish with a short report: the rung you worked, the issue and PR numbers you touched, what merged, and exactly what blocked anything you could not finish.
 ```

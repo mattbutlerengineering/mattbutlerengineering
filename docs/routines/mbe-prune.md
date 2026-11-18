@@ -9,10 +9,21 @@ cron_b: "29 * * * *"
 cron_c: "44 * * * *"
 cron_d: "59 * * * *"
 model: claude-sonnet-5-5
-cadence: Every 30 minutes (mbe-prune-a and mbe-prune-c; b and d disabled 2026-11-15)
+cadence: RETIRED 2026-11-18 (#9070); was every 30 minutes (mbe-prune-a and mbe-prune-c; b and d disabled 2026-11-15)
+status: retired
 ---
 
 # mbe-prune
+
+> **RETIRED 2026-11-18 (#9070).** Do not re-enable the four triggers. The
+> routine produced 4 `(mbe-prune)` commits in 30 days; its 18 heartbeats since
+> 2026-11-03 were 15 `noop`, 2 `ok` and 1 `error`, yet it still ran 48 times a
+> day. `mbe-doc-rot`, `docs-audit`, `md-audit` and `claude-md-improver` cover the
+> same ground. The live triggers (`trig_01TBQ4jQS9UGwJTxrWfWBCyQ`,
+> `trig_01SoduJryRjjQN5D75h3ZJjv`, `trig_01CzgACLRQpi8ApXfSUM7T5q`,
+> `trig_016WxmLRG8kYUymu3QmwEk3P`) are disabled or deleted by hand at
+> claude.ai after this file merges. The prompt below is kept as a historical
+> record only; it names `mbe-swarm`, which no longer exists.
 
 Authoritative prompt for the `mbe-prune-a`, `mbe-prune-b`, `mbe-prune-c` and
 `mbe-prune-d` RemoteTriggers, captured byte-for-byte from

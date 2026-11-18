@@ -29,7 +29,7 @@ const LITERAL_MERGE_CALL =
   /gh api -X PUT repos\/mattbutlerengineering\/mattbutlerengineering\/pulls\/<(N|PR)>\/merge --input/;
 
 /** Routines whose prompt merges PRs from a Claude Code Remote session. */
-const CLOUD_MERGING_ROUTINES = ["mbe-feature-drain", "mbe-prune", "mbe-daily-issue"];
+const CLOUD_MERGING_ROUTINES = ["mbe-feature-drain", "mbe-daily-issue"];
 
 /** Local (non-CCR) merge paths, which use `gh pr merge` under `Bash(gh pr *)`. */
 const LOCAL_MERGE_PATHS = [".claude/implement-queue.md", ".claude/skills/ship-pr/SKILL.md"];

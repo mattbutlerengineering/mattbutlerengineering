@@ -15,9 +15,10 @@ file wins — see
 [`docs/scheduled-tasks.md`](../scheduled-tasks.md#editing-a-routine) for the
 `update`-clobbers-`job_config` trap and the rule for editing the live trigger.
 
-**What makes it different from the three `/idea-to-prod:implement-queue` routines.**
-`mbe-midday`, `mbe-evening`, and `mbe-night` each drain a batch of up to 3
-`ready` issues and leave PRs behind; whether those PRs ever merge is someone
+**What makes it different from the `/idea-to-prod:implement-queue` routines.**
+`mbe-evening` drains a batch of up to 3
+`ready` issues and leaves PRs behind (`mbe-midday` and `mbe-night` did the same
+until they were retired on 2026-11-15); whether those PRs ever merge is someone
 else's problem. This routine's unit of success is one issue **CLOSED** — it
 takes a single issue all the way through review gate, `CI Gate`, squash merge,
 and a post-merge confirmation that the issue actually closed. Throughput is
