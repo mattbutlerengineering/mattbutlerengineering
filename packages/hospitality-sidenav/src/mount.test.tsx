@@ -216,6 +216,33 @@ describe("sections and mobile drawer behaviour", () => {
   });
 });
 
+describe("mobile drawer focus management", () => {
+  it("moves focus into the panel on open, traps Tab, and returns focus to the trigger on close", async () => {
+    const trigger = document.createElement("button");
+    trigger.textContent = "Menu";
+    document.body.appendChild(trigger);
+    const handle = mountSideNav(container, makeProps());
+    trigger.focus();
+
+    act(() => handle.update(makeProps({ isMobileOpen: true })));
+    const nav = within(container).getByRole("navigation", { name: "Dashboard navigation" });
+    expect(nav).toContainElement(document.activeElement as HTMLElement);
+
+    const focusable = Array.from(nav.querySelectorAll<HTMLElement>("button"));
+    const last = focusable[focusable.length - 1] as HTMLElement;
+    last.focus();
+    await userEvent.tab();
+    expect(document.activeElement).toBe(focusable[0]);
+    await userEvent.tab({ shift: true });
+    expect(document.activeElement).toBe(last);
+
+    act(() => handle.update(makeProps({ isMobileOpen: false })));
+    expect(document.activeElement).toBe(trigger);
+    handle.unmount();
+    trigger.remove();
+  });
+});
+
 describe("render errors", () => {
   it("catches a render error in the root's boundary and reports it through onRenderError", () => {
     const onRenderError = vi.fn<(e: Error) => void>();

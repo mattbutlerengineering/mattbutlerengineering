@@ -4,7 +4,7 @@
  * rialto's tokens through CSS only, so the native elements below are deliberate.
  */
 /* eslint-disable mbe-local/prefer-rialto-components */
-import { useCallback, useEffect, useState, type ReactElement } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
 import { resolveLocale, translate } from "./i18n.js";
 import { sections as buildSections } from "./sections.js";
 import { SlotMount } from "./SlotMount.js";
@@ -13,6 +13,9 @@ import type { NavAction, NavItem, SideNavProps, SideNavSlots } from "./types.js"
 
 /** Same key the hospitality sidebar used, so an operator's collapsed sections carry over. */
 const STORAGE_KEY = "hospitality-sidebar-collapsed";
+
+const FOCUSABLE_SELECTOR =
+  'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 function ChevronIcon(): ReactElement {
   return (
@@ -92,6 +95,7 @@ function ItemButton(props: {
 export function SideNav(props: SideNavProps & { slots: SideNavSlots }): ReactElement {
   const { pathname, locale, direction, isMobileOpen, onAction, onMobileClose, slots } = props;
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(loadCollapsed);
+  const panelRef = useRef<HTMLElement>(null);
   // Pure and a few dozen items: cheaper to rebuild than to key a memo on every input.
   const sections = buildSections(props);
 
@@ -109,6 +113,41 @@ export function SideNav(props: SideNavProps & { slots: SideNavSlots }): ReactEle
       document.body.style.overflow = "";
     };
   }, [isMobileOpen, onMobileClose]);
+
+  // Mobile drawer focus: move focus in on open, keep Tab inside the panel, and return focus to
+  // whatever opened it on close.
+  useEffect(() => {
+    if (!isMobileOpen) return undefined;
+    const panel = panelRef.current;
+    if (!panel) return undefined;
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const focusable = (): HTMLElement[] =>
+      Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
+    focusable()[0]?.focus();
+    const onTab = (event: KeyboardEvent): void => {
+      if (event.key !== "Tab") return;
+      const items = focusable();
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (!first || !last) return;
+      const current = document.activeElement;
+      if (!panel.contains(current)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+      } else if (event.shiftKey && current === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && current === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onTab);
+    return () => {
+      document.removeEventListener("keydown", onTab);
+      if (opener?.isConnected) opener.focus();
+    };
+  }, [isMobileOpen]);
 
   const toggleSection = useCallback((key: string) => {
     setCollapsed((previous) => {
@@ -144,6 +183,7 @@ export function SideNav(props: SideNavProps & { slots: SideNavSlots }): ReactEle
         />
       )}
       <nav
+        ref={panelRef}
         className={`${styles.root} ${isMobileOpen ? styles.mobileOpen : ""}`}
         aria-label={translate(resolveLocale(locale), "nav.label")}
         dir={direction}
