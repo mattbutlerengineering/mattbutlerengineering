@@ -285,9 +285,10 @@ export function findPriorRoutineFindingCandidate(candidates, routineName) {
 }
 
 /**
- * A closed finding suppresses a fresh one for this long. Six findings for one
- * routine were filed in one day and closed NOT_PLANNED (#9072); a routine that
- * is still dark after a human closed its issue is not a new incident each run.
+ * A finding closed NOT_PLANNED suppresses a fresh one for this long. Six findings
+ * for one routine were filed in one day and closed NOT_PLANNED (#9072); a routine
+ * that is still dark after a human declined its issue is not a new incident each
+ * run. A completed close (recovery or a fix) does not suppress anything.
  */
 export const FINDING_COOLDOWN_DAYS = 14;
 
@@ -313,7 +314,7 @@ export const FINDING_LABEL = "auto-health";
  *
  * @param {{
  *   status: "alive"|"late"|"dark"|"unverifiable",
- *   existingIssue: {number: number, state: "open"|"closed"|"missing", filedStatus?: "dark"|"unverifiable"|null} | null,
+ *   existingIssue: {number: number, state: "open"|"closed"|"missing", filedStatus?: "dark"|"unverifiable"|null, closedAt?: string, stateReason?: string} | null,
  * }} args
  * @returns {{action: "create"} | {action: "cooldown", issueNumber: number} | {action: "skip", issueNumber: number} | {action: "close", issueNumber: number} | {action: "no-op"}}
  */
@@ -330,7 +331,10 @@ export function decideIssueTransition({
     if (existingIssue.state === "open") {
       return { action: "skip", issueNumber: existingIssue.number };
     }
-    // Closed: inside the cooldown a recurrence is the same incident, not a new one.
+    // Closed NOT_PLANNED by a human: inside the cooldown a recurrence is the same noise, not a
+    // new incident. Any other close (this script's own `--reason completed` recovery close, or a
+    // human fix) says the routine was fine, so going dark again is a recurrence worth a tracker.
+    if (existingIssue.stateReason !== "NOT_PLANNED") return { action: "create" };
     const closedMs = existingIssue.closedAt ? new Date(existingIssue.closedAt).getTime() : NaN;
     const nowMs = now === undefined ? NaN : new Date(now).getTime();
     if (
@@ -718,6 +722,7 @@ function runLivenessPass({
           state: getIssueState(priorMatch.number),
           filedStatus: extractRoutineFindingStatusFromTitle(priorMatch),
           closedAt: priorMatch.closedAt,
+          stateReason: priorMatch.stateReason,
         }
       : null;
 
@@ -1069,7 +1074,7 @@ function main() {
         "--limit",
         "200",
         "--json",
-        "number,title,closedAt",
+        "number,title,closedAt,stateReason",
       ]),
     getIssueState: (issueNumber) => issueState(ghClient, issueNumber),
     createIssue: (title, body, _labels, status) =>

@@ -266,14 +266,46 @@ describe("finding dedupe and cooldown (#9072)", () => {
     expect(findPriorRoutineFindingCandidate(candidates, "mbe-daily-issue").number).toBe(7);
   });
 
-  it("skips re-filing inside the cooldown after a close", () => {
+  it("skips re-filing inside the cooldown after a NOT_PLANNED close", () => {
     expect(
       decideIssueTransition({
         status: "dark",
         now: "2026-11-18T08:10:00Z",
-        existingIssue: { number: 7, state: "closed", closedAt: "2026-11-12T10:00:00Z" },
+        existingIssue: {
+          number: 7,
+          state: "closed",
+          closedAt: "2026-11-12T10:00:00Z",
+          stateReason: "NOT_PLANNED",
+        },
       })
     ).toEqual({ action: "cooldown", issueNumber: 7 });
+  });
+
+  it("files a fresh issue when a routine goes dark again after a completed close", () => {
+    // A recovery close (this script's own, --reason completed) or a human fix is
+    // not a verdict that the routine's darkness is noise: a recurrence is new.
+    expect(
+      decideIssueTransition({
+        status: "dark",
+        now: "2026-11-18T08:10:00Z",
+        existingIssue: {
+          number: 7,
+          state: "closed",
+          closedAt: "2026-11-15T10:00:00Z",
+          stateReason: "COMPLETED",
+        },
+      })
+    ).toEqual({ action: "create" });
+  });
+
+  it("files a fresh issue when the close reason is unknown", () => {
+    expect(
+      decideIssueTransition({
+        status: "dark",
+        now: "2026-11-18T08:10:00Z",
+        existingIssue: { number: 7, state: "closed", closedAt: "2026-11-15T10:00:00Z" },
+      })
+    ).toEqual({ action: "create" });
   });
 
   it("files again once the cooldown has elapsed", () => {
