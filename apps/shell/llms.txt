@@ -1,0 +1,191 @@
+<codebase path="apps/shell">
+  <section priority="medium" role="support">
+  <file path="e2e/support/checks.ts">
+    <item priority="high">
+      export const CHECK_IDS: unknown;
+    </item>
+    <item priority="low">
+      type CheckId = (typeof CHECK_IDS)[number];
+    </item>
+  </file>
+  <file path="e2e/support/csp.ts">
+    <item priority="low">
+      interface KnownViolation {
+        directive: string;
+        sourceFileIncludes: string;
+      }
+    </item>
+    <item priority="high">
+      export const KNOWN_PRE_EXISTING_CSP_VIOLATIONS: ReadonlyArray<KnownViolation>;
+    </item>
+    <item priority="high">
+      export function scriptSrc(policy: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function weakensScripts(policy: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function unexpectedViolations<T extends Record<string, unknown>>(
+        found: ReadonlyArray<T>,
+        known: ReadonlyArray<KnownViolation> = KNOWN_PRE_EXISTING_CSP_VIOLATIONS
+      ): T[] { /* ... */ }
+    </item>
+  </file>
+  <file path="e2e/support/global-setup.ts">
+    <item priority="low">
+      export default function globalSetup(): void { /* ... */ }
+    </item>
+  </file>
+  <file path="e2e/support/harness.ts">
+    <item priority="high">
+      export const SEL: unknown;
+    </item>
+    <item priority="high">
+      export const TARGET: unknown;
+    </item>
+    <item priority="high">
+      export const SESSION: SessionConfig | null;
+    </item>
+    <item priority="high">
+      export const SENTINEL: unknown;
+    </item>
+    <item priority="high">
+      export const NO_SESSION_REASON: unknown;
+    </item>
+    <item priority="high">
+      export function report(check: string, label: string, value: unknown): void { /* ... */ }
+    </item>
+    <item priority="medium">
+      function sessionEntry(session: SessionConfig) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function storageKey(session: SessionConfig): string { /* ... */ }
+    </item>
+    <item priority="low">
+      type ShellMode = "on" | "off";
+    </item>
+    <item priority="high">
+      export async function setShellMode(context: BrowserContext, mode: ShellMode): Promise<void> { /* ... */ }
+    </item>
+    <item priority="low">
+      interface PrepareOptions {
+        signedIn?: boolean;
+        shell?: ShellMode;
+      }
+    </item>
+    <item priority="high">
+      export async function prepare(
+        page: Page,
+        testInfo: Parameters<typeof declareNotRun>[0],
+        options: PrepareOptions = {}
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function violations(page: Page): Promise<ReadonlyArray<Record<string, unknown>>> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function trackDocuments(page: Page) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function trackStreams(page: Page) { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function navLink(page: Page, name: string): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function hospitalityReady(page: Page): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function rialtoReady(page: Page): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function settle(page: Page): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function openChatAndSend(page: Page): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export const chatToken: unknown;
+    </item>
+    <item priority="high">
+      export async function metrics(cdp: CDPSession): Promise<Record<string, number>> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function scrollSnapshot(
+        page: Page,
+        selector: string
+      ): Promise<Record<string, number>> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function scrollScrollables(page: Page, selector: string, by: number): Promise<number> { /* ... */ }
+    </item>
+    <item priority="low">
+      type Fingerprint = Readonly<Record<string, Readonly<Record<string, string>>>>;
+    </item>
+    <item priority="high">
+      export async function fingerprint(page: Page, rootSelector: string): Promise<Fingerprint> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function diffFingerprints(base: Fingerprint, other: Fingerprint) { /* ... */ }
+    </item>
+  </file>
+  <file path="e2e/support/not-run.ts">
+    <item priority="high">
+      export const NOT_RUN_ANNOTATION: unknown;
+    </item>
+    <item priority="low">
+      interface SummaryInput {
+        title: string;
+        status: "passed" | "failed" | "timedOut" | "skipped" | "interrupted";
+        annotations: ReadonlyArray<{ type: string; description?: string }>;
+      }
+    </item>
+    <item priority="low">
+      interface Summary {
+        passed: number;
+        failed: number;
+        notRun: ReadonlyArray<{ title: string; reason: string }>;
+        unexplainedSkips: ReadonlyArray<string>;
+      }
+    </item>
+    <item priority="high">
+      export function notRunReason(annotations: SummaryInput["annotations"]): string | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function summarize(results: ReadonlyArray<SummaryInput>): Summary { /* ... */ }
+    </item>
+    <item priority="high">
+      export function declareNotRun(testInfo: TestInfo, reason: string): void { /* ... */ }
+    </item>
+  </file>
+  <file path="e2e/support/reporter.ts">
+    <item priority="low">
+      class ConformanceReporter {
+        results: SummaryInput[];
+        async onTestEnd(): Promise<unknown>;
+        async onEnd(): Promise<unknown>;
+      }
+    </item>
+  </file>
+  <file path="e2e/support/target.ts">
+    <item priority="high">
+      export const TARGET_ENV: unknown;
+    </item>
+    <item priority="high">
+      type Env = Readonly<Record<string, string | undefined>>;
+    </item>
+    <item priority="high">
+      export function resolveTarget(env: Env): string { /* ... */ }
+    </item>
+    <item priority="low">
+      interface SessionConfig {
+        authority: string;
+        clientId: string;
+      }
+    </item>
+    <item priority="high">
+      export function resolveSession(env: Env): SessionConfig | null { /* ... */ }
+    </item>
+  </file>
+  </section>
+</codebase>

@@ -88,6 +88,8 @@ export const FAMILIES = [
       "apps/marketing/llms-full.txt",
       "apps/rialto-web/llms.txt",
       "apps/rialto-web/llms-full.txt",
+      "apps/shell/llms.txt",
+      "apps/shell/llms-full.txt",
       "infrastructure/pulumi/llms.txt",
       "infrastructure/pulumi/llms-full.txt",
       "packages/agent-core/llms.txt",

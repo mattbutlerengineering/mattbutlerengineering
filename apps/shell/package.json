@@ -7,6 +7,7 @@
     "lint": "eslint e2e/",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:conformance": "playwright test --config playwright.conformance.config.ts"
   },
   "devDependencies": {
