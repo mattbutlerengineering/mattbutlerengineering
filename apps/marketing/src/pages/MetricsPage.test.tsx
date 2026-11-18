@@ -4,6 +4,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React from "react";
 import { MetricsPage } from "./MetricsPage.js";
+import { formatDate } from "../utils/formatters.js";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Card: ({ children, className }: any) => <div className={className}>{children}</div>,
@@ -486,6 +487,28 @@ describe("MetricsPage", () => {
     });
     expect(screen.getByText(/Stale — last measured May 10, 2026/)).toBeInTheDocument();
     expect(screen.queryByText("90.0%")).not.toBeInTheDocument();
+  });
+
+  it("dates a fresh eval pass rate so the figure carries a freshness signal (#9042)", async () => {
+    const lastRun = new Date().toISOString();
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        ...MOCK_METRICS,
+        behavioral: {
+          ...MOCK_METRICS.behavioral,
+          evalPassRate: 0.8,
+          evalsStale: false,
+          evalsLastRun: lastRun,
+        },
+      }),
+    });
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("80.0%")).toBeInTheDocument();
+    });
+    expect(screen.getByText(`Last measured ${formatDate(lastRun)}`)).toBeInTheDocument();
   });
 
   it("renders a count gate as a count, not a percentage (auto-qa-tuning-history)", async () => {

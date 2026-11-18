@@ -98,7 +98,14 @@ function EvalsSummary({ behavioral }: { behavioral: RepoEntry["behavioral"] }) {
       </Text>
     );
   }
-  return <Text>Agent evals: {formatPercent(behavioral.evalPassRate ?? 0)} pass</Text>;
+  const measured = behavioral.evalsLastRun
+    ? `, last measured ${formatDate(behavioral.evalsLastRun)}`
+    : "";
+  return (
+    <Text>
+      Agent evals: {formatPercent(behavioral.evalPassRate ?? 0)} pass{measured}
+    </Text>
+  );
 }
 
 export function AcmmPage() {

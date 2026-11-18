@@ -238,7 +238,9 @@ describe("AcmmPage", () => {
     mockFetch.mockResolvedValue({ ok: true, json: async () => FRESH_EVALS_REPORT });
     render(<AcmmPage />);
     await waitFor(() => {
-      expect(screen.getByText(/Agent evals: 86.5% pass/)).toBeInTheDocument();
+      expect(
+        screen.getByText(/Agent evals: 86.5% pass, last measured Sep 25, 2026/)
+      ).toBeInTheDocument();
     });
     expect(screen.queryByText(/not measured/)).not.toBeInTheDocument();
   });

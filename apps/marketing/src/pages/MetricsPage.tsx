@@ -218,6 +218,13 @@ export function MetricsPage() {
           <Card className={styles.statCard}>
             <Text className={styles.statLabel}>Eval Pass Rate</Text>
             <Text className={styles.statValue}>{formatEvalPassRate(metrics.behavioral)}</Text>
+            {metrics.behavioral.evalPassRate !== null &&
+              metrics.behavioral.evalsLastRun &&
+              !isStale(metrics.behavioral.evalsLastRun) && (
+                <Text className={styles.statLabel}>
+                  Last measured {formatDate(metrics.behavioral.evalsLastRun)}
+                </Text>
+              )}
           </Card>
         </div>
       </section>
