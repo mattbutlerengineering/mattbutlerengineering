@@ -34,7 +34,7 @@ Generic lifecycle skills (idea, prd, architect, implement, review, ship, automat
 | `/md-audit`                      | Weekly semantic pass over human-facing markdown (README, CONTRIBUTING, docs/\*\*) — finds prose claims the repo no longer satisfies; the mechanical half is `pnpm check:markdown` (`scripts/audit-markdown.mjs`), both driven by `.github/workflows/docs-audit.yml` |
 | `/optimize-implement-queue`      | Daily loop: measure implement-queue efficiency via the queueEfficiency sensor, log trend, file de-duplicated issues on regression                                                                                                                                   |
 | `/perf-budget`                   | Check bundle size impact of current changes against size-limit baselines                                                                                                                                                                                            |
-| `/revert-rca-loop`               | Manually run the revert RCA (`node scripts/revert-rca.mjs --pr <N>`) for a reverted PR; the automatic path is `revert-rca-loop.yml`                                                                                                                                 |
+| `/revert-rca-loop`               | Manually run the revert RCA (`node scripts/revert-rca.mjs --pr <N>`) for a reverted PR                                                                                                                                                                              |
 | `/ship-pr`                       | Run the full merge boundary on one open PR — build-freshness, CI-gate classification, diff-matched specialist review plus the universal reviewer, then merge                                                                                                        |
 
 **User-level skills** (not in this repo): `/caveman`, `/diagnose`, `/grill-with-docs`, `/improve`, `/improve-codebase-architecture`, `/tdd`, `/to-issues`, `/triage`, and `/write-a-skill` were retired from `.claude/skills/` by PR #3323 and are not installed anywhere as of 2026-10-16 — don't expect them to resolve. The Communication section's caveman _mode_ is a standing instruction to follow directly, not a call to the retired `/caveman` skill.
@@ -163,7 +163,7 @@ Each file is named `YYYY-MM-DD-<slug>.md` with frontmatter:
 **What writes to it:**
 
 - A human writing the reflection file at session end, synthesizing corrections and reinforcements into actionable insights (same hand-written path as `corrections/` — no `/reflect` skill exists)
-- `.github/workflows/revert-rca-loop.yml` -> `scripts/revert-rca.mjs` tasks an agent to write RCA documents after PRs are reverted (e.g. `RCA-PR-5949.md`)
+- `scripts/revert-rca.mjs` (run by hand via `/revert-rca-loop`) tasks an agent to write RCA documents after PRs are reverted (e.g. `RCA-PR-5949.md`)
 
 **What reads it:**
 

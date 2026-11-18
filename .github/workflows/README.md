@@ -28,7 +28,6 @@ Run on pull requests to enforce standards before merge.
 | `e2e.yml`                    | End-to-end tests via Playwright            |
 | `instruction-regression.yml` | Detect regressions in AI instruction files |
 | `preview-deploy.yml`         | Deploy PR preview environments             |
-| `revert-rca-loop.yml`        | Detect reverted AI PRs, trigger RCA        |
 | `secret-scan.yml`            | Scan for leaked secrets                    |
 | `storybook.yml`              | Build and deploy Storybook                 |
 | `tier-classifier.yml`        | Classify PR risk tier for review routing   |
@@ -73,12 +72,10 @@ Run on cron schedules for ongoing health and compliance.
 
 | Workflow                    | Trigger      | Purpose                                    |
 | --------------------------- | ------------ | ------------------------------------------ |
-| `agent-task.yml`            | manual       | Run an agent task via workflow dispatch    |
 | `auto-label.yml`            | issue events | Auto-label new issues                      |
 | `auto-merge.yml`            | PR           | Auto-merge policy enforcement              |
 | `auto-rollback.yml`         | manual       | Rollback agent regressions                 |
 | `circuit-breaker.yml`       | manual       | Circuit breaker for runaway automation     |
-| `claude.yml`                | PR review    | Trigger Claude Code on review comments     |
 | `dependabot-auto-merge.yml` | PR           | Auto-merge Dependabot dev dependency bumps |
 | `e2e-screenshots.yml`       | push, manual | Capture E2E screenshots                    |
 | `post-deploy-check.yml`     | manual       | Verify deployment health                   |
