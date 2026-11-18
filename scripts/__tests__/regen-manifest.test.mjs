@@ -1,22 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync, existsSync } from "node:fs";
-import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { load as loadYaml } from "js-yaml";
-import {
-  FAMILIES,
-  llmsPackages,
-  familiesForChangedFile,
-  artifactPaths,
-  LLMS_EXEMPTIONS,
-} from "../regen-manifest.mjs";
+import { FAMILIES, familiesForChangedFile, artifactPaths } from "../regen-manifest.mjs";
 import { needsFullRegen } from "../check-regen-needed.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const ROOT = resolve(__dirname, "../..");
 const SOURCE = readFileSync(resolve(__dirname, "../regen-manifest.mjs"), "utf8");
-const REGEN_SOURCE = readFileSync(resolve(__dirname, "../regen.mjs"), "utf8");
 
 describe("regen-manifest", () => {
   it("exports an array of families", () => {
@@ -40,54 +30,13 @@ describe("regen-manifest", () => {
     expect(unique.size).toBe(ids.length);
   });
 
-  it("contains the 5 required families", () => {
+  it("contains the required families", () => {
     const ids = new Set(FAMILIES.map((f) => f.id));
-    expect(ids.has("llms-txt")).toBe(true);
+    expect(ids.has("llms-txt")).toBe(false);
     expect(ids.has("rialto-registry")).toBe(true);
     expect(ids.has("rialto-catalog-schemas")).toBe(true);
     expect(ids.has("dep-graph-md")).toBe(true);
     expect(ids.has("dep-graph-json")).toBe(true);
-  });
-
-  it("llms-txt outputs include the root llms.txt", () => {
-    const llms = FAMILIES.find((f) => f.id === "llms-txt");
-    expect(llms.outputs).toContain("llms.txt");
-  });
-
-  it("llms-txt outputs include all workspace packages with llms.txt", () => {
-    const llms = FAMILIES.find((f) => f.id === "llms-txt");
-    // At least the main app and service packages
-    const expected = [
-      "apps/hospitality/llms.txt",
-      "services/agent/llms.txt",
-      "packages/rialto/llms.txt",
-    ];
-    for (const e of expected) {
-      expect(llms.outputs, `expected ${e}`).toContain(e);
-    }
-    // All workspace outputs end with /llms.txt or /llms-full.txt
-    const workspaceOutputs = llms.outputs.filter((o) => o !== "llms.txt" && o !== "llms-full.txt");
-    for (const o of workspaceOutputs) {
-      expect(o).toMatch(/\/llms(?:-full)?\.txt$/);
-    }
-  });
-
-  it("llmsPackages() returns directory paths (not llms.txt paths)", () => {
-    const pkgs = llmsPackages();
-    expect(Array.isArray(pkgs)).toBe(true);
-    // Root is represented as "."
-    expect(pkgs).toContain(".");
-    // No entry ends with llms.txt
-    for (const p of pkgs) {
-      expect(p).not.toMatch(/llms\.txt$/);
-    }
-  });
-
-  it("llmsPackages() length matches llms-txt llms.txt entries (not llms-full.txt)", () => {
-    const llms = FAMILIES.find((f) => f.id === "llms-txt");
-    const txtCount = llms.outputs.filter((o) => o === "llms.txt" || o.endsWith("/llms.txt")).length;
-    const pkgs = llmsPackages();
-    expect(pkgs.length).toBe(txtCount);
   });
 
   it("rialto-registry command references the correct filter", () => {
@@ -108,57 +57,9 @@ describe("regen-manifest", () => {
     expect(md.outputs[0]).not.toBe(json.outputs[0]);
   });
 
-  it("llms-txt outputs do NOT include deleted packages/feature-flags", () => {
-    const llms = FAMILIES.find((f) => f.id === "llms-txt");
-    expect(llms.outputs).not.toContain("packages/feature-flags/llms.txt");
-    expect(llms.outputs).not.toContain("packages/feature-flags/llms-full.txt");
-  });
-
-  // Regression test for #2937: committed llms.txt/llms-full.txt files that
-  // are never listed as manifest outputs are silently skipped by both
-  // `pnpm regen` (never regenerated) and `pnpm regen --check` (never
-  // verified) — they can drift indefinitely with no CI signal.
-  it("every git-tracked llms.txt/llms-full.txt file has a manifest entry", () => {
-    const tracked = execFileSync("git", ["ls-files", "*llms*.txt"], {
-      cwd: ROOT,
-      encoding: "utf8",
-    })
-      .trim()
-      .split("\n")
-      .filter(Boolean);
-    const llms = FAMILIES.find((f) => f.id === "llms-txt");
-    const manifestOutputs = new Set(llms.outputs);
-    const uncovered = tracked.filter((p) => !manifestOutputs.has(p));
-    expect(
-      uncovered,
-      `committed llms artifacts missing a regen-manifest entry: ${uncovered.join(", ")}`
-    ).toEqual([]);
-  });
-
-  it("no family command references the non-existent pack-all alias", () => {
-    // `pack-all` is not a real CLI command — running it errors with
-    // "unknown command 'pack-all'". The command field is the remediation
-    // hint printed by `regen --check`, so it must be runnable as-is.
+  it("no family command references the retired `mbe pack` command", () => {
     for (const f of FAMILIES) {
-      expect(f.command, `${f.id}.command`).not.toContain("pack-all");
-    }
-  });
-
-  it("llms-txt remediation hint is the runnable `pnpm regen` command", () => {
-    const llms = FAMILIES.find((f) => f.id === "llms-txt");
-    // regen.mjs special-cases the llms-txt family (loops `pack <pkg>`), so the
-    // command field is only the human-facing fix hint. `pnpm regen` is the
-    // canonical, always-correct way to regenerate llms.txt files.
-    expect(llms.command).toBe("pnpm regen");
-  });
-
-  it("llms-txt outputs include llms-full.txt alongside every llms.txt", () => {
-    const llms = FAMILIES.find((f) => f.id === "llms-txt");
-    const txts = llms.outputs.filter((o) => o.endsWith("/llms.txt") || o === "llms.txt");
-    for (const txt of txts) {
-      const fullTxt =
-        txt === "llms.txt" ? "llms-full.txt" : txt.replace(/\/llms\.txt$/, "/llms-full.txt");
-      expect(llms.outputs, `expected ${fullTxt} alongside ${txt}`).toContain(fullTxt);
+      expect(f.command, `${f.id}.command`).not.toMatch(/\bpack\b/);
     }
   });
 
@@ -171,24 +72,6 @@ describe("regen-manifest", () => {
 
   it("uses execFileSync for subprocess execution (no shell invocation)", () => {
     expect(SOURCE).toContain("execFileSync");
-  });
-
-  // Ordering invariant: llms-txt embeds content from generated-schemas.ts.
-  // If regen.mjs runs regenLlms() before regenFamily() for rialto-catalog-schemas,
-  // the llms files embed the pre-regen schema → CI detects drift after regenerating
-  // the schema. Enforcing this order here prevents the recurring treadmill.
-  it("regen.mjs runRegen executes regenLlms() after all regenFamily() calls", () => {
-    const fnStart = REGEN_SOURCE.indexOf("function runRegen()");
-    expect(fnStart, "runRegen() not found in regen.mjs").toBeGreaterThan(-1);
-    const afterFn = REGEN_SOURCE.slice(fnStart);
-    const regenLlmsIdx = afterFn.lastIndexOf("regenLlms()");
-    const regenFamilyIdx = afterFn.lastIndexOf("regenFamily(family)");
-    expect(regenLlmsIdx, "regenLlms() not found in runRegen").toBeGreaterThan(-1);
-    expect(regenFamilyIdx, "regenFamily(family) not found in runRegen").toBeGreaterThan(-1);
-    expect(
-      regenLlmsIdx,
-      "regenLlms() must come AFTER regenFamily(family) so llms embeds the freshly-generated schema"
-    ).toBeGreaterThan(regenFamilyIdx);
   });
 });
 
@@ -235,47 +118,8 @@ describe("familiesForChangedFile", () => {
     expect(matches).toEqual([]);
   });
 
-  it("maps a source file inside a covered package to a package-scoped llms-txt family", () => {
-    const matches = familiesForChangedFile("packages/rialto/src/Foo.tsx");
-    expect(matches.length).toBe(1);
-    expect(matches[0].id).toBe("llms-txt");
-    expect(matches[0].command).toBe("pnpm --filter @mbe/cli start pack packages/rialto");
-    expect(matches[0].outputs).toEqual([
-      "packages/rialto/llms.txt",
-      "packages/rialto/llms-full.txt",
-    ]);
-  });
-
-  // Regression test for #2983: CLAUDE_PROJECT_DIR (or the git rev-parse
-  // fallback) and CLAUDE_FILE_PATH can disagree on the real path when a
-  // symlink is involved (e.g. macOS /tmp -> /private/tmp). When that happens,
-  // the PostToolUse hook's prefix-strip silently fails and passes an absolute
-  // path straight through to `--families-for`. packageDirFor() must still
-  // resolve the owning package instead of returning null and no-op'ing on a
-  // genuine package-source edit.
-  it("maps an absolute path (root/file-path mismatch, e.g. symlinked /tmp) to a package-scoped llms-txt family", () => {
-    const matches = familiesForChangedFile(
-      "/private/tmp/some-worktree/packages/rialto/src/Foo.tsx"
-    );
-    expect(matches.length).toBe(1);
-    expect(matches[0].id).toBe("llms-txt");
-    expect(matches[0].command).toBe("pnpm --filter @mbe/cli start pack packages/rialto");
-    expect(matches[0].outputs).toEqual([
-      "packages/rialto/llms.txt",
-      "packages/rialto/llms-full.txt",
-    ]);
-  });
-
-  it("maps a CLAUDE.md edit inside a covered package to a package-scoped llms-txt family", () => {
-    const matches = familiesForChangedFile("services/agent/CLAUDE.md");
-    expect(matches.length).toBe(1);
-    expect(matches[0].id).toBe("llms-txt");
-    expect(matches[0].outputs).toEqual(["services/agent/llms.txt", "services/agent/llms-full.txt"]);
-  });
-
-  it("returns [] for a source file in a package with no committed llms.txt yet", () => {
-    const matches = familiesForChangedFile("packages/does-not-exist-yet/src/foo.ts");
-    expect(matches).toEqual([]);
+  it("returns [] for a plain package source edit (no family regenerates from it)", () => {
+    expect(familiesForChangedFile("packages/does-not-exist-yet/src/foo.ts")).toEqual([]);
   });
 
   it("returns [] for a test file (mirrors REGEN_SOURCE_EXCLUDES, no wasted regen)", () => {
@@ -298,7 +142,7 @@ describe("familiesForChangedFile", () => {
   // function (or to any hook script that calls it) — the loop below is
   // generic over whatever families it's given. This is what lets a 6th
   // manifest family "just work" without touching regen-dep-graph.sh /
-  // regen-llms.sh.
+  // any other hook.
   it("picks up a hypothetical new family via dependency injection, with no changes to familiesForChangedFile itself", () => {
     const hypotheticalFamilies = [
       ...FAMILIES,
@@ -390,73 +234,5 @@ describe("cursorrules family", () => {
 
   it("treats a root AGENTS.md change as a regen source", () => {
     expect(needsFullRegen(["AGENTS.md"])).toBe(true);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Workspace llms.txt coverage — issue #8881: every workspace package must
-// either have a committed llms.txt (family entry) or a reasoned exemption,
-// so a new package can never silently escape `pnpm regen --check`.
-// ---------------------------------------------------------------------------
-describe("workspace llms.txt coverage", () => {
-  /** Glob patterns from pnpm-workspace.yaml's `packages:` list. */
-  function workspacePackagePatterns() {
-    const doc = loadYaml(readFileSync(resolve(ROOT, "pnpm-workspace.yaml"), "utf8"));
-    return doc.packages;
-  }
-
-  /** True when `dir` matches a workspace glob (either a literal dir, or `<prefix>/*`). */
-  function matchesWorkspacePattern(dir, patterns) {
-    return patterns.some((pattern) => {
-      if (!pattern.endsWith("/*")) return dir === pattern;
-      const prefix = pattern.slice(0, -2);
-      return dir.startsWith(`${prefix}/`) && dir.slice(prefix.length + 1).indexOf("/") === -1;
-    });
-  }
-
-  /** Every git-tracked workspace package directory (relative to ROOT, excludes root itself). */
-  function workspacePackageDirs() {
-    const patterns = workspacePackagePatterns();
-    const packageJsonFiles = execFileSync("git", ["ls-files", "*package.json"], {
-      cwd: ROOT,
-      encoding: "utf8",
-    })
-      .trim()
-      .split("\n")
-      .filter(Boolean);
-    const dirs = packageJsonFiles
-      .map((p) => dirname(p))
-      .filter((d) => d !== "." && matchesWorkspacePattern(d, patterns));
-    return [...new Set(dirs)];
-  }
-
-  it("every workspace package dir has a family entry or a reasoned exemption", () => {
-    const covered = new Set(llmsPackages());
-    const exempted = new Set(LLMS_EXEMPTIONS.map((e) => e.dir));
-    const uncovered = workspacePackageDirs().filter((d) => !covered.has(d) && !exempted.has(d));
-    expect(
-      uncovered,
-      `workspace package(s) with no llms.txt family entry and no exemption: ${uncovered.join(", ")}`
-    ).toEqual([]);
-  });
-
-  it("every exemption has a non-empty reason", () => {
-    for (const e of LLMS_EXEMPTIONS) {
-      expect(typeof e.reason, e.dir).toBe("string");
-      expect(e.reason.trim().length, `${e.dir} reason`).toBeGreaterThan(0);
-    }
-  });
-
-  it("every exemption names a directory that still exists", () => {
-    for (const e of LLMS_EXEMPTIONS) {
-      expect(existsSync(resolve(ROOT, e.dir)), e.dir).toBe(true);
-    }
-  });
-
-  it("no exemption also has a family entry", () => {
-    const covered = new Set(llmsPackages());
-    for (const e of LLMS_EXEMPTIONS) {
-      expect(covered.has(e.dir), `${e.dir} is both covered and exempted`).toBe(false);
-    }
   });
 });

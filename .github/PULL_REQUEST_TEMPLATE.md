@@ -40,7 +40,6 @@
 - [ ] `pnpm test` passes
 - [ ] **No hardcoded secrets or credentials**
 - [ ] ACMM compliance verified
-- [ ] llms.txt updated (if applicable)
 - [ ] Documentation updated (if applicable)
 
 Review rubric: [`docs/review-criteria.md`](../docs/review-criteria.md) | AI policy: [`docs/SECURITY-AI.md`](../docs/SECURITY-AI.md)

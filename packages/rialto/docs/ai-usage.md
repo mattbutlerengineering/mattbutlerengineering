@@ -122,7 +122,7 @@ Available component token groups: Button, Input, Toggle, Checkbox, Radio, Card, 
 | File                             | Purpose                                    |
 | -------------------------------- | ------------------------------------------ |
 | `CLAUDE.md`                      | Authoring rules, token usage, motion rules |
-| `llms.txt`                       | Component API reference for consumers      |
+| `registry.json`                  | Component API reference for consumers      |
 | `src/tokens/`                    | All design tokens (CSS + DTCG JSON)        |
 | `src/styles/surfaces.module.css` | Surface material compositions              |
 | `src/showcase/App.tsx`           | Showcase application                       |

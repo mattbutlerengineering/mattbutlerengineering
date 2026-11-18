@@ -1,6 +1,6 @@
 ---
 name: local-ci-precheck
-description: "Runs CI's lint, typecheck, architecture-audit, drift and bundle-size checks locally in parallel, catching workspace-package issues and stale generated artifacts (dep-graph, llms.txt) in 30 seconds instead of 5 minutes. Use before opening or pushing to a PR."
+description: "Runs CI's lint, typecheck, architecture-audit, drift and bundle-size checks locally in parallel, catching workspace-package issues and stale generated artifacts (dep-graph) in 30 seconds instead of 5 minutes. Use before opening or pushing to a PR."
 user-invocable: true
 disable-model-invocation: true
 ---
@@ -29,7 +29,7 @@ In parallel, from the repo root:
 | 3    | `pnpm check:knip` (own lane; memory-heavy, skip with `--skip-knip`)                                                    | `lint` (knip step)          |
 | 4    | `pnpm typecheck`                                                                                                       | `typecheck`                 |
 | 5    | `pnpm build --filter @mbe/cli... && pnpm --filter @mbe/cli start check-adr && pnpm --filter @mbe/cli start check-deps` | `architecture-audit`        |
-| 6    | dep-graph regen + `git diff --exit-code`, then `mbe pack <dir> --check` per `llms.txt` package (see Drift lane)        | `build` / `integrity` drift |
+| 6    | dep-graph regen + `git diff --exit-code` (see Drift lane)                                                              | `build` / `integrity` drift |
 | 7    | `pnpm turbo run size:check --filter='...[origin/main]'` (affected packages only; see Size lane)                        | `build` bundle size budgets |
 
 Steps 2–7 run in parallel after step 1 completes. `scripts/__tests__/local-ci-precheck-mirror.test.mjs` fails when a `pnpm` command in CI's `lint`, `typecheck` or `architecture-audit` job is missing from this file. Total time on a warm cache: ~30s (vs ~5 min for a CI round-trip); the size lane measured 18.5 s for a branch touching `apps/hospitality`, build included.
@@ -91,15 +91,13 @@ fail=0
   arch_pid=$!
 
   ( set -e
-    pnpm build --filter "@mbe/cli..." >/dev/null   # mbe pack imports built workspace deps
+    pnpm build --filter "@mbe/cli..." >/dev/null
     pnpm graph >/dev/null
     pnpm generate:dep-graph >/dev/null
     git diff --exit-code --stat -- \
       docs/architecture/dependency-graph.md \
       infrastructure/worker/dep-graph.json
-    for dir in $(git ls-files '*/llms.txt' | xargs -n1 dirname | sort -u); do
-      pnpm --filter @mbe/cli start pack "$dir" --check
-    done ) 2>&1 | sed 's/^/[drift] /' &
+  ) 2>&1 | sed 's/^/[drift] /' &
   drift_pid=$!
 
   # Affected packages + dependents only; turbo builds what size:check needs.
@@ -137,16 +135,15 @@ echo "✓ /local-ci-precheck: all CI-blocking checks pass."
 
 ## Drift lane
 
-CI's Build job regenerates `infrastructure/worker/dep-graph.json` and the Integrity check regenerates `llms.txt`/`llms-full.txt`; both fail the PR if the committed artifacts don't match. This lane catches that locally:
+CI's Build job regenerates `infrastructure/worker/dep-graph.json`; it fails the PR if the committed artifacts don't match. This lane catches that locally:
 
 1. `pnpm graph` regenerates `docs/architecture/dependency-graph.md`; `pnpm generate:dep-graph` regenerates `infrastructure/worker/dep-graph.json`. `git diff --exit-code` on both — any delta means the committed graphs are stale.
-2. For every directory with a committed `llms.txt`, `mbe pack <dir> --check` verifies sync **without writing** (read-only).
 
-**When it matters:** after adding/removing a workspace package, changing any `dependencies`/`devDependencies`, or editing source in a package that ships `llms.txt`. The pre-commit hook does NOT regenerate the dep graphs — this lane is the only local gate.
+**When it matters:** after adding/removing a workspace package, changing any `dependencies`/`devDependencies`. The pre-commit hook does NOT regenerate the dep graphs — this lane is the only local gate.
 
-**Working-tree semantics:** when nothing drifted, the regenerated graph files are byte-identical and `pack --check` writes nothing — the tree is untouched. When drift exists, the two graph files are left **regenerated in place** (that is the fix — stage and commit them); `llms.txt` drift is only reported, fix with `mbe pack <dir>`.
+**Working-tree semantics:** when nothing drifted, the regenerated graph files are byte-identical — the tree is untouched. When drift exists, the two graph files are left **regenerated in place** (that is the fix — stage and commit them).
 
-**Caveat:** run `nvm use` first — a Node version mismatched with CI (`.nvmrc` pins 22) produces false llms.txt drift (see `.claude/rules/gotchas.md`).
+**Caveat:** run `nvm use` first — a Node version mismatched with CI (`.nvmrc` pins 22) can produce false generated-artifact drift (see `.claude/rules/gotchas.md`).
 
 ## Size lane
 

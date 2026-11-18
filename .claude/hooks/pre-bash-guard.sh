@@ -9,9 +9,9 @@
 #
 #   Check 1 — Node-version drift (WARN via JSON, exit 0; #8519):
 #     Repo pins Node 22 via .nvmrc. Worktree/agent shells that run on Node 20
-#     regenerate llms.txt embedding a stale generated-schemas enum → CI
+#     regenerate generated artifacts embedding a stale generated-schemas enum → CI
 #     Integrity job fails after push (#2 recurring failure). We warn — not
-#     block — before regen/pack so the agent runs `nvm use 22` first.
+#     block — before regen so the agent runs `nvm use 22` first.
 #
 #   Check 2 — worktree missing node_modules (BLOCK, exit 2):
 #     `isolation: worktree` creates a bare checkout without node_modules, so
@@ -70,7 +70,7 @@ case "$cmd" in
       want=$(tr -dc '0-9.' < "$nvmrc")
       have=$(node -v 2>/dev/null | sed 's/^v//')
       if [[ -n "$want" && -n "$have" && "${want%%.*}" != "${have%%.*}" ]]; then
-        add_warning "⚠️  Node ${have%%.*} != .nvmrc ${want%%.*}. Run 'nvm use' before regen/pack — a mismatched Node regenerates llms.txt with a stale schema enum and CI Integrity fails (gotchas.md)."
+        add_warning "⚠️  Node ${have%%.*} != .nvmrc ${want%%.*}. Run 'nvm use' before regen — a mismatched Node regenerates generated artifacts with a stale schema enum and CI Integrity fails (gotchas.md)."
       fi
     fi
     ;;

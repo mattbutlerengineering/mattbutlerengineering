@@ -135,9 +135,9 @@ One folder per component under `src/components/ComponentName/` (`.tsx`, `.module
 ## AI Assistant Reference
 
 For component usage reference (choosing components, props API, composition patterns),
-see `llms-full.txt` in the repo root (or `llms.txt` for a condensed overview).
+see `packages/rialto/docs/ai-usage.md` and `packages/rialto/registry.json`.
 This file (CLAUDE.md) covers authoring and contributing to Rialto;
-llms-full.txt covers consuming the library in an application.
+ai-usage.md covers consuming the library in an application.
 
 Before writing any page UI, read `.claude/rules/ui-quality.md` — the tells the daily ui-quality loop files, each answered by a token rule above.
 

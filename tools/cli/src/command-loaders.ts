@@ -3,7 +3,7 @@ import type { Command } from "commander";
 type CommandLoader = () => Promise<Command>;
 
 // Each command module is imported only when it is needed, so commands such as
-// pack / check-adr / check-deps run without the dist/ of workspace packages
+// check-adr / check-deps run without the dist/ of workspace packages
 // (@mbe/agent-core, @mbe/gh-client, ...) that other commands import.
 // Registration order matches the order shown in `mbe --help`.
 const LOADERS: ReadonlyArray<readonly [string, CommandLoader]> = [
@@ -14,8 +14,6 @@ const LOADERS: ReadonlyArray<readonly [string, CommandLoader]> = [
   ["agent", async () => (await import("./commands/agent.js")).agentCommand],
   ["check-model", async () => (await import("./commands/agent.js")).checkModelCommand],
   ["loop", async () => (await import("./commands/loop.js")).loopCommand],
-  ["pack", async () => (await import("./commands/pack.js")).packCommand],
-  ["pack-changed", async () => (await import("./commands/pack.js")).packChangedCommand],
   ["sync-rules", async () => (await import("./commands/sync-rules.js")).syncRulesCommand],
   ["check-adr", async () => (await import("./commands/adr.js")).checkAdrCommand],
   ["check-deps", async () => (await import("./commands/check-deps.js")).checkDepsCommand],

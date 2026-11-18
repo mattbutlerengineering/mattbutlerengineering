@@ -1,6 +1,6 @@
 # @mbe/cli reference
 
-File map and per-command usage, moved out of [CLAUDE.md](../CLAUDE.md) so they don't load into context every time a CLI file is read. The rules (deterministic `mbe pack` output, adding a new command, package commands) stay in CLAUDE.md. The source of truth is `src/` — run `node tools/cli/dist/index.js <command> --help` for current flags.
+File map and per-command usage, moved out of [CLAUDE.md](../CLAUDE.md) so they don't load into context every time a CLI file is read. The rules (adding a new command, package commands) stay in CLAUDE.md. The source of truth is `src/` — run `node tools/cli/dist/index.js <command> --help` for current flags.
 
 ## Structure
 
@@ -19,7 +19,6 @@ src/
 │   ├── login.ts       # login — authenticate with Auth0
 │   ├── logout.ts      # logout — clear local tokens
 │   ├── loop.ts        # loop — run command repeatedly on interval
-│   ├── pack.ts        # pack/pack-changed — generate llms.txt context files
 │   ├── sync-rules.ts  # sync-rules — sync Claude rules across packages
 │   ├── users.ts       # users — API user management
 │   └── whoami.ts      # whoami — show current user
@@ -64,8 +63,6 @@ gh issue view <n> --json body -q .body | mbe agent frontmatter
 ### Context Management
 
 ```bash
-mbe pack <package>         # Generate llms.txt for a package
-mbe pack-changed           # Regenerate llms.txt for changed packages (git hook)
 mbe sync-rules             # Sync Claude rules across packages
 ```
 
