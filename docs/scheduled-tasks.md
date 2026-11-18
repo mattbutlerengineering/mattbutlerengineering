@@ -165,7 +165,7 @@ not a new row in the catalog below and not an edit of the builtin array in
 
 > **Drift is split across two routines, by whether a machine can fix it.**
 > `drift-fix` (GitHub Actions, daily, no agent) owns everything a generator can
-> repair — llms.txt, registry.json, dep-graph.json, generated-schemas.ts,
+> repair — registry.json, dep-graph.json, generated-schemas.ts,
 > dependency-graph.md, the rialto exports map. The fix there is always "run the
 > generator", so an LLM would add token cost and nondeterminism with no judgment
 > to contribute. `mbe-doc-rot` (claude.ai, weekly) owns the half where the fix is
@@ -316,11 +316,7 @@ to a single worker without worktree isolation in cloud and keep the local
   whose own diff is unrelated.
 - **What it does:**
   1. Builds `@mbe/cli` (with transitive deps, which is what pulls in
-     `@mbe/agent-core`). **Not optional** — `pnpm regen`'s llms families shell
-     out to `mbe pack`, which imports agent-core; without a build that import
-     throws `ERR_MODULE_NOT_FOUND`, `regen-llms.sh` swallows it (`|| continue`),
-     and regen silently no-ops. A green run that fixed nothing is the worst
-     possible outcome for this job.
+     `@mbe/agent-core`), matching the order CI uses (`pnpm build && pnpm regen`).
   2. Regenerates the rialto exports map — before regen, since the dep-graph
      generators read `package.json`.
   3. Runs a **full** `pnpm regen`, never `check-regen-needed.mjs`'s fast path.
@@ -334,9 +330,7 @@ to a single worker without worktree isolation in cloud and keep the local
      silent no-op.
 - **Scoped staging:** `add-paths` lists generated artifacts only. `pnpm install`
   reflows ~150 tracked files through prettier in this repo, and a catch-all
-  would commit that reformatting as if it were drift. Root-level `llms.txt` /
-  `llms-full.txt` are listed as bare paths because `**/`-style globs do not
-  match repo-root files.
+  would commit that reformatting as if it were drift.
 - **Keep in sync with `scripts/regen-manifest.mjs`**, the source of truth for
   what `pnpm regen` writes. `scripts/__tests__/drift-fix-workflow.test.mjs`
   fails if a manifest output stops being covered by `add-paths` — otherwise the

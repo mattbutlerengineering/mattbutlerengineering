@@ -51,7 +51,7 @@ const catalog = await getCatalog();
 
 - **Static Analysis**: Uses TypeScript Compiler API (via `scripts/generate-catalog.ts`) to extract types without executing code.
 - **JSON Output**: The generated catalog is serialized to JSON for consumption by web apps.
-- **Sync**: The `mbe pack` command (or `pnpm generate`) should be run after modifying Rialto components to keep the catalog in sync.
+- **Sync**: `pnpm generate` (or `pnpm regen`) should be run after modifying Rialto components to keep the catalog in sync.
 
 ## Commands
 

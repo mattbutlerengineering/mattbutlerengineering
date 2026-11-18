@@ -65,7 +65,7 @@ Rules are evaluated against the PR diff. Each rule maps a path glob (or a struct
 - Changeset additions (`.changeset/*.md`) that don't modify code.
 - Editor config: `.editorconfig`, `.vscode/*`, `.cursorrules` updates.
 - `metrics/*.jsonl` appends (these are append-only logs).
-- Auto-generated files: `llms.txt`, `llms-full.txt`, `package.json` `exports` regeneration after `pnpm release`.
+- Auto-generated files: `package.json` `exports` regeneration after `pnpm release`.
 - `.claude/acmm/state.json`, `apps/marketing/public/acmm-report.json` — automation-only ACMM audit output, same class as `metrics/**` above.
 
 ## Modifiers (escalate or de-escalate)
@@ -87,7 +87,7 @@ These signals can shift a PR's tier independent of file paths.
 
 **Escalate one tier:**
 
-- Diff is > 1000 review-surface lines added (size correlates with risk). Generated files and pipeline run artifacts do not count toward the 1000 (#6655, #6610): `**/llms.txt`, `**/llms-full.txt`, `pnpm-lock.yaml`, `**/registry.json`, `infrastructure/worker/dep-graph.json`, `docs/architecture/dependency-graph.md`, `**/generated*`, `docs/features/**/*.md`, `docs/fixes/**/*.md`. Other markdown still counts. The list is `EXCLUDED_FROM_SIZE` in `scripts/tier-escalation.mjs` (a test keeps this paragraph in agreement).
+- Diff is > 1000 review-surface lines added (size correlates with risk). Generated files and pipeline run artifacts do not count toward the 1000 (#6655, #6610): `pnpm-lock.yaml`, `**/registry.json`, `infrastructure/worker/dep-graph.json`, `docs/architecture/dependency-graph.md`, `**/generated*`, `docs/features/**/*.md`, `docs/fixes/**/*.md`. Other markdown still counts. The list is `EXCLUDED_FROM_SIZE` in `scripts/tier-escalation.mjs` (a test keeps this paragraph in agreement).
 - PR is from a fork (external contributor).
 - PR has been force-pushed since the last review approval.
 - PR removes a test file.

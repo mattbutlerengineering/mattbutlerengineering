@@ -55,6 +55,26 @@ describe("displayClockTime", () => {
     expect(displayClockTime("20:30", "fr-CA")).toMatch(/^20\sh\s30$/);
   });
 
+  // F38 (live batch 11): the model copied the tool's "2026-10-16 09:26" into the row time text.
+  it("formats a venue-local date and time as a localized date plus clock", () => {
+    for (const raw of ["2026-10-16 09:26", "2026-10-16T09:26", "2026-10-16T09:26:00"]) {
+      expect(displayClockTime(raw, "en-US")).toMatch(/^Oct 16,?\s(at\s)?9:26\sAM$/);
+    }
+    expect(displayClockTime("2026-11-02 19:30", "en-US")).toMatch(/Nov 2.*7:30\sPM$/);
+    expect(displayClockTime("2026-11-02 19:30", "fr-CA")).toMatch(/2 nov.*19\sh\s30$/);
+  });
+
+  it("passes datetimes it cannot read as venue-local through unchanged", () => {
+    for (const raw of [
+      "2026-13-16 09:26",
+      "2026-02-30 09:26",
+      "2026-10-16T09:26Z",
+      "2026-10-16 09:26+02:00",
+    ]) {
+      expect(displayClockTime(raw, "en-US")).toBe(raw);
+    }
+  });
+
   it("passes display text that is not a bare HH:mm through unchanged", () => {
     for (const raw of ["7:30 PM", "24:00", "9:5", "noon", ""]) {
       expect(displayClockTime(raw, "en-US")).toBe(raw);

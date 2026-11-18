@@ -62,6 +62,38 @@ function withLocalTime<T extends object>(
   return localTime ? { ...item, localTime } : item;
 }
 
+/** The venue-local YYYY-MM-DD of an ISO time, or undefined when it or the zone can't be read. */
+function localDateIn(iso: unknown, timeZone: string | undefined): string | undefined {
+  if (typeof iso !== "string") return undefined;
+  const instant = new Date(iso);
+  if (Number.isNaN(instant.getTime())) return undefined;
+  try {
+    return todayIn(timeZone, instant);
+  } catch {
+    return undefined; // unknown time zone (RangeError)
+  }
+}
+
+/**
+ * Reservations with `localTime` added. When they fall on more than one venue-local date, each
+ * `localTime` reads `YYYY-MM-DD HH:mm` so a row copied as is keeps its date; a one-date list
+ * keeps the plain `HH:mm`.
+ */
+function withLocalTimes<T extends object>(
+  items: readonly T[],
+  timeZone: string | undefined
+): (T | (T & { localTime: string }))[] {
+  const timed = items.map((item) => withLocalTime(item, "startTime", timeZone));
+  const dates = items.map((item) =>
+    localDateIn((item as Record<string, unknown>)["startTime"], timeZone)
+  );
+  if (new Set(dates.filter(Boolean)).size < 2) return timed;
+  return timed.map((item, i) => {
+    const date = dates[i];
+    return date && "localTime" in item ? { ...item, localTime: `${date} ${item.localTime}` } : item;
+  });
+}
+
 type PublicAvailability = Awaited<ReturnType<ApiClient["availability"]["getPublicAvailability"]>>;
 
 /**
@@ -321,8 +353,8 @@ export function createAgentTools(
   options: CreateAgentToolsOptions = {}
 ): ToolSet {
   const { venueId, timeZone } = options;
-  const toLocal = <T extends object>(reservation: T) =>
-    withLocalTime(reservation, "startTime", timeZone);
+  const toLocal = <T extends object>(reservations: readonly T[]) =>
+    withLocalTimes(reservations, timeZone);
   const tools: ToolSet = {
     // ── Read tools (instant, no confirmation) ──────────────
     // venueId never comes from the model: it is the app's selected venue.
@@ -400,7 +432,7 @@ export function createAgentTools(
             limit: LOOKUP_LIMIT,
           });
           const needle = guestName?.trim().toLowerCase();
-          if (!needle) return { reservations: venueList.data.map(toLocal) };
+          if (!needle) return { reservations: toLocal(venueList.data) };
           // The list is paginated, so a name filter over it alone misses most
           // of a busy venue: resolve the guest first, then list their bookings.
           const guests = await api.guests.search({ venueId, query: guestName! });
@@ -420,7 +452,7 @@ export function createAgentTools(
           const reservations = merged.filter(
             (r, i) => merged.findIndex((other) => other.id === r.id) === i
           );
-          return { reservations: reservations.map(toLocal) };
+          return { reservations: toLocal(reservations) };
         } catch (err) {
           log.error({ ...failureLog(err), date, venueId }, "lookup_reservation failed");
           return readFailure(err, "the reservations");
@@ -484,7 +516,7 @@ export function createAgentTools(
             limit: 50,
             ...(status ? { status } : {}),
           });
-          return { reservations: result.data.map(toLocal) };
+          return { reservations: toLocal(result.data) };
         } catch (err) {
           log.error({ err, venueId, date }, "list_today_reservations failed");
           return readFailure(err, "the reservations");

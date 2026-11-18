@@ -36,7 +36,7 @@
  * Pure core `checkoutState(deps)`: every effect goes through the injected
  * `git`, `ledger`, `mergeUnion` and `writeFile`. `createDeps(root)` binds them
  * to the real repo. Git runs with hooks off (`core.hooksPath=/dev/null`): the
- * repo's post-checkout/post-commit hooks regenerate llms files, which would
+ * repo's git hooks can rewrite files, which would
  * dirty the tree this command must leave clean, and the merge brings in
  * nothing but `main` (already gated) plus rule-resolved state files.
  *

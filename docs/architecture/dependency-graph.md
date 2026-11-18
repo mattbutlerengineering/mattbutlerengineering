@@ -28,6 +28,7 @@ flowchart TD
     config["config"]
     database["database"]
     gh_client["gh-client"]
+    hospitality_sidenav["hospitality-sidenav"]
     rialto["rialto"]
     rialto_catalog["rialto-catalog"]
     rialto_plugin["rialto-plugin"]
@@ -107,6 +108,7 @@ flowchart TD
   cancellation_policy --> config
   database --> config
   gh_client --> config
+  hospitality_sidenav --> config
   rialto --> config
   rialto_catalog --> rialto
   rialto_catalog --> config
@@ -155,6 +157,7 @@ flowchart TD
   class config shared
   class database shared
   class gh_client shared
+  class hospitality_sidenav shared
   class rialto shared
   class rialto_catalog shared
   class rialto_plugin entrypoint
