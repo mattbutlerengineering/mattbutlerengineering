@@ -15,7 +15,7 @@ const FORM_STATES_EXAMPLE_JSX = `<Stack gap="xl">
         <Select
           label="Room Type"
           options={ROOM_TYPE_OPTIONS}
-          placeholder="Select room type\u2026"
+          placeholder="Select room type…"
         />
         <Stack direction="row" justify="end">
           <Button variant="primary">Submit Reservation</Button>
@@ -33,7 +33,7 @@ const FORM_STATES_EXAMPLE_JSX = `<Stack gap="xl">
         <Select
           label="Room Type"
           options={ROOM_TYPE_OPTIONS}
-          placeholder="Select room type\u2026"
+          placeholder="Select room type…"
         />
         <Stack direction="row" justify="end">
           <Button variant="primary">Submit Reservation</Button>
@@ -74,8 +74,8 @@ const FORM_STATES_EXAMPLE_JSX = `<Stack gap="xl">
           disabled
         />
         <Stack direction="row" align="center" gap="sm" justify="end">
-          <Spinner size="sm" label="Submitting\u2026" />
-          <Button variant="primary" disabled>Submitting\u2026</Button>
+          <Spinner size="sm" label="Submitting…" />
+          <Button variant="primary" disabled>Submitting…</Button>
         </Stack>
       </Stack>
     </Card>
@@ -128,7 +128,7 @@ export function FormStatesExamplePage() {
               <Select
                 label="Room Type"
                 options={ROOM_TYPE_OPTIONS}
-                placeholder="Select room type\u2026"
+                placeholder="Select room type…"
               />
               <Stack direction="row" justify="end">
                 <Button variant="primary">Submit Reservation</Button>
@@ -152,7 +152,7 @@ export function FormStatesExamplePage() {
               <Select
                 label="Room Type"
                 options={ROOM_TYPE_OPTIONS}
-                placeholder="Select room type\u2026"
+                placeholder="Select room type…"
               />
               <Stack direction="row" justify="end">
                 <Button variant="primary">Submit Reservation</Button>
@@ -185,7 +185,7 @@ export function FormStatesExamplePage() {
               <Input label="Email Address" value="s.laurent@grandlake.com" readOnly />
               <Select label="Room Type" options={ROOM_TYPE_OPTIONS} value="deluxe" disabled />
               <Stack direction="row" align="center" gap="sm" justify="end">
-                <Spinner size="sm" label="Submitting\u2026" />
+                <Spinner size="sm" label="Submitting…" />
                 <Button variant="primary" disabled>
                   Submitting&hellip;
                 </Button>
