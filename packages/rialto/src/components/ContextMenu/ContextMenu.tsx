@@ -2,10 +2,16 @@ import {
   useState,
   useRef,
   useCallback,
-  useEffect,
+  useId,
+  useLayoutEffect,
   forwardRef,
+  cloneElement,
+  isValidElement,
+  Fragment,
   type ReactNode,
   type ReactElement,
+  type KeyboardEvent,
+  type MouseEvent,
 } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useMotionPreset } from "../../providers/useMotionPreset";
@@ -50,8 +56,10 @@ export interface ContextMenuLabelDef {
 export type ContextMenuEntry = ContextMenuItemDef | ContextMenuDividerDef | ContextMenuLabelDef;
 
 /**
- * A right-click context menu that appears at the pointer position.
- * Wrap any element with ContextMenu to intercept its `contextmenu` event.
+ * A context menu that opens at the pointer on right-click, or on the focused
+ * target with Shift+F10 or the Context Menu key. A target that is not already
+ * focusable is placed in the tab order. The child must forward `tabIndex`,
+ * `onKeyDown`, `onContextMenu`, and `className` (DOM nodes and Card do).
  * Automatically adjusts position to stay within viewport boundaries.
  *
  * @example
@@ -75,6 +83,58 @@ function isItem(entry: ContextMenuEntry): entry is ContextMenuItemDef {
   return !entry.type || entry.type === "item";
 }
 
+const NATIVE_FOCUSABLE = new Set(["button", "input", "select", "textarea", "summary"]);
+
+const POPUP_ROLES = new Set([
+  "button",
+  "link",
+  "menuitem",
+  "tab",
+  "combobox",
+  "gridcell",
+  "treeitem",
+]);
+
+type TriggerProps = {
+  className?: string;
+  href?: unknown;
+  tabIndex?: unknown;
+  role?: unknown;
+  onContextMenu?: (event: MouseEvent<HTMLElement>) => void;
+  onKeyDown?: (event: KeyboardEvent<HTMLElement>) => void;
+};
+
+/** Shift+F10 and the Context Menu key are the APG open chords for a context menu. */
+function isContextMenuKey(event: { key: string; code?: string; shiftKey: boolean }): boolean {
+  return (
+    event.key === "ContextMenu" ||
+    event.code === "ContextMenu" ||
+    (event.shiftKey && event.key === "F10")
+  );
+}
+
+/**
+ * DOM nodes that are already in the tab order keep their own tab stop.
+ * Anything else (a div, a Card) needs tabindex=0 or keyboard users cannot reach it.
+ * An explicit tabIndex, including -1, is left alone.
+ */
+function shouldInjectTabIndex(child: ReactElement): boolean {
+  if (!isValidElement(child) || child.type === Fragment) return false;
+  const props = child.props as TriggerProps;
+  if (props.tabIndex != null) return false;
+  if (typeof child.type !== "string") return true;
+  if (child.type === "a") return !(typeof props.href === "string" && props.href.length > 0);
+  return !NATIVE_FOCUSABLE.has(child.type);
+}
+
+/** aria-haspopup / aria-expanded are not allowed on a generic element. */
+function supportsPopupAttrs(child: ReactElement): boolean {
+  const props = child.props as TriggerProps;
+  if (typeof props.role === "string") return POPUP_ROLES.has(props.role);
+  if (child.type === "a") return typeof props.href === "string" && props.href.length > 0;
+  return typeof child.type === "string" && NATIVE_FOCUSABLE.has(child.type);
+}
+
 /* ── Component ──────────────────────────────── */
 
 export const ContextMenu = forwardRef<HTMLDivElement, ContextMenuProps>(function ContextMenu(
@@ -86,8 +146,13 @@ export const ContextMenu = forwardRef<HTMLDivElement, ContextMenuProps>(function
   const [activeIndex, setActiveIndex] = useState(-1);
   const menuRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
+  // Set when Shift+F10 / ContextMenu just opened the menu, so the contextmenu
+  // event some browsers fire next does not jump the menu to 0,0. A real
+  // right-click (button 2) always wins, so a stuck flag cannot swallow it.
+  const keyboardOpenRef = useRef(false);
   const motionPreset = useMotionPreset();
   const shouldReduceMotion = motionPreset.reduced;
+  const menuId = useId();
 
   const skipReturnFocus = useReturnFocus(open);
 
@@ -103,27 +168,52 @@ export const ContextMenu = forwardRef<HTMLDivElement, ContextMenuProps>(function
 
   useEscapeKey(close, open);
 
-  const handleContextMenu = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-      // Viewport boundary detection
+  const openAtPoint = useCallback(
+    (x: number, y: number) => {
+      // Viewport boundary detection — same clamp the pointer path has always used.
       const menuWidth = 200;
       const menuHeight = items.length * 36;
-      const x = e.clientX + menuWidth > window.innerWidth ? e.clientX - menuWidth : e.clientX;
-      const y = e.clientY + menuHeight > window.innerHeight ? e.clientY - menuHeight : e.clientY;
-
-      setPosition({ x, y });
+      const nextX = x + menuWidth > window.innerWidth ? x - menuWidth : x;
+      const nextY = y + menuHeight > window.innerHeight ? y - menuHeight : y;
+      setPosition({ x: nextX, y: nextY });
       setOpen(true);
       setActiveIndex(focusableIndices[0] ?? -1);
     },
     [items.length, focusableIndices]
   );
 
+  const handleContextMenu = useCallback(
+    (e: MouseEvent<HTMLElement>) => {
+      e.preventDefault();
+      const keyboardFollowUp = keyboardOpenRef.current && e.button !== 2;
+      keyboardOpenRef.current = false;
+      if (keyboardFollowUp) return;
+      openAtPoint(e.clientX, e.clientY);
+    },
+    [openAtPoint]
+  );
+
+  const handleTriggerKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLElement>) => {
+      if (event.defaultPrevented || event.repeat || !isContextMenuKey(event)) return;
+      event.preventDefault();
+      keyboardOpenRef.current = true;
+      const rect = event.currentTarget.getBoundingClientRect();
+      openAtPoint(rect.left, rect.top);
+      queueMicrotask(() => {
+        keyboardOpenRef.current = false;
+      });
+    },
+    [openAtPoint]
+  );
+
   useDismiss(menuRef, close, { enabled: open });
   const { hasPointerMoved, resetPointerMovement } = usePointerActivation(open);
 
-  // Focus active item
-  useEffect(() => {
+  // Focus the active item before paint. useReturnFocus captures the trigger in
+  // its own layout effect, which is declared first, so this move happens after
+  // that capture and Escape still restores the target.
+  useLayoutEffect(() => {
     if (open && activeIndex >= 0) {
       itemRefs.current.get(activeIndex)?.focus();
     }
@@ -172,16 +262,41 @@ export const ContextMenu = forwardRef<HTMLDivElement, ContextMenuProps>(function
     }
   }
 
+  const childProps = children.props as TriggerProps;
+  const triggerProps: TriggerProps = {
+    onContextMenu: (event) => {
+      childProps.onContextMenu?.(event);
+      if (!event.defaultPrevented) handleContextMenu(event);
+    },
+    onKeyDown: (event) => {
+      childProps.onKeyDown?.(event);
+      handleTriggerKeyDown(event);
+    },
+  };
+  if (shouldInjectTabIndex(children)) {
+    triggerProps.tabIndex = 0;
+    triggerProps.className = cn(childProps.className, styles.target);
+  }
+
+  const popupAttrs = supportsPopupAttrs(children)
+    ? {
+        "aria-haspopup": "menu" as const,
+        "aria-expanded": open,
+        "aria-controls": open ? menuId : undefined,
+      }
+    : {};
+
   return (
     <>
-      <div ref={ref} onContextMenu={handleContextMenu} style={{ display: "contents" }}>
-        {children}
+      <div ref={ref} style={{ display: "contents" }}>
+        {cloneElement(children, { ...triggerProps, ...popupAttrs })}
       </div>
 
       <AnimatePresence>
         {open && (
           <motion.div
             ref={menuRef}
+            id={menuId}
             className={styles.menu}
             role="menu"
             style={{ left: position.x, top: position.y }}

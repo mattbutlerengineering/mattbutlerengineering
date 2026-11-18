@@ -65,8 +65,10 @@ export interface GuestRiskMessages {
  * functions, e.g. `removeItem: (label: string) => string`.
  */
 export interface RialtoMessages {
-  /** Accessible name of a control that dismisses a notice (Alert, Banner, Toast). */
+  /** Accessible name of a control that dismisses a notice (Alert, Banner). */
   readonly dismiss: string;
+  /** Accessible name of the Toast dismiss button. */
+  readonly dismissNotification: string;
   /** Accessible name of a control that closes a surface (Drawer, Popover). */
   readonly close: string;
   /** Accessible name of the Dialog close button. */
@@ -297,6 +299,7 @@ export interface RialtoMessages {
 
 export const enUS: RialtoMessages = {
   dismiss: "Dismiss",
+  dismissNotification: "Dismiss notification",
   close: "Close",
   closeDialog: "Close dialog",
   dialog: "Dialog",

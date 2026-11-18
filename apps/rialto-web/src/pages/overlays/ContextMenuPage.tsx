@@ -145,9 +145,16 @@ export function ContextMenuPage() {
       <Section title="Accessibility">
         <DataList
           items={[
-            { label: "Trigger", value: "contextmenu event (right-click or Shift+F10)" },
+            {
+              label: "Trigger",
+              value:
+                "Target is in the tab order. Shift+F10 or the Context Menu key opens it; right-click does too.",
+            },
             { label: "Role", value: "role=menu with role=menuitem" },
-            { label: "Keyboard", value: "↑/↓ navigate, Enter select, Escape close" },
+            {
+              label: "Keyboard",
+              value: "↑/↓ navigate, Home/End jump, Enter selects, Escape closes and returns focus",
+            },
             {
               label: "Placement",
               value: "Viewport boundary detection prevents clipping",

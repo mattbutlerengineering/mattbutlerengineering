@@ -1236,7 +1236,7 @@
     },
     {
       "name": "ContextMenu",
-      "description": "A right-click context menu that appears at the pointer position.\nWrap any element with ContextMenu to intercept its `contextmenu` event.\nAutomatically adjusts position to stay within viewport boundaries.",
+      "description": "A context menu that opens at the pointer on right-click, or on the focused\ntarget with Shift+F10 or the Context Menu key. A target that is not already\nfocusable is placed in the tab order. The child must forward `tabIndex`,\n`onKeyDown`, `onContextMenu`, and `className` (DOM nodes and Card do).\nAutomatically adjusts position to stay within viewport boundaries.",
       "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {

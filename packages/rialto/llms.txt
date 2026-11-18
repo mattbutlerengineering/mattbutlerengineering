@@ -1560,10 +1560,10 @@
     <item priority="low">
       interface RialtoMessages {
         dismiss: string;
+        dismissNotification: string;
         close: string;
         closeDialog: string;
         dialog: string;
-        drawer: string;
       }
     </item>
     <item priority="high">
