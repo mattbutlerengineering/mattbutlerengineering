@@ -219,7 +219,7 @@ export const catalogMeta: Record<string, CatalogMeta> = {
   ReservationList: {
     name: "ReservationList",
     description:
-      "Bookings as aligned rows, in the order given (arrival order): time, guest, party size and status. Required: reservations, an array of rows. Each row needs time (the tool's localTime copied as is (HH:mm); the element writes it in the locale's clock. Only when the rows span more than one date, write the date and time together instead), partySize (a number) and status (the raw value from the tool, such as CONFIRMED, copied as is); guest is the guest name, left out for a walk-in. The element writes the party size and status in words itself. A row missing time, partySize or status is left out.",
+      "Bookings as aligned rows, in the order given (arrival order): time, guest, party size and status. Required: reservations, an array of rows. Each row needs time (the tool's localTime copied as is (HH:mm); the element writes it in the locale's clock. When the rows span several dates the tool's localTime already carries the date as YYYY-MM-DD HH:mm: copy all of it, never shorten it), partySize (a number) and status (the raw value from the tool, such as CONFIRMED, copied as is); guest is the guest name, left out for a walk-in. The element writes the party size and status in words itself. A row missing time, partySize or status is left out.",
   },
   ScrollArea: {
     name: "ScrollArea",
