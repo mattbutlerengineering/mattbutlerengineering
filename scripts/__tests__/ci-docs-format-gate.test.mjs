@@ -39,7 +39,7 @@ describe("ci.yml docs-only formatting gate", () => {
   });
 
   it("runs the same prettier check the Build chain runs, not a hand-rolled subset", () => {
-    // `pnpm check:prettier` is `prettier --check .` and is what repo-audit
+    // `pnpm check:prettier` wraps `prettier --check .` (minus shipped runs, #9078) and is what repo-audit
     // calls. Re-implementing the glob here would let the two drift, which is
     // the class of bug this whole file exists for.
     expect(jobRunText(requireJob(JOB))).toMatch(/^pnpm check:prettier\s*$/m);
