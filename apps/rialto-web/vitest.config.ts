@@ -12,6 +12,7 @@ export default defineVitestConfig({
   include: [
     "src/**/*.test.{ts,tsx}",
     "token-count.config.test.ts",
+    "route-html.test.ts",
     "e2e/workflow-coverage.test.ts",
     "e2e/review-and-overlays.test.ts",
     "e2e/noise-floor-coverage.test.ts",
