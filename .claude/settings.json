@@ -143,16 +143,6 @@
         ]
       },
       {
-        "matcher": "Edit|Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "FILE=$(node \"$CLAUDE_PROJECT_DIR/.claude/hooks/hook-input.mjs\"); [ -n \"$FILE\" ] || exit 0; bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/regen-llms.sh\" \"$FILE\"",
-            "timeout": 30
-          }
-        ]
-      },
-      {
         "matcher": "Bash",
         "hooks": [
           {

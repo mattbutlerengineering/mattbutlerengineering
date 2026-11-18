@@ -106,7 +106,7 @@ describe("generated artifacts (#6790)", () => {
   });
 
   it("does not report an oversized manifest output", () => {
-    const result = filterLargeFiles([{ path: "llms-full.txt", lines: 5000 }]);
+    const result = filterLargeFiles([{ path: "packages/rialto/registry.json", lines: 5000 }]);
     expect(result).toEqual([]);
   });
 

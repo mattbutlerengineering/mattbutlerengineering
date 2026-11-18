@@ -11,9 +11,8 @@
  * arbitrarily old. On PR #3988, `reviewersForDiff([...])` returned `[]`
  * from a dist that predated the `e2e-selector-drift-reviewer` mapping in
  * `pr-risk-classifier.ts` by 77 minutes — no error, no log line, just a
- * confident, wrong answer. That is distinct from the documented `mbe pack` /
- * `ERR_MODULE_NOT_FOUND` gotcha, which fails LOUDLY on a *missing* dist;
- * this fails SILENTLY on a *stale* one.
+ * confident, wrong answer. This fails SILENTLY on a *stale* dist, unlike a
+ * *missing* dist, which fails loudly with `ERR_MODULE_NOT_FOUND`.
  *
  * `classifyBuildFreshness` is the pure decision: given the newest mtime
  * under `packages/agent-core/src/**` and the newest mtime under

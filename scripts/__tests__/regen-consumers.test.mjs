@@ -41,17 +41,8 @@ describe("hooks do not run a family twice per edit", () => {
     expect(stage.filter((id) => warn.includes(id))).toEqual([]);
   });
 
-  it("a source edit in a package lands in the warn hook only", () => {
-    const src = "packages/rialto/src/index.ts";
-    expect(JSON.parse(cli("--families-for", src, "--hook-mode", "stage"))).toEqual([]);
-    expect(JSON.parse(cli("--families-for", src, "--hook-mode", "warn")).map((f) => f.id)).toEqual([
-      "llms-txt",
-    ]);
-  });
-
-  it("the two hook scripts pass complementary --hook-mode values", () => {
+  it("the dep-graph hook passes --hook-mode stage", () => {
     expect(read(".claude/hooks/regen-dep-graph.sh")).toMatch(/--hook-mode stage/);
-    expect(read(".claude/hooks/regen-llms.sh")).toMatch(/--hook-mode warn/);
   });
 });
 
@@ -60,7 +51,6 @@ describe("workflows derive artifact sets from the manifest", () => {
     const wf = read(".github/workflows/drift-fix.yml");
     expect(wf).toMatch(/regen-manifest\.mjs --paths/);
     expect(wf).not.toMatch(/^\s*add-paths:\s*\|/m);
-    expect(wf).not.toMatch(/^\s+llms-full\.txt$/m);
   });
 
   it("post-merge regenerates via `pnpm regen`, not its own loop, and stages manifest paths", () => {

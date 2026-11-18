@@ -36,7 +36,7 @@ jobs:
 
       - name: Regenerate all committed artifacts
         # Same entry point as CI and drift-fix: the manifest owns the family
-        # list, so this job cannot miss the root llms.txt or any new family.
+        # list, so this job cannot miss any new family.
         run: pnpm regen
 
       - name: Commit and push if changed

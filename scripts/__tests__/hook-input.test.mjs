@@ -930,25 +930,6 @@ describe("hook seam: path hooks act on the tree the edited file lives in", () =>
   );
 
   it(
-    "regen-llms regenerates in the worktree that was edited, not the main checkout",
-    () => {
-      const { work, tree } = fixtureWithWorktree();
-      const result = runHook(
-        "regen-llms.sh",
-        join(tree, "packages", "rialto", "src", "index.ts"),
-        work
-      );
-
-      expect(result.status).toBe(0);
-      const log = readFileSync(pnpmLog, "utf8");
-      expect(log).toContain("regen-from-linked");
-      expect(log).toContain("packages/rialto/src/index.ts");
-      expect(log).not.toContain("regen-from-work");
-    },
-    SEAM_TIMEOUT_MS
-  );
-
-  it(
     "check-changeset consults the worktree's changeset rule, not the main checkout's",
     () => {
       const { work, tree } = fixtureWithWorktree();
@@ -989,26 +970,23 @@ describe("hook seam: path hooks act on the tree the edited file lives in", () =>
     SEAM_TIMEOUT_MS
   );
 
-  it.each(["regen-dep-graph.sh", "regen-llms.sh"])(
-    "%s hands the manifest a repo-root-relative path when the edit reaches the tree through a symlink",
-    (hook) => {
+  it(
+    "regen-dep-graph.sh hands the manifest a repo-root-relative path when the edit reaches the tree through a symlink",
+    () => {
       // `rev-parse --show-toplevel` reports a realpath; a payload path spelled
       // through a symlink must still strip down to the repo-root-relative form,
       // or the manifest matches nothing and the hook silently no-ops.
       const { work } = fixtureWithWorktree();
       const link = join(sandbox, "via-link");
       symlinkSync(work, link);
-      const file =
-        hook === "regen-llms.sh"
-          ? join(link, "packages", "rialto", "src", "index.ts")
-          : join(link, "packages", "rialto", "package.json");
+      const file = join(link, "packages", "rialto", "package.json");
 
-      const result = runHook(hook, file, work);
+      const result = runHook("regen-dep-graph.sh", file, work);
 
       expect(result.status).toBe(0);
       const [args] = readFileSync(pnpmLog, "utf8").split(" @ ");
       expect(args, "manifest was handed a path through the symlink").not.toContain(link);
-      expect(args).toMatch(/ packages\/rialto\/(src\/index\.ts|package\.json)\n?$/);
+      expect(args).toMatch(/ packages\/rialto\/package\.json\n?$/);
     },
     SEAM_TIMEOUT_MS
   );

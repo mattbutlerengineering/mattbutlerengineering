@@ -25,7 +25,6 @@ export interface SourceFileEntry {
 
 export interface PromptBuilderConfig {
   sourceFileEntries?: readonly SourceFileEntry[];
-  relevantLlmsFiles?: readonly string[];
   relevantIssueContext?: string;
   failureContext?: string;
   model?: string;
@@ -52,25 +51,6 @@ export async function loadSourceFiles(
   return entries;
 }
 
-export async function loadLlmsFiles(
-  filePaths: readonly string[]
-): Promise<readonly SourceFileEntry[]> {
-  const entries: SourceFileEntry[] = [];
-  for (const filePath of filePaths) {
-    if (!existsSync(filePath)) {
-      entries.push({ path: filePath, content: "<!-- file not found, skipped -->" });
-      continue;
-    }
-    try {
-      const content = await readFile(filePath, "utf-8");
-      entries.push({ path: filePath, content });
-    } catch {
-      entries.push({ path: filePath, content: "<!-- read error, skipped -->" });
-    }
-  }
-  return entries;
-}
-
 function formatSourceFileSection(entries: readonly SourceFileEntry[]): string {
   if (entries.length === 0) return "";
   const blocks = entries.map((e) => `### \`${e.path}\`\n\n\`\`\`\n${e.content}\n\`\`\``);
@@ -82,20 +62,6 @@ function formatSourceFileSection(entries: readonly SourceFileEntry[]): string {
     "The following files are relevant to this task. Use them as reference — you do not need to re-read them.",
     "",
     ...blocks,
-  ].join("\n");
-}
-
-export function formatLlmsSection(entries: readonly SourceFileEntry[]): string {
-  if (entries.length === 0) return "";
-  const sections = entries.map((e) => `### ${e.path}\n\n${e.content}\n`);
-  return [
-    "",
-    "",
-    "## Package Context (llms.txt)",
-    "",
-    "Key types and signatures from relevant packages:",
-    "",
-    ...sections,
   ].join("\n");
 }
 
@@ -170,7 +136,6 @@ export async function buildSystemPrompt(
 ): Promise<string> {
   const {
     sourceFileEntries,
-    relevantLlmsFiles = [],
     relevantIssueContext,
     failureContext,
     model,
@@ -208,8 +173,6 @@ export async function buildSystemPrompt(
   ].join("\n");
 
   const sourceSection = sourceFileEntries ? formatSourceFileSection(sourceFileEntries) : "";
-  const llmsEntries = await loadLlmsFiles(relevantLlmsFiles);
-  const llmsSection = formatLlmsSection(llmsEntries);
   const issueSection = formatIssueContext(relevantIssueContext ?? "");
   const failureSection = formatFailureContext(failureContext ?? "");
   const modelSection = formatModelConstraints(model);
@@ -222,7 +185,6 @@ export async function buildSystemPrompt(
     modelSection,
     verificationSection,
     sourceSection,
-    llmsSection,
     prExamplesSection ?? "",
   ].join("\n");
 }
