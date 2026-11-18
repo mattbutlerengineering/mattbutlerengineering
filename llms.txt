@@ -5183,6 +5183,9 @@
     <item priority="high">
       export function normalizeGuestRisk(raw: string): Resolved<GuestRiskKey> { /* ... */ }
     </item>
+    <item priority="medium">
+      function displayDateTime(raw: string, locale: string | undefined): string { /* ... */ }
+    </item>
     <item priority="high">
       export function displayClockTime(raw: string, locale: string | undefined): string { /* ... */ }
     </item>

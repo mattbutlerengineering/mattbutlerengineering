@@ -2832,9 +2832,31 @@
     export function normalizeGuestRisk(raw: string): Resolved<GuestRiskKey> {
       return RISK[canonical(raw)] ?? UNKNOWN;
     }
+    function displayDateTime(raw: string, locale: string | undefined): string {
+      const match = DATE_TIME.exec(raw);
+      if (!match) return raw;
+      const [year, month, day, hour, minute] = match.slice(1).map(Number) as [
+        number,
+        number,
+        number,
+        number,
+        number,
+      ];
+      const at = Date.UTC(year, month - 1, day, hour, minute);
+      // Date.UTC rolls over impossible dates (month 13, Feb 30), so require month and day to survive.
+      const parsed = new Date(at);
+      if (parsed.getUTCMonth() !== month - 1 || parsed.getUTCDate() !== day) return raw;
+      return new Intl.DateTimeFormat(locale, {
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        timeZone: "UTC",
+      }).format(at);
+    }
     export function displayClockTime(raw: string, locale: string | undefined): string {
       const match = CLOCK_TIME.exec(raw);
-      if (!match) return raw;
+      if (!match) return displayDateTime(raw, locale);
       const at = Date.UTC(1970, 0, 1, Number(match[1] ?? 0), Number(match[2] ?? 0));
       return new Intl.DateTimeFormat(locale, {
         hour: "numeric",
