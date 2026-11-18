@@ -10,6 +10,9 @@ on:
       - "packages/rialto/**"
       - "packages/rialto-catalog/**"
       - "packages/auth/**"
+      - "packages/api-client/**"
+      - "packages/sentry/**"
+      - "packages/types/**"
   # Run after static deploys so Service Binding targets exist before
   # Pulumi tries to reference them. Only triggers on successful completion.
   workflow_run:
