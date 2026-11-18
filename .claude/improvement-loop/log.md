@@ -5777,6 +5777,7 @@ None (`agent-skip` is empty).
 **AI issue feedback:** 8 categories tracked (90d); overall rejection ~8% (16/200); ci-fix 15% rejected (budget stays 3, not halved); agent-failed 100% rejected on n=1 (budget already halved to 1)
 **Skill proposals:** 0 (Wednesday — Friday-only)
 **Threshold notes:** false-positive rate well under 30% (no loosening needed). Fix-effectiveness 86% (6/7) over 30d, but 116/123 (94%) of verification attempts were skipped for lack of a verifier/CI data to check against — the verification signal itself is thin; worth revisiting which sensor labels have real verifiers. Auto-tuner applied 1 adjustment: acmm headroom 1.731 → 1.754.
+
 ## 2026-11-18 — mbe-ui-quality
 
 - **State:** `state.mjs checkout` exit 0, `source: branch` (ui-quality/ledger at 0969bcd, merged origin/main 7584173; `metrics/ui-quality-ledger.jsonl` resolved by rule).
