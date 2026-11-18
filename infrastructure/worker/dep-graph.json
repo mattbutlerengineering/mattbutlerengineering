@@ -76,6 +76,11 @@
       "path": "packages/gh-client"
     },
     {
+      "name": "@mbe/hospitality-sidenav",
+      "type": "package",
+      "path": "packages/hospitality-sidenav"
+    },
+    {
       "name": "@mattbutlerengineering/rialto",
       "type": "package",
       "path": "packages/rialto"
@@ -460,6 +465,11 @@
     },
     {
       "from": "@mbe/gh-client",
+      "to": "@mbe/config",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/hospitality-sidenav",
       "to": "@mbe/config",
       "type": "devDependency"
     },
