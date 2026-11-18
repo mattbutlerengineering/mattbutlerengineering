@@ -131,6 +131,24 @@ describe("buildAgentSystemPrompt", () => {
     });
   });
 
+  describe("reply text rules", () => {
+    const prompt = buildAgentSystemPrompt({
+      venueId: "venue-1",
+      now: NOW,
+      catalogPrompt: "CATALOG",
+    });
+
+    // Chat batch 12 (F39): the model wrote "[ReservationList elements show here]".
+    it("forbids a placeholder or description of an element in the reply text", () => {
+      expect(prompt).toMatch(/never write[^.]*placeholder[^.]*\[[^.]*elements show here/i);
+    });
+
+    // Chat batch 13: prose bullets listed raw YYYY-MM-DD dates.
+    it("asks for dates in plain words in the user's language, never as YYYY-MM-DD", () => {
+      expect(prompt).toMatch(/dates in plain words[^.]*never[^.]*YYYY-MM-DD/i);
+    });
+  });
+
   describe("maps each data shape to the element that shows it", () => {
     const prompt = buildAgentSystemPrompt({
       venueId: "venue-1",
