@@ -164,7 +164,7 @@ describe("buildAgentSystemPrompt", () => {
     // Review of gen-ui-elements-2 (major 1): lookup_reservation spans dates, and
     // localTime is a clock time only, so rows on two days read the same.
     it("puts the date in each row's time when the rows span more than one date", () => {
-      expect(lineFor("ReservationList")).toMatch(/more than one date[^.]*date[^.]*time/i);
+      expect(lineFor("ReservationList")).toMatch(/localTime[^.]*date[^.]*as is/i);
     });
 
     it("open slots from check_availability as TimeSlots, never for a closed or full day", () => {
