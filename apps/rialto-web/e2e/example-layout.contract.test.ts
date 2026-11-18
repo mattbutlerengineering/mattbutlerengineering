@@ -27,6 +27,16 @@ describe("example layout contracts", () => {
     expect(css).toMatch(/\.dateField > :first-child\s*\{[^}]*inline-size:\s*100%/);
   });
 
+  it("stacks booking-wizard room copy inside Button's nowrap span", () => {
+    const css = read("BookingWizardExamplePage.module.css");
+    expect(css).toMatch(/\.roomGrid \.roomCard\s*\{[^}]*white-space:\s*normal/);
+    expect(css).toMatch(/\.roomGrid \.roomCard > span\s*\{[^}]*flex-direction:\s*column/);
+    expect(css).toMatch(/\.roomGrid \.roomCard > span\s*\{[^}]*white-space:\s*normal/);
+    expect(css).toMatch(/\.roomName\s*\{[^}]*display:\s*block/);
+    expect(css).toMatch(/\.roomDescription\s*\{[^}]*display:\s*block/);
+    expect(css).toMatch(/\.roomPrice\s*\{[^}]*display:\s*block/);
+  });
+
   it("lets a notification row wrap inside the card despite Button's nowrap", () => {
     const css = read("NotificationCenterExamplePage.module.css");
     expect(css).toMatch(/\.list \.item\s*\{[^}]*white-space:\s*normal/);

@@ -3,6 +3,7 @@ import type { RialtoMessages } from "../messages";
 /** Français (Canada). Machine-translated. */
 export const frCA: RialtoMessages = {
   dismiss: "Ignorer",
+  dismissNotification: "Ignorer la notification",
   close: "Fermer",
   closeDialog: "Fermer la boîte de dialogue",
   dialog: "Boîte de dialogue",

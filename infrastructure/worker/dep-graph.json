@@ -21,6 +21,11 @@
       "path": "apps/rialto-web"
     },
     {
+      "name": "@mbe/shell",
+      "type": "app",
+      "path": "apps/shell"
+    },
+    {
       "name": "@mbe/agent-service",
       "type": "service",
       "path": "services/agent"
@@ -74,6 +79,11 @@
       "name": "@mbe/gh-client",
       "type": "package",
       "path": "packages/gh-client"
+    },
+    {
+      "name": "@mbe/hospitality-sidenav",
+      "type": "package",
+      "path": "packages/hospitality-sidenav"
     },
     {
       "name": "@mattbutlerengineering/rialto",
@@ -284,6 +294,16 @@
       "type": "devDependency"
     },
     {
+      "from": "@mbe/shell",
+      "to": "@mbe/config",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/shell",
+      "to": "@mbe/edge-worker",
+      "type": "devDependency"
+    },
+    {
       "from": "@mbe/agent-service",
       "to": "@mbe/agent-core",
       "type": "dependency"
@@ -460,6 +480,11 @@
     },
     {
       "from": "@mbe/gh-client",
+      "to": "@mbe/config",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/hospitality-sidenav",
       "to": "@mbe/config",
       "type": "devDependency"
     },

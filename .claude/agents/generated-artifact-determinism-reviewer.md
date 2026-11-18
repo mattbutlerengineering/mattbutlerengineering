@@ -1,6 +1,6 @@
 ---
 name: generated-artifact-determinism-reviewer
-description: "Catches generated-file drift (cross-platform non-determinism, stale embedded source) that fails CI's Integrity job. Use when a PR touches `**/llms.txt`, `**/llms-full.txt`, `**/generated-schemas.ts`, `infrastructure/worker/dep-graph.json`, `docs/architecture/dependency-graph.md` or `tools/cli/src/commands/pack.ts`."
+description: "Catches generated-file drift (cross-platform non-determinism, stale embedded source) that fails CI's Integrity job. Use when a PR touches `**/generated-schemas.ts`, `infrastructure/worker/dep-graph.json` or `docs/architecture/dependency-graph.md`."
 tools: Read, Grep, Glob, Bash
 ---
 
@@ -44,11 +44,8 @@ If any generated artifact is in the diff, or any source that an artifact embeds 
 ```bash
 pnpm install --frozen-lockfile        # worktrees have no node_modules
 pnpm build --filter @mbe/cli...       # the Integrity job runs dist, not src — rebuild it
-for pkg in packages/* apps/* services/*; do
-  [ -f "$pkg/llms.txt" ] && node tools/cli/dist/index.js pack "$pkg" >/dev/null 2>&1
-done
-node tools/cli/dist/index.js pack . >/dev/null 2>&1   # root bundle
-git diff --stat -- '*llms.txt' '*llms-full.txt'
+pnpm regen
+git diff --stat -- $(node scripts/regen-manifest.mjs --paths)
 ```
 
 Any non-empty diff → BLOCK, and name the drifted files. The fix is to regenerate from current source and commit (do NOT hand-edit the bundle).
@@ -59,7 +56,7 @@ If `package.json`, `pnpm-workspace.yaml`, or `pnpm-lock.yaml` changed but neithe
 
 ### 4. Manifest divergence
 
-If a package was added or deleted, check it is consistently represented in the regen manifest (`scripts/regen-manifest.mjs` or equivalent). A deleted package still listed there is a known source of root-`llms.txt` non-determinism.
+If a package was added or deleted, check it is consistently represented in the regen manifest (`scripts/regen-manifest.mjs` or equivalent).
 
 ## What you do NOT check
 

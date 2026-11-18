@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { axe } from "vitest-axe";
+import { Card } from "../Card/Card";
 import { ContextMenu, type ContextMenuEntry, type ContextMenuItemDef } from "./ContextMenu";
 
 const basicItems: ContextMenuItemDef[] = [
@@ -223,6 +224,126 @@ describe("ContextMenu", () => {
       fireEvent.keyDown(menu, { key: "Enter" });
       expect(basicItems[0]!.onSelect).toHaveBeenCalledTimes(1);
       await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument());
+    });
+
+    it("puts a non-focusable target in the tab order and opens on Shift+F10", async () => {
+      const user = userEvent.setup();
+      render(
+        <>
+          <button type="button">Before</button>
+          <ContextMenu items={basicItems}>
+            <div>Right-click this area</div>
+          </ContextMenu>
+        </>
+      );
+      const target = screen.getByText("Right-click this area");
+      expect(target).toHaveAttribute("tabindex", "0");
+
+      screen.getByRole("button", { name: "Before" }).focus();
+      await user.tab();
+      expect(target).toHaveFocus();
+
+      await user.keyboard("{Shift>}{F10}{/Shift}");
+      const menu = screen.getByRole("menu");
+      expect(menu).toBeInTheDocument();
+      expect(screen.getByRole("menuitem", { name: /copy/i })).toHaveFocus();
+
+      await user.keyboard("{ArrowDown}");
+      expect(screen.getByRole("menuitem", { name: /paste/i })).toHaveFocus();
+
+      await user.keyboard("{Escape}");
+      await waitFor(() => {
+        expect(target).toHaveFocus();
+        expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+      });
+    });
+
+    it("opens on the Context Menu key and returns focus to the target on Escape", () => {
+      vi.useFakeTimers();
+      try {
+        render(
+          <ContextMenu items={basicItems}>
+            <div>Target</div>
+          </ContextMenu>
+        );
+        const target = screen.getByText("Target");
+        target.focus();
+        fireEvent.keyDown(target, { key: "ContextMenu" });
+        expect(screen.getByRole("menuitem", { name: /copy/i })).toHaveFocus();
+
+        fireEvent.keyDown(document, { key: "Escape" });
+        act(() => {
+          vi.runAllTimers();
+        });
+        // Exit animation may still be in the DOM; the contract is where focus lands.
+        expect(target).toHaveFocus();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("places a keyboard-opened menu on the target instead of the pointer", () => {
+      render(
+        <ContextMenu items={basicItems}>
+          <div>Target</div>
+        </ContextMenu>
+      );
+      const target = screen.getByText("Target");
+      target.getBoundingClientRect = () =>
+        ({
+          x: 48,
+          y: 64,
+          left: 48,
+          top: 64,
+          right: 180,
+          bottom: 96,
+          width: 132,
+          height: 32,
+          toJSON() {
+            return {};
+          },
+        }) as DOMRect;
+      target.focus();
+      fireEvent.keyDown(target, { key: "F10", shiftKey: true });
+      expect(screen.getByRole("menu")).toHaveStyle({ left: "48px", top: "64px" });
+    });
+
+    it("keeps a Card target focusable, matching the docs demo", () => {
+      render(
+        <ContextMenu items={basicItems}>
+          <Card>Right-click this area</Card>
+        </ContextMenu>
+      );
+      const target = screen.getByText("Right-click this area").closest("[tabindex='0']");
+      expect(target).not.toBeNull();
+      (target as HTMLElement).focus();
+      fireEvent.keyDown(target as HTMLElement, { key: "F10", shiftKey: true });
+      expect(screen.getByRole("menuitem", { name: /copy/i })).toHaveFocus();
+    });
+
+    it("leaves a native button's tab stop alone and still opens it from the keyboard", () => {
+      render(
+        <ContextMenu items={basicItems}>
+          <button type="button">Target</button>
+        </ContextMenu>
+      );
+      const target = screen.getByRole("button", { name: "Target" });
+      expect(target).not.toHaveAttribute("tabindex");
+      target.focus();
+      fireEvent.keyDown(target, { key: "ContextMenu" });
+      expect(screen.getByRole("menu")).toBeInTheDocument();
+      expect(screen.getByRole("menuitem", { name: /copy/i })).toHaveFocus();
+    });
+
+    it("still opens from a right-click", () => {
+      render(
+        <ContextMenu items={basicItems}>
+          <div>Target</div>
+        </ContextMenu>
+      );
+      fireEvent.contextMenu(screen.getByText("Target"), { button: 2, clientX: 12, clientY: 20 });
+      expect(screen.getByRole("menu")).toBeInTheDocument();
+      expect(screen.getByRole("menu")).toHaveStyle({ left: "12px", top: "20px" });
     });
 
     it("skips disabled items in keyboard navigation", () => {

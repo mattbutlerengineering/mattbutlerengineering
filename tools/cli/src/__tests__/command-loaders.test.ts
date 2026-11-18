@@ -18,7 +18,7 @@ import { COMMAND_NAMES, registerCommands } from "../command-loaders.js";
 const registered = (program: Command) => program.commands.map((c) => c.name());
 
 describe("registerCommands", () => {
-  it.each(["pack", "pack-changed", "check-adr", "check-deps"])(
+  it.each(["check-adr", "check-deps"])(
     "loads %s without touching workspace packages",
     async (name) => {
       const program = new Command();
@@ -37,8 +37,6 @@ describe("registerCommands", () => {
         "agent",
         "check-model",
         "loop",
-        "pack",
-        "pack-changed",
         "sync-rules",
         "check-adr",
         "check-deps",
@@ -47,9 +45,12 @@ describe("registerCommands", () => {
     );
   });
 
-  it.each(["new", "generate", "up", "health"])("does not register retired command %s", (name) => {
-    expect(COMMAND_NAMES).not.toContain(name);
-  });
+  it.each(["new", "generate", "up", "health", "pack", "pack-changed"])(
+    "does not register retired command %s",
+    (name) => {
+      expect(COMMAND_NAMES).not.toContain(name);
+    }
+  );
 
   it("loads every command when none is named (help, no args)", async () => {
     const program = new Command();

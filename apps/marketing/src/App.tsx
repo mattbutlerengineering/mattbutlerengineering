@@ -56,10 +56,16 @@ export function App({ theme, onThemeToggle }: AppProps) {
   const { pathname } = useLocation();
   const engineeringMenu = {
     label: "Engineering",
-    items: ENGINEERING_PAGES.map((page) => ({
-      ...page,
-      current: isEngineeringPageCurrent(pathname, page.href),
-    })),
+    items: [
+      ...ENGINEERING_PAGES.map((page) => ({
+        ...page,
+        current: isEngineeringPageCurrent(pathname, page.href),
+      })),
+      // Gen is a sibling app (served at the edge, full page load) rather than
+      // an engineering dashboard, so it never participates in current-page
+      // highlighting from within marketing's own router.
+      { label: "Gen", href: "/gen/" },
+    ],
   };
   useEffect(() => {
     const main = document.getElementById("main-content");
@@ -124,6 +130,8 @@ export function App({ theme, onThemeToggle }: AppProps) {
             links: [
               { label: "Rialto Design System", href: "/rialto/" },
               { label: "Hospitality Platform", href: "/hospitality/" },
+              { label: "Gen Playground", href: "/gen/" },
+              ...ENGINEERING_PAGES,
             ],
           },
           {

@@ -25,7 +25,7 @@ The rule is drawn using `::before`/`::after` pseudo-elements with gradient backg
 
 | State    | Description                                       | Prop/Trigger             |
 | -------- | ------------------------------------------------- | ------------------------ |
-| Default  | Neutral gradient rule                             | No extra props           |
+| Default  | Neutral gradient rule with md vertical margin     | No extra props           |
 | Labeled  | Centered label text splits the rule               | `label` prop set         |
 | Accent   | Gold gradient rule and accent-colored label       | `accent={true}`          |
 | Vertical | Column-direction rule, stretches to parent height | `orientation="vertical"` |
@@ -34,18 +34,18 @@ The rule is drawn using `::before`/`::after` pseudo-elements with gradient backg
 
 ## Design Tokens Used
 
-| Token                    | Purpose                                        |
-| ------------------------ | ---------------------------------------------- |
-| `--rialto-border`        | Rule gradient edge color                       |
-| `--rialto-border-strong` | Rule gradient center color                     |
-| `--rialto-space-md`      | Horizontal gap between label and rule segments |
-| `--rialto-space-sm`      | Vertical gap in vertical orientation           |
-| `--rialto-space-xs`      | Compact spacing margin                         |
-| `--rialto-space-lg`      | Spacious spacing margin                        |
-| `--rialto-text-xs`       | Label font size                                |
-| `--rialto-weight-medium` | Label font weight                              |
-| `--rialto-text-tertiary` | Label default color                            |
-| `--rialto-accent`        | Label color in accent variant                  |
+| Token                    | Purpose                                                  |
+| ------------------------ | -------------------------------------------------------- |
+| `--rialto-border`        | Rule gradient edge color                                 |
+| `--rialto-border-strong` | Rule gradient center color                               |
+| `--rialto-space-md`      | Default spacing margin; gap between a label and the rule |
+| `--rialto-space-sm`      | Vertical gap in vertical orientation                     |
+| `--rialto-space-xs`      | Compact spacing margin                                   |
+| `--rialto-space-lg`      | Spacious spacing margin                                  |
+| `--rialto-text-xs`       | Label font size                                          |
+| `--rialto-weight-medium` | Label font weight                                        |
+| `--rialto-text-tertiary` | Label default color                                      |
+| `--rialto-accent`        | Label color in accent variant                            |
 
 ## Props
 

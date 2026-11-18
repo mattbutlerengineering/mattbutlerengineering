@@ -133,7 +133,7 @@ single source of truth.
 | lint / typecheck       | ESLint + `tsc --noEmit` across every workspace package                    |
 | test                   | Vitest unit + integration, coverage reported to Codecov                   |
 | build                  | Every app and package builds, including generated artifacts               |
-| integrity              | `llms.txt`, dependency graph, and catalog schemas match their sources     |
+| integrity              | Dependency graph and catalog schemas match their sources                  |
 | architecture-audit     | ADR conformance, dependency boundaries, circular-import detection         |
 | ai-antipattern-ratchet | A baselined count per antipattern; regressions fail, cleanups re-baseline |
 | migrations             | Prisma migration dry-run plus a destructive-operation check               |

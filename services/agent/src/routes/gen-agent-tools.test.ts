@@ -1532,6 +1532,34 @@ describe("createAgentTools", () => {
       expect(result).toEqual({ reservations: [{ ...reservation, localTime: "19:30" }] });
     });
 
+    describe("rows spanning several venue-local dates", () => {
+      it("lookup_reservation prefixes each localTime with its venue-local date", async () => {
+        const a = { id: "r1", startTime: "2026-10-16T16:26:00.000Z" };
+        const b = { id: "r2", startTime: "2026-11-04T05:15:00.000Z" }; // Nov 3, 21:15 in LA
+        api.reservations.list.mockResolvedValue(page([a, b]));
+        const result = await run("lookup_reservation", {}, LA);
+        expect(result).toEqual({
+          reservations: [
+            { ...a, localTime: "2026-10-16 09:26" },
+            { ...b, localTime: "2026-11-03 21:15" },
+          ],
+        });
+      });
+
+      it("keeps a plain HH:mm when every row falls on one local date", async () => {
+        const a = { id: "r1", startTime: "2026-10-16T16:26:00.000Z" };
+        const b = { id: "r2", startTime: "2026-10-17T02:15:00.000Z" }; // Oct 16, 19:15 in LA
+        api.reservations.list.mockResolvedValue(page([a, b]));
+        const result = await run("lookup_reservation", {}, LA);
+        expect(result).toEqual({
+          reservations: [
+            { ...a, localTime: "09:26" },
+            { ...b, localTime: "19:15" },
+          ],
+        });
+      });
+    });
+
     it("omits localTime for an unparseable time without throwing", async () => {
       const reservation = { id: "r1", startTime: "not a time" };
       api.reservations.list.mockResolvedValue(page([reservation]));

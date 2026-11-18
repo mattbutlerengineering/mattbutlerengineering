@@ -11,6 +11,7 @@
         "$TURBO_EXTENDS$",
         "$TURBO_ROOT$/scripts/*.mjs",
         "$TURBO_ROOT$/scripts/lib/*.mjs",
+        "$TURBO_ROOT$/scripts/ui-quality/*.mjs",
         "$TURBO_ROOT$/plugins/acmm/scripts/agent-pr.js"
       ]
     },
@@ -19,6 +20,7 @@
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/scripts/*.mjs",
         "$TURBO_ROOT$/scripts/lib/*.mjs",
+        "$TURBO_ROOT$/scripts/ui-quality/*.mjs",
         "$TURBO_ROOT$/plugins/acmm/scripts/agent-pr.js"
       ]
     }

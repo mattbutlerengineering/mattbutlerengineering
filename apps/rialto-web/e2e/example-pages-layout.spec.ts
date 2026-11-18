@@ -166,6 +166,119 @@ test.describe("onboarding property name", () => {
   });
 });
 
+function localIso(date: Date): string {
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+async function pickFirstEnabledDay(page: Page, label: string) {
+  await page.getByRole("combobox", { name: label }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  await dialog.locator('[role="gridcell"]:not([aria-disabled="true"])').first().click();
+  await expect(dialog).toBeHidden();
+}
+
+test.describe("booking wizard room cards", () => {
+  test("stacks the name, description, and price at 1280px light", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await ready(page, "examples/booking-wizard", "light");
+    await pickFirstEnabledDay(page, "Check-in");
+    await pickFirstEnabledDay(page, "Check-out");
+    await page.getByRole("button", { name: "Continue" }).click();
+
+    const card = page.getByRole("button", { name: /Garden Queen/ });
+    await expect(card).toBeVisible();
+    const name = card.getByText("Garden Queen", { exact: true });
+    const description = card.getByText("Queen bed with a private garden-facing balcony.");
+    const price = card.getByText("$180 / night");
+
+    const cardBox = await card.boundingBox();
+    const nameBox = await name.boundingBox();
+    const descriptionBox = await description.boundingBox();
+    const priceBox = await price.boundingBox();
+    expect(cardBox && nameBox && descriptionBox && priceBox).toBeTruthy();
+    fullyInside(nameBox!, cardBox!);
+    fullyInside(descriptionBox!, cardBox!);
+    fullyInside(priceBox!, cardBox!);
+    expect(descriptionBox!.y).toBeGreaterThanOrEqual(nameBox!.y + nameBox!.height - 1);
+    expect(priceBox!.y).toBeGreaterThanOrEqual(descriptionBox!.y + descriptionBox!.height - 1);
+    expect(descriptionBox!.y - (nameBox!.y + nameBox!.height)).toBeGreaterThanOrEqual(4);
+    expect(priceBox!.y - (descriptionBox!.y + descriptionBox!.height)).toBeGreaterThanOrEqual(4);
+  });
+});
+
+test.describe("booking wizard past dates", () => {
+  test("disables yesterday on the check-in calendar at 1280px light", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await ready(page, "examples/booking-wizard", "light");
+    await page.getByRole("combobox", { name: "Check-in" }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const iso = localIso(yesterday);
+    if ((await dialog.locator(`[data-date="${iso}"]`).count()) === 0) {
+      await dialog.getByRole("button", { name: "Previous month" }).click();
+    }
+    const cell = dialog.locator(`[data-date="${iso}"]`);
+    await expect(cell).toHaveAttribute("aria-disabled", "true");
+    // aria-disabled is not actionable, so a normal click waits forever.
+    await cell.click({ force: true });
+    await expect(page.getByRole("combobox", { name: "Check-in" })).toHaveValue("");
+  });
+});
+
+test.describe("settings profile", () => {
+  test("separates Save Profile from the timezone field at 1280px light", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await ready(page, "examples/settings", "light");
+
+    const timezone = await page.getByRole("combobox", { name: "Timezone" }).boundingBox();
+    const save = await page.getByRole("button", { name: "Save Profile" }).boundingBox();
+    expect(timezone && save).toBeTruthy();
+
+    const separators = page.getByRole("separator");
+    const count = await separators.count();
+    let gap = 0;
+    let ruleHeight = 0;
+    for (let i = 0; i < count; i++) {
+      const box = await separators.nth(i).boundingBox();
+      if (!box || !timezone || !save) continue;
+      if (box.y > timezone.y + timezone.height - 1 && box.y < save.y) {
+        gap = box.y - (timezone.y + timezone.height);
+        ruleHeight = box.height;
+      }
+    }
+    expect(ruleHeight).toBeGreaterThanOrEqual(1);
+    expect(gap).toBeGreaterThanOrEqual(12);
+    expect(save!.y - (timezone!.y + timezone!.height)).toBeGreaterThan(gap + ruleHeight);
+  });
+
+  test("shows validation errors and confirms a valid profile at 1280px light", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await ready(page, "examples/settings", "light");
+
+    const name = page.getByRole("textbox", { name: "Full Name" });
+    const email = page.getByRole("textbox", { name: "Email" });
+    await name.fill("");
+    await email.fill("not an email 😀");
+    await page.getByRole("button", { name: "Save Profile" }).click();
+    await expect(page.getByText(/full name is required/i)).toBeVisible();
+    await expect(page.getByText(/valid email/i)).toBeVisible();
+    await expect(page.getByRole("status")).toHaveCount(0);
+
+    await name.fill("Ada Lovelace");
+    await email.fill("ada@example.com");
+    await page.getByRole("button", { name: "Save Profile" }).click();
+    await expect(page.getByRole("status")).toHaveText(/profile saved/i);
+    await expect(page.getByText(/full name is required/i)).toHaveCount(0);
+    await expect(page.getByText(/valid email/i)).toHaveCount(0);
+  });
+});
+
 test.describe("notification rows", () => {
   for (const width of [768, 1280]) {
     test(`keeps title, body, and timestamp inside the row at ${width}px`, async ({ page }) => {

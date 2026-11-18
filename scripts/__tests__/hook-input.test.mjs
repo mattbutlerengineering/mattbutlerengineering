@@ -142,9 +142,16 @@ describe(".claude/settings.json hook contract", () => {
   });
 
   it("guards every formatter invocation behind a non-empty path check", () => {
+    // Formatter calls live in the post-edit dispatcher (#9068); any settings.json
+    // entry that still inlines `npx` must keep its own guard.
     for (const cmd of writeHookCommands().filter((c) => c.includes("npx "))) {
       expect(cmd).toContain('[ -n "$FILE" ]');
     }
+    const dispatcher = readFileSync(join(REPO_ROOT, ".claude", "hooks", "post-edit.sh"), "utf8");
+    const guardAt = dispatcher.indexOf('[ -n "$FILE" ] || exit 0');
+    expect(guardAt).toBeGreaterThan(-1);
+    expect(guardAt).toBeLessThan(dispatcher.indexOf("npx prettier"));
+    expect(guardAt).toBeLessThan(dispatcher.indexOf("npx eslint"));
   });
 });
 
@@ -202,7 +209,7 @@ describe("hook seam: an empty file path is a no-op", () => {
     "passes the real path through to prettier when one is present",
     () => {
       const target = join(sandbox, "a.js");
-      const result = run(commandContaining("prettier"), payloadFor(target));
+      const result = run(commandContaining("post-edit.sh"), payloadFor(target));
 
       expect(result.status).toBe(0);
       expect(readFileSync(npxLog, "utf8")).toContain(`prettier --write --ignore-unknown ${target}`);
@@ -392,7 +399,38 @@ describe("hook seam: Bash hooks read the command from the stdin payload", () => 
       const result = run("pre-push-typecheck.sh", bashPayloadFor("git push origin HEAD"), work);
       expect(result.stderr).toContain("BLOCK: typecheck failed");
       expect(result.status).toBe(2);
-      expect(readFileSync(pnpmLog, "utf8")).toContain("-r --parallel typecheck");
+      expect(readFileSync(pnpmLog, "utf8")).toContain("turbo run typecheck");
+    },
+    SEAM_TIMEOUT_MS
+  );
+
+  it(
+    "pre-push-typecheck typechecks a new branch with no upstream against origin/main (#9065)",
+    () => {
+      const work = gitFixtureAheadOfOrigin();
+      git(work, "checkout", "-qb", "new-branch");
+      const result = run("pre-push-typecheck.sh", bashPayloadFor("git push -u origin HEAD"), work);
+      expect(result.stderr).toContain("BLOCK: typecheck failed");
+      expect(result.status).toBe(2);
+      const calls = readFileSync(pnpmLog, "utf8");
+      expect(calls).toContain("turbo");
+      expect(calls).toContain("--filter=...[origin/main]");
+    },
+    SEAM_TIMEOUT_MS
+  );
+
+  it(
+    "pre-push-typecheck skips a new branch whose diff against origin/main has no .ts change (#9065)",
+    () => {
+      const work = gitFixtureAheadOfOrigin();
+      git(work, "reset", "-q", "--hard", "origin/main");
+      git(work, "checkout", "-qb", "docs-branch");
+      writeFileSync(join(work, "README.md"), "docs\n");
+      git(work, "add", "README.md");
+      git(work, "commit", "-qm", "docs");
+      const result = run("pre-push-typecheck.sh", bashPayloadFor("git push -u origin HEAD"), work);
+      expect(result.status).toBe(0);
+      expect(existsSync(pnpmLog), "typechecked a docs-only branch").toBe(false);
     },
     SEAM_TIMEOUT_MS
   );
@@ -509,6 +547,63 @@ describe("hook seam: Bash hooks read the command from the stdin payload", () => 
   );
 
   it(
+    "verify-push-sha verifies the worktree named by a leading `cd X &&`, not the payload cwd",
+    () => {
+      // Regression (#9066): payload cwd is the main checkout, the push ran in
+      // the worktree. A bare `HEAD` push used to read the main checkout's
+      // branch and warn "not found on origin" after a push that landed.
+      const { work, tree } = gitFixtureWithPushedWorktree();
+      const result = run(
+        "verify-push-sha.sh",
+        bashPayloadFor(`cd ${tree} && git push -u origin HEAD`),
+        work
+      );
+      expect(result.stderr, "false alarm on a worktree push").toBe("");
+      expect(result.status).toBe(0);
+    },
+    SEAM_TIMEOUT_MS
+  );
+
+  it(
+    "verify-push-sha verifies the worktree named by `git -C X push`",
+    () => {
+      const { work, tree } = gitFixtureWithPushedWorktree();
+      const ok = run(
+        "verify-push-sha.sh",
+        bashPayloadFor(`git -C "${tree}" push -u origin HEAD`),
+        work
+      );
+      expect(ok.stderr, "false alarm on a worktree push").toBe("");
+      expect(ok.status).toBe(0);
+      // Not blind: the form is now matched, so an unpushed branch still warns.
+      const bad = run(
+        "verify-push-sha.sh",
+        bashPayloadFor(`git -C ${work} push -u origin HEAD`),
+        work
+      );
+      expect(bad.stderr).toContain("not found on");
+      expect(bad.status).toBe(2);
+    },
+    SEAM_TIMEOUT_MS
+  );
+
+  it(
+    "verify-push-sha skips quietly when the named tree cannot be resolved",
+    () => {
+      const { work } = gitFixtureWithPushedWorktree();
+      for (const command of [
+        "cd /nonexistent/tree && git push -u origin HEAD",
+        "cd $WT && git push -u origin HEAD",
+      ]) {
+        const result = run("verify-push-sha.sh", bashPayloadFor(command), work);
+        expect(result.stderr, command).toBe("");
+        expect(result.status, command).toBe(0);
+      }
+    },
+    SEAM_TIMEOUT_MS
+  );
+
+  it(
     "verify-push-sha resolves a src:dst refspec against the remote side",
     () => {
       const { work } = gitFixtureWithPushedWorktree();
@@ -582,7 +677,7 @@ describe("hook seam: Bash hooks read the command from the stdin payload", () => 
       );
       expect(result.stderr).toContain("BLOCK: typecheck failed");
       expect(result.status).toBe(2);
-      expect(readFileSync(pnpmLog, "utf8")).toContain("-r --parallel typecheck");
+      expect(readFileSync(pnpmLog, "utf8")).toContain("turbo run typecheck");
     },
     SEAM_TIMEOUT_MS
   );
@@ -930,25 +1025,6 @@ describe("hook seam: path hooks act on the tree the edited file lives in", () =>
   );
 
   it(
-    "regen-llms regenerates in the worktree that was edited, not the main checkout",
-    () => {
-      const { work, tree } = fixtureWithWorktree();
-      const result = runHook(
-        "regen-llms.sh",
-        join(tree, "packages", "rialto", "src", "index.ts"),
-        work
-      );
-
-      expect(result.status).toBe(0);
-      const log = readFileSync(pnpmLog, "utf8");
-      expect(log).toContain("regen-from-linked");
-      expect(log).toContain("packages/rialto/src/index.ts");
-      expect(log).not.toContain("regen-from-work");
-    },
-    SEAM_TIMEOUT_MS
-  );
-
-  it(
     "check-changeset consults the worktree's changeset rule, not the main checkout's",
     () => {
       const { work, tree } = fixtureWithWorktree();
@@ -989,26 +1065,23 @@ describe("hook seam: path hooks act on the tree the edited file lives in", () =>
     SEAM_TIMEOUT_MS
   );
 
-  it.each(["regen-dep-graph.sh", "regen-llms.sh"])(
-    "%s hands the manifest a repo-root-relative path when the edit reaches the tree through a symlink",
-    (hook) => {
+  it(
+    "regen-dep-graph.sh hands the manifest a repo-root-relative path when the edit reaches the tree through a symlink",
+    () => {
       // `rev-parse --show-toplevel` reports a realpath; a payload path spelled
       // through a symlink must still strip down to the repo-root-relative form,
       // or the manifest matches nothing and the hook silently no-ops.
       const { work } = fixtureWithWorktree();
       const link = join(sandbox, "via-link");
       symlinkSync(work, link);
-      const file =
-        hook === "regen-llms.sh"
-          ? join(link, "packages", "rialto", "src", "index.ts")
-          : join(link, "packages", "rialto", "package.json");
+      const file = join(link, "packages", "rialto", "package.json");
 
-      const result = runHook(hook, file, work);
+      const result = runHook("regen-dep-graph.sh", file, work);
 
       expect(result.status).toBe(0);
       const [args] = readFileSync(pnpmLog, "utf8").split(" @ ");
       expect(args, "manifest was handed a path through the symlink").not.toContain(link);
-      expect(args).toMatch(/ packages\/rialto\/(src\/index\.ts|package\.json)\n?$/);
+      expect(args).toMatch(/ packages\/rialto\/package\.json\n?$/);
     },
     SEAM_TIMEOUT_MS
   );

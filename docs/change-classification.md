@@ -15,7 +15,7 @@ This document defines how changes are classified by risk level, who reviews each
 - Test additions with no production code changes
 - Comment and JSDoc updates
 - Changeset files (`.changeset/*.md`)
-- Auto-generated files (`llms.txt`, `llms-full.txt`, exports map)
+- Auto-generated files (exports map)
 - Editor config (`.editorconfig`, `.vscode/*`, `.cursorrules`)
 - Metrics log appends (`metrics/*.jsonl`)
 

@@ -74,16 +74,19 @@ vi.mock("@mattbutlerengineering/rialto", () => {
     label,
     value,
     onChange,
+    min,
   }: {
     label?: string;
     value?: string | null;
     onChange?: (value: string | null) => void;
+    min?: string;
   }) => (
     <label>
       {label}
       <input
         aria-label={label}
         value={value ?? ""}
+        min={min}
         onChange={(e) => onChange?.(e.target.value || null)}
       />
     </label>
@@ -112,9 +115,17 @@ function clickContinue() {
 }
 
 /** Drive the wizard through dates → room → guest → payment → confirmation. */
+/** Local calendar date, matching the wizard's check-in minimum. */
+function localToday(): string {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${now.getFullYear()}-${month}-${day}`;
+}
+
 function completeToConfirmation() {
-  setInput("Check-in", "2026-08-01");
-  setInput("Check-out", "2026-08-04");
+  setInput("Check-in", "2099-08-01");
+  setInput("Check-out", "2099-08-04");
   clickContinue();
   fireEvent.click(screen.getByRole("button", { name: new RegExp(ROOMS[0]!.name, "i") }));
   clickContinue();
@@ -144,6 +155,27 @@ describe("BookingWizardExamplePage", () => {
     expect(steps).toHaveAttribute("data-current", "0");
   });
 
+  it("disables dates before today and refuses a past check-in", () => {
+    render(<BookingWizardExamplePage />);
+    const today = localToday();
+    expect(screen.getByLabelText("Check-in")).toHaveAttribute("min", today);
+    expect(screen.getByLabelText("Check-out")).toHaveAttribute("min", today);
+
+    setInput("Check-in", "2020-11-03");
+    setInput("Check-out", "2020-11-20");
+    clickContinue();
+
+    expect(screen.getByTestId("steps")).toHaveAttribute("data-current", "0");
+    expect(screen.getByText(/check-in can't be in the past/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: new RegExp(ROOMS[0]!.name, "i") })).toBeNull();
+  });
+
+  it("raises the check-out minimum to the day after check-in", () => {
+    render(<BookingWizardExamplePage />);
+    setInput("Check-in", "2099-08-01");
+    expect(screen.getByLabelText("Check-out")).toHaveAttribute("min", "2099-08-02");
+  });
+
   it("blocks advancing from the dates step until both dates are valid", () => {
     render(<BookingWizardExamplePage />);
     clickContinue();
@@ -154,8 +186,8 @@ describe("BookingWizardExamplePage", () => {
 
   it("advances to room selection once dates are provided", () => {
     render(<BookingWizardExamplePage />);
-    setInput("Check-in", "2026-08-01");
-    setInput("Check-out", "2026-08-04");
+    setInput("Check-in", "2099-08-01");
+    setInput("Check-out", "2099-08-04");
     clickContinue();
     expect(screen.getByTestId("steps")).toHaveAttribute("data-current", "1");
     expect(
@@ -165,19 +197,19 @@ describe("BookingWizardExamplePage", () => {
 
   it("preserves entered state across back-navigation", () => {
     render(<BookingWizardExamplePage />);
-    setInput("Check-in", "2026-08-01");
-    setInput("Check-out", "2026-08-04");
+    setInput("Check-in", "2099-08-01");
+    setInput("Check-out", "2099-08-04");
     clickContinue();
     fireEvent.click(screen.getByRole("button", { name: /back/i }));
     expect(screen.getByTestId("steps")).toHaveAttribute("data-current", "0");
-    expect(screen.getByLabelText("Check-in")).toHaveValue("2026-08-01");
-    expect(screen.getByLabelText("Check-out")).toHaveValue("2026-08-04");
+    expect(screen.getByLabelText("Check-in")).toHaveValue("2099-08-01");
+    expect(screen.getByLabelText("Check-out")).toHaveValue("2099-08-04");
   });
 
   it("stays on the payment step when the card expiry is in the past", () => {
     render(<BookingWizardExamplePage />);
-    setInput("Check-in", "2026-08-01");
-    setInput("Check-out", "2026-08-04");
+    setInput("Check-in", "2099-08-01");
+    setInput("Check-out", "2099-08-04");
     clickContinue();
     fireEvent.click(screen.getByRole("button", { name: new RegExp(ROOMS[0]!.name, "i") }));
     clickContinue();
@@ -201,7 +233,7 @@ describe("BookingWizardExamplePage", () => {
     completeToConfirmation();
     expect(screen.getByTestId("steps")).toHaveAttribute("data-current", "4");
     // Confirmation summary carries dates, room, guest, and masked payment.
-    expect(screen.getByText("2026-08-01")).toBeInTheDocument();
+    expect(screen.getByText("2099-08-01")).toBeInTheDocument();
     expect(screen.getByText(ROOMS[0]!.name)).toBeInTheDocument();
     expect(screen.getByText("ada@example.com")).toBeInTheDocument();
     expect(screen.getByText(/4242$/)).toBeInTheDocument();

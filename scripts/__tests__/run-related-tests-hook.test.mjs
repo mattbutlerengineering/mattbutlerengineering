@@ -130,9 +130,16 @@ describe("run-related-tests.sh wiring", () => {
   it("has a timeout in seconds, not milliseconds", () => {
     const settings = JSON.parse(readFileSync(SETTINGS, "utf8"));
     const entries = settings.hooks.PostToolUse.flatMap((group) => group.hooks);
-    const entry = entries.find((hook) => hook.command.includes("run-related-tests.sh"));
+    // #9068: run-related-tests.sh runs from the post-edit dispatcher, which
+    // caps it at 60 s itself (run_timed) inside the dispatcher's own timeout.
+    const entry = entries.find((hook) => hook.command.includes("post-edit.sh"));
+    const dispatcher = readFileSync(join(dirname(SETTINGS), "hooks", "post-edit.sh"), "utf8");
 
     expect(entry).toBeDefined();
-    expect(entry.timeout).toBe(60);
+    expect(dispatcher).toContain(
+      'run_timed 60 bash "$PROJECT_DIR/.claude/hooks/run-related-tests.sh"'
+    );
+    expect(entry.timeout).toBeGreaterThanOrEqual(60);
+    expect(entry.timeout).toBeLessThanOrEqual(600);
   });
 });
