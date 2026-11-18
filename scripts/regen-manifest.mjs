@@ -106,6 +106,8 @@ export const FAMILIES = [
       "packages/database/llms-full.txt",
       "packages/gh-client/llms.txt",
       "packages/gh-client/llms-full.txt",
+      "packages/hospitality-sidenav/llms.txt",
+      "packages/hospitality-sidenav/llms-full.txt",
       "packages/rialto/llms.txt",
       "packages/rialto/llms-full.txt",
       "packages/rialto-catalog/llms.txt",
