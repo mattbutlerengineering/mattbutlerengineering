@@ -85,7 +85,13 @@ describe("conformance harness: CI workflow runs every functional spec", () => {
   });
 
   it("passes BASE_URL from a required input, with no default", () => {
-    expect(workflow).toMatch(/base_url:\s*\n(?:\s+.*\n)*?\s+required:\s*true/);
+    const afterInput = workflow.slice(workflow.indexOf("base_url:"));
+    const block = afterInput.split("\n").slice(1);
+    const end = block.findIndex((line) => /^\s{0,6}\S/.test(line) && !/^\s{8,}/.test(line));
+    const inputBlock = (end === -1 ? block : block.slice(0, end)).join("\n");
+    expect(afterInput.startsWith("base_url:")).toBe(true);
+    expect(inputBlock).toContain("required: true");
+    expect(inputBlock).not.toContain("default:");
     expect(workflow).toContain("BASE_URL: ${{ inputs.base_url }}");
   });
 });
