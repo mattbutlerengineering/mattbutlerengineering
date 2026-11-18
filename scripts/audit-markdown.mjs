@@ -28,6 +28,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
+import { excludeShippedRuns } from "./lib/shipped-runs.mjs";
+
+export { excludeShippedRuns };
 
 /**
  * Links that are known-dangling on purpose. Each needs a reason: an
@@ -311,32 +314,6 @@ export function applyFixes(content, findings) {
     next[index] = line.replace(finding.fix.from, finding.fix.to);
   }
   return next.join("\n");
-}
-
-const RUN_DIR = /^(docs\/(?:features|fixes)\/[^/]+)\//;
-const RUN_MARKER = /^(docs\/(?:features|fixes)\/[^/]+)\/retro\.md$/;
-
-/**
- * Drop the files of SHIPPED pipeline runs (#9078). `docs/features/<slug>/` and
- * `docs/fixes/<slug>/` hold ~75% of the repo's markdown lines, and a run's
- * artifacts are a frozen record, like the dated snapshots `isArchivalDoc`
- * skips. A run is shipped once the operate stage wrote its `retro.md` (the
- * stage that completes a run); a run without one is live and stays audited.
- *
- * @param {string[]} files - repo-relative posix paths
- * @returns {string[]}
- */
-export function excludeShippedRuns(files) {
-  const shipped = new Set(
-    files.flatMap((file) => {
-      const marker = file.match(RUN_MARKER);
-      return marker ? [marker[1]] : [];
-    })
-  );
-  return files.filter((file) => {
-    const run = file.match(RUN_DIR);
-    return !(run && shipped.has(run[1]));
-  });
 }
 
 function trackedMarkdownFiles(cwd) {
