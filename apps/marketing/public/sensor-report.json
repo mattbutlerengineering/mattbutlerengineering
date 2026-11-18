@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-11-17T19:05:45.255Z",
+  "generated_at": "2026-11-18T01:39:50.772Z",
   "period": {
-    "start": "2026-11-10",
-    "end": "2026-11-17"
+    "start": "2026-11-11",
+    "end": "2026-11-18"
   },
   "sensors": {
     "acmm": {
@@ -42,70 +42,70 @@
         {
           "metric": "review-burden",
           "state": "fresh",
-          "age_days": 2.05,
+          "age_days": 2.32,
           "latest": "2026-11-15T17:53:53.714Z",
           "max_age_days": 3
         },
         {
           "metric": "queue-telemetry",
           "state": "fresh",
-          "age_days": 0.73,
+          "age_days": 1.01,
           "latest": "2026-11-17T01:27:36.754Z",
           "max_age_days": 3
         },
         {
           "metric": "queueEfficiency",
           "state": "fresh",
-          "age_days": 0.8,
+          "age_days": 1.07,
           "latest": "2026-11-17T00:00:00.000Z",
           "max_age_days": 5
         },
         {
           "metric": "sdlcSpeed",
           "state": "fresh",
-          "age_days": 11.8,
+          "age_days": 12.07,
           "latest": "2026-11-06T00:00:00.000Z",
           "max_age_days": 14
         },
         {
           "metric": "lighthouse",
           "state": "fresh",
-          "age_days": 1.8,
+          "age_days": 2.07,
           "latest": "2026-11-16T00:00:00.000Z",
           "max_age_days": 21
         },
         {
           "metric": "audit-coverage",
           "state": "fresh",
-          "age_days": 7.8,
+          "age_days": 8.07,
           "latest": "2026-11-10T00:00:00.000Z",
           "max_age_days": 21
         },
         {
           "metric": "mutation-score",
           "state": "fresh",
-          "age_days": 1.8,
+          "age_days": 2.07,
           "latest": "2026-11-16T00:00:00.000Z",
           "max_age_days": 21
         },
         {
           "metric": "ai-issue-feedback",
           "state": "fresh",
-          "age_days": 1,
-          "latest": "2026-11-16T19:11:30.065Z",
+          "age_days": 0.27,
+          "latest": "2026-11-17T19:11:36.247Z",
           "max_age_days": 5
         },
         {
           "metric": "shipped-features",
           "state": "fresh",
-          "age_days": 12.52,
+          "age_days": 12.79,
           "latest": "2026-11-05T06:41:47.000Z",
           "max_age_days": 14
         },
         {
           "metric": "marketing-metrics",
           "state": "fresh",
-          "age_days": 1.04,
+          "age_days": 1.31,
           "latest": "2026-11-16T18:12:32.582Z",
           "max_age_days": 3
         }
@@ -126,22 +126,27 @@
     },
     "prCategoryMetrics": {
       "available": true,
-      "total_prs": 91,
-      "total_merged": 87,
+      "total_prs": 89,
+      "total_merged": 85,
       "total_closed_without_merge": 4,
       "by_category": {
+        "tier:trivial": {
+          "merged": 22,
+          "closed_without_merge": 0,
+          "acceptance_rate": 1
+        },
         "tier:sensitive": {
-          "merged": 7,
+          "merged": 9,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
         "tier:standard": {
-          "merged": 50,
+          "merged": 46,
           "closed_without_merge": 1,
           "acceptance_rate": 0.98
         },
-        "tier:trivial": {
-          "merged": 22,
+        "unlabeled": {
+          "merged": 2,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
@@ -149,11 +154,6 @@
           "merged": 6,
           "closed_without_merge": 2,
           "acceptance_rate": 0.75
-        },
-        "unlabeled": {
-          "merged": 2,
-          "closed_without_merge": 0,
-          "acceptance_rate": 1
         },
         "priority:critical": {
           "merged": 0,
@@ -185,36 +185,43 @@
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 261778,
-      "output_tokens": 395,
-      "cache_creation_tokens": 35474,
-      "cache_hit_rate": 0.8806,
+      "cache_read_tokens": 27099425,
+      "output_tokens": 101781,
+      "cache_creation_tokens": 432071,
+      "cache_hit_rate": 0.9843,
       "by_model": {
         "claude-sonnet-5": {
           "cost": 0,
-          "input_tokens": 6,
-          "output_tokens": 395,
-          "cache_read_tokens": 261778,
-          "cache_creation_tokens": 35474
+          "input_tokens": 400,
+          "output_tokens": 99697,
+          "cache_read_tokens": 27075950,
+          "cache_creation_tokens": 400677
+        },
+        "claude-haiku-5-5": {
+          "cost": 0,
+          "input_tokens": 4,
+          "output_tokens": 2084,
+          "cache_read_tokens": 23475,
+          "cache_creation_tokens": 31394
         }
       }
     },
     "ciHealth": {
       "available": true,
       "total_runs": 30,
-      "completed": 30,
-      "passed": 23,
+      "completed": 28,
+      "passed": 16,
       "failed": 0,
       "phantom": 0,
       "pass_rate_pct": 100,
       "most_recent": {
-        "databaseId": 44154535497,
-        "status": "completed",
-        "conclusion": "skipped",
-        "createdAt": "2026-11-17T19:03:57Z",
-        "name": "Visual Regen Trigger",
+        "databaseId": 44217517274,
+        "status": "in_progress",
+        "conclusion": null,
+        "createdAt": "2026-11-18T01:39:53Z",
+        "name": "Auto-Merge Policy",
         "headBranch": "main",
-        "headSha": "f17261907783f2ded8f8db50166ff6220f905f22"
+        "headSha": "dc3482416758fa38be97ef9f885c78079ca47540"
       }
     },
     "lighthouse": {
@@ -246,25 +253,46 @@
     },
     "issues": {
       "available": true,
-      "open": 14,
-      "created_7d": 124,
-      "closed_7d": 135,
-      "closure_rate": 109,
+      "open": 16,
+      "created_7d": 123,
+      "closed_7d": 136,
+      "closure_rate": 111,
       "queue_depth": 0,
       "agent_failed": 0
     },
     "issueFeedback": {
       "available": true,
-      "collected_at": "2026-11-16T19:11:30.065Z",
-      "category_count": 7,
-      "unhealthy_categories": [],
+      "collected_at": "2026-11-17T19:11:36.247Z",
+      "category_count": 8,
+      "unhealthy_categories": ["agent-failed"],
       "categories": {
+        "ci-fix": {
+          "total": 55,
+          "accepted": 19,
+          "rejected": 8,
+          "wontfix": 28,
+          "rejection_rate": 0.14545454545454545
+        },
         "audit": {
-          "total": 38,
-          "accepted": 31,
+          "total": 41,
+          "accepted": 34,
           "rejected": 4,
           "wontfix": 3,
-          "rejection_rate": 0.10526315789473684
+          "rejection_rate": 0.0975609756097561
+        },
+        "acmm": {
+          "total": 3,
+          "accepted": 1,
+          "rejected": 1,
+          "wontfix": 1,
+          "rejection_rate": 0.3333333333333333
+        },
+        "agent-failed": {
+          "total": 1,
+          "accepted": 0,
+          "rejected": 1,
+          "wontfix": 0,
+          "rejection_rate": 1
         },
         "meta-improvement": {
           "total": 27,
@@ -280,26 +308,12 @@
           "wontfix": 6,
           "rejection_rate": 0
         },
-        "ci-fix": {
-          "total": 56,
-          "accepted": 21,
-          "rejected": 8,
-          "wontfix": 27,
-          "rejection_rate": 0.14285714285714285
-        },
         "feature": {
-          "total": 57,
-          "accepted": 29,
+          "total": 54,
+          "accepted": 27,
           "rejected": 2,
-          "wontfix": 26,
-          "rejection_rate": 0.03508771929824561
-        },
-        "acmm": {
-          "total": 3,
-          "accepted": 1,
-          "rejected": 1,
-          "wontfix": 1,
-          "rejection_rate": 0.3333333333333333
+          "wontfix": 25,
+          "rejection_rate": 0.037037037037037035
         },
         "dependencies": {
           "total": 3,
@@ -312,7 +326,7 @@
       "budgets": {
         "audit": 3,
         "ci-fix": 3,
-        "agent-failed": 3,
+        "agent-failed": 1,
         "meta-improvement": 3,
         "sentry": 3,
         "acmm": 3,
@@ -322,17 +336,17 @@
     },
     "sessionLogs": {
       "available": true,
-      "total_logs": 0,
-      "logs_7d": 0,
-      "total_commits_7d": 0,
+      "total_logs": 4,
+      "logs_7d": 4,
+      "total_commits_7d": 80,
       "unique_branches_7d": 0,
       "branches_7d": []
     },
     "codeChurn": {
       "available": true,
-      "churn_rate": 0.003,
-      "total_lines_added_7d": 1087015,
-      "lines_churned_7d": 2769,
+      "churn_rate": 0.001,
+      "total_lines_added_7d": 1085869,
+      "lines_churned_7d": 998,
       "window_days": 7,
       "churn_threshold": 0.3
     },
@@ -391,12 +405,12 @@
       "available": true,
       "flaky_count": 0,
       "flaky_tests": [],
-      "total_runs": 46700,
-      "window_shas": 5
+      "total_runs": 27405,
+      "window_shas": 2
     },
     "e2eStability": {
       "available": false,
-      "reason": "no_resolvable_runs"
+      "reason": "no_runs"
     },
     "queueEfficiency": {
       "available": true,
@@ -408,22 +422,22 @@
         "median_rework_cycles": 0,
         "cost_per_issue_usd": null,
         "cost_coverage_n": 0,
-        "review_coverage": 0.308,
-        "review_coverage_n": 39,
-        "review_coverage_unmeasured_n": 42,
-        "review_coverage_unmeasured_share": 0.519,
+        "review_coverage": 0.324,
+        "review_coverage_n": 37,
+        "review_coverage_unmeasured_n": 44,
+        "review_coverage_unmeasured_share": 0.543,
         "review_coverage_trail": [
-          {
-            "value": 0.733,
-            "n": 15
-          },
           {
             "value": 0.094,
             "n": 32
           },
           {
-            "value": 0.308,
-            "n": 39
+            "value": 0.353,
+            "n": 34
+          },
+          {
+            "value": 0.324,
+            "n": 37
           }
         ]
       },
