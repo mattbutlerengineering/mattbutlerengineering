@@ -245,6 +245,48 @@ describe("findPriorRoutineFindingCandidate", () => {
   });
 });
 
+describe("finding dedupe and cooldown (#9072)", () => {
+  const dark = (n, closedAt) => ({
+    number: n,
+    title: buildRoutineFindingTitle("mbe-daily-issue", "dark"),
+    closedAt,
+  });
+
+  it("prefers an open issue over closed ones for the same routine", () => {
+    const candidates = [
+      dark(5, "2026-11-09T10:00:00Z"),
+      dark(6, "0001-01-01T00:00:00Z"),
+      dark(7, "2026-11-10T10:00:00Z"),
+    ];
+    expect(findPriorRoutineFindingCandidate(candidates, "mbe-daily-issue").number).toBe(6);
+  });
+
+  it("picks the most recently closed issue when none is open", () => {
+    const candidates = [dark(5, "2026-11-09T10:00:00Z"), dark(7, "2026-11-12T10:00:00Z")];
+    expect(findPriorRoutineFindingCandidate(candidates, "mbe-daily-issue").number).toBe(7);
+  });
+
+  it("skips re-filing inside the cooldown after a close", () => {
+    expect(
+      decideIssueTransition({
+        status: "dark",
+        now: "2026-11-18T08:10:00Z",
+        existingIssue: { number: 7, state: "closed", closedAt: "2026-11-12T10:00:00Z" },
+      })
+    ).toEqual({ action: "cooldown", issueNumber: 7 });
+  });
+
+  it("files again once the cooldown has elapsed", () => {
+    expect(
+      decideIssueTransition({
+        status: "dark",
+        now: "2026-11-30T08:10:00Z",
+        existingIssue: { number: 7, state: "closed", closedAt: "2026-11-12T10:00:00Z" },
+      })
+    ).toEqual({ action: "create" });
+  });
+});
+
 describe("buildRoutineFindingBody / buildRoutineFindingCreateArgs", () => {
   it("includes the routine name, trigger id, and action-required guidance", () => {
     const body = buildRoutineFindingBody({
@@ -285,7 +327,7 @@ describe("buildRoutineFindingBody / buildRoutineFindingCreateArgs", () => {
     expect(args).not.toContain(COORDINATION_LABELS.READY);
   });
 
-  it("builds create args carrying the ci-fix and ready labels", () => {
+  it("builds create args carrying the auto-health (not ci-fix) and ready labels (#9072)", () => {
     const args = buildRoutineFindingCreateArgs("title", "body");
     expect(args).toEqual([
       "--title",
@@ -293,7 +335,7 @@ describe("buildRoutineFindingBody / buildRoutineFindingCreateArgs", () => {
       "--body",
       "body",
       "--label",
-      "ci-fix",
+      "auto-health",
       "--label",
       COORDINATION_LABELS.READY,
     ]);

@@ -656,6 +656,26 @@ The three GitHub Actions rows (`mbe-deep-audit`, `drift-fix`,
 `metrics-collectors`) are not triggers: their plain-UTC cron is the `schedule:`
 value in the named workflow file.
 
+## GitHub Actions cron reliability (#9074)
+
+GitHub drops and delays `schedule:` runs under load. The 2026-11-17 workflow
+audit measured `*/30` workflows firing 4 to 5 times a day instead of 48, and
+daily jobs starting 5 to 10 hours late. Treat every Actions cron as best-effort.
+
+- **`merge-queue.yml` and `reviewed-merge.yml` already have event triggers**
+  (`pull_request_target` on label changes; `reviewed-merge` also `workflow_run`
+  completion). Their cron (`*/30`, `15,45`) is only a sweep for missed events, so
+  dropped ticks are expected and harmless. No change.
+- **`automation-pr-rescue.yml` is cron-only (`*/30`).** Its job is to catch PRs
+  whose events never fired (the `GITHUB_TOKEN` anti-recursion gap), so an event
+  trigger would defeat it. Left as is: merge-queue, reviewed-merge and the rescue
+  are policy-sensitive and need an Owner decision before any redesign.
+- **Late daily jobs** (`chaos-agent`, `nightly-compliance`, `drift-fix`,
+  `sentry-heartbeat`, `auto-rollback`) have no event equivalent; a late start does
+  not change their result, so they stay on cron. Liveness checks use a 2x-period
+  window (`late` before `dark`) and `scheduled-workflow-health.mjs` tolerates
+  12 h of lateness for the same reason.
+
 ## Editing a routine
 
 Call the discrete Claude Code Remote MCP trigger tools directly, e.g.
