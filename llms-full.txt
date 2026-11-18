@@ -96478,6 +96478,441 @@
       };
     }
   </file>
+  <file path="apps/shell/e2e/support/checks.ts">
+    export const CHECK_IDS = ["1", "2", "3", "3b", "3c", "4", "5", "6", "7", "8"] as const;
+    export type CheckId = (typeof CHECK_IDS)[number];
+  </file>
+  <file path="apps/shell/e2e/support/csp.ts">
+    export interface KnownViolation {
+      readonly directive: string;
+      readonly sourceFileIncludes: string;
+    }
+    export const KNOWN_PRE_EXISTING_CSP_VIOLATIONS: ReadonlyArray<KnownViolation> = [];
+    export function scriptSrc(policy: string): string {
+      return (
+        policy
+          .split(";")
+          .map((d) => d.trim())
+          .find((d) => d.startsWith("script-src ")) ?? ""
+      );
+    }
+    export function weakensScripts(policy: string): boolean {
+      return /'unsafe-eval'|'unsafe-inline'/.test(scriptSrc(policy));
+    }
+    export function unexpectedViolations<T extends Record<string, unknown>>(
+      found: ReadonlyArray<T>,
+      known: ReadonlyArray<KnownViolation> = KNOWN_PRE_EXISTING_CSP_VIOLATIONS
+    ): T[] {
+      return found.filter(
+        (v) =>
+          !known.some(
+            (k) =>
+              v["directive"] === k.directive && String(v["source"] ?? "").includes(k.sourceFileIncludes)
+          )
+      );
+    }
+  </file>
+  <file path="apps/shell/e2e/support/global-setup.ts">
+    export default function globalSetup(): void {
+      resolveTarget(process.env);
+    }
+  </file>
+  <file path="apps/shell/e2e/support/harness.ts">
+    export const SEL = {
+      nav: "#mbe-host-nav",
+      hospitality: "[data-app=hospitality]",
+      rialto: "[data-app=rialto]",
+      chat: "[data-chat-wrapper]",
+      /** The shell's live region, outside every app container. */
+      liveRegion: '[aria-live="polite"], [role="status"]',
+    } as const;
+    export const TARGET = resolveTarget(process.env);
+    export const SESSION: SessionConfig | null = resolveSession(process.env);
+    export const SENTINEL = "STANDIN-NOT-A-REAL-TOKEN";
+    export const NO_SESSION_REASON =
+      "no stand-in session configured: set HARNESS_AUTH_AUTHORITY and HARNESS_AUTH_CLIENT_ID to the " +
+      "values the target's hospitality build was built with (real Auth0 sign-in is WO-25)";
+    export function report(check: string, label: string, value: unknown): void {
+      console.info(`RESULT ${check} | ${label} | ${JSON.stringify(value)}`);
+    }
+    function sessionEntry(session: SessionConfig) {
+      const exp = Math.floor(Date.now() / 1000) + 3600 * 8;
+      const claims = {
+        sub: "auth0|harness",
+        email: "standin@example.test",
+        name: "Stand In",
+        iss: `${session.authority}/`,
+        aud: session.clientId,
+        iat: exp - 3600,
+        exp,
+      };
+      const token = `${b64({ alg: "none" })}.${b64(claims)}.${SENTINEL}`;
+      return {
+        key: `oidc.user:${session.authority}:${session.clientId}`,
+        value: JSON.stringify({
+          access_token: token,
+          id_token: token,
+          token_type: "Bearer",
+          scope: "openid profile email",
+          expires_at: exp,
+          profile: claims,
+        }),
+      };
+    }
+    export function storageKey(session: SessionConfig): string {
+      return sessionEntry(session).key;
+    }
+    export type ShellMode = "on" | "off";
+    export async function setShellMode(context: BrowserContext, mode: ShellMode): Promise<void> {
+      await context.addCookies([{ name: "mbe-shell", value: mode, url: TARGET }]);
+    }
+    export interface PrepareOptions {
+      readonly signedIn?: boolean;
+      /** "off" is today's standalone document (the kill switch); default "on" opts into the shell. */
+      readonly shell?: ShellMode;
+    }
+    export async function prepare(
+      page: Page,
+      testInfo: Parameters<typeof declareNotRun>[0],
+      options: PrepareOptions = {}
+    ): Promise<void> {
+      const signedIn = options.signedIn ?? true;
+      await setShellMode(page.context(), options.shell ?? "on");
+      page.on("pageerror", (e) => console.info(`DIAG pageerror ${e.message.slice(0, 200)}`));
+      await page.addInitScript(() => {
+        const store: unknown[] = [];
+        (window as unknown as { __csp: unknown[] }).__csp = store;
+        document.addEventListener("securitypolicyviolation", (e) => {
+          store.push({
+            directive: e.effectiveDirective,
+            blocked: e.blockedURI,
+            sample: e.sample,
+            source: e.sourceFile,
+          });
+        });
+      });
+      if (!signedIn) return;
+      if (!SESSION) {
+        declareNotRun(testInfo, NO_SESSION_REASON);
+        return;
+      }
+      await mockApi(page);
+      const entry = sessionEntry(SESSION);
+      await page.addInitScript(({ key, value }) => localStorage.setItem(key, value), entry);
+      await page.addInitScript(
+        ({ tickMs, total }) => {
+          const realFetch = window.fetch.bind(window);
+          window.fetch = (input, init) => {
+            const url =
+              typeof input === "string" ? input : input instanceof Request ? input.url : `${input}`;
+            const method = init?.method ?? (input instanceof Request ? input.method : "GET");
+            if (!url.endsWith("/gen/agent") || method.toUpperCase() !== "POST") {
+              return realFetch(input, init);
+            }
+            const encoder = new TextEncoder();
+            let n = 0;
+            let timer = 0;
+            const body = new ReadableStream<Uint8Array>({
+              start(controller) {
+                timer = window.setInterval(() => {
+                  n++;
+                  controller.enqueue(
+                    encoder.encode(`${JSON.stringify({ type: "text", content: `tok${n} ` })}\n`)
+                  );
+                  if (n >= total) {
+                    window.clearInterval(timer);
+                    controller.close();
+                  }
+                }, tickMs);
+              },
+              cancel() {
+                window.clearInterval(timer);
+                (window as unknown as { __chatAborts: number }).__chatAborts =
+                  ((window as unknown as { __chatAborts?: number }).__chatAborts ?? 0) + 1;
+              },
+            });
+            return Promise.resolve(
+              new Response(body, { headers: { "Content-Type": "application/x-ndjson" } })
+            );
+          };
+        },
+        { tickMs: CHAT_TICK_MS, total: CHAT_TOKENS }
+      );
+      // Registered last, so it wins over mockApi's own stream mock: held open, never fulfilled.
+      await page.route("**/events/stream**", () => undefined);
+    }
+    export async function violations(page: Page): Promise<ReadonlyArray<Record<string, unknown>>> {
+      return page.evaluate(
+        () => (window as unknown as { __csp: Array<Record<string, unknown>> }).__csp
+      );
+    }
+    export function trackDocuments(page: Page) {
+      const counts = { documentRequests: 0, urls: [] as string[] };
+      page.on("request", (req) => {
+        if (req.resourceType() === "document" && req.frame() === page.mainFrame()) {
+          counts.documentRequests++;
+          counts.urls.push(req.url());
+        }
+      });
+      return counts;
+    }
+    export function trackStreams(page: Page) {
+      const state = { opened: 0, closed: 0 };
+      const isStream = (url: string) => /\/events\/stream/.test(url);
+      page.on("request", (r) => {
+        if (isStream(r.url())) state.opened++;
+      });
+      page.on("requestfinished", (r) => {
+        if (isStream(r.url())) state.closed++;
+      });
+      page.on("requestfailed", (r) => {
+        if (isStream(r.url())) state.closed++;
+      });
+      return { open: () => state.opened - state.closed };
+    }
+    export async function navLink(page: Page, name: string): Promise<void> {
+      const link = page.locator(SEL.nav).getByRole("link", { name, exact: true }).first();
+      await link.evaluate((a) => (a as HTMLAnchorElement).click());
+    }
+    export async function hospitalityReady(page: Page): Promise<void> {
+      await expect(page.getByRole("heading", { name: "Timeline" }).first()).toBeVisible({
+        timeout: 30_000,
+      });
+      // An open SSE stream means the network never idles: always bounded.
+      await page.waitForLoadState("networkidle", { timeout: 3000 }).catch(() => undefined);
+    }
+    export async function rialtoReady(page: Page): Promise<void> {
+      await expect(page.locator(SEL.rialto).locator("main").first()).toBeVisible({ timeout: 30_000 });
+    }
+    export async function settle(page: Page): Promise<void> {
+      await page.waitForLoadState("networkidle", { timeout: 3000 }).catch(() => undefined);
+      await page.waitForTimeout(1500);
+    }
+    export async function openChatAndSend(page: Page): Promise<void> {
+      await page.getByRole("button", { name: "Chat", exact: true }).first().click();
+      const input = page.locator(`${SEL.chat} textarea`).first();
+      await expect(input).toBeVisible();
+      await input.fill("conformance message");
+      await input.press("Enter");
+      await expect(page.locator(SEL.chat).getByText(/tok3 /)).toBeVisible({ timeout: 15_000 });
+    }
+    export const chatToken = (page: Page): Promise<number | null> =>
+      page.evaluate(() => {
+        const last = document.querySelector("[data-chat-wrapper]")?.textContent?.match(/tok(\d+)/g);
+        const tail = last?.pop();
+        return tail ? Number(tail.slice(3)) : null;
+      });
+    export async function metrics(cdp: CDPSession): Promise<Record<string, number>> {
+      await cdp.send("HeapProfiler.collectGarbage");
+      await cdp.send("HeapProfiler.collectGarbage");
+      const { metrics: list } = await cdp.send("Performance.getMetrics");
+      const m = Object.fromEntries(list.map((x) => [x.name, x.value]));
+      return {
+        heapUsedMB: Math.round(((m["JSHeapUsedSize"] ?? 0) / 1048576) * 10) / 10,
+        taskSeconds: Math.round((m["TaskDuration"] ?? 0) * 100) / 100,
+      };
+    }
+    export async function scrollSnapshot(
+      page: Page,
+      selector: string
+    ): Promise<Record<string, number>> {
+      return page.evaluate((sel) => {
+        const out: Record<string, number> = { window: window.scrollY };
+        let i = 0;
+        document
+          .querySelector(sel)
+          ?.querySelectorAll("*")
+          .forEach((el) => {
+            if (el.scrollTop > 0) out[`${el.tagName}#${i++}`] = el.scrollTop;
+          });
+        return out;
+      }, selector);
+    }
+    export async function scrollScrollables(page: Page, selector: string, by: number): Promise<number> {
+      return page.evaluate(
+        ({ sel, by: amount }) => {
+          let n = 0;
+          document
+            .querySelector(sel)
+            ?.querySelectorAll("*")
+            .forEach((el) => {
+              const cs = getComputedStyle(el);
+              if (
+                /(auto|scroll)/.test(cs.overflowY) &&
+                el.scrollHeight > el.clientHeight + 40 &&
+                el.clientHeight > 40
+              ) {
+                el.scrollTop = amount;
+                n++;
+              }
+            });
+          return n;
+        },
+        { sel: selector, by }
+      );
+    }
+    export type Fingerprint = Readonly<Record<string, Readonly<Record<string, string>>>>;
+    export async function fingerprint(page: Page, rootSelector: string): Promise<Fingerprint> {
+      return page.evaluate(
+        ({ sel, props }) => {
+          const out: Record<string, Record<string, string>> = {};
+          const read = (el: Element) => {
+            const cs = getComputedStyle(el);
+            return Object.fromEntries(props.map((p) => [p, cs.getPropertyValue(p)]));
+          };
+          out["html"] = read(document.documentElement);
+          out["body"] = read(document.body);
+          const root = document.querySelector(sel);
+          if (!root) return out;
+          const walk = (el: Element, path: string) => {
+            const counters = new Map<string, number>();
+            for (const child of Array.from(el.children)) {
+              const name = child.tagName.toLowerCase();
+              if (["script", "style", "link", "svg", "noscript"].includes(name)) continue;
+              // A standalone app renders its own site nav; it exists only there, so skip it.
+              if (
+                child.querySelector(':scope a[href="/rialto"]') &&
+                child.querySelector('a[href="/hospitality"]') &&
+                (name === "nav" || name === "header")
+              )
+                continue;
+              const nth = (counters.get(name) ?? 0) + 1;
+              counters.set(name, nth);
+              const key = `${path}>${name}[${nth}]`;
+              out[key] = read(child);
+              walk(child, key);
+            }
+          };
+          walk(root, "root");
+          return out;
+        },
+        { sel: rootSelector, props: STYLE_PROPS }
+      );
+    }
+    export function diffFingerprints(base: Fingerprint, other: Fingerprint) {
+      const byProp: Record<string, number> = {};
+      const samples: string[] = [];
+      let compared = 0;
+      let differing = 0;
+      for (const [key, baseProps] of Object.entries(base)) {
+        const otherProps = other[key];
+        if (!otherProps) continue;
+        compared++;
+        let elementDiffers = false;
+        for (const [prop, value] of Object.entries(baseProps)) {
+          if (value !== otherProps[prop]) {
+            elementDiffers = true;
+            byProp[prop] = (byProp[prop] ?? 0) + 1;
+            if (samples.length < 6) {
+              samples.push(`${key.slice(-40)} ${prop}: ${value} -> ${otherProps[prop]}`);
+            }
+          }
+        }
+        if (elementDiffers) differing++;
+      }
+      return { elementsCompared: compared, elementsDiffering: differing, byProp, samples };
+    }
+  </file>
+  <file path="apps/shell/e2e/support/not-run.ts">
+    export const NOT_RUN_ANNOTATION = "NOT RUN";
+    export interface SummaryInput {
+      readonly title: string;
+      readonly status: "passed" | "failed" | "timedOut" | "skipped" | "interrupted";
+      readonly annotations: ReadonlyArray<{ type: string; description?: string }>;
+    }
+    export interface Summary {
+      readonly passed: number;
+      readonly failed: number;
+      readonly notRun: ReadonlyArray<{ title: string; reason: string }>;
+      readonly unexplainedSkips: ReadonlyArray<string>;
+    }
+    export function notRunReason(annotations: SummaryInput["annotations"]): string | null {
+      const found = annotations.find((a) => a.type === NOT_RUN_ANNOTATION);
+      if (!found) return null;
+      return found.description?.trim() || "no reason given";
+    }
+    export function summarize(results: ReadonlyArray<SummaryInput>): Summary {
+      let passed = 0;
+      let failed = 0;
+      const notRun: Array<{ title: string; reason: string }> = [];
+      const unexplainedSkips: string[] = [];
+      for (const r of results) {
+        const reason = notRunReason(r.annotations);
+        if (reason !== null) {
+          notRun.push({ title: r.title, reason });
+        } else if (r.status === "passed") {
+          passed++;
+        } else if (r.status === "skipped") {
+          unexplainedSkips.push(r.title);
+        } else {
+          failed++;
+        }
+      }
+      return { passed, failed, notRun, unexplainedSkips };
+    }
+    export function declareNotRun(testInfo: TestInfo, reason: string): void {
+      testInfo.annotations.push({ type: NOT_RUN_ANNOTATION, description: reason });
+      console.info(`RESULT ${testInfo.title} | NOT RUN | ${reason}`);
+      testInfo.skip(true, `NOT RUN: ${reason}`);
+    }
+  </file>
+  <file path="apps/shell/e2e/support/reporter.ts">
+    export default class ConformanceReporter implements Reporter {
+      private readonly results: SummaryInput[] = [];
+    
+      onTestEnd(test: TestCase, result: TestResult): void {
+        this.results.push({
+          title: test.title,
+          status: result.status,
+          annotations: test.annotations,
+        });
+      }
+    
+      onEnd(): void {
+        const s = summarize(this.results);
+        console.info("\nCONFORMANCE SUMMARY");
+        console.info(`  PASSED:  ${s.passed}`);
+        console.info(`  FAILED:  ${s.failed}`);
+        console.info(`  NOT RUN: ${s.notRun.length}`);
+        for (const n of s.notRun) console.info(`    NOT RUN  ${n.title}: ${n.reason}`);
+        for (const t of s.unexplainedSkips)
+          console.info(`    SKIPPED WITHOUT REASON (not a pass)  ${t}`);
+      }
+    }
+  </file>
+  <file path="apps/shell/e2e/support/target.ts">
+    export const TARGET_ENV = "BASE_URL";
+    type Env = Readonly<Record<string, string | undefined>>;
+    export function resolveTarget(env: Env): string {
+      const raw = env[TARGET_ENV]?.trim();
+      if (!raw) {
+        throw new Error(
+          `${TARGET_ENV} is required: the conformance suite needs a target (a wrangler dev edge, ` +
+            `a preview, or the deployed site). There is no default and no local stand-in. ` +
+            `Example: ${TARGET_ENV}=http://localhost:8787 pnpm test:conformance`
+        );
+      }
+      let url: URL;
+      try {
+        url = new URL(raw);
+      } catch {
+        throw new Error(`${TARGET_ENV} must be an absolute http(s) URL, got "${raw}"`);
+      }
+      if (url.protocol !== "http:" && url.protocol !== "https:") {
+        throw new Error(`${TARGET_ENV} must be an http(s) URL, got "${raw}"`);
+      }
+      return url.origin;
+    }
+    export interface SessionConfig {
+      readonly authority: string;
+      readonly clientId: string;
+    }
+    export function resolveSession(env: Env): SessionConfig | null {
+      const authority = env["HARNESS_AUTH_AUTHORITY"]?.trim();
+      const clientId = env["HARNESS_AUTH_CLIENT_ID"]?.trim();
+      return authority && clientId ? { authority, clientId } : null;
+    }
+  </file>
   </section>
   <section priority="medium" role="telemetry">
   <file path="apps/rialto-web/src/pages/telemetry/useTelemetryFeed.ts">
