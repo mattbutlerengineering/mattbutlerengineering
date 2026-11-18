@@ -21,8 +21,8 @@ describe("countReviewSurfaceAdditions / decideSizeEscalation", () => {
   // in services/reservations/CLAUDE.md, which stays counted -> 1004 -> T4.
   it("#6610: 988 code + 16 CLAUDE.md lines = 1004 counted, generated excluded -> escalates", () => {
     const files = [
-      f("llms-full.txt", 600),
-      f("apps/hospitality/llms.txt", 300),
+      f("packages/rialto/registry.json", 600),
+      f("apps/hospitality/generated-x.json", 300),
       f("packages/rialto-catalog/src/generated-schemas.ts", 294),
       f("services/reservations/CLAUDE.md", 16),
       f("services/a/src/routes/r.ts", 988),
@@ -35,7 +35,7 @@ describe("countReviewSurfaceAdditions / decideSizeEscalation", () => {
 
   it("generated churn and run-artifact md alone do not push 988 code lines over", () => {
     const files = [
-      f("llms-full.txt", 600),
+      f("packages/rialto/registry.json", 600),
       f("packages/rialto-catalog/src/generated-schemas.ts", 294),
       f("docs/features/x/prd.md", 16),
       f("services/a/src/routes/r.ts", 988),
@@ -134,7 +134,7 @@ describe("replay", () => {
   });
 
   it("reports a PR whose size verdict changes", () => {
-    const row = replayRow(pr({ files: [f("llms.txt", 1200), f("a.ts", 10)] }));
+    const row = replayRow(pr({ files: [f("pnpm-lock.yaml", 1200), f("a.ts", 10)] }));
     expect(row.changed).toBe(true);
     expect(formatReplayTable([row])).toMatch(/#1 .*escalates -> -/);
   });
@@ -167,7 +167,7 @@ describe("docs/change-tiers.md agrees with the module", () => {
 });
 
 // #8398: the unmatched-path T2 default used to fire only when NO file matched,
-// so a T1-matching file (llms.txt, .md) beside real source downgraded the PR.
+// so a T1-matching file (a generated file, .md) beside real source downgraded the PR.
 describe("classifyPaths: per-file unmatched default (#8398)", () => {
   it("markdown + unmatched code -> T2", () => {
     const { tier, reasons } = classifyPaths(["docs/notes.md", "tools/unknown/thing.rs"]);
@@ -188,8 +188,7 @@ describe("classifyPaths: per-file unmatched default (#8398)", () => {
 
   it("#8378's real file list is T2+, not T1", () => {
     const { tier } = classifyPaths([
-      "llms-full.txt",
-      "packages/sentry/llms-full.txt",
+      "packages/rialto/registry.json",
       "packages/sentry/src/react.test.ts",
       "packages/sentry/src/react.ts",
       "scripts/__tests__/sentry-heartbeat-browser.test.mjs",
@@ -207,7 +206,9 @@ describe("classifyPaths: per-file unmatched default (#8398)", () => {
   });
 
   it("test-only and generated-only PRs stay T1", () => {
-    expect(classifyPaths(["packages/types/src/a.test.ts", "llms.txt"]).tier).toBe(1);
+    expect(
+      classifyPaths(["packages/types/src/a.test.ts", "infrastructure/worker/dep-graph.json"]).tier
+    ).toBe(1);
     // .test.mjs is not in the T1 test-only rule; it stays at its existing T2.
     expect(classifyPaths(["scripts/__tests__/a.test.mjs"]).tier).toBe(2);
   });
@@ -217,5 +218,62 @@ describe("classifyPaths: per-file unmatched default (#8398)", () => {
       p.replace(/\n/g, "\\n")
     );
     expect(reasons[0]).toBe("unmatched paths default to T2: a\\nb.rs, c.rs, d.rs…");
+  });
+});
+
+// #9063: PR #9057 deleted the generated infrastructure/pulumi/llms-full.txt and
+// was labelled tier:critical for it. A deleted generated artifact adds no
+// reviewable code; a deleted real file (or any ADDED/CHANGED file) still counts.
+describe("classifyPaths: deleted generated files (#9063)", () => {
+  const cases = [
+    {
+      name: "deleted generated file under pulumi is ignored",
+      files: ["infrastructure/pulumi/registry.json", "docs/notes.md"],
+      deleted: ["infrastructure/pulumi/registry.json"],
+      tier: 1,
+    },
+    {
+      name: "the same file modified (not deleted) still escalates to T4",
+      files: ["infrastructure/pulumi/registry.json", "docs/notes.md"],
+      deleted: [],
+      tier: 4,
+    },
+    {
+      name: "a deleted real pulumi source file still escalates to T4",
+      files: ["infrastructure/pulumi/index.ts"],
+      deleted: ["infrastructure/pulumi/index.ts"],
+      tier: 4,
+    },
+    {
+      name: "only deleted generated files -> T1, not the empty-diff T2 default",
+      files: ["infrastructure/pulumi/generated-types.ts"],
+      deleted: ["infrastructure/pulumi/generated-types.ts"],
+      tier: 1,
+    },
+    {
+      name: "a deleted generated file never lowers other files",
+      files: ["infrastructure/pulumi/registry.json", "services/a/src/routes/r.ts"],
+      deleted: ["infrastructure/pulumi/registry.json"],
+      tier: 3,
+    },
+    {
+      name: "an unrelated deleted-set entry is harmless",
+      files: ["prisma/schema.prisma"],
+      deleted: ["something/else.ts"],
+      tier: 4,
+    },
+  ];
+  it.each(cases)("$name", ({ files, deleted, tier }) => {
+    expect(classifyPaths(files, (p) => p, { deleted: new Set(deleted) }).tier).toBe(tier);
+  });
+
+  it("no deleted option keeps the old behaviour", () => {
+    expect(classifyPaths(["infrastructure/pulumi/registry.json"]).tier).toBe(4);
+  });
+});
+
+describe("generated-file list no longer names llms.txt (#9057)", () => {
+  it("EXCLUDED_FROM_SIZE has no llms entries", () => {
+    expect(EXCLUDED_FROM_SIZE.filter((p) => p.includes("llms"))).toEqual([]);
   });
 });

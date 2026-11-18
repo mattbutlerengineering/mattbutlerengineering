@@ -57,6 +57,7 @@ function runClassifier({
   files = [],
   added = 0,
   additions = {},
+  deleted = [],
   isFork = false,
   rawInputs = null,
 }) {
@@ -78,7 +79,11 @@ function runClassifier({
     );
   }
 
+  const deletedFilesPath = join(dir, "deleted-files.txt");
+  writeFileSync(deletedFilesPath, deleted.map((f) => `${f}\0`).join(""));
+
   const script = extractClassifierScript(WORKFLOW)
+    .replace("/tmp/deleted-files.txt", deletedFilesPath)
     .replace("/tmp/changed-files.txt", changedFilesPath)
     .replace("/tmp/numstat.txt", numstatPath)
     .replace(POLICY_PATH, LOCAL_POLICY);
@@ -418,9 +423,9 @@ describe("tier-classifier delegates escalation to scripts/tier-escalation.mjs (#
     const { tier, reasons } = runClassifier({
       title: "feat: thing",
       body: PR_TEMPLATE,
-      files: ["llms-full.txt", "services/a/src/routes/r.ts", "services/reservations/CLAUDE.md"],
+      files: ["pnpm-lock.yaml", "services/a/src/routes/r.ts", "services/reservations/CLAUDE.md"],
       additions: {
-        "llms-full.txt": 1194,
+        "pnpm-lock.yaml": 1194,
         "services/a/src/routes/r.ts": 988,
         "services/reservations/CLAUDE.md": 16,
       },
@@ -433,8 +438,8 @@ describe("tier-classifier delegates escalation to scripts/tier-escalation.mjs (#
     const { tier, reasons } = runClassifier({
       title: "feat: thing",
       body: PR_TEMPLATE,
-      files: ["llms-full.txt", "services/a/src/routes/r.ts"],
-      additions: { "llms-full.txt": 1194, "services/a/src/routes/r.ts": 988 },
+      files: ["pnpm-lock.yaml", "services/a/src/routes/r.ts"],
+      additions: { "pnpm-lock.yaml": 1194, "services/a/src/routes/r.ts": 988 },
     });
     expect(tier).toBe(3);
     expect(reasons).not.toMatch(/lines added/);
@@ -1010,9 +1015,9 @@ describe("tier-classifier path rules: merge-gate files are T4", () => {
 
 // #8398: end-to-end through the workflow script, not just the policy module.
 describe("tier-classifier workflow: one T1 file cannot downgrade unmatched code (#8398)", () => {
-  it("llms.txt + package source -> tier:standard", () => {
+  it("generated file + package source -> tier:standard", () => {
     const { label, reasons } = runClassifier({
-      files: ["llms-full.txt", "packages/sentry/src/react.ts"],
+      files: ["infrastructure/worker/dep-graph.json", "packages/sentry/src/react.ts"],
     });
     expect(label).toBe("tier:standard");
     expect(reasons).toMatch(/package source/);
@@ -1021,5 +1026,18 @@ describe("tier-classifier workflow: one T1 file cannot downgrade unmatched code 
   it("markdown + unmatched path -> tier:standard; markdown-only -> tier:trivial", () => {
     expect(runClassifier({ files: ["docs/a.md", "tools/x.rs"] }).label).toBe("tier:standard");
     expect(runClassifier({ files: ["docs/a.md"] }).label).toBe("tier:trivial");
+  });
+});
+
+// #9063: a deleted generated file under a T4 path must not make the PR critical.
+describe("tier-classifier workflow: deleted generated files (#9063)", () => {
+  it("deleting a generated file under infrastructure/pulumi/ is not tier:critical", () => {
+    const f = "infrastructure/pulumi/registry.json";
+    expect(runClassifier({ files: [f, "docs/a.md"], deleted: [f] }).label).toBe("tier:trivial");
+  });
+
+  it("modifying the same file is still tier:critical", () => {
+    const f = "infrastructure/pulumi/registry.json";
+    expect(runClassifier({ files: [f, "docs/a.md"] }).label).toBe("tier:critical");
   });
 });
