@@ -28,7 +28,9 @@
   position: absolute;
   top: 28px;
   inset-inline-start: 50%;
-  bottom: -2px;
+  /* Reach the next node: the track ends where the item's padding-bottom begins,
+     so without the padding term the line stops a full gap short (F31). */
+  bottom: calc(-1 * var(--rialto-space-lg) - 2px);
   width: 2px;
   transform: translateX(-50%);
   background: var(--rialto-border);
