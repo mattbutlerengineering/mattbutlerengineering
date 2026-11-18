@@ -1,4 +1,5 @@
 import path from "node:path";
+import { isGeneratedDirPath } from "./scripts/lib/generated-files.mjs";
 
 const TOP_DIRS = ["apps", "packages", "services", "tools"];
 
@@ -37,7 +38,7 @@ const PRETTIER_ONLY_GLOB = "**/*.{js,jsx,cjs,json,css,scss,less,html,md,yml,yaml
 
 export default {
   "**/*.{ts,tsx}": (files) => {
-    const filtered = files.filter((f) => !f.includes("/generated/"));
+    const filtered = files.filter((f) => !isGeneratedDirPath(f));
     if (filtered.length === 0) return [];
     const groups = groupByPackage(filtered);
     const commands = [];
@@ -63,7 +64,7 @@ export default {
   // file's own location. The `/generated/` filter stays mandatory — ESLint
   // 10's `ignores` array does not apply to explicitly-passed paths.
   "**/*.mjs": (files) => {
-    const filtered = files.filter((f) => !f.includes("/generated/"));
+    const filtered = files.filter((f) => !isGeneratedDirPath(f));
     if (filtered.length === 0) return [];
     return [`eslint --fix ${quote(filtered)}`, prettierWrite(filtered)];
   },

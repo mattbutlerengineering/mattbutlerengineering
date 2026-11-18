@@ -104,20 +104,9 @@ describe("computeCodeChurn", () => {
 
 describe("isGeneratedArtifact", () => {
   // TRUE cases — generated/vendored paths that should be excluded from churn
-  it("identifies root llms.txt as generated", () => {
-    expect(isGeneratedArtifact("llms.txt")).toBe(true);
-  });
-
-  it("identifies package-scoped llms.txt as generated", () => {
-    expect(isGeneratedArtifact("packages/rialto/llms.txt")).toBe(true);
-  });
-
-  it("identifies root llms-full.txt as generated", () => {
-    expect(isGeneratedArtifact("llms-full.txt")).toBe(true);
-  });
-
-  it("identifies package-scoped llms-full.txt as generated", () => {
-    expect(isGeneratedArtifact("packages/rialto-catalog/llms-full.txt")).toBe(true);
+  it("no longer treats llms.txt as generated (generator removed in #9057)", () => {
+    expect(isGeneratedArtifact("llms.txt")).toBe(false);
+    expect(isGeneratedArtifact("packages/rialto/llms-full.txt")).toBe(false);
   });
 
   it("identifies pnpm-lock.yaml as generated", () => {
