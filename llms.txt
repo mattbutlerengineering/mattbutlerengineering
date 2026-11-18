@@ -6911,11 +6911,17 @@
     <item priority="high">
       export function nextIsoDay(iso: string | null): string | undefined { /* ... */ }
     </item>
+    <item priority="high">
+      export function todayIso(now: Date = new Date()): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function laterIso(a?: string, b?: string): string | undefined { /* ... */ }
+    </item>
     <item priority="low">
       type FieldErrors = Record<string, string>;
     </item>
     <item priority="high">
-      export function validateDates(state: BookingWizardState): FieldErrors { /* ... */ }
+      export function validateDates(state: BookingWizardState, now: Date = new Date()): FieldErrors { /* ... */ }
     </item>
     <item priority="high">
       export function validateRoom(state: BookingWizardState): FieldErrors { /* ... */ }
@@ -6930,10 +6936,18 @@
       export function validatePayment(state: BookingWizardState, now: Date = new Date()): FieldErrors { /* ... */ }
     </item>
     <item priority="high">
-      export function validateStep(stepIndex: number, state: BookingWizardState): FieldErrors { /* ... */ }
+      export function validateStep(
+        stepIndex: number,
+        state: BookingWizardState,
+        now: Date = new Date()
+      ): FieldErrors { /* ... */ }
     </item>
     <item priority="high">
-      export function isStepComplete(stepIndex: number, state: BookingWizardState): boolean { /* ... */ }
+      export function isStepComplete(
+        stepIndex: number,
+        state: BookingWizardState,
+        now: Date = new Date()
+      ): boolean { /* ... */ }
     </item>
     <item priority="low">
       interface AdvanceResult {
@@ -6943,7 +6957,11 @@
       }
     </item>
     <item priority="high">
-      export function attemptAdvance(current: number, state: BookingWizardState): AdvanceResult { /* ... */ }
+      export function attemptAdvance(
+        current: number,
+        state: BookingWizardState,
+        now: Date = new Date()
+      ): AdvanceResult { /* ... */ }
     </item>
     <item priority="high">
       export function goBack(current: number): number { /* ... */ }
@@ -7105,6 +7123,23 @@
     </item>
     <item priority="high">
       export function launchSummary(state: OnboardingState): SummaryRow[] { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/rialto-web/src/pages/examples/settings-example.ts">
+    <item priority="low">
+      interface ProfileDraft {
+        fullName: string;
+        email: string;
+      }
+    </item>
+    <item priority="low">
+      interface ProfileErrors {
+        fullName?: string;
+        email?: string;
+      }
+    </item>
+    <item priority="high">
+      export function validateProfile(draft: ProfileDraft): ProfileErrors { /* ... */ }
     </item>
   </file>
   </section>

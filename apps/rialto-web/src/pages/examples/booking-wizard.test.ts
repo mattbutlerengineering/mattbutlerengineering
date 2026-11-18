@@ -4,8 +4,10 @@ import {
   LAST_STEP_INDEX,
   ROOMS,
   INITIAL_WIZARD_STATE,
+  laterIso,
   nightsBetween,
   nextIsoDay,
+  todayIso,
   validateDates,
   validateRoom,
   validateGuest,
@@ -18,6 +20,12 @@ import {
   maskCardNumber,
   type BookingWizardState,
 } from "./booking-wizard.js";
+
+/**
+ * July 2026, before the August fixture dates, so "not in the past" stays true
+ * for those cases without depending on the clock the suite happens to run on.
+ */
+const BOOKABLE_NOW = new Date(2026, 6, 1);
 
 /** A fully-valid state, from which each test peels away one field. */
 function completeState(): BookingWizardState {
@@ -83,9 +91,22 @@ describe("nextIsoDay", () => {
   });
 });
 
+describe("todayIso / laterIso", () => {
+  it("formats the local calendar day, including late evening", () => {
+    expect(todayIso(new Date(2026, 10, 17, 23, 30))).toBe("2026-11-17");
+    expect(todayIso(new Date(2026, 0, 5))).toBe("2026-01-05");
+  });
+
+  it("returns the later defined ISO date", () => {
+    expect(laterIso("2026-11-18", "2026-11-03")).toBe("2026-11-18");
+    expect(laterIso(undefined, "2026-11-17")).toBe("2026-11-17");
+    expect(laterIso("2026-11-17", undefined)).toBe("2026-11-17");
+  });
+});
+
 describe("validateDates", () => {
   it("passes for an ordered pair", () => {
-    expect(validateDates(completeState())).toEqual({});
+    expect(validateDates(completeState(), BOOKABLE_NOW)).toEqual({});
   });
 
   it("flags missing dates", () => {
@@ -96,7 +117,37 @@ describe("validateDates", () => {
 
   it("requires check-out to be after check-in", () => {
     const state = { ...completeState(), checkOut: "2026-08-01" };
-    expect(validateDates(state).checkOut).toMatch(/after check-in/i);
+    expect(validateDates(state, BOOKABLE_NOW).checkOut).toMatch(/after check-in/i);
+  });
+
+  it("rejects a stay that starts or ends before today and keeps today bookable", () => {
+    const now = new Date(2026, 10, 17);
+    const pastStay = validateDates(
+      { ...completeState(), checkIn: "2026-11-03", checkOut: "2026-11-20" },
+      now
+    );
+    expect(pastStay.checkIn).toMatch(/past/i);
+    expect(pastStay.checkOut).toBeUndefined();
+
+    const bothPast = validateDates(
+      { ...completeState(), checkIn: "2026-11-01", checkOut: "2026-11-10" },
+      now
+    );
+    expect(bothPast.checkIn).toMatch(/past/i);
+    expect(bothPast.checkOut).toMatch(/past/i);
+
+    expect(
+      validateDates({ ...completeState(), checkIn: "2026-11-17", checkOut: "2026-11-20" }, now)
+    ).toEqual({});
+
+    const blocked = attemptAdvance(
+      0,
+      { ...completeState(), checkIn: "2026-11-03", checkOut: "2026-11-20" },
+      now
+    );
+    expect(blocked.advanced).toBe(false);
+    expect(blocked.step).toBe(0);
+    expect(blocked.errors.checkIn).toMatch(/past/i);
   });
 });
 
@@ -195,7 +246,7 @@ describe("validateStep / isStepComplete", () => {
   it("routes each step index to its validator", () => {
     const state = completeState();
     for (let i = 0; i <= LAST_STEP_INDEX; i++) {
-      expect(isStepComplete(i, state)).toBe(true);
+      expect(isStepComplete(i, state, BOOKABLE_NOW)).toBe(true);
     }
   });
 
@@ -206,7 +257,7 @@ describe("validateStep / isStepComplete", () => {
 
 describe("attemptAdvance", () => {
   it("advances when the current step validates", () => {
-    const result = attemptAdvance(0, completeState());
+    const result = attemptAdvance(0, completeState(), BOOKABLE_NOW);
     expect(result).toEqual({ step: 1, errors: {}, advanced: true });
   });
 
