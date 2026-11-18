@@ -19,6 +19,15 @@ import { PropsTable } from "../components/PropsTable";
 // Playground — every supported field primitive wired through FormField
 // ---------------------------------------------------------------------------
 
+/**
+ * A required text field is empty when it has no non-whitespace characters.
+ * `trim()` is used only for that check — the value stored in state, shown in
+ * the control, and left in place on submit stays exactly as typed.
+ */
+function requiredText(value: string, message: string): string | undefined {
+  return value.trim() ? undefined : message;
+}
+
 function RegistrationFormDemo() {
   const [email, setEmail] = useState("");
   const [bio, setBio] = useState("");
@@ -29,10 +38,10 @@ function RegistrationFormDemo() {
   return (
     <Card variant="flat" style={{ padding: "var(--rialto-space-xl)" }}>
       <Form onValidSubmit={() => setSubmitted(true)} style={{ maxWidth: "360px" }}>
-        <FormField name="email" validate={() => (email ? undefined : "Email is required")}>
+        <FormField name="email" validate={() => requiredText(email, "Email is required")}>
           <Input label="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
         </FormField>
-        <FormField name="bio" validate={() => (bio ? undefined : "Bio is required")}>
+        <FormField name="bio" validate={() => requiredText(bio, "Bio is required")}>
           <TextArea label="Bio" value={bio} onChange={(e) => setBio(e.target.value)} />
         </FormField>
         <FormField name="seats" validate={() => (seats > 0 ? undefined : "Pick at least 1 seat")}>
