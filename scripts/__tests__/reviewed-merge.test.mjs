@@ -124,7 +124,7 @@ describe("routine prompts hand off in the format the parser accepts", () => {
       readFileSync(resolve(ROOT, `docs/routines/${name}.md`), "utf8")
     )[1];
 
-  it.each(["mbe-feature-drain", "mbe-prune", "mbe-daily-issue"])("%s", (name) => {
+  it.each(["mbe-feature-drain", "mbe-daily-issue"])("%s", (name) => {
     const prompt = promptOf(name);
     const template = /`(reviewed-merge: <[^`]*> PASS <score>\/10)`/.exec(prompt);
     expect(template, "verdict template").not.toBeNull();

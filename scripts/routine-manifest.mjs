@@ -42,7 +42,8 @@
  * #7043 gave mbe-daily-issue a heartbeat final step so a healthy no-op fire
  * does not read as `dark`. mbe-night and mbe-midday, the other two routines
  * that question covered, were retired on 2026-11-15 (paused since 2026-09-25,
- * superseded by mbe-feature-drain) and removed from this manifest.
+ * superseded by mbe-feature-drain) and removed from this manifest. mbe-prune
+ * was retired on 2026-11-18 (#9070) and removed the same way.
  *
  * @module routine-manifest
  */
@@ -252,30 +253,13 @@ const BUILTIN_ROUTINES = [
   },
   {
     name: "mbe-feature-drain",
-    // Two live RemoteTriggers share this prompt and this heartbeat name —
-    // trig_01RT7JnCPWyxw4fcKKVmCTb8 (`3 * * * *`, mbe-feature-drain-a) and
-    // trig_013Yd7dJ2X98nAwME7fi7iqx (`33 * * * *`, mbe-feature-drain-b) —
-    // because the API floors a single cron at one hour (measured 2026-10-16).
+    // One live RemoteTrigger, trig_01RT7JnCPWyxw4fcKKVmCTb8 (`3 * * * *`,
+    // mbe-feature-drain-a). A second, trig_013Yd7dJ2X98nAwME7fi7iqx
+    // (`33 * * * *`, mbe-feature-drain-b), was retired 2026-11-18 (#9071).
     // One manifest entry, one liveness question: did the drain fire today?
     // The prompt posts `noop` at most once per UTC day to keep #6211 readable;
     // `ok`/`error`/`throttled` post on every fire.
     triggerId: "trig_01RT7JnCPWyxw4fcKKVmCTb8",
-    periodDays: 1,
-    activatedAt: "2026-10-16",
-    signature: { type: "heartbeat" },
-  },
-  {
-    name: "mbe-prune",
-    // Four live RemoteTriggers share this prompt and this heartbeat name —
-    // trig_01TBQ4jQS9UGwJTxrWfWBCyQ (`14 * * * *`, mbe-prune-a),
-    // trig_01SoduJryRjjQN5D75h3ZJjv (`29 * * * *`, mbe-prune-b, disabled 2026-11-15),
-    // trig_01CzgACLRQpi8ApXfSUM7T5q (`44 * * * *`, mbe-prune-c) and
-    // trig_016WxmLRG8kYUymu3QmwEk3P (`59 * * * *`, mbe-prune-d, disabled 2026-11-15) —
-    // for the same reason as mbe-feature-drain: the API floors a single cron
-    // at one hour. One manifest entry, one liveness question: did the prune
-    // fire today? `noop` posts at most once per UTC day; `ok`/`error`/
-    // `throttled` post on every fire (docs/routines/mbe-prune.md).
-    triggerId: "trig_01TBQ4jQS9UGwJTxrWfWBCyQ",
     periodDays: 1,
     activatedAt: "2026-10-16",
     signature: { type: "heartbeat" },

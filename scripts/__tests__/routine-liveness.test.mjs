@@ -495,8 +495,8 @@ describe("paused routines (#6440, #6443)", () => {
     expect(calls).toEqual([]);
   });
 
-  it("no longer lists the retired mbe-night and mbe-midday routines", () => {
-    for (const name of ["mbe-night", "mbe-midday"]) {
+  it("no longer lists the retired mbe-night, mbe-midday and mbe-prune routines", () => {
+    for (const name of ["mbe-night", "mbe-midday", "mbe-prune"]) {
       expect(ROUTINE_MANIFEST.find((r) => r.name === name)).toBeUndefined();
     }
   });
