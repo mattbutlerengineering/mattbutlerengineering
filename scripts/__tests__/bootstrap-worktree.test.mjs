@@ -9,11 +9,13 @@ import {
   probeBootstrapSteps,
   formatBootstrapDecision,
   ensureWorktreeHooksPath,
+  hooksActive,
 } from "../bootstrap-worktree.mjs";
 import { spawnSync } from "node:child_process";
 import { chmodSync, mkdirSync, mkdtempSync, existsSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 // ---------------------------------------------------------------------------
 // decideBootstrapSteps — pure decision over three inputs (architecture.md
@@ -268,5 +270,141 @@ describe("ensureWorktreeHooksPath", () => {
     expect(ensureWorktreeHooksPath(wt)).toBe(true);
     expect(ensureWorktreeHooksPath(wt)).toBe(false);
     expect(ensureWorktreeHooksPath(main)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// #9111 — `.husky/_` is generated + gitignored, so a fresh worktree lacks it
+// and a per-worktree core.hooksPath pointing there leaves hooks silently inert.
+// ---------------------------------------------------------------------------
+
+const HUSKY_BIN = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "..",
+  "node_modules",
+  "husky",
+  "bin.js"
+);
+
+describe("ensureWorktreeHooksPath without a generated .husky/_ (#9111)", () => {
+  let sandbox;
+  const git = (cwd, ...args) =>
+    spawnSync(
+      "git",
+      [
+        "-c",
+        "user.email=t@example.com",
+        "-c",
+        "user.name=t",
+        "-c",
+        "commit.gpgsign=false",
+        ...args,
+      ],
+      { cwd, encoding: "utf8" }
+    );
+  // Real husky 9 installer, run against the given tree (what `pnpm exec husky` does).
+  const realHusky = (dir) => {
+    const res = spawnSync(process.execPath, [HUSKY_BIN], { cwd: dir, encoding: "utf8" });
+    if (res.status !== 0) throw new Error(res.stderr);
+  };
+
+  beforeEach(() => {
+    sandbox = mkdtempSync(join(tmpdir(), "wt-hooks-9111-"));
+  });
+  afterEach(() => rmSync(sandbox, { recursive: true, force: true }));
+
+  // main has a TRACKED .husky/pre-commit and an installed .husky/_; the linked
+  // worktree has the tracked hook but no generated .husky/_.
+  function fixture() {
+    const main = join(sandbox, "main");
+    const wt = join(sandbox, "wt");
+    git(sandbox, "init", "-q", "-b", "main", main);
+    mkdirSync(join(main, ".husky"), { recursive: true });
+    const hookFile = join(main, ".husky", "pre-commit");
+    writeFileSync(hookFile, '#!/bin/sh\necho RAN > "$(git rev-parse --show-toplevel)/ran.txt"\n');
+    chmodSync(hookFile, 0o755);
+    writeFileSync(join(main, "a.txt"), "a\n");
+    git(main, "add", ".");
+    git(main, "commit", "-qm", "init");
+    realHusky(main);
+    git(main, "worktree", "add", "-q", "-b", "feat", wt);
+    expect(existsSync(join(wt, ".husky", "_"))).toBe(false);
+    return { main, wt };
+  }
+
+  test("a fresh worktree ends with an existing hooks dir and commits run its own pre-commit", () => {
+    const { main, wt } = fixture();
+    expect(ensureWorktreeHooksPath(wt, { installHooks: realHusky, warn: () => {} })).toBe(true);
+    expect(existsSync(join(wt, ".husky", "_"))).toBe(true);
+    expect(hooksActive(wt)).toBe(true);
+    writeFileSync(join(wt, "b.txt"), "b\n");
+    git(wt, "add", "b.txt");
+    git(wt, "commit", "-qm", "wt change");
+    expect(existsSync(join(wt, "ran.txt"))).toBe(true);
+    expect(existsSync(join(main, "ran.txt"))).toBe(false);
+  });
+
+  test("the main checkout keeps working and its tree is untouched", () => {
+    const { main, wt } = fixture();
+    const before = git(main, "status", "--porcelain").stdout;
+    ensureWorktreeHooksPath(wt, { installHooks: realHusky, warn: () => {} });
+    expect(git(main, "status", "--porcelain").stdout).toBe(before);
+    expect(hooksActive(main)).toBe(true);
+    writeFileSync(join(main, "c.txt"), "c\n");
+    git(main, "add", "c.txt");
+    git(main, "commit", "-qm", "main change");
+    expect(existsSync(join(main, "ran.txt"))).toBe(true);
+  });
+
+  test("falls back to the inherited hooks path and warns loudly when .husky/_ cannot be created", () => {
+    const { wt } = fixture();
+    const warnings = [];
+    const result = ensureWorktreeHooksPath(wt, {
+      installHooks: () => {
+        throw new Error("husky exploded");
+      },
+      warn: (msg) => warnings.push(msg),
+    });
+    expect(result).toBe(false);
+    expect(git(wt, "config", "--worktree", "--get", "core.hooksPath").stdout.trim()).toBe("");
+    expect(warnings.join("\n")).toMatch(/hooks .*(inert|not|inherit)/i);
+  });
+
+  test("retries a git config write that hits `could not lock config file`", () => {
+    const { wt } = fixture();
+    const lock = join(
+      git(wt, "rev-parse", "--path-format=absolute", "--git-common-dir").stdout.trim(),
+      "config.lock"
+    );
+    let sleeps = 0;
+    const result = ensureWorktreeHooksPath(wt, {
+      // Lock appears after husky ran, i.e. contention on our own config writes.
+      installHooks: (dir) => {
+        realHusky(dir);
+        writeFileSync(lock, "");
+      },
+      warn: () => {},
+      sleep: () => {
+        sleeps += 1;
+        rmSync(lock, { force: true });
+      },
+    });
+    expect(sleeps).toBeGreaterThan(0);
+    expect(result).toBe(true);
+    expect(git(wt, "config", "--worktree", "--get", "core.hooksPath").stdout.trim()).toBe(
+      ".husky/_"
+    );
+  });
+});
+
+describe("hooksActive", () => {
+  test("is false for a directory that is not a git repo", () => {
+    const dir = mkdtempSync(join(tmpdir(), "wt-hooks-nogit-"));
+    try {
+      expect(hooksActive(dir)).toBe(false);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
