@@ -5768,3 +5768,18 @@ None (`agent-skip` is empty).
 ### Skipped Issues
 
 None (`agent-skip` is empty).
+
+## 2026-11-18 — mbe-ui-quality
+
+- **State:** `state.mjs checkout` exit 0, `source: branch` (ui-quality/ledger at 0969bcd, merged origin/main 7584173; `metrics/ui-quality-ledger.jsonl` resolved by rule).
+- **Routes:** 40 due, 40 captured, 40 audited. All 40 are rialto-web; marketing and hospitality had no due routes (hospitality's 25 rows are `unreachable:auth`, never captured). No `unreachable:build` — all three apps built clean.
+- **Browser:** resolved (`chrome-headless-shell-linux64`). No `blocker: no-browser`.
+- **Findings:** 0 mechanical, 0 judged. Unjudged 0, dropped tells 0 — every captured route was opened at both viewports (1280x720 and 375x812, 80 screenshots) and judged against rubric v1's judged tells only.
+- **Calibration:** stamp `stale`. `calibration-status` returned exit 3; the single permitted calibrate attempt hit exit 2 from `rate.mjs pairs --calibration` — `docs/ui-quality/calibration.json` still has no labelled pairs (the Verify-owned step where Matt labels ≥ 10 pairs). Not retried. Re-queried status: still `stale`. Rating proceeded: 6 pairs rated, `rate.mjs record` → rialto-web 1.67.
+- **Filing:** plan exit 0 — 0 actions, 0 seeds, no escalation file, no `fix_pr_candidate`. Issues created 0, reopened 0, commented 0. Seeds 0. All 37 issues in the findings ledger read `closed`; the `ui-quality` label listing returned 40 issues in a single complete page (3 of them closed "filing blocked" escalations), so no unknown labelled issues and no refusal.
+- **Fix PR:** none — no action carried `fix_pr_candidate: true`.
+- **P1 SLA:** 0 open `ui-quality:p1` issues, 0 breaches, 0 escalated.
+- **Coverage before this fire:** 100% (136/136 reachable routes; 25 hospitality routes `unreachable:auth`).
+- **Blockers / pipeline bugs:** none. No stopped filing.
+
+A clean fire: everything due was captured and judged, and nothing met the bar to file.
