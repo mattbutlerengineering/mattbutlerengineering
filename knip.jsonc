@@ -162,6 +162,7 @@
         "acmm/repo-bench.js",
         "agent-core-build-freshness.mjs",
         "auto-retry-stale.mjs",
+        "cap-improvement-log.mjs",
         "changeset-hook.mjs",
         "check-hooks-active.mjs",
         "check-skill-references.mjs",

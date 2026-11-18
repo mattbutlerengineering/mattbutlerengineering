@@ -113,7 +113,7 @@ Read the verification log at `metrics/verifications.jsonl` (last 30 days):
 
 ### Step 6: Log and Summarize
 
-Append a dated entry to `.claude/improvement-loop/log.md`:
+Append a dated entry to `.claude/improvement-loop/log.md` (then run `node scripts/cap-improvement-log.mjs` to keep only the newest 60 entries; older ones live in git history):
 
 ```markdown
 ## YYYY-MM-DD
