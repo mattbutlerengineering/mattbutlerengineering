@@ -388,13 +388,16 @@ function mergedPrsClosing(gh, issue) {
 }
 
 /** Gather everything `deriveShippedFeatures` needs. @param {(args: string[]) => string} gh */
-export function gatherShippedFeatureInput(gh, { limit } = {}) {
+export function gatherShippedFeatureInput(gh, { limit, skipTracking = new Set() } = {}) {
   let trackingIssues = ghList(
     gh,
     "repos/{owner}/{repo}/issues?labels=tracking&state=closed&per_page=100"
   )
     .filter((i) => i && !i.pull_request)
     .sort((a, b) => b.number - a.number);
+  // Closed trackers already in the snapshot are final; refetching their
+  // children/PRs is what outgrew the 20 min job timeout.
+  trackingIssues = trackingIssues.filter((i) => !skipTracking.has(i.number));
   if (limit !== undefined) trackingIssues = trackingIssues.slice(0, limit);
 
   const childIssuesByNumber = {};
@@ -416,16 +419,27 @@ export function gatherShippedFeatureInput(gh, { limit } = {}) {
 
 /** @param {string[]} argv */
 export function parseArgs(argv) {
-  const opts = { out: DEFAULT_OUT, limit: undefined, dryRun: false };
+  const opts = { out: DEFAULT_OUT, limit: undefined, dryRun: false, full: false };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === "--dry-run") opts.dryRun = true;
+    else if (arg === "--full") opts.full = true;
     else if (arg === "--out" && argv[i + 1]) opts.out = resolve(argv[++i]);
     else if (arg === "--limit" && /^[1-9]\d*$/.test(argv[i + 1] ?? ""))
       opts.limit = Number(argv[++i]);
     else throw new Error(`unknown or invalid argument: ${arg}`);
   }
   return opts;
+}
+
+/** Features of the snapshot at `path`; [] when missing or malformed (falls back to a full walk). */
+function readExistingFeatures(read, path) {
+  try {
+    const features = JSON.parse(read(path, "utf8"))?.features;
+    return Array.isArray(features) ? features.filter((f) => isIssueNumber(f?.trackingIssue)) : [];
+  } catch {
+    return [];
+  }
 }
 
 /**
@@ -435,12 +449,26 @@ export function parseArgs(argv) {
  */
 export function runCli(
   argv,
-  { gh = defaultGh, write = writeFileSync, log = console.log, err = console.error } = {}
+  {
+    gh = defaultGh,
+    read = readFileSync,
+    write = writeFileSync,
+    log = console.log,
+    err = console.error,
+  } = {}
 ) {
   try {
     const opts = parseArgs(argv);
-    const input = gatherShippedFeatureInput(gh, { limit: opts.limit });
-    const derived = deriveShippedFeatures({ ...input, generatedAt: new Date(0).toISOString() });
+    const existing = opts.full ? [] : readExistingFeatures(read, opts.out);
+    const skipTracking = new Set(existing.map((f) => f.trackingIssue));
+    const input = gatherShippedFeatureInput(gh, { limit: opts.limit, skipTracking });
+    const fresh = deriveShippedFeatures({ ...input, generatedAt: new Date(0).toISOString() });
+    // Same ordering as deriveShippedFeatures so a merged run stays deterministic.
+    const merged = [...fresh.snapshot.features, ...existing].sort(
+      (a, b) =>
+        Date.parse(b.lastMergedAt) - Date.parse(a.lastMergedAt) || b.trackingIssue - a.trackingIssue
+    );
+    const derived = { snapshot: { ...fresh.snapshot, features: merged }, skipped: fresh.skipped };
     const newest = derived.snapshot.features
       .map((f) => f.lastMergedAt)
       .sort()
