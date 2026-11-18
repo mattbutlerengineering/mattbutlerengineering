@@ -21,6 +21,11 @@
       "path": "apps/rialto-web"
     },
     {
+      "name": "@mbe/shell",
+      "type": "app",
+      "path": "apps/shell"
+    },
+    {
       "name": "@mbe/agent-service",
       "type": "service",
       "path": "services/agent"
@@ -286,6 +291,16 @@
     {
       "from": "@mbe/rialto-web",
       "to": "@mbe/ui-quality-capture",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/shell",
+      "to": "@mbe/config",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/shell",
+      "to": "@mbe/edge-worker",
       "type": "devDependency"
     },
     {
