@@ -124,17 +124,34 @@ export function nextIsoDay(iso: string | null): string | undefined {
   return new Date(utc + MS_PER_DAY).toISOString().slice(0, 10);
 }
 
+/** Local calendar date as `yyyy-mm-dd`. UTC would shift "today" in the evening. */
+export function todayIso(now: Date = new Date()): string {
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${now.getFullYear()}-${month}-${day}`;
+}
+
+/** The later of two ISO dates, ignoring an unset side. */
+export function laterIso(a?: string, b?: string): string | undefined {
+  if (!a) return b;
+  if (!b) return a;
+  return a > b ? a : b;
+}
+
 /* ── Validation ──────────────────────────────── */
 
 export type FieldErrors = Record<string, string>;
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export function validateDates(state: BookingWizardState): FieldErrors {
+export function validateDates(state: BookingWizardState, now: Date = new Date()): FieldErrors {
   const errors: FieldErrors = {};
+  const today = todayIso(now);
   if (!state.checkIn) errors.checkIn = "Choose a check-in date.";
+  else if (state.checkIn < today) errors.checkIn = "Check-in can't be in the past.";
   if (!state.checkOut) errors.checkOut = "Choose a check-out date.";
-  if (state.checkIn && state.checkOut && state.checkOut <= state.checkIn) {
+  else if (state.checkOut < today) errors.checkOut = "Check-out can't be in the past.";
+  else if (state.checkIn && state.checkOut <= state.checkIn) {
     errors.checkOut = "Check-out must be after check-in.";
   }
   return errors;
@@ -190,23 +207,33 @@ export function validatePayment(state: BookingWizardState, now: Date = new Date(
   return errors;
 }
 
-const STEP_VALIDATORS: Record<number, (state: BookingWizardState) => FieldErrors> = {
-  0: validateDates,
-  1: validateRoom,
-  2: validateGuest,
-  3: validatePayment,
-  4: () => ({}),
-};
-
 /** Field errors for a given step; empty object means the step is complete. */
-export function validateStep(stepIndex: number, state: BookingWizardState): FieldErrors {
-  const validator = STEP_VALIDATORS[stepIndex];
-  return validator ? validator(state) : {};
+export function validateStep(
+  stepIndex: number,
+  state: BookingWizardState,
+  now: Date = new Date()
+): FieldErrors {
+  switch (stepIndex) {
+    case 0:
+      return validateDates(state, now);
+    case 1:
+      return validateRoom(state);
+    case 2:
+      return validateGuest(state);
+    case 3:
+      return validatePayment(state, now);
+    default:
+      return {};
+  }
 }
 
 /** True when a step has no outstanding validation errors. */
-export function isStepComplete(stepIndex: number, state: BookingWizardState): boolean {
-  return Object.keys(validateStep(stepIndex, state)).length === 0;
+export function isStepComplete(
+  stepIndex: number,
+  state: BookingWizardState,
+  now: Date = new Date()
+): boolean {
+  return Object.keys(validateStep(stepIndex, state, now)).length === 0;
 }
 
 /* ── Navigation ──────────────────────────────── */
@@ -222,8 +249,12 @@ export interface AdvanceResult {
  * otherwise the step is unchanged and the field errors are returned so the UI
  * can surface them. Never advances past the confirmation step.
  */
-export function attemptAdvance(current: number, state: BookingWizardState): AdvanceResult {
-  const errors = validateStep(current, state);
+export function attemptAdvance(
+  current: number,
+  state: BookingWizardState,
+  now: Date = new Date()
+): AdvanceResult {
+  const errors = validateStep(current, state, now);
   if (Object.keys(errors).length > 0) {
     return { step: current, errors, advanced: false };
   }

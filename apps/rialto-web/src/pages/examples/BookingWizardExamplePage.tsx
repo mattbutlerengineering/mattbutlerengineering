@@ -17,8 +17,10 @@ import {
   INITIAL_WIZARD_STATE,
   LAST_STEP_INDEX,
   maskCardNumber,
+  laterIso,
   nextIsoDay,
   priceBreakdown,
+  todayIso,
   ROOMS,
   WIZARD_STEPS,
   type BookingWizardState,
@@ -55,10 +57,11 @@ const compositionNotes = (
       machine in <code>booking-wizard.ts</code>, so the rules are unit-tested without React.
     </CompositionNote>
     <CompositionNote>
-      Dates use two single <code>DatePicker</code>s (ISO <code>yyyy-mm-dd</code>, no range API); the
-      check-out picker&apos;s <code>min</code> is the day after check-in, so an invalid range
-      can&apos;t be picked. Per-step validation blocks <code>Continue</code> and surfaces field
-      errors, while back-navigation keeps every entered value because state lives above the steps.
+      Dates use two single <code>DatePicker</code>s (ISO <code>yyyy-mm-dd</code>, no range API). The
+      check-in picker&apos;s <code>min</code> is today, and the check-out picker&apos;s{" "}
+      <code>min</code> is the later of the day after check-in and today, so a past day or an invalid
+      range can&apos;t be picked. Per-step validation still rejects a past stay if one is submitted.
+      Back-navigation keeps every entered value because state lives above the steps.
     </CompositionNote>
     <CompositionNote>
       Colour, spacing, and selection accents all come from Rialto tokens, so the flow inherits light
@@ -86,6 +89,7 @@ interface DatesStepProps {
 }
 
 function DatesStep({ state, errors, onChange }: DatesStepProps) {
+  const today = todayIso();
   return (
     <Stack gap="lg">
       <div className={styles.dateGrid}>
@@ -95,6 +99,7 @@ function DatesStep({ state, errors, onChange }: DatesStepProps) {
             placeholder="Select date"
             value={state.checkIn}
             onChange={(checkIn) => onChange({ checkIn })}
+            min={today}
             locale="en-US"
           />
           <FieldError message={errors.checkIn} />
@@ -105,7 +110,7 @@ function DatesStep({ state, errors, onChange }: DatesStepProps) {
             placeholder="Select date"
             value={state.checkOut}
             onChange={(checkOut) => onChange({ checkOut })}
-            min={nextIsoDay(state.checkIn)}
+            min={laterIso(nextIsoDay(state.checkIn), today)}
             locale="en-US"
           />
           <FieldError message={errors.checkOut} />
@@ -139,7 +144,12 @@ function RoomStep({ state, errors, onSelect }: RoomStepProps) {
               <Text variant="label" as="span" className={styles.roomName}>
                 {room.name}
               </Text>
-              <Text variant="caption" color="secondary" as="span">
+              <Text
+                variant="caption"
+                color="secondary"
+                as="span"
+                className={styles.roomDescription}
+              >
                 {room.description}
               </Text>
               <Text variant="label" as="span" className={styles.roomPrice}>

@@ -832,12 +832,25 @@
       if (utc == null) return undefined;
       return new Date(utc + MS_PER_DAY).toISOString().slice(0, 10);
     }
+    export function todayIso(now: Date = new Date()): string {
+      const month = String(now.getMonth() + 1).padStart(2, "0");
+      const day = String(now.getDate()).padStart(2, "0");
+      return `${now.getFullYear()}-${month}-${day}`;
+    }
+    export function laterIso(a?: string, b?: string): string | undefined {
+      if (!a) return b;
+      if (!b) return a;
+      return a > b ? a : b;
+    }
     export type FieldErrors = Record<string, string>;
-    export function validateDates(state: BookingWizardState): FieldErrors {
+    export function validateDates(state: BookingWizardState, now: Date = new Date()): FieldErrors {
       const errors: FieldErrors = {};
+      const today = todayIso(now);
       if (!state.checkIn) errors.checkIn = "Choose a check-in date.";
+      else if (state.checkIn < today) errors.checkIn = "Check-in can't be in the past.";
       if (!state.checkOut) errors.checkOut = "Choose a check-out date.";
-      if (state.checkIn && state.checkOut && state.checkOut <= state.checkIn) {
+      else if (state.checkOut < today) errors.checkOut = "Check-out can't be in the past.";
+      else if (state.checkIn && state.checkOut <= state.checkIn) {
         errors.checkOut = "Check-out must be after check-in.";
       }
       return errors;
@@ -881,20 +894,42 @@
       }
       return errors;
     }
-    export function validateStep(stepIndex: number, state: BookingWizardState): FieldErrors {
-      const validator = STEP_VALIDATORS[stepIndex];
-      return validator ? validator(state) : {};
+    export function validateStep(
+      stepIndex: number,
+      state: BookingWizardState,
+      now: Date = new Date()
+    ): FieldErrors {
+      switch (stepIndex) {
+        case 0:
+          return validateDates(state, now);
+        case 1:
+          return validateRoom(state);
+        case 2:
+          return validateGuest(state);
+        case 3:
+          return validatePayment(state, now);
+        default:
+          return {};
+      }
     }
-    export function isStepComplete(stepIndex: number, state: BookingWizardState): boolean {
-      return Object.keys(validateStep(stepIndex, state)).length === 0;
+    export function isStepComplete(
+      stepIndex: number,
+      state: BookingWizardState,
+      now: Date = new Date()
+    ): boolean {
+      return Object.keys(validateStep(stepIndex, state, now)).length === 0;
     }
     export interface AdvanceResult {
       step: number;
       errors: FieldErrors;
       advanced: boolean;
     }
-    export function attemptAdvance(current: number, state: BookingWizardState): AdvanceResult {
-      const errors = validateStep(current, state);
+    export function attemptAdvance(
+      current: number,
+      state: BookingWizardState,
+      now: Date = new Date()
+    ): AdvanceResult {
+      const errors = validateStep(current, state, now);
       if (Object.keys(errors).length > 0) {
         return { step: current, errors, advanced: false };
       }
@@ -1191,6 +1226,24 @@
         { label: "Instant booking", value: state.instantBooking ? "On" : "Off" },
         { label: "Deposit required", value: state.requireDeposit ? "Yes" : "No" },
       ];
+    }
+  </file>
+  <file path="src/pages/examples/settings-example.ts">
+    export interface ProfileDraft {
+      fullName: string;
+      email: string;
+    }
+    export interface ProfileErrors {
+      fullName?: string;
+      email?: string;
+    }
+    export function validateProfile(draft: ProfileDraft): ProfileErrors {
+      const errors: ProfileErrors = {};
+      if (!draft.fullName.trim()) errors.fullName = "Full name is required.";
+      const email = draft.email.trim();
+      if (!email) errors.email = "Email is required.";
+      else if (!EMAIL.test(email)) errors.email = "Enter a valid email address.";
+      return errors;
     }
   </file>
   </section>

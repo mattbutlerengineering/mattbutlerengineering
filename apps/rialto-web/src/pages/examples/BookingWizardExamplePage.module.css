@@ -86,12 +86,51 @@
   box-shadow: var(--rialto-shadow-focus);
 }
 
+/* Button is a single class with nowrap, and it wraps every child in one
+   span. Two classes here win on the button, and the span becomes the
+   column, so the name, description, and price stay on separate lines. */
+.roomGrid .roomCard {
+  white-space: normal;
+  align-items: stretch;
+  justify-content: flex-start;
+}
+
+.roomGrid .roomCard > span {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--rialto-space-xs);
+  width: 100%;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  white-space: normal;
+  text-align: start;
+}
+
 .roomName {
+  display: block;
+  max-inline-size: 100%;
+  min-inline-size: 0;
+  white-space: normal;
+  overflow-wrap: break-word;
   color: var(--rialto-text-primary);
 }
 
+.roomDescription {
+  display: block;
+  max-inline-size: 100%;
+  min-inline-size: 0;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
 .roomPrice {
+  display: block;
+  max-inline-size: 100%;
+  min-inline-size: 0;
   margin-block-start: var(--rialto-space-xs);
+  white-space: normal;
+  overflow-wrap: break-word;
   color: var(--rialto-text-secondary);
 }
 
