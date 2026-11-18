@@ -40,7 +40,9 @@ cmd=$(printf '%s' "$payload" | node "$CLAUDE_PROJECT_DIR/.claude/hooks/hook-inpu
 # A hook cannot parse shell, so this stays a heuristic, and it deliberately
 # errs toward firing: a spurious verification is cheap, a push that silently
 # failed is not. `(` is in the class so `x=$(git push ...)` still matches.
-push_re=$'(^|[;&|(){}\n])[[:space:]]*git[[:space:]]+(-C[[:space:]]+[^[:space:]]+[[:space:]]+)?push([[:space:]]|$)'
+# `git -C <dir> push` is a push too; the optional group covers its directory.
+dir_re=$'("[^"]*"|\'[^\']*\'|[^[:space:]]+)'
+push_re=$'(^|[;&|(){}\n])[[:space:]]*git([[:space:]]+-C[[:space:]]+'"$dir_re"$')?[[:space:]]+push([[:space:]]|$)'
 [[ "$cmd" =~ $push_re ]] || exit 0
 case "$cmd" in
   *"--dry-run"*|*"--delete"*|*" :"*) exit 0 ;;  # dry run or branch deletion
@@ -51,27 +53,33 @@ esac
 # subagent — the branch-resolution note below records how that misfired.
 tree=$(printf '%s' "$payload" | node "$CLAUDE_PROJECT_DIR/.claude/hooks/hook-input.mjs" cwd)
 [[ -n "$tree" && -d "$tree" ]] || tree=$(pwd)
+git -C "$tree" rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0
 
-# A leading `cd X &&` or `git -C X push` moves the push to another tree (the
-# usual `cd <worktree> && git push -u origin HEAD`); the payload cwd is then
-# the wrong one and HEAD-based resolution reported a false "branch not found"
-# (#9066). Resolve X against the payload cwd; if it cannot be resolved, skip
-# quietly rather than verify the wrong tree.
-cd_re=$'^[[:space:]]*cd[[:space:]]+([^[:space:];&|]+)[[:space:]]*&&'
-gitc_re=$'git[[:space:]]+-C[[:space:]]+([^[:space:]]+)[[:space:]]+push([[:space:]]|$)'
+# The push may have run in a different tree than the payload's `cwd`: from a
+# worktree via a leading `cd X &&`, or `git -C X push` (#9066). The main
+# checkout's HEAD answers for the wrong branch and reports "not found on
+# origin" after a push that landed. Resolve X; if it cannot be resolved
+# (variable, substitution, missing dir), skip quietly rather than warn.
+cd_re=$'^[[:space:]]*cd[[:space:]]+'"$dir_re"$'[[:space:]]*&&'
+c_re=$'git[[:space:]]+-C[[:space:]]+'"$dir_re"$'[[:space:]]+push([[:space:]]|$)'
 target=""
 if [[ "$cmd" =~ $cd_re ]]; then
   target="${BASH_REMATCH[1]}"
-elif [[ "$cmd" =~ $gitc_re ]]; then
+elif [[ "$cmd" =~ $c_re ]]; then
   target="${BASH_REMATCH[1]}"
 fi
 if [[ -n "$target" ]]; then
   target="${target#[\"\']}"; target="${target%[\"\']}"
-  [[ "$target" == /* ]] || target="$tree/$target"
+  case "$target" in
+    *'$'*|*'`'*) exit 0 ;;
+    "~"|"~/"*) target="$HOME${target#\~}" ;;
+    /*) ;;
+    *) target="$tree/$target" ;;
+  esac
   [[ -d "$target" ]] || exit 0
   tree="$target"
+  git -C "$tree" rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0
 fi
-git -C "$tree" rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0
 
 # Resolve the remote and the branch being pushed, in one pass over the command.
 #
