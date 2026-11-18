@@ -8,6 +8,9 @@ import styles from "./DashboardSidebar.module.css";
 
 const STORAGE_KEY = "hospitality-sidebar-collapsed";
 
+const FOCUSABLE_SELECTOR =
+  'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 /* ── Inline SVG icon ─────────────────────────── */
 
 function ChevronIcon() {
@@ -102,6 +105,41 @@ export function DashboardSidebar({
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [isMobileOpen, onMobileClose]);
+
+  // Mobile drawer focus: move focus in on open, keep Tab inside the panel, and return focus to
+  // whatever opened it on close.
+  useEffect(() => {
+    if (!isMobileOpen) return undefined;
+    const panel = sidebarRef.current;
+    if (!panel) return undefined;
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const focusable = (): HTMLElement[] =>
+      Array.from(panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR));
+    focusable()[0]?.focus();
+    const onTab = (event: KeyboardEvent): void => {
+      if (event.key !== "Tab") return;
+      const items = focusable();
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (!first || !last) return;
+      const current = document.activeElement;
+      if (!panel.contains(current)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+      } else if (event.shiftKey && current === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && current === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onTab);
+    return () => {
+      document.removeEventListener("keydown", onTab);
+      if (opener?.isConnected) opener.focus();
+    };
+  }, [isMobileOpen]);
 
   // Prevent body scroll when mobile drawer is open
   useEffect(() => {

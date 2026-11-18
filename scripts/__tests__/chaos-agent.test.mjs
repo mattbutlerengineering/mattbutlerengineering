@@ -128,6 +128,7 @@ export default function MyComponent() {
         c[3] === "41898282+github-actions[bot]@users.noreply.github.com"
     );
 
+    expect(calls[commitIdx]).toContain("--no-verify");
     expect(nameIdx).toBeGreaterThan(-1);
     expect(emailIdx).toBeGreaterThan(-1);
     expect(commitIdx).toBeGreaterThan(-1);

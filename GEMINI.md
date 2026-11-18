@@ -30,7 +30,7 @@ Use sub-agents (`codebase_investigator`, `generalist`) aggressively for multi-fi
 A task is not complete until it satisfies the original requirements and passes all automated tests. Always perform the **Zero-Touch Audit** (defined in [AGENTS.md](./AGENTS.md)) before committing:
 
 - **Verifications:** Run `pnpm lint`, `pnpm typecheck`, and `pnpm test`.
-- **Update Generated Files:** Run `pnpm build && mbe pack` and `pnpm generate:dep-graph` if needed.
+- **Update Generated Files:** Run `pnpm build` and `pnpm generate:dep-graph` if needed.
 
 ### 6. Model Verification
 
@@ -52,6 +52,4 @@ See [docs/acmm/TASKS.md](./docs/acmm/TASKS.md) for current improvement goals.
 
 ## AI Context Catalog
 
-- `llms.txt` — Rialto component catalog (UI patterns).
-- `llms-full.txt` — Detailed prop tables and advanced examples.
 - `AGENTS.md` — Core guidelines for all AI agents.

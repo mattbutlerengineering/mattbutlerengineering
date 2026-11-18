@@ -27,7 +27,21 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       )}
     </nav>
   ),
-  Footer: () => <footer data-testid="footer" />,
+  Footer: ({
+    columns,
+  }: {
+    columns?: { title: string; links: { label: string; href: string }[] }[];
+  }) => (
+    <footer data-testid="footer">
+      {columns?.map((col) => (
+        <ul key={col.title} data-testid="footer-column" data-title={col.title}>
+          {col.links.map((link) => (
+            <li key={link.href}>{link.href}</li>
+          ))}
+        </ul>
+      ))}
+    </footer>
+  ),
   Text: ({ children }: { children?: ReactNode }) => <span data-testid="text">{children}</span>,
   Skeleton: ({ variant, height }: { variant?: string; height?: string }) => (
     <div data-testid="home-fallback" data-variant={variant} data-height={height} />
@@ -89,11 +103,34 @@ describe("App", () => {
       "/status",
       "/ai-health",
       "/acmm",
+      "/gen/",
     ]);
     const current = Array.from(menu.children).filter(
       (li) => li.getAttribute("data-current") === "true"
     );
     expect(current.map((li) => li.textContent)).toEqual(["/shipped"]);
+  });
+
+  it("lists /gen and the dashboard pages in the footer Projects column, alongside Rialto and Hospitality (#9007)", () => {
+    render(
+      <MemoryRouter>
+        <App theme="light" onThemeToggle={vi.fn()} />
+      </MemoryRouter>
+    );
+    const projectsColumn = screen
+      .getAllByTestId("footer-column")
+      .find((col) => col.getAttribute("data-title") === "Projects");
+    expect(projectsColumn).toBeDefined();
+    expect(Array.from(projectsColumn!.children).map((li) => li.textContent)).toEqual([
+      "/rialto/",
+      "/hospitality/",
+      "/gen/",
+      "/metrics",
+      "/shipped",
+      "/status",
+      "/ai-health",
+      "/acmm",
+    ]);
   });
 
   it("redirects the retired /weekly page to the homepage", () => {

@@ -23,9 +23,8 @@ describe("drift-fix workflow", () => {
   });
 
   it("builds the CLI before regenerating", () => {
-    // Without a built @mbe/cli (and its transitive @mbe/agent-core), the llms
-    // families' `mbe pack` call throws ERR_MODULE_NOT_FOUND, regen-llms.sh
-    // swallows it, and regen no-ops silently — a green run that fixed nothing.
+    // Matches CI's order (`pnpm build && pnpm regen`), so drift-fix regenerates
+    // against the same built CLI that CI's Integrity check uses.
     const buildAt = WORKFLOW.indexOf("pnpm build --filter @mbe/cli...");
     const regenAt = WORKFLOW.indexOf("run: pnpm regen\n");
 

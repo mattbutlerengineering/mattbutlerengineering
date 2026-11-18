@@ -14,8 +14,8 @@
  * here.
  */
 
-import { existsSync, readFileSync, statSync } from "node:fs";
-import { execFileSync } from "node:child_process";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { execFileSync, spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -173,6 +173,116 @@ function runBootstrapStep(step, repoRoot, exec) {
   });
 }
 
+const WORKTREE_HOOKS_PATH = ".husky/_";
+
+/**
+ * A linked worktree inherits the shared `core.hooksPath`, which may be an
+ * absolute path into the MAIN checkout's `.husky/_` — so the branch's own hook
+ * edits never run (#9067). Pin a per-worktree relative path (resolved against
+ * the worktree top level) via `extensions.worktreeConfig` + `--worktree`.
+ * Returns true when it changed anything; false in the main checkout or when
+ * already set. The main checkout's config is never written.
+ */
+export function ensureWorktreeHooksPath(repoRoot = REPO_ROOT, options = {}) {
+  const {
+    installHooks = installHuskyHooks,
+    warn = (msg) => process.stderr.write(`${msg}\n`),
+    sleep = sleepSync,
+  } = options;
+  const git = (...args) => runGit(repoRoot, args);
+  const gitDir = git("rev-parse", "--path-format=absolute", "--git-dir");
+  const commonDir = git("rev-parse", "--path-format=absolute", "--git-common-dir");
+  if (gitDir === commonDir) return false;
+
+  // `git config --get` exits 1 for an unset key, so read stdout without
+  // throwing. Without the extension, `--worktree` reads the shared config,
+  // where husky's relative value already resolves per worktree.
+  const current = spawnSync(
+    "git",
+    ["-C", repoRoot, "config", "--worktree", "--get", "core.hooksPath"],
+    { encoding: "utf8" }
+  ).stdout.trim();
+  if (current === WORKTREE_HOOKS_PATH && hasHooksDir(repoRoot)) return false;
+
+  // `.husky/_` is generated + gitignored: a fresh worktree lacks it, and a
+  // hooksPath pointing at nothing makes every hook silently skip (#9111).
+  if (!hasHooksDir(repoRoot)) {
+    try {
+      installHooks(repoRoot);
+    } catch (err) {
+      warn(`bootstrap-worktree: husky install failed: ${err.message}`);
+    }
+  }
+  if (!hasHooksDir(repoRoot)) {
+    warn(
+      `bootstrap-worktree: WARNING: ${WORKTREE_HOOKS_PATH} could not be created in ${repoRoot}; ` +
+        "keeping the inherited core.hooksPath (hooks may be stale or inert). Run `pnpm exec husky`."
+    );
+    return false;
+  }
+
+  withLockRetry(() => runGit(repoRoot, ["config", "extensions.worktreeConfig", "true"]), sleep);
+  withLockRetry(
+    () => runGit(repoRoot, ["config", "--worktree", "core.hooksPath", WORKTREE_HOOKS_PATH]),
+    sleep
+  );
+  return true;
+}
+
+function runGit(repoRoot, args) {
+  const res = spawnSync("git", ["-C", repoRoot, ...args], { encoding: "utf8" });
+  if (res.status !== 0) {
+    const err = new Error(`git ${args.join(" ")}: ${(res.stderr || "").trim()}`);
+    err.stderr = res.stderr || "";
+    throw err;
+  }
+  return res.stdout.trim();
+}
+
+const LOCK_RETRIES = 5;
+const LOCK_BACKOFF_MS = 200;
+
+/** Retry `fn` while git reports `could not lock config file` (parallel bootstraps share .git/config). */
+function withLockRetry(fn, sleep) {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return fn();
+    } catch (err) {
+      const locked = /could not lock config file/.test(err.stderr ?? err.message);
+      if (!locked || attempt >= LOCK_RETRIES) throw err;
+      sleep(LOCK_BACKOFF_MS * (attempt + 1));
+    }
+  }
+}
+
+function sleepSync(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+/** Non-empty `<repoRoot>/.husky/_` (husky's generated stubs). */
+function hasHooksDir(repoRoot) {
+  try {
+    return readdirSync(join(repoRoot, WORKTREE_HOOKS_PATH)).length > 0;
+  } catch {
+    return false;
+  }
+}
+
+/** Generate `.husky/_` for this tree via the repo's own husky (`prepare` script). */
+function installHuskyHooks(repoRoot) {
+  execFileSync("pnpm", ["exec", "husky"], { cwd: repoRoot, stdio: "inherit" });
+}
+
+/** True when the hooks dir git will use in `repoRoot` exists and has hooks in it. */
+export function hooksActive(repoRoot = REPO_ROOT) {
+  try {
+    const dir = runGit(repoRoot, ["rev-parse", "--path-format=absolute", "--git-path", "hooks"]);
+    return readdirSync(dir).length > 0;
+  } catch {
+    return false;
+  }
+}
+
 export function runBootstrap(argv = [], { repoRoot = REPO_ROOT, exec = execFileSync } = {}) {
   const checkOnly = argv.includes("--check");
   const steps = probeBootstrapSteps(repoRoot);
@@ -183,6 +293,16 @@ export function runBootstrap(argv = [], { repoRoot = REPO_ROOT, exec = execFileS
   for (const step of steps) {
     runBootstrapStep(step, repoRoot, exec);
   }
+
+  // After install: husky's `prepare` (re)writes the shared hooksPath.
+  if (ensureWorktreeHooksPath(repoRoot)) {
+    process.stdout.write(
+      `bootstrap-worktree: set per-worktree core.hooksPath=${WORKTREE_HOOKS_PATH}.\n`
+    );
+  }
+  process.stdout.write(
+    `bootstrap-worktree: hooks active: ${hooksActive(repoRoot) ? "yes" : "no"}\n`
+  );
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

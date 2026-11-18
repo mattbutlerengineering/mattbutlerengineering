@@ -12,6 +12,7 @@ flowchart TD
     hospitality["hospitality"]
     marketing["marketing"]
     rialto_web["rialto-web"]
+    shell["shell"]
   end
   subgraph services["Backend Services"]
     agent_service["agent"]
@@ -27,6 +28,7 @@ flowchart TD
     config["config"]
     database["database"]
     gh_client["gh-client"]
+    hospitality_sidenav["hospitality-sidenav"]
     rialto["rialto"]
     rialto_catalog["rialto-catalog"]
     rialto_plugin["rialto-plugin"]
@@ -69,6 +71,7 @@ flowchart TD
   rialto_web --> sentry
   rialto_web --> config
   rialto_web --> ui_quality_capture
+  shell --> config
   agent_service --> agent_core
   agent_service --> api_client
   agent_service --> auth
@@ -105,6 +108,7 @@ flowchart TD
   cancellation_policy --> config
   database --> config
   gh_client --> config
+  hospitality_sidenav --> config
   rialto --> config
   rialto_catalog --> rialto
   rialto_catalog --> config
@@ -141,6 +145,7 @@ flowchart TD
   class hospitality frontend
   class marketing frontend
   class rialto_web frontend
+  class shell frontend
   class agent_service backend
   class reservations_service backend
   class users_service backend
@@ -152,6 +157,7 @@ flowchart TD
   class config shared
   class database shared
   class gh_client shared
+  class hospitality_sidenav shared
   class rialto shared
   class rialto_catalog shared
   class rialto_plugin entrypoint

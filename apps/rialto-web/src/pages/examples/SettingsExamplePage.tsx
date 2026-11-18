@@ -10,6 +10,7 @@ import {
   Divider,
 } from "@mattbutlerengineering/rialto";
 import { ExamplePageLayout, CompositionNote } from "./ExamplePageLayout";
+import { validateProfile, type ProfileErrors } from "./settings-example";
 import styles from "./SettingsExamplePage.module.css";
 
 /* ── Source JSX constant ─────────────────────── */
@@ -20,8 +21,22 @@ const SETTINGS_EXAMPLE_JSX = `<Stack gap="xl" className={styles.sections}>
   <Card variant="elevated" className={styles.sectionCard}>
     <Stack gap="md">
       <Text variant="label" as="h2">Profile</Text>
-      <Input label="Full Name" value="Marcus Winters" placeholder="Your name" />
-      <Input label="Email" value="m.winters@grandlakehotel.com" placeholder="Email address" />
+      <Input
+        label="Full Name"
+        value={fullName}
+        onChange={(e) => setFullName(e.target.value)}
+        error={Boolean(errors.fullName)}
+        hint={errors.fullName}
+        placeholder="Your name"
+      />
+      <Input
+        label="Email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        error={Boolean(errors.email)}
+        hint={errors.email}
+        placeholder="Email address"
+      />
       <Select
         label="Role"
         options={[
@@ -47,7 +62,8 @@ const SETTINGS_EXAMPLE_JSX = `<Stack gap="xl" className={styles.sections}>
     </Stack>
     <Divider />
     <Stack direction="row" justify="end">
-      <Button variant="primary" size="md">Save Profile</Button>
+      {saved && <Text role="status">Profile saved.</Text>}
+      <Button variant="primary" size="md" onClick={handleSave}>Save Profile</Button>
     </Stack>
   </Card>
 
@@ -127,8 +143,8 @@ const compositionNotes = (
     </CompositionNote>
     <CompositionNote>
       Toggle is used for binary preferences that take immediate effect — no &ldquo;Save&rdquo;
-      button needed for notification switches. The save action applies only to identity fields
-      (name, email, role).
+      button needed for notification switches. Save Profile checks the name and email: a blank name
+      or an address that is not an email is shown on the field, and a valid save confirms.
     </CompositionNote>
     <CompositionNote>
       Stack gap=&ldquo;xl&rdquo; between sections provides consistent vertical rhythm;
@@ -138,6 +154,10 @@ const compositionNotes = (
 );
 
 export function SettingsExamplePage() {
+  const [fullName, setFullName] = useState("Marcus Winters");
+  const [email, setEmail] = useState("m.winters@grandlakehotel.com");
+  const [errors, setErrors] = useState<ProfileErrors>({});
+  const [saved, setSaved] = useState(false);
   const [role, setRole] = useState("operations-manager");
   const [timezone, setTimezone] = useState("America/Chicago");
   const [bookingAlerts, setBookingAlerts] = useState(true);
@@ -146,6 +166,12 @@ export function SettingsExamplePage() {
   const [dateFormat, setDateFormat] = useState("MM/DD/YYYY");
   const [currency, setCurrency] = useState("USD");
   const [compactView, setCompactView] = useState(false);
+
+  const handleSave = () => {
+    const next = validateProfile({ fullName, email });
+    setErrors(next);
+    setSaved(Object.keys(next).length === 0);
+  };
 
   return (
     <ExamplePageLayout
@@ -161,10 +187,20 @@ export function SettingsExamplePage() {
             <Text variant="label" as="h2">
               Profile
             </Text>
-            <Input label="Full Name" defaultValue="Marcus Winters" placeholder="Your name" />
+            <Input
+              label="Full Name"
+              value={fullName}
+              onChange={(event) => setFullName(event.target.value)}
+              error={Boolean(errors.fullName)}
+              hint={errors.fullName}
+              placeholder="Your name"
+            />
             <Input
               label="Email"
-              defaultValue="m.winters@grandlakehotel.com"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              error={Boolean(errors.email)}
+              hint={errors.email}
               placeholder="Email address"
             />
             <Select label="Role" options={ROLE_OPTIONS} value={role} onChange={setRole} />
@@ -176,8 +212,13 @@ export function SettingsExamplePage() {
             />
           </Stack>
           <Divider />
-          <Stack direction="row" justify="end">
-            <Button variant="primary" size="md">
+          <Stack direction="row" justify="end" align="center">
+            {saved ? (
+              <Text variant="caption" color="success" role="status">
+                Profile saved.
+              </Text>
+            ) : null}
+            <Button variant="primary" size="md" onClick={handleSave}>
               Save Profile
             </Button>
           </Stack>

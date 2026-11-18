@@ -57,7 +57,3 @@ pnpm dlx wrangler@latest deploy --config apps/rialto-web/wrangler.toml
 ## Model Tiering
 
 Showcase changes are low-risk — Haiku/Sonnet appropriate, no Opus needed.
-
-## Context Budget
-
-Prefer `apps/rialto-web/llms.txt` for component-level lookups instead of reading source.

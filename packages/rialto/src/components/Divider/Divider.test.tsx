@@ -1,5 +1,13 @@
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { render, screen } from "@testing-library/react";
 import { Divider } from "./Divider";
+
+const dividerCss = readFileSync(
+  resolve(dirname(fileURLToPath(import.meta.url)), "Divider.module.css"),
+  "utf8"
+);
 
 describe("Divider", () => {
   describe("rendering", () => {
@@ -68,6 +76,15 @@ describe("Divider", () => {
       const { container } = render(<Divider spacing="default" />);
       expect(container.firstElementChild?.className).not.toMatch(/compact/);
       expect(container.firstElementChild?.className).not.toMatch(/spacious/);
+    });
+
+    it("puts the default md margin on the horizontal rule so compact is smaller", () => {
+      const horizontal = /\.horizontal\s*\{([^}]+)\}/.exec(dividerCss)?.[1] ?? "";
+      const compact = /\.compact\s*\{([^}]+)\}/.exec(dividerCss)?.[1] ?? "";
+      const spacious = /\.spacious\s*\{([^}]+)\}/.exec(dividerCss)?.[1] ?? "";
+      expect(horizontal).toMatch(/margin-block:\s*var\(--rialto-space-md\)/);
+      expect(compact).toMatch(/var\(--rialto-space-xs\)/);
+      expect(spacious).toMatch(/var\(--rialto-space-lg\)/);
     });
   });
 

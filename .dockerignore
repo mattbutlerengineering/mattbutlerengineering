@@ -35,7 +35,6 @@ coverage
 # Docs
 *.md
 docs/
-**/llms.txt
 
 # Infrastructure (not needed in app containers)
 infrastructure/

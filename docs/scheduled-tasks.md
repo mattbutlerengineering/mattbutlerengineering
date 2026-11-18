@@ -165,7 +165,7 @@ not a new row in the catalog below and not an edit of the builtin array in
 
 > **Drift is split across two routines, by whether a machine can fix it.**
 > `drift-fix` (GitHub Actions, daily, no agent) owns everything a generator can
-> repair — llms.txt, registry.json, dep-graph.json, generated-schemas.ts,
+> repair — registry.json, dep-graph.json, generated-schemas.ts,
 > dependency-graph.md, the rialto exports map. The fix there is always "run the
 > generator", so an LLM would add token cost and nondeterminism with no judgment
 > to contribute. `mbe-doc-rot` (claude.ai, weekly) owns the half where the fix is
@@ -316,11 +316,7 @@ to a single worker without worktree isolation in cloud and keep the local
   whose own diff is unrelated.
 - **What it does:**
   1. Builds `@mbe/cli` (with transitive deps, which is what pulls in
-     `@mbe/agent-core`). **Not optional** — `pnpm regen`'s llms families shell
-     out to `mbe pack`, which imports agent-core; without a build that import
-     throws `ERR_MODULE_NOT_FOUND`, `regen-llms.sh` swallows it (`|| continue`),
-     and regen silently no-ops. A green run that fixed nothing is the worst
-     possible outcome for this job.
+     `@mbe/agent-core`), matching the order CI uses (`pnpm build && pnpm regen`).
   2. Regenerates the rialto exports map — before regen, since the dep-graph
      generators read `package.json`.
   3. Runs a **full** `pnpm regen`, never `check-regen-needed.mjs`'s fast path.
@@ -334,9 +330,7 @@ to a single worker without worktree isolation in cloud and keep the local
      silent no-op.
 - **Scoped staging:** `add-paths` lists generated artifacts only. `pnpm install`
   reflows ~150 tracked files through prettier in this repo, and a catch-all
-  would commit that reformatting as if it were drift. Root-level `llms.txt` /
-  `llms-full.txt` are listed as bare paths because `**/`-style globs do not
-  match repo-root files.
+  would commit that reformatting as if it were drift.
 - **Keep in sync with `scripts/regen-manifest.mjs`**, the source of truth for
   what `pnpm regen` writes. `scripts/__tests__/drift-fix-workflow.test.mjs`
   fails if a manifest output stops being covered by `add-paths` — otherwise the
@@ -661,6 +655,26 @@ in `docs/routines/<name>.md`.
 The three GitHub Actions rows (`mbe-deep-audit`, `drift-fix`,
 `metrics-collectors`) are not triggers: their plain-UTC cron is the `schedule:`
 value in the named workflow file.
+
+## GitHub Actions cron reliability (#9074)
+
+GitHub drops and delays `schedule:` runs under load. The 2026-11-17 workflow
+audit measured `*/30` workflows firing 4 to 5 times a day instead of 48, and
+daily jobs starting 5 to 10 hours late. Treat every Actions cron as best-effort.
+
+- **`merge-queue.yml` and `reviewed-merge.yml` already have event triggers**
+  (`pull_request_target` on label changes; `reviewed-merge` also `workflow_run`
+  completion). Their cron (`*/30`, `15,45`) is only a sweep for missed events, so
+  dropped ticks are expected and harmless. No change.
+- **`automation-pr-rescue.yml` is cron-only (`*/30`).** Its job is to catch PRs
+  whose events never fired (the `GITHUB_TOKEN` anti-recursion gap), so an event
+  trigger would defeat it. Left as is: merge-queue, reviewed-merge and the rescue
+  are policy-sensitive and need an Owner decision before any redesign.
+- **Late daily jobs** (`chaos-agent`, `nightly-compliance`, `drift-fix`,
+  `sentry-heartbeat`, `auto-rollback`) have no event equivalent; a late start does
+  not change their result, so they stay on cron. Liveness checks use a 2x-period
+  window (`late` before `dark`) and `scheduled-workflow-health.mjs` tolerates
+  12 h of lateness for the same reason.
 
 ## Editing a routine
 

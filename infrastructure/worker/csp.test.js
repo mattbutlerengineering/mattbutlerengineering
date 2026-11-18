@@ -25,6 +25,15 @@ describe("buildCspDirectives", () => {
     expect(csp.length).toBeGreaterThan(0);
   });
 
+  // 'unsafe-eval' stays banned (docs/fixes/persistent-nav-host-eval-csp/). A page
+  // that trips script-src eval is fixed in the page, never by loosening this policy.
+  it("never allows 'unsafe-eval' or 'wasm-unsafe-eval' in any directive", () => {
+    expect(buildCspDirectives(nonce)).not.toMatch(/unsafe-eval/);
+    expect(buildCspDirectives(nonce, { extraConnectSrc: ["https://example.test"] })).not.toMatch(
+      /unsafe-eval/
+    );
+  });
+
   it("includes default-src 'self'", () => {
     expect(buildCspDirectives(nonce)).toContain("default-src 'self'");
   });

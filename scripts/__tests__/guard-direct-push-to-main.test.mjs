@@ -238,7 +238,7 @@ describe("hook seam: .husky/pre-push actually runs the guard", () => {
 
     // `node` stub: delegates to the real node ONLY for the guard, so the
     // guard under test runs for real while every other step in the hook
-    // (destructive-migration check, antipattern ratchet, regen gating)
+    // (regen gating)
     // becomes an observable no-op. Its log goes to a file, never stdout, so
     // the hook's `REGEN_MODE=$(node ...)` capture stays empty.
     const nodeStub = join(bin, "node");
@@ -282,7 +282,7 @@ describe("hook seam: .husky/pre-push actually runs the guard", () => {
 
       // The guard must run first: nothing expensive may have run.
       const calls = existsSync(log) ? readFileSync(log, "utf8") : "";
-      expect(calls).not.toMatch(/check-destructive-migrations/);
+      expect(calls).not.toMatch(/check-regen-needed/);
       expect(calls).not.toMatch(/pnpm build/);
     },
     SEAM_TIMEOUT_MS
@@ -295,8 +295,11 @@ describe("hook seam: .husky/pre-push actually runs the guard", () => {
 
       expect(result.status).toBe(0);
       const calls = readFileSync(log, "utf8");
-      expect(calls).toMatch(/check-destructive-migrations/);
-      expect(calls).toMatch(/check-ai-antipatterns/);
+      // Reaches the regen gating; the migration check and ratchet no longer
+      // run at pre-push (#9069: pre-commit and CI cover them).
+      expect(calls).toMatch(/check-regen-needed/);
+      expect(calls).not.toMatch(/check-destructive-migrations/);
+      expect(calls).not.toMatch(/check-ai-antipatterns/);
     },
     SEAM_TIMEOUT_MS
   );
@@ -309,7 +312,7 @@ describe("hook seam: .husky/pre-push actually runs the guard", () => {
       });
 
       expect(result.status).toBe(0);
-      expect(readFileSync(log, "utf8")).toMatch(/check-destructive-migrations/);
+      expect(readFileSync(log, "utf8")).toMatch(/check-regen-needed/);
     },
     SEAM_TIMEOUT_MS
   );

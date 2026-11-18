@@ -1,0 +1,67 @@
+name: Shell Conformance
+
+# Runs the persistent-nav-host conformance suite (apps/shell/e2e/) against a
+# target the caller names. Manual only for now: no shell exists yet to run
+# against, and the suite refuses to run without BASE_URL (no local stand-in).
+# WO-17 adds the job that points BASE_URL at `wrangler dev` serving the real
+# edge router and csp.js.
+#
+# The spec list is computed at run time, every apps/shell/e2e/*.spec.ts, and
+# the step fails if it comes out empty, so a new spec needs no workflow edit
+# and none is silently skipped (#3955, #8723). The contract is pinned by
+# apps/shell/e2e/conformance-contract.test.ts. A spec that cannot run in the
+# target's environment reports NOT RUN in the suite summary; it never passes
+# by being skipped.
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Origin of the target to run the suite against (no default)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  conformance:
+    name: Conformance (shell)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install Playwright browsers
+        run: pnpm --dir apps/shell exec playwright install --with-deps chromium
+      - name: Run conformance specs
+        env:
+          BASE_URL: ${{ inputs.base_url }}
+          HARNESS_AUTH_AUTHORITY: ${{ vars.HARNESS_AUTH_AUTHORITY }}
+          HARNESS_AUTH_CLIENT_ID: ${{ vars.HARNESS_AUTH_CLIENT_ID }}
+        run: |
+          export LC_ALL=C
+          specs=()
+          for spec in apps/shell/e2e/*.spec.ts; do
+            specs+=("$spec")
+          done
+          if [ "${#specs[@]}" -eq 0 ]; then
+            echo "::error::No conformance specs found under apps/shell/e2e/ — refusing to run an empty suite" >&2
+            exit 1
+          fi
+          echo "Conformance specs (${#specs[@]}):"
+          printf '  %s\n' "${specs[@]}"
+          pnpm exec playwright test --config apps/shell/playwright.conformance.config.ts "${specs[@]}"
+      - name: Upload results on failure
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: shell-conformance-results
+          path: apps/shell/e2e/test-results/
+          retention-days: 14
+          if-no-files-found: ignore

@@ -53,6 +53,37 @@ export function normalizeGuestRisk(raw: string): Resolved<GuestRiskKey> {
   return RISK[canonical(raw)] ?? UNKNOWN;
 }
 
+const DATE_TIME = /^(\d{4})-(\d{2})-(\d{2})[T ]([01]\d|2[0-3]):([0-5]\d)(?::[0-5]\d(?:\.\d+)?)?$/;
+
+/**
+ * A venue-local "YYYY-MM-DD HH:mm" (or ISO "T", optional seconds), which a
+ * model may copy from a tool into a row's time text, as a localized short date
+ * plus the locale's clock: "Oct 16, 9:26 AM" in en-US. Text with a zone suffix
+ * (Z, +02:00), an impossible date, or any other shape is returned unchanged.
+ */
+function displayDateTime(raw: string, locale: string | undefined): string {
+  const match = DATE_TIME.exec(raw);
+  if (!match) return raw;
+  const [year, month, day, hour, minute] = match.slice(1).map(Number) as [
+    number,
+    number,
+    number,
+    number,
+    number,
+  ];
+  const at = Date.UTC(year, month - 1, day, hour, minute);
+  // Date.UTC rolls over impossible dates (month 13, Feb 30), so require month and day to survive.
+  const parsed = new Date(at);
+  if (parsed.getUTCMonth() !== month - 1 || parsed.getUTCDate() !== day) return raw;
+  return new Intl.DateTimeFormat(locale, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "UTC",
+  }).format(at);
+}
+
 const CLOCK_TIME = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
 /**
@@ -62,7 +93,7 @@ const CLOCK_TIME = /^([01]\d|2[0-3]):([0-5]\d)$/;
  */
 export function displayClockTime(raw: string, locale: string | undefined): string {
   const match = CLOCK_TIME.exec(raw);
-  if (!match) return raw;
+  if (!match) return displayDateTime(raw, locale);
   const at = Date.UTC(1970, 0, 1, Number(match[1] ?? 0), Number(match[2] ?? 0));
   return new Intl.DateTimeFormat(locale, {
     hour: "numeric",

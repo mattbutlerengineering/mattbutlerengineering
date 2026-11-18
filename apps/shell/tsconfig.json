@@ -1,0 +1,14 @@
+{
+  "extends": "@mbe/config/typescript/node",
+  "compilerOptions": {
+    "noEmit": true,
+    "allowJs": true,
+    "rootDir": "../..",
+    "declaration": false,
+    "declarationMap": false,
+    "lib": ["ES2022", "DOM"],
+    "types": ["node"]
+  },
+  "include": ["e2e", "*.ts"],
+  "exclude": []
+}

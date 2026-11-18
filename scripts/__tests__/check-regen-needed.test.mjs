@@ -31,10 +31,6 @@ describe("needsFullRegen", () => {
     expect(needsFullRegen(["services/users/src/generated/prisma/index.d.ts"])).toBe(false);
   });
 
-  it("returns false for llms.txt files", () => {
-    expect(needsFullRegen(["llms.txt", "llms-full.txt", "packages/auth/llms.txt"])).toBe(false);
-  });
-
   it("returns true for a non-test TypeScript source file in packages/", () => {
     expect(needsFullRegen(["packages/auth/src/index.ts"])).toBe(true);
   });
@@ -43,7 +39,7 @@ describe("needsFullRegen", () => {
     expect(needsFullRegen(["apps/hospitality/src/components/BookingWidget.tsx"])).toBe(true);
   });
 
-  it("returns true for a non-test source file in infrastructure/ (packed llms target)", () => {
+  it("returns true for a non-test source file in infrastructure/ ", () => {
     expect(needsFullRegen(["infrastructure/pulumi/index.ts"])).toBe(true);
   });
 
@@ -52,7 +48,7 @@ describe("needsFullRegen", () => {
   });
 
   it("returns true for a non-test source file in tools/", () => {
-    expect(needsFullRegen(["tools/cli/src/commands/pack.ts"])).toBe(true);
+    expect(needsFullRegen(["tools/cli/src/commands/agent.ts"])).toBe(true);
   });
 
   it("returns true when rialto generated source files change", () => {

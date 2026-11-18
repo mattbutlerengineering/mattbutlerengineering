@@ -1,0 +1,22 @@
+{
+  "name": "@mbe/shell",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "lint": "eslint e2e/",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:conformance": "playwright test --config playwright.conformance.config.ts"
+  },
+  "devDependencies": {
+    "@mbe/config": "workspace:*",
+    "@mbe/edge-worker": "workspace:*",
+    "@playwright/test": "^1.65.0",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "license": "MIT"
+}

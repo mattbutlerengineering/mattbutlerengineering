@@ -90,8 +90,6 @@ describe("classifyHumanTouch: taxonomy branches", () => {
     const commit = {
       message: "regenerate stale artifacts",
       files: [
-        "llms.txt",
-        "llms-full.txt",
         "packages/rialto-catalog/src/generated-schemas.ts",
         "infrastructure/worker/dep-graph.json",
         "pnpm-lock.yaml",
@@ -111,7 +109,7 @@ describe("classifyHumanTouch: taxonomy branches", () => {
   it("does NOT classify generated-artifact-regen when the diff mixes generated and source files", () => {
     const commit = {
       message: "regenerate stale artifacts",
-      files: ["llms.txt", "apps/hospitality/src/foo.tsx"],
+      files: ["pnpm-lock.yaml", "apps/hospitality/src/foo.tsx"],
     };
     expect(classifyHumanTouch(agentPr(), commit)).not.toBe("generated-artifact-regen");
   });
@@ -223,7 +221,7 @@ describe("classifyHumanTouch: precedence", () => {
   it("prefers merge-conflict over generated-artifact-regen when both signals are present", () => {
     const commit = {
       message: "<<<<<<< HEAD\n=======\n>>>>>>> x",
-      files: ["llms.txt"],
+      files: ["pnpm-lock.yaml"],
     };
     expect(classifyHumanTouch(agentPr(), commit)).toBe("merge-conflict");
   });
