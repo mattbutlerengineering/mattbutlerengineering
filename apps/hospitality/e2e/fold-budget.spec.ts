@@ -29,17 +29,19 @@ const FOLD_BUDGET_PX = 720;
 // second line, +44px (297 -> 341.14). E2E was green on Tuesday 2026-11-17 and
 // red from 2026-11-18 UTC (a45fdf920) while no commit in that window touches
 // Timeline layout (#9035-#9040: gen, rialto PinInput, edge CSP, Zod jitless).
-// The ratchet therefore allows the wrapped reading (297 + 44) plus ~15px.
-const CONTENT_START_RATCHET_PX = 356;
+// Only Timeline gets the wrapped reading (297 + 44) plus ~15px; every other
+// key page keeps the tight ratchet so the allowance cannot hide a regression.
+const CONTENT_START_RATCHET_PX = 312;
+const TIMELINE_RATCHET_PX = 356;
 const GUARD_VIEWPORT_LABEL = "1280x720";
 
 // Route path (relative to baseURL) per page. Six are the PRD-1 key pages;
 // the rest round out "every route" for the audit.
-const ROUTES: readonly { page: string; path: string; guarded: boolean }[] = [
+const ROUTES: readonly { page: string; path: string; guarded: boolean; ratchetPx?: number }[] = [
   { page: "HomePage", path: "dashboard", guarded: true },
   { page: "ReservationsPage", path: "reservations", guarded: true },
   { page: "GuestsPage", path: "guests", guarded: true },
-  { page: "TimelinePage", path: "timeline", guarded: true },
+  { page: "TimelinePage", path: "timeline", guarded: true, ratchetPx: TIMELINE_RATCHET_PX },
   { page: "FloorPlansPage", path: "floor-plans", guarded: true },
   { page: "WaitlistPage", path: "waitlist", guarded: true },
   { page: "ProfilePage", path: "profile", guarded: false },
@@ -47,7 +49,7 @@ const ROUTES: readonly { page: string; path: string; guarded: boolean }[] = [
 ];
 
 test.describe("Fold budget measurement", () => {
-  for (const { page: pageName, path, guarded } of ROUTES) {
+  for (const { page: pageName, path, guarded, ratchetPx = CONTENT_START_RATCHET_PX } of ROUTES) {
     for (const viewport of VIEWPORTS) {
       test(`${pageName} @ ${viewport.label}`, async ({ mockedPage }, testInfo) => {
         await mockedPage.setViewportSize({ width: viewport.width, height: viewport.height });
@@ -73,7 +75,7 @@ test.describe("Fold budget measurement", () => {
         // routes and the 1366×768 reading stay report-only (see header note).
         if (guarded && viewport.label === GUARD_VIEWPORT_LABEL) {
           expect(contentStartY).toBeLessThan(FOLD_BUDGET_PX);
-          expect(contentStartY).toBeLessThan(CONTENT_START_RATCHET_PX);
+          expect(contentStartY).toBeLessThan(ratchetPx);
         }
       });
     }
