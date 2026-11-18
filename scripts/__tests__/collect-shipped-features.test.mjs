@@ -356,6 +356,10 @@ describe("runCli (injected gh runner)", () => {
     },
     "repos/{owner}/{repo}/issues/200/comments": [[{ body: "Review\nVerdict: PASS 9/10" }]],
   };
+  // Existing tests must not depend on the committed snapshot file.
+  const noPrior = () => {
+    throw new Error("ENOENT");
+  };
   const okGh = (args) => {
     const path = args.at(-1);
     if (!(path in routes)) throw new Error(`unexpected ${path}`);
@@ -368,6 +372,7 @@ describe("runCli (injected gh runner)", () => {
     const run = () =>
       runCli(["--out", "/tmp/x.json"], {
         gh: okGh,
+        read: noPrior,
         write: (p, c) => writes.push([p, c]),
         log: () => {},
         err: () => {},
@@ -387,6 +392,7 @@ describe("runCli (injected gh runner)", () => {
     const writes = [];
     const errs = [];
     const code = runCli([], {
+      read: noPrior,
       gh: () => {
         throw new Error("HTTP 401");
       },
@@ -408,6 +414,7 @@ describe("runCli (injected gh runner)", () => {
     };
     const code = runCli([], {
       gh: emptyGh,
+      read: noPrior,
       write: (...a) => writes.push(a),
       log: () => {},
       err: (m) => errs.push(m),
@@ -422,6 +429,7 @@ describe("runCli (injected gh runner)", () => {
     const logs = [];
     const code = runCli(["--dry-run", "--limit", "1"], {
       gh: okGh,
+      read: noPrior,
       write: (...a) => writes.push(a),
       log: (m) => logs.push(m),
       err: () => {},
@@ -433,5 +441,82 @@ describe("runCli (injected gh runner)", () => {
 
   it("rejects unknown flags", () => {
     expect(runCli(["--bogus"], { gh: okGh, err: () => {} })).toBe(1);
+  });
+
+  describe("incremental refresh (a full walk outgrew the 20 min job timeout)", () => {
+    const priorFeature = {
+      slug: "old-thing-50",
+      title: "Old thing",
+      trackingIssue: 50,
+      proposalIssue: null,
+      proposalEvidence: null,
+      proposedAt: null,
+      firstMergedAt: "2026-09-01T00:00:00.000Z",
+      lastMergedAt: "2026-09-02T00:00:00.000Z",
+      wallClockHours: 1,
+      liveUrl: null,
+      children: [],
+    };
+    const prior = JSON.stringify({
+      generatedAt: "2026-09-02T00:00:00.000Z",
+      features: [priorFeature],
+    });
+    const oldTracking = {
+      number: 50,
+      title: "[Feature] Old thing: tracking issue",
+      body: "- [x] #51",
+    };
+    const withOld = (path) =>
+      path.includes("labels=tracking") ? [[tracking, oldTracking]] : routes[path];
+
+    it("reuses features already in the snapshot without refetching their issues", () => {
+      const seen = [];
+      const gh = (args) => {
+        seen.push(args.at(-1));
+        return JSON.stringify(withOld(args.at(-1)));
+      };
+      const writes = [];
+      const code = runCli(["--out", "/tmp/x.json"], {
+        gh,
+        read: () => prior,
+        write: (p, c) => writes.push(c),
+        log: () => {},
+        err: () => {},
+      });
+      expect(code).toBe(0);
+      expect(seen.some((p) => p.includes("/issues/51"))).toBe(false);
+      const snap = JSON.parse(writes[0]);
+      expect(snap.features.map((f) => f.trackingIssue)).toEqual([100, 50]);
+    });
+
+    it("--full ignores the existing snapshot", () => {
+      const seen = [];
+      const gh = (args) => {
+        seen.push(args.at(-1));
+        const path = args.at(-1);
+        if (path.includes("/issues/51")) return JSON.stringify({ number: 51, title: "c" });
+        return JSON.stringify(path.endsWith("/issues/51/timeline") ? [[]] : withOld(path));
+      };
+      runCli(["--full", "--dry-run"], {
+        gh,
+        read: () => prior,
+        log: () => {},
+        err: () => {},
+      });
+      expect(seen.some((p) => p.includes("/issues/51"))).toBe(true);
+    });
+
+    it("falls back to a full walk when the snapshot is unreadable", () => {
+      const writes = [];
+      const code = runCli([], {
+        gh: okGh,
+        read: () => "not json",
+        write: (p, c) => writes.push(c),
+        log: () => {},
+        err: () => {},
+      });
+      expect(code).toBe(0);
+      expect(JSON.parse(writes[0]).features).toHaveLength(1);
+    });
   });
 });
