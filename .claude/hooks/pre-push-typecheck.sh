@@ -10,7 +10,7 @@
 #
 # Behavior:
 #   - Only fires for a `git push` in command position (not a mention in text)
-#   - Runs `pnpm -r --parallel typecheck` from the root of the tree being
+#   - Runs `turbo run typecheck --filter=...[<upstream or origin/main>]` from the root of the tree being
 #     pushed — the payload's `cwd`, which for a worktree-isolated subagent is
 #     the linked worktree, not this hook's own CWD (the main checkout)
 #   - Exit 0 → allow the push
@@ -55,16 +55,18 @@ repo_root=$(git -C "$tree" rev-parse --show-toplevel 2>/dev/null) || exit 0
 [[ -n "$repo_root" ]] || exit 0
 cd "$repo_root" || exit 0
 
-# Find the upstream branch; if none configured, skip (typecheck wouldn't
-# have a fair baseline anyway — first push of a new branch).
-upstream=$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || true)
-if [[ -z "$upstream" ]]; then
-  exit 0
+# Baseline: the upstream branch, or origin/main for a new branch with none
+# (workers push once with `-u`, so skipping there skipped the guard on the
+# push it exists for; #9065). No baseline at all → nothing fair to compare.
+base=$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || true)
+if [[ -z "$base" ]]; then
+  git rev-parse --verify --quiet origin/main >/dev/null 2>&1 || exit 0
+  base="origin/main"
 fi
 
 # Cheap diff check: skip when no .ts/.tsx changes in the unpushed commits.
-# Avoids a 30-60s typecheck on docs-only or config-only branches.
-if ! git diff --name-only "${upstream}..HEAD" 2>/dev/null | grep -qE '\.(ts|tsx)$'; then
+# Avoids a typecheck on docs-only or config-only branches.
+if ! git diff --name-only "${base}...HEAD" 2>/dev/null | grep -qE '\.(ts|tsx)$'; then
   exit 0
 fi
 
@@ -81,8 +83,8 @@ EOF
   exit 2
 fi
 
-echo "[pre-push-typecheck] running pnpm -r --parallel typecheck before push…" >&2
-if ! pnpm -r --parallel typecheck >&2; then
+echo "[pre-push-typecheck] typechecking packages changed since ${base} before push…" >&2
+if ! pnpm exec turbo run typecheck "--filter=...[${base}]" >&2; then
   cat >&2 <<'EOF'
 
 BLOCK: typecheck failed locally. CI would fail too.

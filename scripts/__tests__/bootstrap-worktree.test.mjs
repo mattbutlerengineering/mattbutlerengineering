@@ -1,4 +1,4 @@
-import { describe, test, expect } from "vitest";
+import { describe, test, expect, beforeEach, afterEach } from "vitest";
 import {
   decideBootstrapSteps,
   distConsumedPackages,
@@ -8,7 +8,12 @@ import {
   missingDistsProbe,
   probeBootstrapSteps,
   formatBootstrapDecision,
+  ensureWorktreeHooksPath,
 } from "../bootstrap-worktree.mjs";
+import { spawnSync } from "node:child_process";
+import { chmodSync, mkdirSync, mkdtempSync, existsSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 // ---------------------------------------------------------------------------
 // decideBootstrapSteps — pure decision over three inputs (architecture.md
@@ -185,5 +190,83 @@ describe("formatBootstrapDecision", () => {
     expect(
       formatBootstrapDecision([{ step: "install" }, { step: "build", packages: ["@mbe/cli"] }])
     ).toBe("bootstrap-worktree: pending — install, then build (@mbe/cli).");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ensureWorktreeHooksPath (#9067) — a linked worktree inherits the shared
+// core.hooksPath, which can be an absolute path into the MAIN checkout's
+// .husky/_, so a branch's own hook edits never run. Real git, real worktree.
+// ---------------------------------------------------------------------------
+
+describe("ensureWorktreeHooksPath", () => {
+  let sandbox;
+  const git = (cwd, ...args) =>
+    spawnSync(
+      "git",
+      [
+        "-c",
+        "user.email=t@example.com",
+        "-c",
+        "user.name=t",
+        "-c",
+        "commit.gpgsign=false",
+        ...args,
+      ],
+      { cwd, encoding: "utf8" }
+    );
+  const hook = (dir, marker) => {
+    mkdirSync(join(dir, ".husky", "_"), { recursive: true });
+    const file = join(dir, ".husky", "_", "pre-commit");
+    writeFileSync(file, `#!/bin/sh\necho ${marker} > "$(git rev-parse --show-toplevel)/ran.txt"\n`);
+    chmodSync(file, 0o755);
+  };
+
+  beforeEach(() => {
+    sandbox = mkdtempSync(join(tmpdir(), "wt-hooks-"));
+  });
+  afterEach(() => rmSync(sandbox, { recursive: true, force: true }));
+
+  function fixture() {
+    const main = join(sandbox, "main");
+    const wt = join(sandbox, "wt");
+    git(sandbox, "init", "-q", "-b", "main", main);
+    writeFileSync(join(main, "a.txt"), "a\n");
+    git(main, "add", "a.txt");
+    git(main, "commit", "-qm", "init");
+    hook(main, "MAIN");
+    git(main, "config", "core.hooksPath", join(main, ".husky", "_"));
+    git(main, "worktree", "add", "-q", "-b", "feat", wt);
+    hook(wt, "WORKTREE");
+    return { main, wt };
+  }
+
+  test("a linked worktree commit runs its own pre-commit, not the main checkout's", () => {
+    const { main, wt } = fixture();
+    ensureWorktreeHooksPath(wt);
+    writeFileSync(join(wt, "b.txt"), "b\n");
+    git(wt, "add", "b.txt");
+    git(wt, "commit", "-qm", "wt change");
+    expect(existsSync(join(wt, "ran.txt"))).toBe(true);
+    expect(existsSync(join(main, "ran.txt"))).toBe(false);
+  });
+
+  test("leaves the main checkout's hooks path untouched", () => {
+    const { main, wt } = fixture();
+    ensureWorktreeHooksPath(wt);
+    expect(git(main, "config", "--get", "core.hooksPath").stdout.trim()).toBe(
+      join(main, ".husky", "_")
+    );
+    writeFileSync(join(main, "c.txt"), "c\n");
+    git(main, "add", "c.txt");
+    git(main, "commit", "-qm", "main change");
+    expect(existsSync(join(main, "ran.txt"))).toBe(true);
+  });
+
+  test("is idempotent and a no-op in the main checkout", () => {
+    const { main, wt } = fixture();
+    expect(ensureWorktreeHooksPath(wt)).toBe(true);
+    expect(ensureWorktreeHooksPath(wt)).toBe(false);
+    expect(ensureWorktreeHooksPath(main)).toBe(false);
   });
 });

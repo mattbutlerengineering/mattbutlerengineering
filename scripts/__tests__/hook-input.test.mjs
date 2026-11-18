@@ -392,7 +392,85 @@ describe("hook seam: Bash hooks read the command from the stdin payload", () => 
       const result = run("pre-push-typecheck.sh", bashPayloadFor("git push origin HEAD"), work);
       expect(result.stderr).toContain("BLOCK: typecheck failed");
       expect(result.status).toBe(2);
-      expect(readFileSync(pnpmLog, "utf8")).toContain("-r --parallel typecheck");
+      expect(readFileSync(pnpmLog, "utf8")).toContain("turbo run typecheck");
+    },
+    SEAM_TIMEOUT_MS
+  );
+
+  it(
+    "pre-push-typecheck typechecks a new branch with no upstream against origin/main (#9065)",
+    () => {
+      const work = gitFixtureAheadOfOrigin();
+      git(work, "checkout", "-qb", "new-branch");
+      const result = run("pre-push-typecheck.sh", bashPayloadFor("git push -u origin HEAD"), work);
+      expect(result.stderr).toContain("BLOCK: typecheck failed");
+      expect(result.status).toBe(2);
+      const calls = readFileSync(pnpmLog, "utf8");
+      expect(calls).toContain("turbo");
+      expect(calls).toContain("--filter=...[origin/main]");
+    },
+    SEAM_TIMEOUT_MS
+  );
+
+  it(
+    "pre-push-typecheck skips a new branch whose diff against origin/main has no .ts change (#9065)",
+    () => {
+      const work = gitFixtureAheadOfOrigin();
+      git(work, "reset", "-q", "--hard", "origin/main");
+      git(work, "checkout", "-qb", "docs-branch");
+      writeFileSync(join(work, "README.md"), "docs\n");
+      git(work, "add", "README.md");
+      git(work, "commit", "-qm", "docs");
+      const result = run("pre-push-typecheck.sh", bashPayloadFor("git push -u origin HEAD"), work);
+      expect(result.status).toBe(0);
+      expect(existsSync(pnpmLog), "typechecked a docs-only branch").toBe(false);
+    },
+    SEAM_TIMEOUT_MS
+  );
+
+  it(
+    "verify-push-sha resolves the tree from a leading `cd X &&` (#9066)",
+    () => {
+      // The payload cwd is the main checkout (on a never-pushed local branch);
+      // the push really ran in the linked worktree named by `cd`.
+      const { work, tree } = gitFixtureWithPushedWorktree();
+      const result = run(
+        "verify-push-sha.sh",
+        bashPayloadFor(`cd ${tree} && git push -u origin HEAD`, work),
+        work
+      );
+      expect(result.stderr).toBe("");
+      expect(result.status).toBe(0);
+    },
+    SEAM_TIMEOUT_MS
+  );
+
+  it(
+    "verify-push-sha resolves the tree from `git -C X push` (#9066)",
+    () => {
+      const { work, tree } = gitFixtureWithPushedWorktree();
+      const result = run(
+        "verify-push-sha.sh",
+        bashPayloadFor(`git -C ${tree} push -u origin HEAD`, work),
+        work
+      );
+      expect(result.stderr).toBe("");
+      expect(result.status).toBe(0);
+    },
+    SEAM_TIMEOUT_MS
+  );
+
+  it(
+    "verify-push-sha skips quietly when a `cd X` target cannot be resolved (#9066)",
+    () => {
+      const { work } = gitFixtureWithPushedWorktree();
+      const result = run(
+        "verify-push-sha.sh",
+        bashPayloadFor("cd /nonexistent/tree && git push -u origin HEAD", work),
+        work
+      );
+      expect(result.stderr).toBe("");
+      expect(result.status).toBe(0);
     },
     SEAM_TIMEOUT_MS
   );
@@ -582,7 +660,7 @@ describe("hook seam: Bash hooks read the command from the stdin payload", () => 
       );
       expect(result.stderr).toContain("BLOCK: typecheck failed");
       expect(result.status).toBe(2);
-      expect(readFileSync(pnpmLog, "utf8")).toContain("-r --parallel typecheck");
+      expect(readFileSync(pnpmLog, "utf8")).toContain("turbo run typecheck");
     },
     SEAM_TIMEOUT_MS
   );
