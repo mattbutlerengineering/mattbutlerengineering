@@ -183,6 +183,7 @@
         "reap-worktrees.mjs",
         "reconcile-issue-states.mjs",
         "record-audit-check.mjs",
+        "revert-rca.mjs",
         "routine-manifest.mjs",
         "secret-scan.mjs",
         "sensor-correlator.mjs",

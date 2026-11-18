@@ -17,7 +17,7 @@
  * issue per workflow whose last N runs are all failures. Runs with
  * conclusion `cancelled` or `skipped` are excluded from the streak (a
  * superseded or correctly-gated run is not a defect — see
- * `revert-rca-loop.yml`, which is `skipped` by design on most runs), and a
+ * `dependabot-auto-merge.yml`, which is `skipped` by design on most runs), and a
  * workflow with fewer than N completed runs is `insufficient-history`, never
  * reported as failing.
  *
