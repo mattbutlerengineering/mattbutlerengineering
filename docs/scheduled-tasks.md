@@ -670,7 +670,7 @@ daily jobs starting 5 to 10 hours late. Treat every Actions cron as best-effort.
   whose events never fired (the `GITHUB_TOKEN` anti-recursion gap), so an event
   trigger would defeat it. Left as is: merge-queue, reviewed-merge and the rescue
   are policy-sensitive and need an Owner decision before any redesign.
-- **Late daily jobs** (`chaos-agent`, `nightly-compliance`, `drift-fix`,
+- **Late daily and weekly jobs** (`chaos-agent`, `nightly-compliance`, `drift-fix`,
   `sentry-heartbeat`, `auto-rollback`) have no event equivalent; a late start does
   not change their result, so they stay on cron. Liveness checks use a 2x-period
   window (`late` before `dark`) and `scheduled-workflow-health.mjs` tolerates
