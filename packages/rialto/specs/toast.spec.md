@@ -14,7 +14,7 @@ ToastProvider (wraps app root)
             +-- icon (svg)                         -- success, error, accent variants
             +-- title (p)
             +-- description (p)                    -- optional
-            +-- close button (button[aria-label="Dismiss"])
+            +-- close button (button[aria-label="Dismiss notification"])
             +-- countdown (motion.div)             -- animated progress bar, auto-dismiss only
     +-- assertive region (div[aria-live="assertive"]) -- error variant only
         +-- ToastItem (motion.div) per error toast
@@ -89,17 +89,17 @@ dismiss(id: string);
 
 ## Accessibility
 
-| Attribute                    | Value            | Notes                                     |
-| ---------------------------- | ---------------- | ----------------------------------------- |
-| `role="region"`              | container        | Landmarks the notification area           |
-| `aria-label="Notifications"` | container        | Labels the region                         |
-| `aria-live="polite"`         | polite region    | Non-error toasts — announced at next idle |
-| `aria-live="assertive"`      | assertive region | Error toasts — interrupts immediately     |
-| `aria-atomic="false"`        | polite region    | Individual items announced as they arrive |
-| `aria-atomic="true"`         | assertive region | Full error toast read as a unit           |
-| `aria-label="Dismiss"`       | close button     | Identifies the dismiss action             |
+| Attribute                           | Value            | Notes                                     |
+| ----------------------------------- | ---------------- | ----------------------------------------- |
+| `role="region"`                     | container        | Landmarks the notification area           |
+| `aria-label="Notifications"`        | container        | Labels the region                         |
+| `aria-live="polite"`                | polite region    | Non-error toasts — announced at next idle |
+| `aria-live="assertive"`             | assertive region | Error toasts — interrupts immediately     |
+| `aria-atomic="false"`               | polite region    | Individual items announced as they arrive |
+| `aria-atomic="true"`                | assertive region | Full error toast read as a unit           |
+| `aria-label="Dismiss notification"` | close button     | Identifies the dismiss action             |
 
-**Keyboard:** Close button is reachable via `Tab`. `Enter`/`Space` dismisses.
+**Keyboard:** Close button is reachable via `Tab`. `Enter`/`Space` dismisses. Focus then moves to the next remaining toast's dismiss button, or back to the control focused before the toast when none remain. Appearing does not move focus.
 **Screen reader:** Non-error toasts are announced politely (at next pause in speech). Error toasts use the assertive region and interrupt immediately. Both regions are mounted at page load — dynamically-added regions would miss the first announcement.
 
 ## Composition Examples

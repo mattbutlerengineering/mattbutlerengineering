@@ -64,6 +64,7 @@ function ToastItem({ toast: t, onDismiss }: { toast: ToastData; onDismiss: (id: 
 
   return (
     <motion.div
+      data-toast-id={t.id}
       className={cn(styles.toast, styles[t.variant ?? "default"])}
       initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 8, scale: 0.96 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -87,9 +88,11 @@ function ToastItem({ toast: t, onDismiss }: { toast: ToastData; onDismiss: (id: 
       )}
 
       <button
+        type="button"
         className={styles.close}
         onClick={() => onDismiss(t.id)}
-        aria-label={messages.dismiss}
+        aria-label={messages.dismissNotification}
+        data-toast-dismiss=""
       >
         <svg
           width="10"
