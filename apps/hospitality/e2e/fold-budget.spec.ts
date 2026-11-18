@@ -22,7 +22,15 @@ const FOLD_BUDGET_PX = 720;
 // cannot catch a page regressing by a few dozen pixels (measured: every key
 // page starts at 187-297px). This ratchet sits ~15px above the tallest
 // measured key page (TimelinePage, 297px) so adding header/padding spend fails.
-const CONTENT_START_RATCHET_PX = 312;
+//
+// Timeline's date row is wall-clock dependent (#9060): the label renders
+// today's long date ("Tuesday, November 17, 2026" vs "Wednesday, November 18,
+// 2026"), and on the longer days the Walk-in / Tonight controls wrap onto a
+// second line, +44px (297 -> 341.14). E2E was green on Tuesday 2026-11-17 and
+// red from 2026-11-18 UTC (a45fdf920) while no commit in that window touches
+// Timeline layout (#9035-#9040: gen, rialto PinInput, edge CSP, Zod jitless).
+// The ratchet therefore allows the wrapped reading (297 + 44) plus ~15px.
+const CONTENT_START_RATCHET_PX = 356;
 const GUARD_VIEWPORT_LABEL = "1280x720";
 
 // Route path (relative to baseURL) per page. Six are the PRD-1 key pages;
