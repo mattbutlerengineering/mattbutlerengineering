@@ -74,10 +74,17 @@ function localDateIn(iso: unknown, timeZone: string | undefined): string | undef
   }
 }
 
+/** The epoch ms of an item's `startTime`, or Infinity when unreadable so it sorts last. */
+function startMs(item: object): number {
+  const ms = new Date(String((item as Record<string, unknown>)["startTime"])).getTime();
+  return Number.isNaN(ms) ? Infinity : ms;
+}
+
 /**
  * Reservations with `localTime` added. When they fall on more than one venue-local date, each
- * `localTime` reads `YYYY-MM-DD HH:mm` so a row copied as is keeps its date; a one-date list
- * keeps the plain `HH:mm`.
+ * `localTime` reads `YYYY-MM-DD HH:mm` so a row copied as is keeps its date, and the rows are
+ * listed oldest first so the element reads in arrival order; a one-date list keeps the plain
+ * `HH:mm` and the API's order.
  */
 function withLocalTimes<T extends object>(
   items: readonly T[],
@@ -88,10 +95,13 @@ function withLocalTimes<T extends object>(
     localDateIn((item as Record<string, unknown>)["startTime"], timeZone)
   );
   if (new Set(dates.filter(Boolean)).size < 2) return timed;
-  return timed.map((item, i) => {
+  const dated = timed.map((item, i) => {
     const date = dates[i];
     return date && "localTime" in item ? { ...item, localTime: `${date} ${item.localTime}` } : item;
   });
+  return [...dated].sort((a, b) =>
+    Math.sign(Math.min(startMs(a), 1e18) - Math.min(startMs(b), 1e18))
+  );
 }
 
 type PublicAvailability = Awaited<ReturnType<ApiClient["availability"]["getPublicAvailability"]>>;

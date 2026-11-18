@@ -1546,6 +1546,17 @@ describe("createAgentTools", () => {
         });
       });
 
+      it("lists the rows oldest first, whatever order the API returned", async () => {
+        const oct26 = { id: "r1", startTime: "2026-10-26T19:00:00.000Z" };
+        const nov3 = { id: "r2", startTime: "2026-11-04T05:15:00.000Z" };
+        const oct16 = { id: "r3", startTime: "2026-10-16T16:26:00.000Z" };
+        api.reservations.list.mockResolvedValue(page([oct26, nov3, oct16]));
+        const result = await run("lookup_reservation", {}, LA);
+        expect(
+          (result as { reservations: { id: string }[] }).reservations.map((r) => r.id)
+        ).toEqual(["r3", "r1", "r2"]);
+      });
+
       it("keeps a plain HH:mm when every row falls on one local date", async () => {
         const a = { id: "r1", startTime: "2026-10-16T16:26:00.000Z" };
         const b = { id: "r2", startTime: "2026-10-17T02:15:00.000Z" }; // Oct 16, 19:15 in LA
