@@ -97,10 +97,7 @@ Files agents should know about (in load order):
 
 - `AGENTS.md` (this file) — primary cross-tool project context.
 - `CLAUDE.md` — Claude Code mandates, skill catalog, deploy commands.
-- `GEMINI.md` — Gemini-specific mandates (Silent TDD, Extreme Speed).
 - `.cursorrules` — Cursor AI rules and project context.
-- `opencode.json` — OpenCode configuration (models, permissions, MCP servers).
-- `.codex/config.toml` — Codex CLI configuration (model, approval policy, sandbox).
 - `.claude/rules/gotchas.md` — session-tested traps (pre-commit, CI, releases, Prisma).
 - `packages/*/CLAUDE.md` and `services/*/CLAUDE.md` — domain-specific authoring rules.
 

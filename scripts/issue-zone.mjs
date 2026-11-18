@@ -178,7 +178,6 @@ function buildRootDirList(repoRoot = REPO_ROOT) {
 const ROOT_LEVEL_FILES = [
   "AGENTS.md",
   "CLAUDE.md",
-  "GEMINI.md",
   "README.md",
   "package.json",
   "turbo.json",

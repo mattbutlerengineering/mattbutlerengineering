@@ -53,7 +53,7 @@ describe("detect-instruction-rot", () => {
 
     test("skips files that don't exist", async () => {
       const { findDeadLinkFindings } = await import("../detect-instruction-rot.mjs");
-      const findings = findDeadLinkFindings(tmpDir, ["GEMINI.md"]);
+      const findings = findDeadLinkFindings(tmpDir, ["NONEXISTENT.md"]);
 
       expect(findings).toHaveLength(0);
     });

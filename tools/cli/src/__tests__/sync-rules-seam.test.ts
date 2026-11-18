@@ -38,12 +38,12 @@ describe("sync-rules command (value-asserted via seam)", () => {
     expect(mockWriteFileSync).not.toHaveBeenCalled();
   });
 
-  it("returns rows naming .cursorrules as updated when GEMINI.md is absent", async () => {
+  it("returns rows naming .cursorrules as updated", async () => {
     mockExistsSync.mockImplementation((p: unknown) => {
       const path = String(p);
       if (path.endsWith("pnpm-workspace.yaml")) return true;
       if (path.endsWith("AGENTS.md")) return true;
-      return false; // no GEMINI.md
+      return false;
     });
     mockReadFileSync.mockReturnValue("# Agents content" as never);
 
@@ -62,7 +62,7 @@ describe("sync-rules command (value-asserted via seam)", () => {
     );
   });
 
-  it("returns rows naming GEMINI.md as updated when it lacks an AGENTS.md reference", async () => {
+  it("never touches GEMINI.md, even when it exists", async () => {
     mockExistsSync.mockImplementation((p: unknown) => {
       const path = String(p);
       if (path.endsWith("pnpm-workspace.yaml")) return true;
@@ -70,51 +70,10 @@ describe("sync-rules command (value-asserted via seam)", () => {
       if (path.endsWith("GEMINI.md")) return true;
       return false;
     });
-    mockReadFileSync.mockImplementation((p: unknown) => {
-      const path = String(p);
-      if (path.endsWith("GEMINI.md")) return "# Gemini specific content" as never;
-      return "# Agents content" as never;
-    });
+    mockReadFileSync.mockReturnValue("# Agents content" as never);
 
     const { syncRulesRun } = await import("../commands/sync-rules.js");
-    const result = await syncRulesRun({});
-
-    expect(result.kind).toBe("rows");
-    const rows = result as Extract<typeof result, { kind: "rows" }>;
-    const flat = JSON.stringify(rows.rows);
-    expect(flat).toContain(".cursorrules");
-    expect(flat).toContain("GEMINI.md");
-
-    const geminiWrite = mockWriteFileSync.mock.calls.find(([path]) =>
-      String(path).endsWith("GEMINI.md")
-    );
-    expect(geminiWrite).toBeDefined();
-    expect(String(geminiWrite![1])).toContain("AGENTS.md");
-  });
-
-  it("omits GEMINI.md from rows when it already references AGENTS.md", async () => {
-    mockExistsSync.mockImplementation((p: unknown) => {
-      const path = String(p);
-      if (path.endsWith("pnpm-workspace.yaml")) return true;
-      if (path.endsWith("AGENTS.md")) return true;
-      if (path.endsWith("GEMINI.md")) return true;
-      return false;
-    });
-    mockReadFileSync.mockImplementation((p: unknown) => {
-      const path = String(p);
-      if (path.endsWith("GEMINI.md"))
-        return "# Gemini specific content\nSee AGENTS.md for details" as never;
-      return "# Agents content" as never;
-    });
-
-    const { syncRulesRun } = await import("../commands/sync-rules.js");
-    const result = await syncRulesRun({});
-
-    expect(result.kind).toBe("rows");
-    const rows = result as Extract<typeof result, { kind: "rows" }>;
-    const flat = JSON.stringify(rows.rows);
-    expect(flat).toContain(".cursorrules");
-    expect(flat).not.toContain("GEMINI.md");
+    await syncRulesRun({});
 
     const geminiWrite = mockWriteFileSync.mock.calls.find(([path]) =>
       String(path).endsWith("GEMINI.md")
