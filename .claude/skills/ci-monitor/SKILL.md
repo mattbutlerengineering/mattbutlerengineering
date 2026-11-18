@@ -59,22 +59,22 @@ If an open `ci-fix` issue **or** an open fix PR already exists for this failure,
 
 **Classify into one of these types:**
 
-| Type         | Signal in logs                                                                  |
-| ------------ | ------------------------------------------------------------------------------- |
-| `lint`       | `eslint`, `prettier`, `react/no-unescaped-entities`, unused variable            |
-| `typecheck`  | `tsc`, `TS`, `Type error`, missing import, wrong type                           |
-| `build`      | `turbo`, `vite`, `esbuild`, broken dependency chain, missing export             |
-| `test`       | `vitest`, snapshot mismatch, assertion failure, mock drift                      |
-| `drift`      | `llms.txt`, `registry.json`, `dependency-graph`, generated artifact out of sync |
-| `migration`  | Prisma schema, SQL syntax error, migration ordering                             |
-| `infra`      | Docker, database connectivity, network, timeout                                 |
-| `dependency` | `pnpm`, lockfile conflict, version mismatch                                     |
+| Type         | Signal in logs                                                       |
+| ------------ | -------------------------------------------------------------------- |
+| `lint`       | `eslint`, `prettier`, `react/no-unescaped-entities`, unused variable |
+| `typecheck`  | `tsc`, `TS`, `Type error`, missing import, wrong type                |
+| `build`      | `turbo`, `vite`, `esbuild`, broken dependency chain, missing export  |
+| `test`       | `vitest`, snapshot mismatch, assertion failure, mock drift           |
+| `drift`      | `registry.json`, `dependency-graph`, generated artifact out of sync  |
+| `migration`  | Prisma schema, SQL syntax error, migration ordering                  |
+| `infra`      | Docker, database connectivity, network, timeout                      |
+| `dependency` | `pnpm`, lockfile conflict, version mismatch                          |
 
 **Fixable failures** (spawn self-healing agent):
 
 - `lint` — ESLint/Prettier errors
 - `typecheck` — Type errors, missing imports, wrong types
-- `drift` — Stale generated artifacts (`pnpm regen` or `pack-changed`)
+- `drift` — Stale generated artifacts (`pnpm regen`)
 - `test` — Snapshot mismatches, assertion failures from recent changes where the fix is localized
 - `build` — Missing export, broken import, stale generated file (single-package scope)
 

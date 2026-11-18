@@ -261,7 +261,6 @@
         "optimize-implement-queue.mjs",
         "persist-metrics.mjs",
         "pr-metrics.mjs",
-        "precommit-llms-stage.mjs",
         "preview-comment.mjs",
         "preview-worker-sweep.mjs",
         "print-drift-signature.mjs",

@@ -53,12 +53,9 @@ REGEN_MODE=$(node scripts/check-regen-needed.mjs 2>/dev/null) || REGEN_MODE=full
 # Fail-safe direction: anything other than an explicit "check" verdict
 # (including unexpected output) takes the full path.
 if [ "$REGEN_MODE" != "check" ]; then
-  # Build CLI and its transitive deps before running regen.
-  # In a bare worktree (after pnpm install with no prior build) @mbe/agent-core/dist
-  # doesn't exist. Without this step, `pnpm regen` calls `mbe pack` which fails
-  # with ERR_MODULE_NOT_FOUND, silently leaving llms.txt unchanged. CI then runs
-  # `pnpm build && pnpm regen` in the right order, finds different content → drift.
-  # Turbo caches the build so this is near-instant when CLI source is unchanged.
+  # Build CLI and its transitive deps before running regen, matching the order
+  # CI uses (`pnpm build && pnpm regen`). Turbo caches the build so this is
+  # near-instant when CLI source is unchanged.
   echo "pre-push: building CLI for regen..."
   if ! pnpm build --filter @mbe/cli...; then
     echo ""
@@ -88,12 +85,9 @@ fi
 
 # Always run the cheap output-cleanliness check (git status of committed
 # artifacts, no regeneration): catches hand-edited or uncommitted artifact
-# files on both paths for ~0 cost. `--git-only` is what keeps it cheap: plain
-# `--check` re-derives every llms package via `mbe pack --check` (minutes),
-# which on the full path only re-confirms what `pnpm regen` just wrote and on
-# the fast path re-checks sources this push did not touch. CI's Build job
-# remains the authoritative regen gate either way.
-if ! pnpm regen --check --git-only; then
+# files on both paths for ~0 cost.
+# CI's Build job remains the authoritative regen gate either way.
+if ! pnpm regen --check; then
   echo ""
   echo "ERROR: generated artifacts are out of sync (stale artifact + fix command shown above)."
   echo "Stage the changed files and amend/create a new commit before pushing."

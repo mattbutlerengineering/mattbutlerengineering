@@ -64,10 +64,6 @@ pnpm --dir apps/rialto-web test:a11y      # a11y tests (Playwright + axe-core)
 pnpm dlx wrangler@latest deploy --config apps/rialto-web/wrangler.toml
 ```
 
-## Context Budget Guidance
-
-Prefer `apps/rialto-web/llms.txt` for component-level lookups instead of reading source.
-
 ## Model Tiering Note
 
 Showcase changes are low-risk — Haiku/Sonnet appropriate, no Opus needed.

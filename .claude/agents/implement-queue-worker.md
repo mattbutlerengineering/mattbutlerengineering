@@ -93,9 +93,9 @@ You are implementing a specific GitHub issue in an isolated git worktree. Your j
    git status --short                          # surfaces any artifact the regen changed
    ```
 
-   If `check-adr`/`check-deps` fail, fix the violation. **`pnpm regen` is the authoritative drift fix — run it, do not hand-pick `pack-changed`.** CI's Integrity job regenerates _from source_ and fails on any diff, so the only way to match it locally is to regenerate from source too. `pack-changed` has blind spots that have repeatedly broken the merge train: it skips the root (workspace-aggregate) `llms.txt`, skips families like `registry.json` / `generated-schemas.ts`, and misses `llms-full.txt`-only drift. `pnpm regen` covers all of them.
+   If `check-adr`/`check-deps` fail, fix the violation. **`pnpm regen` is the authoritative drift fix — run it, do not hand-pick generators.** CI's Integrity job regenerates _from source_ and fails on any diff, so the only way to match it locally is to regenerate from source too. `pnpm regen` covers every family in `scripts/regen-manifest.mjs`.
 
-   If `pnpm regen` changed any artifact (`docs/architecture/dependency-graph.md`, `llms.txt`/`llms-full.txt`, `registry.json`, `generated-schemas.ts`), stage **those specific files** alongside your change (never `git add -A`). Re-run `git status --short` and confirm it is clean of generated files before committing — do not push until it is.
+   If `pnpm regen` changed any artifact (`docs/architecture/dependency-graph.md`, `registry.json`, `generated-schemas.ts`), stage **those specific files** alongside your change (never `git add -A`). Re-run `git status --short` and confirm it is clean of generated files before committing — do not push until it is.
 
    **Then the two Build-job gates that otherwise only fail after a push** — dead exports and bundle budgets were the most frequent post-push CI fixes (#8397, #8406, #8441, #8459), each costing a full CI round. From the repo root:
 

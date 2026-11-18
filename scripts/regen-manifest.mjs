@@ -26,7 +26,7 @@
  *   No other code changes required. If the family should also react to a
  *   single file edit (e.g. a PostToolUse hook), give it a `changedBy(path)`
  *   function — familiesForChangedFile() is generic over whatever families it's
- *   given, so hooks that already call it (regen-dep-graph.sh, regen-llms.sh)
+ *   given, so hooks that already call it (regen-dep-graph.sh)
  *   pick up the new family with ZERO hook edits.
  *
  * @module regen-manifest
@@ -64,85 +64,6 @@ function run(cmd, { silent = false } = {}) {
 /** @type {Array<{id: string, label: string, command: string, outputs: string[]}>} */
 export const FAMILIES = [
   {
-    id: "llms-txt",
-    label: "llms.txt context files",
-    // PostToolUse hook ownership: "warn" families are regenerated and only
-    // reported only; stage them yourself (`pnpm regen --check` in pre-push/CI
-    // enforces it). The default "stage" families are also `git add`ed. Each
-    // hook handles one mode, so one edit never runs a family twice.
-    hookMode: "warn",
-    // regen.mjs special-cases this family: it loops `mbe pack <pkg>` across
-    // every known package (see regenLlms in regen.mjs). There is no single
-    // CLI command that regenerates all llms.txt files, so the remediation
-    // hint below points at `pnpm regen` — the canonical, always-runnable way
-    // to bring every artifact (including this family) back in sync.
-    command: "pnpm regen",
-    outputs: [
-      "llms.txt",
-      "llms-full.txt",
-      "apps/gen/llms.txt",
-      "apps/gen/llms-full.txt",
-      "apps/hospitality/llms.txt",
-      "apps/hospitality/llms-full.txt",
-      "apps/marketing/llms.txt",
-      "apps/marketing/llms-full.txt",
-      "apps/rialto-web/llms.txt",
-      "apps/rialto-web/llms-full.txt",
-      "infrastructure/pulumi/llms.txt",
-      "infrastructure/pulumi/llms-full.txt",
-      "packages/agent-core/llms.txt",
-      "packages/agent-core/llms-full.txt",
-      "packages/api-client/llms.txt",
-      "packages/api-client/llms-full.txt",
-      "packages/auth/llms.txt",
-      "packages/auth/llms-full.txt",
-      "packages/availability/llms.txt",
-      "packages/availability/llms-full.txt",
-      "packages/cancellation-policy/llms.txt",
-      "packages/cancellation-policy/llms-full.txt",
-      "packages/config/llms.txt",
-      "packages/config/llms-full.txt",
-      "packages/database/llms.txt",
-      "packages/database/llms-full.txt",
-      "packages/gh-client/llms.txt",
-      "packages/gh-client/llms-full.txt",
-      "packages/rialto/llms.txt",
-      "packages/rialto/llms-full.txt",
-      "packages/rialto-catalog/llms.txt",
-      "packages/rialto-catalog/llms-full.txt",
-      "packages/sentry/llms.txt",
-      "packages/sentry/llms-full.txt",
-      "packages/service-bootstrap/llms.txt",
-      "packages/service-bootstrap/llms-full.txt",
-      "packages/types/llms.txt",
-      "packages/types/llms-full.txt",
-      "packages/ui-quality-capture/llms.txt",
-      "packages/ui-quality-capture/llms-full.txt",
-      "services/agent/llms.txt",
-      "services/agent/llms-full.txt",
-      "services/reservations/llms.txt",
-      "services/reservations/llms-full.txt",
-      "services/users/llms.txt",
-      "services/users/llms-full.txt",
-      "tools/cli/llms.txt",
-      "tools/cli/llms-full.txt",
-      "tools/route-contract/llms.txt",
-      "tools/route-contract/llms-full.txt",
-    ],
-    // A single source-file edit only makes ONE package's llms.txt stale, not
-    // all ~25 — regenerating (and diffing) every package for one file change
-    // would be wasteful. Scope command + outputs down to the owning package.
-    changedBy(path) {
-      if (!isLlmsSource(path) || isRegenExcluded(path)) return null;
-      const pkgDir = packageDirFor(path);
-      if (!pkgDir || !llmsPackages().includes(pkgDir)) return null; // no committed llms.txt yet
-      return {
-        command: `pnpm --filter @mbe/cli start pack ${pkgDir}`,
-        outputs: [`${pkgDir}/llms.txt`, `${pkgDir}/llms-full.txt`],
-      };
-    },
-  },
-  {
     id: "rialto-registry",
     label: "packages/rialto/registry.json",
     command: "pnpm --filter @mattbutlerengineering/rialto build:registry",
@@ -163,7 +84,7 @@ export const FAMILIES = [
     command: "pnpm --filter @mattbutlerengineering/rialto generate:tokens",
     outputs: ["packages/rialto/src/tokens/colors.css", "packages/rialto/figma-tokens.json"],
     // Hook-scoped regen (PostToolUse): a token-source edit regenerates just
-    // this family, mirroring the dep-graph/llms ergonomics.
+    // this family, mirroring the dep-graph ergonomics.
     changedBy(path) {
       return /(^|\/)packages\/rialto\/(src\/tokens\/colors(\.dark)?\.json|scripts\/(generate-colors-css|generate-figma-tokens)\.ts|scripts\/lib\/color-tokens\.ts)$/.test(
         path
@@ -243,8 +164,8 @@ export const FAMILIES = [
  * Used by scripts/check-regen-needed.mjs to gate the regen step in the
  * implement-queue worker.
  *
- * Mirrors the workspace directories read by `mbe pack` (llms-txt) and the
- * package.json paths read by the dep-graph generators.
+ * Mirrors the workspace directories and package.json paths read by the
+ * generators.
  *
  * The apps/packages/services trio comes from zone-vocabulary's
  * WORKSPACE_ROOTS (the tree-vocabulary this list mirrors); tools/,
@@ -261,9 +182,7 @@ export const REGEN_SOURCE_PREFIXES = [
 
 /**
  * Exclusion patterns: paths that match a REGEN_SOURCE_PREFIX but should NOT
- * trigger full regen. Mirrors the `ignore` list in `mbe pack`
- * (tools/cli/src/commands/pack.ts) so the gating decision stays in sync with
- * what the generator actually reads.
+ * trigger full regen.
  */
 export const REGEN_SOURCE_EXCLUDES = [
   /\.test\.[cm]?[jt]sx?$/,
@@ -272,11 +191,10 @@ export const REGEN_SOURCE_EXCLUDES = [
   /\/generated\//,
   /\/node_modules\//,
   /vitest\.config\.[cm]?[jt]sx?$/,
-  /llms(?:-full)?\.txt$/,
 ];
 
 // ---------------------------------------------------------------------------
-// llms.txt packages — derived from the manifest outputs list
+// Committed generated-artifact paths
 // ---------------------------------------------------------------------------
 
 /** Written by `pnpm --filter rialto exports`, a pre-regen step (not a FAMILY). */
@@ -287,72 +205,16 @@ export function artifactPaths() {
   return [...new Set([...FAMILIES.flatMap((f) => f.outputs), ...EXTRA_STAGED_PATHS])];
 }
 
-/** All workspace directories that carry an llms.txt (relative to root). */
-export function llmsPackages() {
-  return FAMILIES.find((f) => f.id === "llms-txt")
-    .outputs.filter((o) => o === "llms.txt" || o.endsWith("/llms.txt"))
-    .map((o) => (o === "llms.txt" ? "." : o.replace(/\/llms\.txt$/, "")));
-}
-
-/**
- * Workspace package directories that intentionally have no committed
- * llms.txt, with a one-line reason each. Checked by
- * `scripts/__tests__/regen-manifest.test.mjs` ("workspace llms.txt
- * coverage") against every `pnpm-workspace.yaml` dir with a package.json —
- * a dir that is neither here nor in `llmsPackages()` fails that test by
- * name (issue #8881), so a new package can never silently escape
- * `pnpm regen --check`.
- */
-export const LLMS_EXEMPTIONS = [
-  {
-    dir: "infrastructure/worker",
-    reason: "plain JavaScript (no .ts files) — mbe pack only reads .ts sources",
-  },
-  {
-    dir: "packages/rialto-plugin",
-    reason:
-      "its only non-test .ts file (scripts/generate-reference.ts) is a non-exporting build script — mbe pack would emit an empty skeleton",
-  },
-  {
-    dir: "plugins/acmm",
-    reason: "plain JavaScript tooling (no .ts files)",
-  },
-  {
-    dir: "scripts",
-    reason: "plain .mjs tooling (no .ts files)",
-  },
-  {
-    dir: "tests/smoke",
-    reason:
-      "e2e harness — the only non-test file mbe pack would read is playwright.config.ts, with no exported API",
-  },
-  {
-    dir: "tools/mutation-testing",
-    reason: "isolated devDependency host for Stryker config; no source files of its own",
-  },
-];
-
 // ---------------------------------------------------------------------------
 // familiesForChangedFile — single-file change detection (issue #2968)
 //
-// PostToolUse hooks (regen-dep-graph.sh, regen-llms.sh) call this via
+// PostToolUse hooks (regen-dep-graph.sh) call this via
 // `--families-for <path>` instead of re-encoding output paths, commands, or
 // package-ownership rules in bash. All matching logic lives here, next to
 // the families it describes — the manifest is the single owner.
 // ---------------------------------------------------------------------------
 
 const DEP_MANIFEST_RE = /(^|\/)(package\.json|pnpm-workspace\.yaml|pnpm-lock\.yaml)$/;
-const LLMS_SOURCE_RE = /\.(ts|tsx|prisma)$|(^|\/)CLAUDE\.md$/;
-// Matches a package segment anywhere in the path (mirrors DEP_MANIFEST_RE's
-// `(^|/)` style), not just at the start. A plain repo-root-relative path
-// (e.g. "packages/rialto/src/Foo.tsx") still matches via `^`, but this also
-// tolerates an absolute path whose prefix doesn't line up with the repo root
-// (e.g. a hook computed `rel_path` from an unresolved CLAUDE_PROJECT_DIR
-// while CLAUDE_FILE_PATH is symlink-resolved, or vice versa — see #2983).
-// Root alternation is built from WORKSPACE_ROOTS (+ the regen-specific
-// "tools" extra) rather than restating the "apps|packages|services" prefixes.
-const PACKAGE_DIR_RE = new RegExp(`(^|/)((?:${[...WORKSPACE_ROOTS, "tools"].join("|")})/[^/]+)/`);
-
 /** True when `path` matches a REGEN_SOURCE_EXCLUDES pattern (test/dist/generated/etc). */
 function isRegenExcluded(path) {
   return REGEN_SOURCE_EXCLUDES.some((re) => re.test(path));
@@ -361,17 +223,6 @@ function isRegenExcluded(path) {
 /** True when `path` is a dependency manifest that can change the dep graph. */
 function isDependencyManifestChange(path) {
   return DEP_MANIFEST_RE.test(path) && !isRegenExcluded(path);
-}
-
-/** True when `path` is a source file `mbe pack` reads into llms.txt. */
-function isLlmsSource(path) {
-  return LLMS_SOURCE_RE.test(path);
-}
-
-/** Workspace package directory (e.g. "packages/foo") owning `path`, or null. */
-function packageDirFor(path) {
-  const match = PACKAGE_DIR_RE.exec(path);
-  return match ? match[2] : null;
 }
 
 /**
@@ -424,7 +275,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   } else if (argv.includes("--families-for")) {
     // Shell-consumable mode for hooks: print the JSON array of families a
     // single changed file affects, so bash never has to know a family's
-    // output paths or regen command — see regen-dep-graph.sh / regen-llms.sh.
+    // output paths or regen command — see regen-dep-graph.sh.
     const changedPath = flagValue("--families-for");
     const hookMode = flagValue("--hook-mode") ?? null;
     if (

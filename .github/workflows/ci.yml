@@ -371,7 +371,7 @@ jobs:
 
       - uses: ./.github/actions/setup-workspace
 
-      # Generated-artifact staleness (llms.txt, registry.json, dep-graph.json,
+      # Generated-artifact staleness (registry.json, dep-graph.json,
       # generated-schemas.ts, dependency-graph.md) is now verified in one
       # manifest-driven step in the `build` job ("Verify generated artifacts are
       # in sync"). This job keeps the non-regenerated doc validators below.
@@ -482,17 +482,14 @@ jobs:
       - name: Verify generated artifacts are in sync
         # Single manifest-driven staleness check (scripts/regen-manifest.mjs is
         # the source of truth), replacing five separate regenerate+git-diff
-        # stanzas: llms.txt, registry.json, dep-graph.json, generated-schemas.ts,
+        # stanzas: registry.json, dep-graph.json, generated-schemas.ts,
         # and dependency-graph.md. `pnpm regen` regenerates every committed
         # artifact; `pnpm regen --check` then fails if any drifted, naming the
         # stale artifact and the exact fix command. Add new artifacts to the
-        # manifest, not here. `--git-only`: the check runs right after a full
-        # regen, so re-deriving every llms package (`mbe pack --check`) can
-        # only re-confirm bytes just written — it cost ~3 of this job's ~11
-        # minutes. The git diff is the signal that can fail here.
+        # manifest, not here.
         run: |
           pnpm regen
-          pnpm regen --check --git-only
+          pnpm regen --check
 
       - name: Check bundle size budgets
         run: pnpm size:check

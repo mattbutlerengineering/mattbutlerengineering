@@ -39,12 +39,8 @@ jobs:
       - uses: ./.github/actions/setup-workspace
 
       - name: Build the CLI
-        # NOT optional. `pnpm regen`'s llms families shell out to `mbe pack`,
-        # which imports @mbe/agent-core. Without a build, that import throws
-        # ERR_MODULE_NOT_FOUND, regen-llms.sh swallows it (`|| continue`), and
-        # regen SILENTLY NO-OPS — producing a green run that fixed nothing.
-        # The `...` suffix builds transitive deps, which is what pulls in
-        # agent-core.
+        # Matches the order CI uses (`pnpm build && pnpm regen`). The `...`
+        # suffix builds the CLI's transitive deps.
         run: pnpm build --filter @mbe/cli...
 
       - name: Regenerate rialto exports map
