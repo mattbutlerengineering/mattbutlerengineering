@@ -1,6 +1,286 @@
 {
-  "generatedAt": "2026-11-05T06:41:47.000Z",
+  "generatedAt": "2026-11-12T03:55:48.000Z",
   "features": [
+    {
+      "slug": "the-invitation-8670",
+      "title": "The Invitation",
+      "trackingIssue": 8670,
+      "proposalIssue": 8454,
+      "proposalEvidence": "The hospitality product has no users yet and no inbound growth loop — every booking reaches exactly one person. `docs/plans/2026-10-18-the-invitation.md` is a feasibility-checked, Matt-approved build plan (verified against `main` at `56fedb2c2`) that has sat **unfiled for three weeks**: \"Status: future plan — unblocked, not yet filed.\" It is one of eleven 2026-10-18 plan docs in `docs/plans/` of which eight are still unblocked and unfiled (`big-table`, `brand-match`, `choose-your-table`, `host-stand`, `on-my-way`, `room-in-3d`, `the-invitation`, `the-marquee`) — this volume of pre-vetted, explicitly-approved (\"Matt loved it (2026-10-18)\") backlog sitting idle for three weeks is itself the overwhelming signal this batch cites to propose a second hospitality item (PRODUCT.md ideation guardrail #4: \"≤1 proposal per app per batch unless a signal is overwhelming\").",
+      "proposedAt": "2026-11-07T17:12:50.000Z",
+      "firstMergedAt": "2026-11-11T10:24:35.000Z",
+      "lastMergedAt": "2026-11-12T03:55:48.000Z",
+      "wallClockHours": 106.7,
+      "liveUrl": "/hospitality/timeline",
+      "children": [
+        {
+          "issue": 8661,
+          "title": "[Feature] The Invitation [1/9]: Add ReservationInvite model + token create/revoke",
+          "prs": [
+            {
+              "number": 8674,
+              "title": "feat(reservations): ReservationInvite model + token create/revoke (mbe-feature-drain #8661)",
+              "mergedAt": "2026-11-11T10:24:35.000Z",
+              "mergeCommit": "ae425e3d8a59229b08a624888fdc487f277dbe4e",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 8662,
+          "title": "[Feature] The Invitation [2/9]: Public GET /public/v1/invites/:token with field allow-list snapshot",
+          "prs": [
+            {
+              "number": 8679,
+              "title": "feat(reservations): public invite view route (mbe-feature-drain #8662)",
+              "mergedAt": "2026-11-11T14:48:38.000Z",
+              "mergeCommit": "436299203d31908acc23532cea7e9a5b2edc8d8d",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 8663,
+          "title": "[Feature] The Invitation [3/9]: Add ReservationRsvp model + POST /public/v1/invites/:token/rsvp",
+          "prs": [
+            {
+              "number": 8681,
+              "title": "feat(reservations): accept first-name RSVPs on party invites (mbe-feature-drain #8663)",
+              "mergedAt": "2026-11-11T16:37:57.000Z",
+              "mergeCommit": "93355577eadfa55273375f49cb955a539bcead66",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 8664,
+          "title": "[Feature] The Invitation [4/9]: Build the /i/:token invite page in hospitality",
+          "prs": [
+            {
+              "number": 8698,
+              "title": "feat(hospitality): public invite page at /i/:token (mbe-feature-drain #8664)",
+              "mergedAt": "2026-11-11T18:06:39.000Z",
+              "mergeCommit": "156d3df783ec681bc4102f87fd5ddf50ee69c86e",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 8665,
+          "title": "[Feature] The Invitation [5/9]: Add \"Invite your party\" share entry points + booker RSVP summary",
+          "prs": [
+            {
+              "number": 8717,
+              "title": "feat(hospitality): invite your party share entry points + booker RSVP summary (mbe-feature-drain #8665)",
+              "mergedAt": "2026-11-12T01:29:16.000Z",
+              "mergeCommit": "a5caad3ceac09d811c9d661ae4b837feb9ca55f0",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 8666,
+          "title": "[Feature] The Invitation [6/9]: Static per-venue og: link preview for /i/:token via the edge worker",
+          "prs": [
+            {
+              "number": 8709,
+              "title": "feat(worker): static per-venue og: link preview for /i/:token",
+              "mergedAt": "2026-11-11T23:40:39.000Z",
+              "mergeCommit": "a8721982211f349b3f0d6332de53b5b926eac7f0",
+              "reviewVerdict": "pass",
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 8667,
+          "title": "[Feature] The Invitation [7/9]: Staff \"N of M confirmed\" RSVP chip on Timeline/reservation details",
+          "prs": [
+            {
+              "number": 8711,
+              "title": "feat(hospitality): staff N-of-M RSVP chip on timeline block and reservation details (mbe-feature-drain #8667)",
+              "mergedAt": "2026-11-11T20:11:16.000Z",
+              "mergeCommit": "501f6af9b6f829ec67b704b1a5d46c312238e71c",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 8669,
+          "title": "[Feature] The Invitation [9/9]: E2E: book -> invite -> RSVP -> booker sees it -> cancel -> invite cancelled",
+          "prs": [
+            {
+              "number": 8736,
+              "title": "test(hospitality): e2e for book -> invite -> RSVP -> cancel (mbe-feature-drain #8669)",
+              "mergedAt": "2026-11-12T03:55:48.000Z",
+              "mergeCommit": "eefc577fa13d99c39167ff708f8de4f636a2c0ae",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "on-my-way-8654",
+      "title": "On My Way",
+      "trackingIssue": 8654,
+      "proposalIssue": 8453,
+      "proposalEvidence": "A host's #1 question every service is \"are they still coming?\" — today a late party either calls (if they remember to) or the table sits empty or gets given away by mistake. `docs/plans/2026-10-18-on-my-way.md` is a feasibility-checked, Matt-approved build plan (verified against `main` at `b23bec446`) that has sat **unfiled for three weeks**: \"Status: future plan — unblocked, not yet filed.\" The plan's own verdict: \"feasible and small — rides on existing manage-token + realtime plumbing\" — it inventories exactly which pieces already exist (login-free guest page via manage token, `ReservationEvent` history, SSE fan-out, staff views that re-render on events, per-venue `Venue.settings` JSON) and what's genuinely new (a running-late/arrived signal).",
+      "proposedAt": "2026-11-07T17:12:44.000Z",
+      "firstMergedAt": "2026-11-11T08:08:29.000Z",
+      "lastMergedAt": "2026-11-12T03:39:54.000Z",
+      "wallClockHours": 106.5,
+      "liveUrl": "/hospitality/timeline",
+      "children": [
+        {
+          "issue": 8647,
+          "title": "[Feature] On My Way [1/7]: Add canSignal rule, signal route and guest-signal ReservationEvent",
+          "prs": [
+            {
+              "number": 8655,
+              "title": "feat(reservations): guest night-of signal route with canSignal rule (mbe-feature-drain #8647)",
+              "mergedAt": "2026-11-11T08:08:29.000Z",
+              "mergeCommit": "81f2e51db754b75a5ced943d27859acabbcdd18f",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 8648,
+          "title": "[Feature] On My Way [2/7]: Emit reservation:guest-signal over SSE",
+          "prs": [
+            {
+              "number": 8657,
+              "title": "feat(reservations): emit reservation:guest-signal over SSE",
+              "mergedAt": "2026-11-11T09:13:37.000Z",
+              "mergeCommit": "dabfb6c1e26319342e7c4aed5ebede193c819264",
+              "reviewVerdict": "pass",
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 8649,
+          "title": "[Feature] On My Way [3/7]: Show amber +15 ETA badge on Timeline and floor-plan table",
+          "prs": [
+            {
+              "number": 8671,
+              "title": "feat(hospitality): amber +15 ETA badge on Timeline and floor-plan table",
+              "mergedAt": "2026-11-11T13:37:16.000Z",
+              "mergeCommit": "d2bebeacfb36049f8be5fc78ffc4f640c0a6855c",
+              "reviewVerdict": "pass",
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 8650,
+          "title": "[Feature] On My Way [4/7]: Play arrived chime and toast at the host stand",
+          "prs": [
+            {
+              "number": 8672,
+              "title": "feat(hospitality): play arrived chime and toast at the host stand",
+              "mergedAt": "2026-11-12T01:32:47.000Z",
+              "mergeCommit": "f29ad0d49155e643d82667acb13c61449c632085",
+              "reviewVerdict": "pass",
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 8651,
+          "title": "[Feature] On My Way [5/7]: Night-of layout on ManageReservationPage with signal buttons",
+          "prs": [
+            {
+              "number": 8673,
+              "title": "feat(hospitality): night-of layout with signal buttons on ManageReservationPage",
+              "mergedAt": "2026-11-11T13:09:15.000Z",
+              "mergeCommit": "5c660eb9aecf3f5772e63d7a20ed15341e737a82",
+              "reviewVerdict": "flag",
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 8652,
+          "title": "[Feature] On My Way [6/7]: Owner-editable tonight note setting",
+          "prs": [
+            {
+              "number": 8659,
+              "title": "feat(hospitality): owner-editable tonight note setting (mbe-feature-drain #8652)",
+              "mergedAt": "2026-11-11T10:07:59.000Z",
+              "mergeCommit": "816cf72fe674809aaa8708c4bd4ebaf9f0187384",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 8653,
+          "title": "[Feature] On My Way [7/7]: E2E: guest signal reaches staff views without reload",
+          "prs": [
+            {
+              "number": 8732,
+              "title": "test(hospitality): e2e for On My Way guest signal reaching staff views",
+              "mergedAt": "2026-11-12T03:39:54.000Z",
+              "mergeCommit": "320b8f4455c7344b5cd093cef8dac76626f06c1f",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "ideation-batch-2026-11-07-8457",
+      "title": "[Ideation] Batch 2026-11-07",
+      "trackingIssue": 8457,
+      "proposalIssue": null,
+      "proposalEvidence": null,
+      "proposedAt": null,
+      "firstMergedAt": "2026-11-07T18:08:59.000Z",
+      "lastMergedAt": "2026-11-07T18:27:55.000Z",
+      "wallClockHours": 1.2,
+      "liveUrl": "/rialto/components/drawer",
+      "children": [
+        {
+          "issue": 8455,
+          "title": "[Proposal] gen: widen the AI-generation catalog — 47 of 92 rialto components are invisible to the generator",
+          "prs": [
+            {
+              "number": 8459,
+              "title": "feat(gen): widen the AI catalog with Skeleton, Drawer, Tooltip, Popover, PinInput, DropdownMenu, ScrollArea, Handshake",
+              "mergedAt": "2026-11-07T18:27:55.000Z",
+              "mergeCommit": "5e562c6daae8768bdf0b5f542cf9c54f226b7174",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 8456,
+          "title": "[Proposal] marketing: Shipped-feature pages' \"See it live\" link only ever reaches the app root, never the feature",
+          "prs": [
+            {
+              "number": 8458,
+              "title": "fix(marketing): deep-link shipped-feature \"See it live\" to the feature route (#8456)",
+              "mergedAt": "2026-11-07T18:08:59.000Z",
+              "mergeCommit": "23443dda9c56a5ef12a1f65ee84d3636490c5f02",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
     {
       "slug": "gen-interaction-race-regression-coverage-8200",
       "title": "gen interaction-race regression coverage",
@@ -50,6 +330,62 @@
               "title": "fix(gen): narrow history overlay returns focus to its toggle on Escape; e2e pins it (mbe-feature-drain #8199)",
               "mergedAt": "2026-11-05T06:41:47.000Z",
               "mergeCommit": "d6188b7ced5f79de3a2ce14848f1cce8131d9764",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "tracking-failing-fetches-in-production-maintenance-run-failing-fetches-8262",
+      "title": "tracking: failing fetches in production (maintenance run failing-fetches)",
+      "trackingIssue": 8262,
+      "proposalIssue": null,
+      "proposalEvidence": null,
+      "proposedAt": null,
+      "firstMergedAt": "2026-11-04T23:02:42.000Z",
+      "lastMergedAt": "2026-11-04T23:44:53.000Z",
+      "wallClockHours": 5.4,
+      "liveUrl": "/hospitality/guests",
+      "children": [
+        {
+          "issue": 8254,
+          "title": "fix(floor-plans): deleting a floor plan is impossible — no UI action, and the API 409s on any plan whose tables were ever booked",
+          "prs": [
+            {
+              "number": 8272,
+              "title": "fix(floor-plans): delete and clone work for real floor plans (#8254, #8255)",
+              "mergedAt": "2026-11-04T23:02:53.000Z",
+              "mergeCommit": "4ae204e665864796f0fd44d1749124b197bc07c7",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 8256,
+          "title": "fix(reservations): guest card history GET /reservations?guestId= returns 403 \"You do not have access to this venue\" (HOSPITALITY-E)",
+          "prs": [
+            {
+              "number": 8275,
+              "title": "fix(reservations): guest history 403, waitlist notify without Redis, availability config validation (#8256, #8257, #8259)",
+              "mergedAt": "2026-11-04T23:44:53.000Z",
+              "mergeCommit": "16f6d6a050edb68ba7870cf7087b1b41cf4e6139",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 8260,
+          "title": "fix(services): health endpoints are rate-limited — round-trip/status probes get 429 (USERS-API-6T, 303 events)",
+          "prs": [
+            {
+              "number": 8271,
+              "title": "fix: exempt health routes from rate limit, stop leaking Prisma metadata, refresh token on 401 (#8260, #8261, #8258)",
+              "mergedAt": "2026-11-04T23:02:42.000Z",
+              "mergeCommit": "5073021f93908731e9b7bf31ac64549126754c59",
               "reviewVerdict": null,
               "ciGate": "success"
             }
@@ -121,6 +457,34 @@
               "mergedAt": "2026-11-03T14:36:42.000Z",
               "mergeCommit": "184efbac8c339ae2c44ac590e632886de0eb2edd",
               "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "shipped-features-freshness-8205",
+      "title": "shipped-features-freshness",
+      "trackingIssue": 8205,
+      "proposalIssue": 7988,
+      "proposalEvidence": "`apps/marketing/src/data/shipped-features.json` — the entire data source for the `/shipped` and `/shipped/:slug` pages built by #6896/#6918 specifically to \"show one page per shipped feature, from proposal to merged PRs\" — has `\"generatedAt\": \"2026-10-16T22:38:05.000Z\"`. Today is 2026-10-31: **15 days stale**.",
+      "proposedAt": "2026-10-31T16:07:59.000Z",
+      "firstMergedAt": "2026-11-04T14:36:42.000Z",
+      "lastMergedAt": "2026-11-04T14:36:42.000Z",
+      "wallClockHours": 94.5,
+      "liveUrl": null,
+      "children": [
+        {
+          "issue": 8204,
+          "title": "[Feature] shipped-features-freshness [3/3]: add a generatedAt freshness check so a future stall is visible",
+          "prs": [
+            {
+              "number": 8230,
+              "title": "feat(scripts): watch shipped-features snapshot freshness (mbe-feature-drain #8204)",
+              "mergedAt": "2026-11-04T14:36:42.000Z",
+              "mergeCommit": "efd8c97b9ee20247dfddb75212e4cdf7d3b462e0",
+              "reviewVerdict": "pass",
               "ciGate": "success"
             }
           ]
@@ -246,6 +610,546 @@
               "title": "test(e2e): Dress Rehearsal end-to-end spec with zero-write route spy",
               "mergedAt": "2026-10-31T14:12:17.000Z",
               "mergeCommit": "9c3b363101352a412b91b39c0360691ac602f227",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "venue-availability-phase-1-time-structure-closures-enforcement-tracking-7493",
+      "title": "venue-availability Phase 1: time structure, closures, enforcement (tracking)",
+      "trackingIssue": 7493,
+      "proposalIssue": null,
+      "proposalEvidence": null,
+      "proposedAt": null,
+      "firstMergedAt": "2026-10-25T16:31:38.000Z",
+      "lastMergedAt": "2026-10-26T07:00:50.000Z",
+      "wallClockHours": 15.5,
+      "liveUrl": "/hospitality/availability",
+      "children": [
+        {
+          "issue": 7494,
+          "title": "venue-availability: Preview spike",
+          "prs": [
+            {
+              "number": 7537,
+              "title": "docs(venue-availability): preview spike passes — p95 190 ms against 1 s budget",
+              "mergedAt": "2026-10-25T16:31:38.000Z",
+              "mergeCommit": "5e21aa6044721d131b077d4322345139c1cd17b9",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7495,
+          "title": "venue-availability: Engine package scaffold",
+          "prs": [
+            {
+              "number": 7541,
+              "title": "feat(availability): scaffold the engine package with DST-safe date maths",
+              "mergedAt": "2026-10-25T17:13:52.000Z",
+              "mergeCommit": "478648288df828a394c562d1ad6fea41d0f98a89",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7496,
+          "title": "venue-availability: Config schemas",
+          "prs": [
+            {
+              "number": 7553,
+              "title": "feat(availability): config schemas and validateConfig",
+              "mergedAt": "2026-10-25T18:47:11.000Z",
+              "mergeCommit": "b2ab0482d649d2707e8ca4c38f6c10250b03b064",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7497,
+          "title": "venue-availability: resolveDay: schedules and assignments",
+          "prs": [
+            {
+              "number": 7555,
+              "title": "feat(availability): resolveDay for schedules and assignments",
+              "mergedAt": "2026-10-25T18:57:45.000Z",
+              "mergeCommit": "12843b586a8e8b01271d63f6f87373c672dbc641",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7498,
+          "title": "venue-availability: resolveDay: date rules and explanation",
+          "prs": [
+            {
+              "number": 7556,
+              "title": "feat(availability): resolveDay date rules and explanation",
+              "mergedAt": "2026-10-25T19:05:51.000Z",
+              "mergeCommit": "e26df9b1a455f9c3a49e9dafc42fa07b45fe8737",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7499,
+          "title": "venue-availability: listSlots and judge",
+          "prs": [
+            {
+              "number": 7558,
+              "title": "feat(availability): listSlots and judge with property tests",
+              "mergedAt": "2026-10-25T19:25:52.000Z",
+              "mergeCommit": "d936cb5ced729b5ec883b6257fc76aece8de8080",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7500,
+          "title": "venue-availability: Availability schema migration",
+          "prs": [
+            {
+              "number": 7554,
+              "title": "feat(reservations): availability schema migration",
+              "mergedAt": "2026-10-25T19:05:56.000Z",
+              "mergeCommit": "284d56d3cf9b3e2e06418242bef9fdf4bf2b009d",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7501,
+          "title": "venue-availability: Snapshot loader",
+          "prs": [
+            {
+              "number": 7567,
+              "title": "feat(reservations): availability snapshot loader",
+              "mergedAt": "2026-10-25T19:55:00.000Z",
+              "mergeCommit": "a861cf74ae02316c048f69cdbf84cb5e9cd1e5fe",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7502,
+          "title": "venue-availability: Legacy data migration and projection",
+          "prs": [
+            {
+              "number": 7571,
+              "title": "feat(reservations): migrate legacy operating hours to availability rows",
+              "mergedAt": "2026-10-25T20:34:05.000Z",
+              "mergeCommit": "ca70850b33ed7648d578defb69031b28fb1768af",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7503,
+          "title": "venue-availability: Listing on the engine",
+          "prs": [
+            {
+              "number": 7582,
+              "title": "feat(reservations): list availability through the engine",
+              "mergedAt": "2026-10-25T21:34:29.000Z",
+              "mergeCommit": "385084bbe6519bbbd26663f32ae53da70ff0448e",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7504,
+          "title": "venue-availability: Booking gate",
+          "prs": [
+            {
+              "number": 7590,
+              "title": "feat(reservations): booking gate through the availability engine",
+              "mergedAt": "2026-10-25T22:27:46.000Z",
+              "mergeCommit": "096b54acc2b6ff62838e12341907c3c910257ca4",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7505,
+          "title": "venue-availability: Staff override and check endpoint",
+          "prs": [
+            {
+              "number": 7596,
+              "title": "feat(reservations): staff override and availability check endpoint",
+              "mergedAt": "2026-10-26T00:19:49.000Z",
+              "mergeCommit": "16a90145b5b4eeafbc0f29ed5a15b8358b3bf19c",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            },
+            {
+              "number": 7607,
+              "title": "chore(metrics): queue telemetry 2026-10-26",
+              "mergedAt": "2026-10-26T00:30:30.000Z",
+              "mergeCommit": "ef5bc2ad7c1c09dadd3108a6ffed8c8315649ea9",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7506,
+          "title": "venue-availability: Service-day conflicts and timeline",
+          "prs": [
+            {
+              "number": 7618,
+              "title": "feat(availability): service-day conflicts and after-midnight timeline layout",
+              "mergedAt": "2026-10-26T01:51:04.000Z",
+              "mergeCommit": "e04fef3a77b2ef4ca0568beab63b916de5719352",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7507,
+          "title": "venue-availability: Agent tools via availability endpoint",
+          "prs": [
+            {
+              "number": 7587,
+              "title": "feat(agent): check availability through the public endpoint",
+              "mergedAt": "2026-10-25T21:51:04.000Z",
+              "mergeCommit": "4418f5bf993a87e6c301c78fc43df4c5c1478cfe",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7508,
+          "title": "venue-availability: manageUrl builder",
+          "prs": [
+            {
+              "number": 7577,
+              "title": "fix(reservations): build guest manage links with the manage path",
+              "mergedAt": "2026-10-25T20:34:45.000Z",
+              "mergeCommit": "df46918756a8dc6801d1a72ea90094a244c853e7",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7509,
+          "title": "venue-availability: Venue roles",
+          "prs": [
+            {
+              "number": 7580,
+              "title": "feat(auth): requireVenueRole guard with manager role for venue writes",
+              "mergedAt": "2026-10-25T20:46:41.000Z",
+              "mergeCommit": "7a47a8cd58b2a7c0697fec0c512e33323f8df63d",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7510,
+          "title": "venue-availability: Team roles UI",
+          "prs": [
+            {
+              "number": 7585,
+              "title": "feat(hospitality): Team roles card with Host emergency-close grant",
+              "mergedAt": "2026-10-25T22:00:50.000Z",
+              "mergeCommit": "1ac080220c244a9de66899d6864def13cf15c4a1",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7511,
+          "title": "venue-availability: Config API",
+          "prs": [
+            {
+              "number": 7586,
+              "title": "feat(reservations): availability config API with compare-and-set",
+              "mergedAt": "2026-10-25T22:15:50.000Z",
+              "mergeCommit": "d97edbd4245b39fc9d94a5a744666ce38a831510",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7512,
+          "title": "venue-availability: Preview endpoint",
+          "prs": [
+            {
+              "number": 7593,
+              "title": "feat(reservations): availability preview endpoint",
+              "mergedAt": "2026-10-25T23:32:38.000Z",
+              "mergeCommit": "292fbbdf858dddac8888a5c72dd578f6dc0eb203",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7513,
+          "title": "venue-availability: Quick setup and onboarding",
+          "prs": [
+            {
+              "number": 7606,
+              "title": "feat(hospitality): availability quick setup and onboarding hours step",
+              "mergedAt": "2026-10-26T01:02:08.000Z",
+              "mergeCommit": "8011560302acc7eee359757ef1c61a0f8a926939",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7514,
+          "title": "venue-availability: AvailabilityCalendar and day drawer (read)",
+          "prs": [
+            {
+              "number": 7594,
+              "title": "feat(hospitality): availability calendar and read-only day drawer",
+              "mergedAt": "2026-10-25T23:09:48.000Z",
+              "mergeCommit": "688ecda3406b63200fc17412eff4df8ba05a1ca9",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7515,
+          "title": "venue-availability: Drawer editing",
+          "prs": [
+            {
+              "number": 7621,
+              "title": "feat(hospitality): availability drawer editing",
+              "mergedAt": "2026-10-26T02:33:15.000Z",
+              "mergeCommit": "6c8fe9726d4e5e88ab1475407a0c234289d2750f",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7516,
+          "title": "venue-availability: Guest preview panel",
+          "prs": [
+            {
+              "number": 7628,
+              "title": "feat(hospitality): availability guest preview panel",
+              "mergedAt": "2026-10-26T04:42:42.000Z",
+              "mergeCommit": "4fa0e57defac8e9b2648e5af40c307bbc701c4df",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7517,
+          "title": "venue-availability: Schedules, Compare and copy",
+          "prs": [
+            {
+              "number": 7629,
+              "title": "feat(hospitality): availability schedules, compare and copy",
+              "mergedAt": "2026-10-26T03:42:10.000Z",
+              "mergeCommit": "8ce70562775252927ac462adfb1046749c7af738",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7518,
+          "title": "venue-availability: Multi-select",
+          "prs": [
+            {
+              "number": 7622,
+              "title": "feat(hospitality): availability multi-select",
+              "mergedAt": "2026-10-26T04:57:53.000Z",
+              "mergeCommit": "c3c9b8279859d8bf86d24078decab24467035b13",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7519,
+          "title": "venue-availability: History and undo",
+          "prs": [
+            {
+              "number": 7623,
+              "title": "feat(availability): history drawer, revert and undo toast, migration banner",
+              "mergedAt": "2026-10-26T05:51:58.000Z",
+              "mergeCommit": "ac485f7adcb7dcefac6ea00f06f5680fdff780f9",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7520,
+          "title": "venue-availability: Closure impact",
+          "prs": [
+            {
+              "number": 7592,
+              "title": "feat(reservations): closure impact preview endpoint",
+              "mergedAt": "2026-10-25T23:02:17.000Z",
+              "mergeCommit": "59174c884d14c8ff2e9a3a74dec6f1a22fff045c",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7521,
+          "title": "venue-availability: Closure command",
+          "prs": [
+            {
+              "number": 7600,
+              "title": "feat(reservations): closure command (POST /closures, DELETE /closures/:ruleId)",
+              "mergedAt": "2026-10-26T02:36:00.000Z",
+              "mergeCommit": "0f6c91e0d244aae9c4b01750058e761b98d101bf",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7522,
+          "title": "venue-availability: Rebook offers",
+          "prs": [
+            {
+              "number": 7579,
+              "title": "feat(availability): rebookOffers in the engine",
+              "mergedAt": "2026-10-25T20:43:42.000Z",
+              "mergeCommit": "72094e8d9c6048ab62d1e7c5a4608c0512f24ef5",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7523,
+          "title": "venue-availability: Closure notices",
+          "prs": [
+            {
+              "number": 7638,
+              "title": "feat(reservations): closure notices (CLOSURE_NOTICE job)",
+              "mergedAt": "2026-10-26T05:30:14.000Z",
+              "mergeCommit": "839d9164493526b6d0d24e48a433c41734bd769e",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7524,
+          "title": "venue-availability: Closure refunds",
+          "prs": [
+            {
+              "number": 7632,
+              "title": "feat(reservations): closure refunds job",
+              "mergedAt": "2026-10-26T03:54:28.000Z",
+              "mergeCommit": "02ef3611e8928319162c9421c44c198f6795d6a5",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7526,
+          "title": "venue-availability: Close dialog",
+          "prs": [
+            {
+              "number": 7637,
+              "title": "feat(hospitality): availability Close dialog with affected-booking decisions",
+              "mergedAt": "2026-10-26T05:24:37.000Z",
+              "mergeCommit": "d42b9372225e48de2fd05c8f1caacd76686cd707",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7528,
+          "title": "venue-availability: Manage page rebook",
+          "prs": [
+            {
+              "number": 7617,
+              "title": "feat(availability): manage page rebook for venue-cancelled bookings",
+              "mergedAt": "2026-10-26T03:15:13.000Z",
+              "mergeCommit": "bf9504d44eda729157a8f7ca60ba565428851c6b",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7529,
+          "title": "venue-availability: Tonight API",
+          "prs": [
+            {
+              "number": 7633,
+              "title": "feat(reservations): Tonight API",
+              "mergedAt": "2026-10-26T04:44:16.000Z",
+              "mergeCommit": "04ed2129df99b4c195055007615582d2d5388057",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7530,
+          "title": "venue-availability: Tonight panel",
+          "prs": [
+            {
+              "number": 7650,
+              "title": "feat(hospitality): Tonight panel with emergency close",
+              "mergedAt": "2026-10-26T07:00:50.000Z",
+              "mergeCommit": "b869974bb69c008025b1e4c128ad4f737dc549d8",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7531,
+          "title": "venue-availability: Staff form live check",
+          "prs": [
+            {
+              "number": 7645,
+              "title": "feat(hospitality): staff booking form live availability check",
+              "mergedAt": "2026-10-26T06:09:07.000Z",
+              "mergeCommit": "fef802470322fa10d0eb6184ebae711461fd96bb",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7532,
+          "title": "venue-availability: Widget and rialto date labels",
+          "prs": [
+            {
+              "number": 7598,
+              "title": "feat(hospitality): widget date labels, closure and pause notices",
+              "mergedAt": "2026-10-25T23:34:38.000Z",
+              "mergeCommit": "36f7c91380c1fc3440d80dc12c9fcb5245b2bde9",
               "reviewVerdict": null,
               "ciGate": "success"
             }
@@ -415,6 +1319,132 @@
               "mergedAt": "2026-10-24T14:15:01.000Z",
               "mergeCommit": "00676540497885cf9a8997ef65cb3ae9232a15db",
               "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "eat-sheet-migration-tracking-issue-the-live-rewrite-s-delta-teardown-7257",
+      "title": "eat-sheet migration: tracking issue (the live rewrite's delta + teardown)",
+      "trackingIssue": 7257,
+      "proposalIssue": null,
+      "proposalEvidence": null,
+      "proposedAt": null,
+      "firstMergedAt": "2026-10-22T05:29:16.000Z",
+      "lastMergedAt": "2026-10-22T19:34:55.000Z",
+      "wallClockHours": 15.2,
+      "liveUrl": "/hospitality/floor-plans",
+      "children": [
+        {
+          "issue": 7249,
+          "title": "feat(hospitality): furniture art for floor-plan tables and seats (eat-sheet port A)",
+          "prs": [
+            {
+              "number": 7260,
+              "title": "feat(hospitality): furniture art for floor-plan tables and seats (eat-sheet port A)",
+              "mergedAt": "2026-10-22T05:33:49.000Z",
+              "mergeCommit": "84a635beec3e1a77c50c89c34e293e992fa950de",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7250,
+          "title": "feat(reservations): venue profile fields - type, cuisines, address, website (eat-sheet port B)",
+          "prs": [
+            {
+              "number": 7262,
+              "title": "feat(reservations): venue profile fields at Venue.settings.profile (eat-sheet port B)",
+              "mergedAt": "2026-10-22T06:31:18.000Z",
+              "mergeCommit": "dcb7a18860b803bbe7132ee7c8ce396383a7403f",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7251,
+          "title": "feat(hospitality): per-venue theme with a contrast gate (eat-sheet port C)",
+          "prs": [
+            {
+              "number": 7259,
+              "title": "feat(hospitality): per-venue theme with a contrast gate (mbe-feature-drain #7251)",
+              "mergedAt": "2026-10-22T05:29:16.000Z",
+              "mergeCommit": "3b2ffb68eeb6382248460f2affc2afbe4d895fc9",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7252,
+          "title": "feat(hospitality): floor-plan walls and windows (eat-sheet port E)",
+          "prs": [
+            {
+              "number": 7265,
+              "title": "feat(hospitality): floor-plan walls and windows (mbe-feature-drain #7252)",
+              "mergedAt": "2026-10-22T06:03:47.000Z",
+              "mergeCommit": "662053f1b07bc0afe1b03eb3a5b233fcb0cf1e59",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7253,
+          "title": "[Feature] eat-sheet port [F]: floor-plan sections with RLS and table assignment",
+          "prs": [
+            {
+              "number": 7281,
+              "title": "feat(hospitality): floor-plan sections with RLS and table assignment (eat-sheet port F) (mbe-feature-drain #7253)",
+              "mergedAt": "2026-10-22T13:38:06.000Z",
+              "mergeCommit": "149ce059eb862086d5212753355ff8b3a526dc3e",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7254,
+          "title": "[Feature] eat-sheet port [D]: derive a venue palette from its logo, in the browser",
+          "prs": [
+            {
+              "number": 7284,
+              "title": "feat(hospitality): derive a venue palette from its logo, in the browser",
+              "mergedAt": "2026-10-22T16:08:01.000Z",
+              "mergeCommit": "6cbbb96f6c790ac22e76f21bdc3bc54cc3b86019",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7255,
+          "title": "[Feature] eat-sheet port [G]: floor materials and textures per section",
+          "prs": [
+            {
+              "number": 7285,
+              "title": "feat(hospitality): per-section floor materials rendered as canvas textures",
+              "mergedAt": "2026-10-22T16:50:04.000Z",
+              "mergeCommit": "ff5fccbaf990023783c036f670027e3bd85ecbda",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7256,
+          "title": "[Feature] eat-sheet port [H]: floor-plan templates in new-plan and onboarding",
+          "prs": [
+            {
+              "number": 7288,
+              "title": "feat(hospitality): port the seven eat-sheet floor-plan room templates",
+              "mergedAt": "2026-10-22T19:34:55.000Z",
+              "mergeCommit": "e4bc8bf4864e0fc9fcaa0a11876285a599544448",
+              "reviewVerdict": "flag",
               "ciGate": "success"
             }
           ]
@@ -820,6 +1850,118 @@
               "title": "refactor(service-bootstrap): fold @mbe/observability into the package",
               "mergedAt": "2026-10-19T04:43:57.000Z",
               "mergeCommit": "47b422d4d52e7e9733689880f5841a290a603c9b",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "menus-tracking-issue-eat-sheet-port-7074",
+      "title": "menus: tracking issue (eat-sheet port)",
+      "trackingIssue": 7074,
+      "proposalIssue": null,
+      "proposalEvidence": null,
+      "proposedAt": null,
+      "firstMergedAt": "2026-10-18T19:20:24.000Z",
+      "lastMergedAt": "2026-10-18T22:36:26.000Z",
+      "wallClockHours": 3.6,
+      "liveUrl": "/hospitality/menus",
+      "children": [
+        {
+          "issue": 7067,
+          "title": "[Feature] menus [1/7]: schema, migration and RLS for Menu, MenuSection, MenuItem",
+          "prs": [
+            {
+              "number": 7075,
+              "title": "feat(reservations): add Menu, MenuSection and MenuItem models with RLS (mbe-feature-drain #7067)",
+              "mergedAt": "2026-10-18T19:20:24.000Z",
+              "mergeCommit": "ef94849d22daea0dbaea0b24f928b46c40a91de3",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7068,
+          "title": "[Feature] menus [2/7]: venue-scoped operator API for menus, sections and items",
+          "prs": [
+            {
+              "number": 7079,
+              "title": "feat(reservations): venue-scoped menus API and api-client (mbe-feature-drain #7068)",
+              "mergedAt": "2026-10-18T20:02:27.000Z",
+              "mergeCommit": "61f8322c620f33676436693e47937fc63b40a6f7",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7069,
+          "title": "[Feature] menus [3/7]: public read-only menu API",
+          "prs": [
+            {
+              "number": 7082,
+              "title": "feat(reservations): public read-only menu API and api-client (mbe-feature-drain #7069)",
+              "mergedAt": "2026-10-18T20:28:46.000Z",
+              "mergeCommit": "80e2418b906db6f5f952036fe57c423574474f54",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7070,
+          "title": "[Feature] menus [4/7]: operator Menus dashboard page and editor",
+          "prs": [
+            {
+              "number": 7084,
+              "title": "feat(hospitality): Menus dashboard area with editor and sold-out toggle (mbe-feature-drain #7070)",
+              "mergedAt": "2026-10-18T21:01:22.000Z",
+              "mergeCommit": "242141b9143981fe5b359fa16135527c5b8b7ee3",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7071,
+          "title": "[Feature] menus [5/7]: public guest menu pages",
+          "prs": [
+            {
+              "number": 7083,
+              "title": "feat(hospitality): public guest menu pages (mbe-feature-drain #7071)",
+              "mergedAt": "2026-10-18T21:44:52.000Z",
+              "mergeCommit": "6e50687ba8feb928ed6749e200af4ec5e3b53f40",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7072,
+          "title": "[Feature] menus [6/7]: client-side QR code download for menus",
+          "prs": [
+            {
+              "number": 7085,
+              "title": "feat(hospitality): client-side QR code download for menus (mbe-feature-drain #7072)",
+              "mergedAt": "2026-10-18T21:21:11.000Z",
+              "mergeCommit": "5f9be60e209254041e166232b85d13d40525889e",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7073,
+          "title": "[Feature] menus [7/7]: E2E for the operator-to-guest menu loop",
+          "prs": [
+            {
+              "number": 7086,
+              "title": "test(hospitality): E2E for the operator-to-guest menu loop (mbe-feature-drain #7073)",
+              "mergedAt": "2026-10-18T22:36:26.000Z",
+              "mergeCommit": "af0d8d5460876f05687aed7df0e73161cbfefc24",
               "reviewVerdict": null,
               "ciGate": "success"
             }
