@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { GlobalNav, ThemeToggle } from "@mattbutlerengineering/rialto";
+import { engineeringMenu } from "@mbe/site-nav";
 import { homeUrl, type HostConfig } from "../lib/host-brand.js";
 import styles from "./AppNav.module.css";
 
@@ -25,6 +26,7 @@ export function AppNav({ host, theme, onThemeToggle }: AppNavProps) {
         currentApp="hospitality"
         theme={theme}
         onThemeToggle={onThemeToggle}
+        menu={engineeringMenu("/hospitality/")}
         labels={{
           marketing: t("shell.globalNav.marketing"),
           hospitality: t("shell.globalNav.hospitality"),

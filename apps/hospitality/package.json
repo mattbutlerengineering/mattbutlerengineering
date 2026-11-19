@@ -220,6 +220,7 @@
     "@mbe/cancellation-policy": "workspace:*",
     "@mbe/rialto-catalog": "workspace:*",
     "@mbe/sentry": "workspace:*",
+    "@mbe/site-nav": "workspace:*",
     "@mbe/types": "workspace:*",
     "@microsoft/fetch-event-source": "^2.0.1",
     "@stripe/react-stripe-js": "^7.1.0",

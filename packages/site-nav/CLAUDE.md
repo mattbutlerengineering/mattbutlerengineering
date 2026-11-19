@@ -19,6 +19,7 @@ src/
 
 - `apps/marketing` (`src/App.tsx`) — header menu and rich footer on every page
 - `apps/gen` (`src/components/SiteChrome.tsx`) — the signed-out and auth-failure screens
+- `apps/hospitality` (`src/components/AppNav.tsx`, `src/App.tsx`) — Engineering menu in the header and the rich footer on the signed-out shell (mattbutlerengineering.com host only; eat-sheet.com keeps its brand bar and minimal footer)
 
 ## Adding a page to the Engineering menu
 

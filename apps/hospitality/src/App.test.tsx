@@ -63,7 +63,25 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   GlobalNav: ({ labels }: { labels?: Record<string, string> }) => (
     <nav data-testid="global-nav" data-labels={JSON.stringify(labels)} />
   ),
-  Footer: ({ children }: { children: React.ReactNode }) => <footer>{children}</footer>,
+  Footer: ({
+    children,
+    variant,
+    columns,
+    copyright,
+  }: {
+    children?: React.ReactNode;
+    variant?: string;
+    columns?: { title: string }[];
+    copyright?: string;
+  }) => (
+    <footer data-variant={variant}>
+      {columns?.map((c) => (
+        <nav key={c.title} aria-label={c.title} />
+      ))}
+      {copyright}
+      {children}
+    </footer>
+  ),
   DepartureBoard: ({
     phrases,
     role,
@@ -154,6 +172,14 @@ describe("App", () => {
       screen.getByText("You're signed out. Sign in again whenever you're ready.")
     ).toBeDefined();
     expect(screen.getByRole("button", { name: "Sign In" })).toBeDefined();
+  });
+
+  it("gives the signed-out shell the site's rich footer with project links (#9151)", () => {
+    renderAt({ phase: "signed-out", afterSignOut: false });
+    const footer = screen.getByRole("contentinfo");
+    expect(footer.getAttribute("data-variant")).toBe("rich");
+    expect(screen.getByRole("navigation", { name: "Projects" })).toBeDefined();
+    expect(footer.textContent).toContain(`${new Date().getFullYear()} Matt Butler Engineering`);
   });
 
   it("renders the session-expired gate for the expired phase", () => {

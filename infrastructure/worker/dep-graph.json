@@ -240,6 +240,11 @@
     },
     {
       "from": "@mbe/hospitality",
+      "to": "@mbe/site-nav",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/hospitality",
       "to": "@mbe/types",
       "type": "dependency"
     },

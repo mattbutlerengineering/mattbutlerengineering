@@ -61,6 +61,7 @@ flowchart TD
   hospitality --> cancellation_policy
   hospitality --> rialto_catalog
   hospitality --> sentry
+  hospitality --> site_nav
   hospitality --> types
   hospitality --> config
   hospitality --> ui_quality_capture
