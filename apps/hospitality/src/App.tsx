@@ -6,6 +6,7 @@ import { Suspense } from "react";
 import { useAuthGate, signinReturnTo } from "@mbe/auth/react";
 import type { AuthGate } from "@mbe/auth/react";
 import { Text, Footer } from "@mattbutlerengineering/rialto";
+import { siteCopyright, siteFooterColumns } from "@mbe/site-nav";
 import { AppNav } from "./components/AppNav.js";
 import { currentHostConfig } from "./lib/host-brand.js";
 import { useTheme, useThemeServerHydration } from "./hooks/use-theme";
@@ -39,9 +40,19 @@ function UnauthenticatedShell({
       <main id="main-content" tabIndex={-1} className={styles.loginContainer}>
         {children}
       </main>
-      <Footer variant="minimal" className={styles.footer}>
-        <Text>{t("shell.copyright", { year: new Date().getFullYear() })}</Text>
-      </Footer>
+      {currentHostConfig().standalone ? (
+        <Footer variant="minimal" className={styles.footer}>
+          <Text>{t("shell.copyright", { year: new Date().getFullYear() })}</Text>
+        </Footer>
+      ) : (
+        <Footer
+          variant="rich"
+          className={styles.footer}
+          logo={<Text>{currentHostConfig().brand.logo}</Text>}
+          columns={siteFooterColumns()}
+          copyright={siteCopyright(new Date().getFullYear())}
+        />
+      )}
     </div>
   );
 }

@@ -93,6 +93,7 @@ jobs:
               - 'packages/cancellation-policy/**'
               - 'packages/availability/**'
               - 'packages/sentry/**'
+              - 'packages/site-nav/**'
             rialto-web:
               - '.github/workflows/deploy-static.yml'
               - 'apps/rialto-web/**'
