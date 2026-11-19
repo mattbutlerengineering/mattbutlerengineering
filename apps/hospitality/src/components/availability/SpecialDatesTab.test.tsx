@@ -1030,7 +1030,9 @@ describe("SpecialDatesTab", () => {
             expect(
               screen.getByText("1 date in this scope already has its own changes")
             ).toBeTruthy();
-            fireEvent.click(screen.getByRole("button", { name: "Save 13 dates" }));
+            fireEvent.click(
+              screen.getByRole("button", { name: "Save 13 dates, own hours kept on 1" })
+            );
 
             await waitFor(() => expect(saveConfig).toHaveBeenCalledTimes(1));
             expect(sent().scopeConflicts).toBe("keep");

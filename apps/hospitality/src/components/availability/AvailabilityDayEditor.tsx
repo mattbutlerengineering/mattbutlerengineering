@@ -191,6 +191,9 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
     edit?.mode === "keep" && dates.length > 1
       ? previewDates.length - own.length
       : previewDates.length;
+  // The dates Keep theirs leaves alone, named in the Save label so one number never hides them.
+  // Zero written dates keeps the plain label: the blocked reason already says why.
+  const keptCount = writtenCount > 0 ? previewDates.length - writtenCount : 0;
   // A rule edit goes through the server's keep/replace for its dates that have their own change.
   const conflictMode: ScopeConflictMode =
     ruleScope || dates.length > 1 ? (edit?.mode ?? "keep") : "replace";
@@ -657,7 +660,9 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
           isLoading={isPending && !conflict}
           onClick={() => void submit(false)}
         >
-          {t("availability.editor.save", { count: writtenCount })}
+          {keptCount > 0
+            ? t("availability.editor.saveKeeping", { count: writtenCount, kept: keptCount })
+            : t("availability.editor.save", { count: writtenCount })}
         </Button>
       </div>
       {conflict && (
