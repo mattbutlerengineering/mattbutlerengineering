@@ -1,3 +1,4 @@
+// FIXME: Chaos Agent synthetic issue. This should be detected by scout mode.
 import { Card, DataList, Select, Stack, Stat, Text } from "@mattbutlerengineering/rialto";
 import { useState } from "react";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
