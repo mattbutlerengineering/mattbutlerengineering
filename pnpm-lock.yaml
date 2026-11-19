@@ -205,6 +205,9 @@ importers:
       '@mbe/sentry':
         specifier: workspace:*
         version: link:../../packages/sentry
+      '@mbe/site-nav':
+        specifier: workspace:*
+        version: link:../../packages/site-nav
       react:
         specifier: 'catalog:'
         version: 19.3.1
@@ -402,6 +405,9 @@ importers:
       '@mbe/sentry':
         specifier: workspace:*
         version: link:../../packages/sentry
+      '@mbe/site-nav':
+        specifier: workspace:*
+        version: link:../../packages/site-nav
       '@tanstack/react-query':
         specifier: ^5.107.1
         version: 5.107.1(@types/react@19.3.0)(react@19.3.1)
@@ -1225,6 +1231,24 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 4.6.7
+
+  packages/site-nav:
+    devDependencies:
+      '@mbe/config':
+        specifier: workspace:*
+        version: link:../config
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.6
+      '@vitest/coverage-v8':
+        specifier: 'catalog:'
+        version: 5.0.5(@vitest/browser@5.0.5)(vitest@5.0.5)
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+      vitest:
+        specifier: 'catalog:'
+        version: 5.0.5(@opentelemetry/api@1.9.1)(@types/node@26.6.6)(@vitest/browser-playwright@5.0.5)(@vitest/coverage-v8@5.0.5)(@vitest/ui@5.0.5)(jsdom@31.0.1)(vite@8.3.8(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
 
   packages/types:
     dependencies:

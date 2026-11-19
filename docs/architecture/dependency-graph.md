@@ -34,6 +34,7 @@ flowchart TD
     rialto_plugin["rialto-plugin"]
     sentry["sentry"]
     service_bootstrap["service-bootstrap"]
+    site_nav["site-nav"]
     types["types"]
     ui_quality_capture["ui-quality-capture"]
   end
@@ -51,6 +52,7 @@ flowchart TD
   gen --> auth
   gen --> rialto_catalog
   gen --> sentry
+  gen --> site_nav
   gen --> config
   hospitality --> rialto
   hospitality --> api_client
@@ -64,6 +66,7 @@ flowchart TD
   hospitality --> ui_quality_capture
   marketing --> rialto
   marketing --> sentry
+  marketing --> site_nav
   marketing --> config
   marketing --> ui_quality_capture
   rialto_web --> rialto
@@ -120,6 +123,7 @@ flowchart TD
   service_bootstrap --> sentry
   service_bootstrap --> types
   service_bootstrap --> config
+  site_nav --> config
   types --> config
   ui_quality_capture --> config
   cli --> agent_core
@@ -163,6 +167,7 @@ flowchart TD
   class rialto_plugin entrypoint
   class sentry shared
   class service_bootstrap shared
+  class site_nav shared
   class types shared
   class ui_quality_capture shared
   class cli tooling

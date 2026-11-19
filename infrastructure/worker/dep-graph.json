@@ -112,6 +112,11 @@
       "path": "packages/service-bootstrap"
     },
     {
+      "name": "@mbe/site-nav",
+      "type": "package",
+      "path": "packages/site-nav"
+    },
+    {
       "name": "@mbe/types",
       "type": "package",
       "path": "packages/types"
@@ -190,6 +195,11 @@
     },
     {
       "from": "@mbe/gen",
+      "to": "@mbe/site-nav",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/gen",
       "to": "@mbe/config",
       "type": "devDependency"
     },
@@ -251,6 +261,11 @@
     {
       "from": "@mbe/marketing",
       "to": "@mbe/sentry",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/marketing",
+      "to": "@mbe/site-nav",
       "type": "dependency"
     },
     {
@@ -540,6 +555,11 @@
     },
     {
       "from": "@mbe/service-bootstrap",
+      "to": "@mbe/config",
+      "type": "devDependency"
+    },
+    {
+      "from": "@mbe/site-nav",
       "to": "@mbe/config",
       "type": "devDependency"
     },

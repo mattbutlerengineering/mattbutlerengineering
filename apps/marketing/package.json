@@ -57,6 +57,7 @@
     "react-dom": "catalog:",
     "react-router": "catalog:",
     "@mbe/sentry": "workspace:*",
+    "@mbe/site-nav": "workspace:*",
     "three": "^0.187.0"
   },
   "devDependencies": {
