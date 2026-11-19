@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, fireEvent, within } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent, within, act } from "@testing-library/react";
 import { MemoryRouter, useLocation, useNavigate } from "react-router";
 import { ReservationsPage } from "./ReservationsPage.js";
 
@@ -1088,5 +1088,23 @@ describe("ReservationsPage", () => {
       expect(screen.queryByText("tbl_e2e_003")).toBeNull();
       expect(screen.queryByText(/^tbl_/)).toBeNull();
     });
+  });
+
+  it("keeps the Updated-ago ticker from re-rendering the page, while its text still advances", () => {
+    vi.useFakeTimers();
+    try {
+      renderPage();
+      expect(screen.getByText(/^Updated just now$/i)).toBeInTheDocument();
+      const rendersBefore = vi.mocked(useTables).mock.calls.length;
+
+      act(() => {
+        vi.advanceTimersByTime(20_000);
+      });
+
+      expect(screen.getByText(/^Updated 20s ago$/i)).toBeInTheDocument();
+      expect(vi.mocked(useTables).mock.calls.length).toBe(rendersBefore);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
