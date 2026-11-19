@@ -26,7 +26,9 @@ export function manualChunks(id: string): string | undefined {
     }
   }
   // Rialto design system — large shared UI, loaded once
-  if (id.includes("/packages/rialto/")) {
+  // Locale dictionaries are dynamic-imported per locale (i18n/runtime.tsx), so
+  // they are left to Rollup's default chunking instead of the eager vendor chunk.
+  if (id.includes("/packages/rialto/") && !id.includes("/i18n/locales/")) {
     return "rialto-vendor";
   }
   // Auth package — shared auth layer

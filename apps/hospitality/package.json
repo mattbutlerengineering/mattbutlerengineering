@@ -151,9 +151,9 @@
       "limit": "64 kB"
     },
     {
-      "name": "Rialto Vendor (design system; 91.84 kB before typed dates in DatePicker: +1 kB at #8798, availability-hub C2.1, for the typed-date reader, the field's problem state and four message keys in three locales, 92.84 kB measured; +0.95 kB at #8972 for the framer-motion/motion-dom 14.12 → 14.14 bump that rialto bundles, 93.85 kB (93,846 B) measured, 92.9 kB on main before; re-measured at 93,846 B after merging main at #8978; +0.21 kB at #9031 for the Table scroll wrapper switching role=region to role=group, 94,061 B measured twice in CI, limit 95 kB for room against hash-driven drift)",
+      "name": "Rialto Vendor (design system; 91.84 kB before typed dates in DatePicker: +1 kB at #8798, availability-hub C2.1, for the typed-date reader, the field's problem state and four message keys in three locales, 92.84 kB measured; +0.95 kB at #8972 for the framer-motion/motion-dom 14.12 → 14.14 bump that rialto bundles, 93.85 kB (93,846 B) measured, 92.9 kB on main before; re-measured at 93,846 B after merging main at #8978; +0.21 kB at #9031 for the Table scroll wrapper switching role=region to role=group, 94,061 B measured twice in CI, limit 95 kB for room against hash-driven drift); #9156 moved the three rialto locale dictionaries out to lazy chunks, 91.76 kB measured, limit 93 kB",
       "path": "dist/assets/rialto-vendor-*.js",
-      "limit": "95 kB"
+      "limit": "93 kB"
     },
     {
       "name": "Router Vendor (react-router)",
