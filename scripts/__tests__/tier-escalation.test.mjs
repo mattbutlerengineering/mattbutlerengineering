@@ -159,6 +159,27 @@ describe("replay", () => {
   });
 });
 
+// #9125: the daily acmm-regression PR also rewrites metrics.json; unmatched, it
+// defaulted to T2 (tier:standard) and auto-merge was never enabled.
+describe("classifyPaths: acmm-regression PR (#9125)", () => {
+  it("the acmm-regression file set classifies T1", () => {
+    expect(
+      classifyPaths([
+        ".claude/acmm/state.json",
+        "apps/marketing/public/acmm-report.json",
+        "apps/marketing/public/metrics.json",
+        "README.md",
+      ]).tier
+    ).toBe(1);
+  });
+
+  it("metrics.json beside unrelated source stays above T1", () => {
+    expect(
+      classifyPaths(["apps/marketing/public/metrics.json", "packages/types/src/a.ts"]).tier
+    ).toBeGreaterThanOrEqual(2);
+  });
+});
+
 describe("docs/change-tiers.md agrees with the module", () => {
   it("names every excluded-from-size pattern", () => {
     const doc = readFileSync(resolve(ROOT, "docs/change-tiers.md"), "utf8");
