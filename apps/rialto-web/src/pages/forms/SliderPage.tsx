@@ -154,7 +154,11 @@ export function SliderPage() {
           items={[
             { label: "Role", value: "role=slider" },
             { label: "State", value: "aria-valuenow, aria-valuemin, aria-valuemax" },
-            { label: "Keyboard", value: "Arrow Left/Right to decrement/increment" },
+            { label: "Keyboard", value: "Arrow Left/Right to decrement/increment by one step" },
+            {
+              label: "Keyboard",
+              value: "Page Up/Down move by the same larger step, so each undoes the other",
+            },
             { label: "Keyboard", value: "Home/End jump to min/max" },
             { label: "Focus", value: "Gold glow ring on focus-visible on the thumb" },
             {
