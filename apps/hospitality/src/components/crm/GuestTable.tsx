@@ -91,7 +91,8 @@ const GuestRow = memo(function GuestRow({
         .join(" ")}
     >
       <td className={styles.td}>
-        <Button
+        {/* eslint-disable-next-line mbe-local/prefer-rialto-components -- invisible full-row overlay; Rialto Button chrome would add shadows/press animation */}
+        <button
           type="button"
           className={styles.rowButton}
           onClick={() => onRowClick(guest.id)}
