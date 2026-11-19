@@ -22,6 +22,7 @@ export function CheckboxRadioPage() {
   const [checkB, setCheckB] = useState(false);
   const [checkC, setCheckC] = useState(false);
   const [radioValue, setRadioValue] = useState("sport");
+  const [tyreCompound, setTyreCompound] = useState("medium");
   const [playgroundChecked, setPlaygroundChecked] = useState(false);
   const [playgroundRadio, setPlaygroundRadio] = useState("a");
 
@@ -86,7 +87,12 @@ export function CheckboxRadioPage() {
             <Radio label="Wet" value="wet" disabled />
           </RadioGroup>
 
-          <RadioGroup label="Tyre Compound" name="showcase-tyre" value="medium" onChange={() => {}}>
+          <RadioGroup
+            label="Tyre Compound"
+            name="showcase-tyre"
+            value={tyreCompound}
+            onChange={setTyreCompound}
+          >
             <Radio label="Soft (C5)" value="soft" />
             <Radio label="Medium (C3)" value="medium" />
             <Radio label="Hard (C1)" value="hard" />

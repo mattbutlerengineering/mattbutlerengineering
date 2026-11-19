@@ -128,6 +128,108 @@ describe("Slider", () => {
       await user.keyboard("{ArrowRight}");
       expect(onChange).toHaveBeenCalledWith(10);
     });
+
+    it("moves PageUp and PageDown by the same multiple of step", async () => {
+      const user = userEvent.setup();
+      render(
+        <Slider
+          aria-label="Ride height (mm)"
+          min={30}
+          max={80}
+          step={2}
+          defaultValue={50}
+          showValue
+          formatValue={(v) => `${v}mm`}
+        />
+      );
+      const slider = screen.getByRole("slider");
+      slider.focus();
+
+      await user.keyboard("{PageUp}");
+      expect(slider).toHaveValue("56");
+      expect(screen.getByText("56mm")).toBeInTheDocument();
+
+      await user.keyboard("{PageDown}");
+      expect(slider).toHaveValue("50");
+      expect(screen.getByText("50mm")).toBeInTheDocument();
+    });
+
+    it("returns to the minimum when PageDown undoes PageUp from Home", async () => {
+      const user = userEvent.setup();
+      render(<Slider aria-label="Ride height (mm)" min={30} max={80} step={2} defaultValue={50} />);
+      const slider = screen.getByRole("slider");
+      slider.focus();
+
+      await user.keyboard("{Home}");
+      expect(slider).toHaveValue("30");
+      await user.keyboard("{PageUp}");
+      expect(slider).toHaveValue("36");
+      await user.keyboard("{PageDown}");
+      expect(slider).toHaveValue("30");
+    });
+
+    it("keeps PageUp and PageDown symmetric when 10% of the range is a half step", async () => {
+      const user = userEvent.setup();
+      const onChange = vi.fn();
+      render(
+        <Slider aria-label="Offset" min={1} max={51} step={2} value={25} onChange={onChange} />
+      );
+      const slider = screen.getByRole("slider");
+      slider.focus();
+
+      await user.keyboard("{PageUp}");
+      expect(onChange).toHaveBeenCalledWith(31);
+
+      onChange.mockClear();
+      slider.focus();
+      await user.keyboard("{PageDown}");
+      // Controlled value is still 25, so PageDown is the mirror of PageUp.
+      expect(onChange).toHaveBeenCalledWith(19);
+    });
+
+    it("still moves one step on the arrow keys when a page step is larger", async () => {
+      const user = userEvent.setup();
+      render(<Slider aria-label="Ride height (mm)" min={30} max={80} step={2} defaultValue={50} />);
+      const slider = screen.getByRole("slider");
+      slider.focus();
+      await user.keyboard("{ArrowRight}");
+      expect(slider).toHaveValue("52");
+      await user.keyboard("{ArrowLeft}");
+      expect(slider).toHaveValue("50");
+    });
+
+    it("clamps a page step that would leave the range", async () => {
+      const user = userEvent.setup();
+      render(<Slider aria-label="Ride height (mm)" min={30} max={80} step={2} defaultValue={76} />);
+      const slider = screen.getByRole("slider");
+      slider.focus();
+      await user.keyboard("{PageUp}");
+      expect(slider).toHaveValue("80");
+      await user.keyboard("{Home}{PageDown}");
+      expect(slider).toHaveValue("30");
+    });
+
+    it("uses 10% of the range when that distance is already a multiple of step", async () => {
+      const user = userEvent.setup();
+      render(<Slider aria-label="Volume" min={0} max={100} step={5} defaultValue={50} />);
+      const slider = screen.getByRole("slider");
+      slider.focus();
+      await user.keyboard("{PageUp}");
+      expect(slider).toHaveValue("60");
+      await user.keyboard("{PageDown}");
+      expect(slider).toHaveValue("50");
+    });
+
+    it("moves at least one step when step is larger than 10% of the range", async () => {
+      const user = userEvent.setup();
+      render(<Slider aria-label="Coarse" min={0} max={100} step={40} defaultValue={40} />);
+      const slider = screen.getByRole("slider");
+      slider.focus();
+      await user.keyboard("{PageUp}");
+      expect(slider).toHaveValue("80");
+      await user.keyboard("{PageDown}");
+      expect(slider).toHaveValue("40");
+    });
   });
 
   describe("ref forwarding", () => {

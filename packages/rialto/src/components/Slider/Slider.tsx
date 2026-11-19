@@ -43,6 +43,23 @@ function quantize(val: number, min: number, step: number) {
   return Math.round((val - min) / step) * step + min;
 }
 
+/** Share of the track a PageUp/PageDown press travels before it is snapped to `step`. */
+const PAGE_KEY_RANGE_FRACTION = 0.1;
+
+/**
+ * Distance a PageUp/PageDown press moves.
+ *
+ * Applying 10% of the range and then rounding the result onto `step` is not
+ * symmetric: on a 30–80 slider with step 2, 50 + 5 snaps to 56 and 56 − 5 snaps to 52.
+ * Snap the distance itself to a whole number of steps (at least one) first, so
+ * the opposite key returns to the value it started from.
+ */
+function pageKeyDelta(min: number, max: number, step: number): number {
+  if (!(step > 0) || !(max > min)) return step > 0 ? step : 0;
+  const steps = Math.max(1, Math.round(((max - min) * PAGE_KEY_RANGE_FRACTION) / step));
+  return steps * step;
+}
+
 export const Slider = forwardRef<HTMLDivElement, SliderProps>(
   (
     {
@@ -151,6 +168,14 @@ export const Slider = forwardRef<HTMLDivElement, SliderProps>(
           case "End":
             e.preventDefault();
             newVal = max;
+            break;
+          case "PageUp":
+            e.preventDefault();
+            newVal = currentValue + pageKeyDelta(min, max, step);
+            break;
+          case "PageDown":
+            e.preventDefault();
+            newVal = currentValue - pageKeyDelta(min, max, step);
             break;
           default:
             return;
