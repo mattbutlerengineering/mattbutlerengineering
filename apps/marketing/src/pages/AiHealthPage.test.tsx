@@ -48,6 +48,7 @@ vi.mock("./AiHealthPage.module.css", () => ({
     statCard: "statCard",
     statLabel: "statLabel",
     statValue: "statValue",
+    statValueText: "statValueText",
     statNote: "statNote",
     panelNote: "panelNote",
     sensorGrid: "sensorGrid",
@@ -367,6 +368,37 @@ describe("AiHealthPage", () => {
         expect(screen.getByText("Cost / Issue")).toBeInTheDocument();
       });
       expect(screen.getByText(/no PR cost data matched this window/i)).toBeInTheDocument();
+    });
+
+    // #9016: the live site audit still flagged this card even after #8632 —
+    // the bare "—" placeholder was still the rendered *value*, with the
+    // explanation only in a note underneath. The value slot itself must
+    // never be a bare dash when cost data is missing.
+    it("never renders a bare placeholder dash for Cost / Issue when no PR cost data matched this window (#9016)", async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          ...MOCK_REPORT,
+          sensors: {
+            ...MOCK_REPORT.sensors,
+            queueEfficiency: {
+              ...MOCK_REPORT.sensors.queueEfficiency,
+              sub_metrics: {
+                ...MOCK_REPORT.sensors.queueEfficiency.sub_metrics,
+                cost_per_issue_usd: null,
+              },
+            },
+          },
+        }),
+      });
+      renderPage();
+      const costLabel = await screen.findByText("Cost / Issue");
+      const costCard = costLabel.closest(".statCard");
+      expect(costCard).not.toBeNull();
+      expect(within(costCard as HTMLElement).queryByText("—")).not.toBeInTheDocument();
+      expect(
+        within(costCard as HTMLElement).getByText(/no PR cost data matched this window/i)
+      ).toBeInTheDocument();
     });
 
     it("renders a graceful not-available state when the sensor is missing", async () => {
