@@ -96,6 +96,15 @@
   color: var(--rialto-text-secondary);
 }
 
+/* A textual explanation standing in for a missing numeric stat (#9016) reads
+   oversized at statValue's 1.75rem/700 weight — scale it down to a readable
+   sentence instead. */
+.statValueText {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
 /* Caveat printed under a panel when its headline numbers need qualifying. */
 .panelNote {
   margin-top: 0.75rem;

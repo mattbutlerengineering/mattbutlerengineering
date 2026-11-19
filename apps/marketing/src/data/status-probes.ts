@@ -10,6 +10,14 @@ export const STATUS_SITES = [
   { name: "Rialto", url: "/rialto/" },
 ] as const;
 
+/**
+ * Where the AI-health dashboard's sensor snapshot lives — same static file
+ * `/ai-health` reads (#9016). /status reads the `e2eStability` entry from it
+ * so the two pages can't disagree: a sensor Unavailable there must not sit
+ * next to an unqualified "Operational" rollup here.
+ */
+export const STATUS_SENSOR_REPORT_URL = "/sensor-report.json";
+
 export interface ProbeFixture {
   status: number;
   contentType?: string;

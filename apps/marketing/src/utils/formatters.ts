@@ -7,6 +7,8 @@ export interface ServiceStatus {
   readonly version?: string;
   readonly latency?: number;
   readonly checkedAt?: string;
+  /** Owner-readable reason shown under a degraded/error row (#9016). */
+  readonly note?: string;
 }
 
 // --- Status color / label / overall ---
