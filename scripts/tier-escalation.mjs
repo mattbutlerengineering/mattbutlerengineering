@@ -170,7 +170,10 @@ export const RULES = [
   { tier: T1, when: (f) => /^metrics\//.test(f), why: "metrics append" },
   {
     tier: T1,
-    when: (f) => f === ".claude/acmm/state.json" || f === "apps/marketing/public/acmm-report.json",
+    when: (f) =>
+      f === ".claude/acmm/state.json" ||
+      f === "apps/marketing/public/acmm-report.json" ||
+      f === "apps/marketing/public/metrics.json",
     why: "automation-only ACMM audit output (same class as metrics/** above)",
   },
   {
