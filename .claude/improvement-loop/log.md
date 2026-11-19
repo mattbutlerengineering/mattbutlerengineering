@@ -1183,3 +1183,19 @@ A clean fire: everything due was captured and judged, and nothing met the bar to
 **queueEfficiency:** composite 0.938 (baseline n/a) — healthy
 **Difficulty distribution:** size:xs:19, size:s:32, size:m:11, size:xl:9, size:l:4
 **Issues filed:** 0
+
+## 2026-11-19 — mbe-ui-quality
+
+- **State:** `state.mjs checkout` exit 0, `source: branch` (`ui-quality/ledger` @ 8d5023b, merged `origin/main` 976679e, 0 conflicts resolved).
+- **Coverage before this fire:** 100% (136/136 reachable rows; 25 hospitality rows `unreachable:auth`).
+- **Routes:** 40 due, 40 captured, 40 audited (all `rialto-web`; marketing and hospitality had no due rows, so both capture runs skipped with "no routes planned"). Unjudged: 0. Dropped tells: 0.
+- **Browser:** resolved (`chromium_headless_shell-1243`). No `blocker: no-browser`.
+- **Mechanical detectors:** 0 findings.
+- **Judge:** all 40 routes judged clean against rubric v1's judged tells (both viewports read per route, 80 screenshots). No agent-built or semantic-a11y tells named.
+- **Calibration stamp:** `stale`. `calibration-status` returned exit 3; the one permitted calibration attempt hit `rate.mjs pairs --calibration` exit 2 — `docs/ui-quality/calibration.json` still has no labelled pairs (Verify-owned, awaiting Matt's one-time labelling of ≥ 10 pairs). Logged, not retried; the re-query returned exit 3 again, so the fire proceeded to rating with the `stale` stamp (agent-built findings stay suppressed by design).
+- **Rating:** 6 pairs judged, `rate.mjs record` → rialto-web 1.67.
+- **Filing:** plan produced **no actions** and 0 seeds. Issues created 0, reopened 0, commented 0. All 37 ledger issues fetched individually — every one closed; 40 `ui-quality`-labelled issues listed (single page, all closed), none unknown to the ledger, so no escalation issue. No rubric migration (all keys at r1, rubric_version 1).
+- **Fix PR:** none — no action carried `fix_pr_candidate`.
+- **P1 SLA:** 0 open `ui-quality:p1` issues; 0 breaches, 0 escalated.
+- **Pipeline bugs:** none. Steps (1)–(6) all ran.
+- **Net:** a clean no-finding fire — nothing new to file, nothing regressed.
