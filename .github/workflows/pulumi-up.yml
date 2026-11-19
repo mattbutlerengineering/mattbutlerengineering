@@ -12,6 +12,7 @@ on:
       - "packages/auth/**"
       - "packages/api-client/**"
       - "packages/sentry/**"
+      - "packages/site-nav/**"
       - "packages/types/**"
   # Run after static deploys so Service Binding targets exist before
   # Pulumi tries to reference them. Only triggers on successful completion.
