@@ -1,5 +1,11 @@
 # @mattbutlerengineering/rialto
 
+## 0.10.23
+
+### Patch Changes
+
+- [#9186](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9186) [`bf36aae`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/bf36aaefb237e47cf59d97583ebb23e963f2c66c) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Slider Page Up and Page Down move by the same multiple of `step`, so the opposite page key returns to the previous value.
+
 ## 0.10.22
 
 ### Patch Changes
