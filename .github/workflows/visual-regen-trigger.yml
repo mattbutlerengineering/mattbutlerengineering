@@ -19,7 +19,27 @@ name: Visual Regen Trigger
 # run/PR id). Dedupe: an app with an open regen PR is skipped rather than
 # re-dispatched, and gets its OWN comment on the culprit PR too, so a repeat
 # failure while a regen is pending is never silent.
+#
+# Push arm (#8781, Owner-approved design): marketing content merges move page
+# heights, so Apps Visual Regression went red on main between every content
+# merge and the follow-up regen PR. A push to main touching apps/marketing/**
+# (source, src/data/*.json, public/*.json all live under it) now dispatches
+# visual-baseline-regen.yml for `marketing` directly — a `needs-review` PNG PR
+# opens within minutes and a human still approves the pixels; nothing here
+# merges. Loop guard: the regen PR's own merge touches only
+# apps/marketing/e2e/screenshots/**, which the `!` path below excludes, so it
+# never re-fires. Several merges in a row collapse: the regen workflow's own
+# concurrency group is per app (one running, one pending), and it re-pushes the
+# same fixed branch, so a still-open regen PR is refreshed, not duplicated.
+# visual-baseline-regen.yml itself stays workflow_dispatch-only
+# (visual-diff-ref-trigger-safety.test.mjs); this file's push is branch-filtered
+# to main so it cannot fire for `measure/**` or `visual-diffs/**` refs.
 on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/marketing/**"
+      - "!apps/marketing/e2e/screenshots/**"
   workflow_run:
     workflows: ["Apps Visual Regression", "Rialto Web E2E"]
     types: [completed]
@@ -32,7 +52,7 @@ permissions:
   actions: write
 
 concurrency:
-  group: visual-regen-trigger-${{ github.event.workflow_run.id }}
+  group: visual-regen-trigger-${{ github.event.workflow_run.id || github.sha }}
   cancel-in-progress: false
 
 jobs:
@@ -41,7 +61,7 @@ jobs:
     # Only a genuine failure on a push to main is drift worth regenerating —
     # a pull_request run (non-goal: never regen on a PR branch) or a
     # cancelled run (not a real regression) must not dispatch anything.
-    if: ${{ github.event.workflow_run.conclusion == 'failure' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main' }}
+    if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
@@ -218,3 +238,24 @@ jobs:
             --app "$APP" --grep "$GREP" --run-url "$RUN_URL" --repo "$REPO" \
             > "$RUNNER_TEMP/comment.md"
           gh pr comment "$PR_NUMBER" --body-file "$RUNNER_TEMP/comment.md"
+
+  push-dispatch:
+    name: Dispatch marketing regen (push to main)
+    # Only the push arm. No checkout: `gh workflow run --repo` needs no
+    # working tree, and the job holds actions:write only. GITHUB_TOKEN
+    # dispatch is allowed (anti-recursion only blocks events it CAUSES), and
+    # visual-baseline-regen.yml itself handles the PR-CI trap by dispatching
+    # ci.yml on the branch it opens.
+    if: ${{ github.event_name == 'push' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    steps:
+      - name: Dispatch visual-baseline-regen.yml for marketing
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -o pipefail
+          gh workflow run visual-baseline-regen.yml --repo "$REPO" -f app=marketing
