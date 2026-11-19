@@ -108,6 +108,12 @@ describe("FactorySection recently shipped", () => {
     ).toHaveAttribute("href", "/shipped");
   });
 
+  it("labels the duration as wall-clock so it cannot be read as an age", () => {
+    shipped.features = [story(1)];
+    renderSection();
+    expect(screen.getByText(/2 days wall-clock/i)).toBeInTheDocument();
+  });
+
   it("dates the block as a snapshot instead of implying it is live", () => {
     shipped.features = [story(1)];
     renderSection();
