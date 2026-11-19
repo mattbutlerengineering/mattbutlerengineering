@@ -29,6 +29,7 @@
  */
 
 import { isAgentPr } from "../plugins/acmm/scripts/pr-outcomes.js";
+import { isGeneratedArtifact } from "./lib/generated-files.mjs";
 
 const MERGE_CONFLICT_MARKER_RE = /<<<<<<<|>>>>>>>/;
 const MERGE_CONFLICT_MENTION_RE =
@@ -40,14 +41,13 @@ const LINT_FIXUP_MESSAGE_RE =
 // Extensions ESLint and/or Prettier lint/format in this repo (see
 // eslint.config.js, lint-staged.config.js, .prettierignore).
 const LINT_COVERED_PATH_RE = /\.(?:[cm]?[jt]sx?|json|md|mdx|ya?ml|css|scss|html)$/i;
-// Generated-artifact filenames a regen cycle rewrites (see
-// .claude/rules/gotchas.md § Build / pnpm / turbo), plus mechanical
-// self-tracking bookkeeping files a script rewrites and a human commits
-// verbatim (e.g. the AI-antipattern ratchet baseline — see
-// scripts/check-ai-antipatterns.mjs --update). Matched by exact basename so
-// a nested path (e.g. packages/rialto/llms.txt) still counts.
-const GENERATED_ARTIFACT_PATH_RE =
-  /(?:^|\/)(?:llms\.txt|llms-full\.txt|generated-schemas\.ts|dep-graph\.json|pnpm-lock\.yaml|ai-antipattern-baselines\.json)$/;
+// Generated artifacts come from the shared classifier (scripts/lib/generated-files.mjs),
+// plus mechanical self-tracking bookkeeping files a script rewrites and a human
+// commits verbatim (e.g. the AI-antipattern ratchet baseline — see
+// scripts/check-ai-antipatterns.mjs --update). Matched by basename.
+const BOOKKEEPING_BASENAME_RE = /(?:^|\/)ai-antipattern-baselines\.json$/;
+const isGeneratedArtifactPath = (file) =>
+  isGeneratedArtifact(file) || BOOKKEEPING_BASENAME_RE.test(file);
 // "retry"/"rerun"/"re-run" language — a human nudging CI rather than
 // changing code.
 const CI_RERUN_MESSAGE_RE = /\b(retry|re-?run(?:ning)?)\b/i;
@@ -122,7 +122,7 @@ function hasLintFixupFilesSignal(files) {
  */
 function hasGeneratedArtifactOnlySignal(files) {
   if (!Array.isArray(files) || files.length === 0) return false;
-  return files.every((file) => typeof file === "string" && GENERATED_ARTIFACT_PATH_RE.test(file));
+  return files.every((file) => typeof file === "string" && isGeneratedArtifactPath(file));
 }
 
 /**

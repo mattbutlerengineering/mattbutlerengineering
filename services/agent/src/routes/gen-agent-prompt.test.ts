@@ -131,6 +131,24 @@ describe("buildAgentSystemPrompt", () => {
     });
   });
 
+  describe("reply text rules", () => {
+    const prompt = buildAgentSystemPrompt({
+      venueId: "venue-1",
+      now: NOW,
+      catalogPrompt: "CATALOG",
+    });
+
+    // Chat batch 12 (F39): the model wrote "[ReservationList elements show here]".
+    it("forbids a placeholder or description of an element in the reply text", () => {
+      expect(prompt).toMatch(/never write[^.]*placeholder[^.]*\[[^.]*elements show here/i);
+    });
+
+    // Chat batch 13: prose bullets listed raw YYYY-MM-DD dates.
+    it("asks for dates in plain words in the user's language, never as YYYY-MM-DD", () => {
+      expect(prompt).toMatch(/dates in plain words[^.]*never[^.]*YYYY-MM-DD/i);
+    });
+  });
+
   describe("maps each data shape to the element that shows it", () => {
     const prompt = buildAgentSystemPrompt({
       venueId: "venue-1",
@@ -164,7 +182,7 @@ describe("buildAgentSystemPrompt", () => {
     // Review of gen-ui-elements-2 (major 1): lookup_reservation spans dates, and
     // localTime is a clock time only, so rows on two days read the same.
     it("puts the date in each row's time when the rows span more than one date", () => {
-      expect(lineFor("ReservationList")).toMatch(/more than one date[^.]*date[^.]*time/i);
+      expect(lineFor("ReservationList")).toMatch(/localTime[^.]*date[^.]*as is/i);
     });
 
     it("open slots from check_availability as TimeSlots, never for a closed or full day", () => {

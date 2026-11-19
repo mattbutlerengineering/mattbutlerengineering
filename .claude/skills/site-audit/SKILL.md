@@ -121,6 +121,8 @@ HTTP_STATUS=$(curl -o /dev/null -w "%{http_code}" "${AUDIT_CURL_OPTS[@]}" "$URL"
 
 **Dedup:** `gh issue list --label audit --state open --search "<phrase>" --json number,title` → skip if exists.
 
+**Closed-fix dedup (#9047):** also run `gh issue list --label audit --state closed --search "<phrase>" --json number,title,closedAt` and compare against the finding. On a match closed in the last 14 days, do NOT file a new "follow-up to #N" issue. Comment on the closed issue with the live evidence (command output, which acceptance bullets still fail), and reopen it (`gh issue reopen N`) if the defect is still present. If the closed issue's PR merged <24h ago, first check that the deploy and any data refresh (snapshots, dashboards, caches) have landed; if not, skip and re-check next run. File a new issue only when nothing matches or the match is older than 14 days, and then link the closed one.
+
 **Title:** `[Audit] <Category>: <Finding>`
 
 **Labels:** `audit`+`ready`+category:

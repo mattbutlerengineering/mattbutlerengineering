@@ -469,9 +469,4 @@ describe("revert-watchdog.yml does not invoke revert-rca.mjs at propose time (#3
     const content = readFileSync(join(ROOT, ".github/workflows/revert-watchdog.yml"), "utf8");
     expect(content).not.toContain("scripts/revert-rca.mjs");
   });
-
-  it("revert-rca-loop.yml (the merge-triggered path) still invokes it", () => {
-    const content = readFileSync(join(ROOT, ".github/workflows/revert-rca-loop.yml"), "utf8");
-    expect(content).toContain("scripts/revert-rca.mjs");
-  });
 });

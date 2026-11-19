@@ -6,13 +6,11 @@ on:
     paths:
       - "CLAUDE.md"
       - "AGENTS.md"
-      - "GEMINI.md"
   pull_request:
     branches: [main]
     paths:
       - "CLAUDE.md"
       - "AGENTS.md"
-      - "GEMINI.md"
   workflow_dispatch: # Allow manual trigger
 
 # A new push to a pull request supersedes its older run (#8723: runners are
@@ -50,6 +48,5 @@ jobs:
         run: |
           # Basic check to ensure AGENTS.md remains the source of truth
           grep -q "Primary Source of Truth" CLAUDE.md
-          grep -q "Primary Source of Truth" GEMINI.md
           # Ensure no residual markers
-          ! grep -rE "<<<<<<|======|>>>>>>" CLAUDE.md AGENTS.md GEMINI.md
+          ! grep -rE "<<<<<<|======|>>>>>>" CLAUDE.md AGENTS.md

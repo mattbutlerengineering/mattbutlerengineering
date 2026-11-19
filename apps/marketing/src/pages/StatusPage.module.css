@@ -71,3 +71,11 @@
 .version {
   font-family: var(--rialto-font-mono);
 }
+
+/* Unlike .meta, this must wrap — it carries a full sentence explaining why
+   a CI signal is degraded (#9016), not a one-line latency/version stat. */
+.signalNote {
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  opacity: 0.6;
+}

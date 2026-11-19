@@ -55,6 +55,23 @@ function levelVariant(level: number): BadgeVariant {
   return LEVEL_VARIANTS[level] ?? "neutral";
 }
 
+const SOURCE_PREFIX = /^(?:acmm|fullsend|aef|claude-reflect|meta|local):/;
+
+// Drop the source prefix, except where two sources share a name (#9085).
+function criterionLabels(ids: readonly string[]): ReadonlyMap<string, string> {
+  const counts = new Map<string, number>();
+  for (const id of ids) {
+    const bare = id.replace(SOURCE_PREFIX, "");
+    counts.set(bare, (counts.get(bare) ?? 0) + 1);
+  }
+  return new Map(
+    ids.map((id) => {
+      const bare = id.replace(SOURCE_PREFIX, "");
+      return [id, (counts.get(bare) ?? 0) > 1 ? id : bare];
+    })
+  );
+}
+
 function formatPercent(value: number): string {
   return `${(value * 100).toFixed(1)}%`;
 }
@@ -81,7 +98,14 @@ function EvalsSummary({ behavioral }: { behavioral: RepoEntry["behavioral"] }) {
       </Text>
     );
   }
-  return <Text>Agent evals: {formatPercent(behavioral.evalPassRate ?? 0)} pass</Text>;
+  const measured = behavioral.evalsLastRun
+    ? `, last measured ${formatDate(behavioral.evalsLastRun)}`
+    : "";
+  return (
+    <Text>
+      Agent evals: {formatPercent(behavioral.evalPassRate ?? 0)} pass{measured}
+    </Text>
+  );
 }
 
 export function AcmmPage() {
@@ -130,6 +154,7 @@ export function AcmmPage() {
   }
 
   const { repo } = report;
+  const labels = criterionLabels(Object.keys(repo.checks));
   const passCount = Object.values(repo.checks).filter((c) => c.passed).length;
   const failCount = Object.values(repo.checks).filter((c) => !c.passed).length;
 
@@ -221,9 +246,7 @@ export function AcmmPage() {
                     <Text className={check.passed ? styles.passIcon : styles.failIcon}>
                       {check.passed ? "✓" : "✗"}
                     </Text>
-                    <Text className={styles.criteriaId}>
-                      {id.replace(/^(?:acmm|fullsend|aef|claude-reflect|meta|local):/, "")}
-                    </Text>
+                    <Text className={styles.criteriaId}>{labels.get(id) ?? id}</Text>
                   </div>
                 ))}
               </div>

@@ -54,7 +54,7 @@ Per-issue attribution: `.claude/agent-spend/sessions.jsonl` = `{date,timestamp,c
 
 ## Log
 
-Append `.claude/improvement-loop/log.md`:
+Append `.claude/improvement-loop/log.md` (then run `node scripts/cap-improvement-log.mjs` to keep only the newest 60 entries; older ones live in git history):
 
 ```markdown
 ## YYYY-MM-DD

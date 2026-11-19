@@ -15,7 +15,7 @@
     "db:push": "pnpm --filter './services/*' exec prisma db push",
     "db:generate": "pnpm --filter './services/*' exec prisma generate",
     "repo-audit": "node scripts/run-repo-audit.mjs",
-    "check:prettier": "prettier --experimental-cli --check . \".claude/**/*.md\"",
+    "check:prettier": "node scripts/check-prettier.mjs",
     "check:boundaries": "depcruise apps services packages tools infrastructure/worker plugins scripts infrastructure/pulumi tests --config .dependency-cruiser.cjs",
     "check:knip": "knip",
     "check:circular-deps": "node scripts/check-circular-deps.js",
@@ -93,7 +93,7 @@
     "overrides": {
       "@opentelemetry/api@>=1.10.0": "1.9.1",
       "tar@<8": "^7.5.22",
-      "undici": ">=7.28.0 <8",
+      "undici@<7.28.0 || >=8": "^7.28.0",
       "flatted@<4": "^3.4.3",
       "effect@<4": "^3.22.0",
       "rollup@<5": "^4.62.4",

@@ -21,8 +21,6 @@ export const SIZE_ESCALATION_THRESHOLD = 1000;
 // run-artifact markdown. Source of truth for docs/change-tiers.md (a test
 // asserts the doc names every entry).
 export const EXCLUDED_FROM_SIZE = [
-  "**/llms.txt",
-  "**/llms-full.txt",
   "pnpm-lock.yaml",
   "**/registry.json",
   "infrastructure/worker/dep-graph.json",
@@ -32,17 +30,24 @@ export const EXCLUDED_FROM_SIZE = [
   "docs/fixes/**/*.md",
 ];
 
-const EXCLUDED_MATCHERS = [
-  /^(?:.*\/)?llms\.txt$/,
-  /^(?:.*\/)?llms-full\.txt$/,
+// Generated artifacts (the regen manifest's outputs plus the lockfile and
+// `generated*` paths). This module is loaded alone from the base branch by
+// tier-classifier.yml, so it cannot import scripts/lib/generated-files.mjs.
+const GENERATED_MATCHERS = [
   /^pnpm-lock\.yaml$/,
   /^(?:.*\/)?registry\.json$/,
   /^infrastructure\/worker\/dep-graph\.json$/,
   /^docs\/architecture\/dependency-graph\.md$/,
   /(?:^|\/)generated[^/]*(?:\/|$)/,
+];
+
+const EXCLUDED_MATCHERS = [
+  ...GENERATED_MATCHERS,
   /^docs\/features\/.*\.md$/,
   /^docs\/fixes\/.*\.md$/,
 ];
+
+const isGeneratedPath = (path) => GENERATED_MATCHERS.some((re) => re.test(path));
 
 const isReviewSurface = (path) => !EXCLUDED_MATCHERS.some((re) => re.test(path));
 
@@ -170,8 +175,8 @@ export const RULES = [
   },
   {
     tier: T1,
-    when: (f) => /^(llms|llms-full)\.txt$/.test(f) || /\/(llms|llms-full)\.txt$/.test(f),
-    why: "auto-generated llms.txt",
+    when: (f) => /(?:^|\/)registry\.json$/.test(f) || /(?:^|\/)dep-graph\.json$/.test(f),
+    why: "auto-generated regen output",
   },
   { tier: T1, when: (f) => isTestFile(f), why: "test-only" },
 ];
@@ -181,10 +186,17 @@ const TIER_FLOOR_UNMATCHED = T2;
 /**
  * @param {string[]} files raw changed paths
  * @param {(p: string) => string} [show] escapes a path for display
+ * @param {{ deleted?: Set<string> }} [opts] `deleted`: paths removed by the PR. A deleted
+ *   generated artifact adds no reviewable code, so it is ignored (#9063: deleting
+ *   infrastructure/pulumi/llms-full.txt made #9057 tier:critical). Deleted real files count.
  * @returns {{ tier: number, reasons: string[] }} reasons only explain the final tier
  */
-export function classifyPaths(files, show = (p) => p) {
-  const perFile = files.map((f) => {
+export function classifyPaths(files, show = (p) => p, { deleted = new Set() } = {}) {
+  const counted = files.filter((f) => !(deleted.has(f) && isGeneratedPath(f)));
+  if (files.length > 0 && counted.length === 0) {
+    return { tier: T1, reasons: ["only deleted generated files: T1"] };
+  }
+  const perFile = counted.map((f) => {
     let best = null;
     for (const r of RULES) if ((!best || r.tier > best.tier) && r.when(f)) best = r;
     return { f, tier: best ? best.tier : TIER_FLOOR_UNMATCHED, rule: best };

@@ -2582,6 +2582,8 @@
       "save_one": "Save {{count}} date",
       "save_other": "Save {{count}} dates",
       "cancel": "Cancel",
+      "saveKeeping_one": "Save {{count}} date, own hours kept on {{kept}}",
+      "saveKeeping_other": "Save {{count}} dates, own hours kept on {{kept}}",
       "savedOne": "{{date}} updated",
       "savedMany_one": "{{count}} date updated",
       "savedMany_other": "{{count}} dates updated",

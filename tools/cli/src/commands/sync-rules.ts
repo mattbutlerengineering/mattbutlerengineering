@@ -34,17 +34,6 @@ export const syncRulesRun = defineCommand({
     writeFileSync(cursorRulesPath, cursorRulesContent);
     updated.push(".cursorrules");
 
-    // 2. Update GEMINI.md (inject an AGENTS.md reference if missing)
-    const geminiPath = join(root, "GEMINI.md");
-    if (existsSync(geminiPath)) {
-      const geminiContent = readFileSync(geminiPath, "utf8");
-      if (!geminiContent.includes("AGENTS.md")) {
-        const newGeminiContent = `${MANAGED_HEADER}${geminiContent}\n\n## Core Reference\n- [AGENTS.md](./AGENTS.md)`;
-        writeFileSync(geminiPath, newGeminiContent);
-        updated.push("GEMINI.md");
-      }
-    }
-
     return {
       kind: "rows",
       rows: updated.map((file) => ({ file, status: "updated" })),

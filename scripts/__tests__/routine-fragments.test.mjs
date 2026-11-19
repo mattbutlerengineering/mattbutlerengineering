@@ -24,7 +24,6 @@ const BUILTIN_SNAPSHOT = [
   "mbe-monthly-meta-audit",
   "mbe-ui-quality",
   "mbe-feature-drain",
-  "mbe-prune",
 ];
 
 describe("builtin routine ratchet", () => {

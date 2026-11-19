@@ -28,6 +28,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
+import { excludeShippedRuns } from "./lib/shipped-runs.mjs";
+
+export { excludeShippedRuns };
 
 /**
  * Links that are known-dangling on purpose. Each needs a reason: an
@@ -314,10 +317,11 @@ export function applyFixes(content, findings) {
 }
 
 function trackedMarkdownFiles(cwd) {
-  return execFileSync("git", ["ls-files", "*.md"], { cwd, encoding: "utf8" })
+  const files = execFileSync("git", ["ls-files", "*.md"], { cwd, encoding: "utf8" })
     .trim()
     .split("\n")
     .filter(Boolean);
+  return excludeShippedRuns(files);
 }
 
 function main(argv) {

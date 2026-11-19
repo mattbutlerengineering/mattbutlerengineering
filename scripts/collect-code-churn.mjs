@@ -31,17 +31,10 @@ import { basename } from "node:path";
 
 const WINDOW_DAYS = 7;
 
-// Exact basenames that are always generated artifacts.
-const GENERATED_BASENAMES = new Set([
-  "llms.txt",
-  "llms-full.txt",
-  "pnpm-lock.yaml",
-  "generated-schemas.ts",
-  "dep-graph.json",
-  "dependency-graph.md",
-  "registry.json",
-  "CHANGELOG.md",
-]);
+import { isGeneratedArtifact as isRegenArtifact } from "./lib/generated-files.mjs";
+
+// Churn-only extras: changelogs are release-tool output, not regen output.
+const CHURN_EXTRA_BASENAMES = new Set(["CHANGELOG.md"]);
 
 /**
  * Returns true when the given file path is a generated or vendored artifact
@@ -55,14 +48,12 @@ const GENERATED_BASENAMES = new Set([
 export function isGeneratedArtifact(filePath) {
   const name = basename(filePath);
 
-  // Basename exact-match covers llms.txt, pnpm-lock.yaml, generated-schemas.ts, etc.
-  if (GENERATED_BASENAMES.has(name)) return true;
+  // The manifest also stages packages/rialto/package.json, which humans edit: real churn.
+  if (name === "package.json") return false;
+  if (isRegenArtifact(filePath) || CHURN_EXTRA_BASENAMES.has(name)) return true;
 
   // Vitest / Jest snapshot files.
   if (name.endsWith(".snap")) return true;
-
-  // Any file nested under a `generated/` directory segment (e.g. Prisma clients).
-  if (filePath.includes("/generated/")) return true;
 
   return false;
 }

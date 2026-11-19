@@ -62,6 +62,15 @@
   color: var(--rialto-text-primary);
 }
 
+.navButton:disabled,
+.navButton:disabled:hover {
+  color: var(--rialto-text-tertiary);
+  background: var(--rialto-surface-elevated);
+  border-color: var(--rialto-border);
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
 .navButton:focus-visible {
   outline: none;
   border-color: var(--rialto-accent);

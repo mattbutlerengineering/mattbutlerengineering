@@ -9,10 +9,21 @@ cron_b: "29 * * * *"
 cron_c: "44 * * * *"
 cron_d: "59 * * * *"
 model: claude-sonnet-5-5
-cadence: Every 30 minutes (mbe-prune-a and mbe-prune-c; b and d disabled 2026-11-15)
+cadence: RETIRED 2026-11-18 (#9070); was every 30 minutes (mbe-prune-a and mbe-prune-c; b and d disabled 2026-11-15)
+status: retired
 ---
 
 # mbe-prune
+
+> **RETIRED 2026-11-18 (#9070).** Do not re-enable the four triggers. The
+> routine produced 4 `(mbe-prune)` commits in 30 days; its 18 heartbeats since
+> 2026-11-03 were 15 `noop`, 2 `ok` and 1 `error`, yet it still ran 48 times a
+> day. `mbe-doc-rot`, `docs-audit`, `md-audit` and `claude-md-improver` cover the
+> same ground. The live triggers (`trig_01TBQ4jQS9UGwJTxrWfWBCyQ`,
+> `trig_01SoduJryRjjQN5D75h3ZJjv`, `trig_01CzgACLRQpi8ApXfSUM7T5q`,
+> `trig_016WxmLRG8kYUymu3QmwEk3P`) are disabled or deleted by hand at
+> claude.ai after this file merges. The prompt below is kept as a historical
+> record only; it names `mbe-swarm`, which no longer exists.
 
 Authoritative prompt for the `mbe-prune-a`, `mbe-prune-b`, `mbe-prune-c` and
 `mbe-prune-d` RemoteTriggers, captured byte-for-byte from
@@ -139,7 +150,7 @@ STEP 1 — DELTA PASS, when `last_sha` differs from `$HEAD`. Base: `last_sha` if
 - An importer deleted in the delta can orphan the module it imported: for each D path that was a source file, list what it imported (`git show <base>:<path> | grep -E "^import|require\("`) and run the ORPHAN PROOF on each in-repo module whose only importer that was.
 
 STEP 2 — DAILY LENS, when `lens_date` differs from today — re-read the ledger immediately before starting, because an overlapping fire may have run it since STEP 0. One surface per UTC weekday (`date -u +%A`); the delta pass handles everything else continuously, so this is the slow full sweep of one slice. If `lens_resume` names a surface or path for this weekday, start there:
-- Monday — instruction files: CLAUDE.md, AGENTS.md, GEMINI.md, .cursorrules, .claude/rules/*.md, every package-level CLAUDE.md. Run `node scripts/detect-instruction-rot.mjs`, `node scripts/check-doc-freshness.mjs` and `node scripts/check-claude-md-table-drift.mjs` and fix every hit; then read each file's claims about commands, flags, paths, hooks, tables and counts against the code and fix the false ones. (The monthly mbe-monthly-meta-audit also reviews these on the 1st; skip its open PR's files as above.)
+- Monday — instruction files: CLAUDE.md, AGENTS.md, .cursorrules, .claude/rules/*.md, every package-level CLAUDE.md. Run `node scripts/detect-instruction-rot.mjs`, `node scripts/check-doc-freshness.mjs` and `node scripts/check-claude-md-table-drift.mjs` and fix every hit; then read each file's claims about commands, flags, paths, hooks, tables and counts against the code and fix the false ones. (The monthly mbe-monthly-meta-audit also reviews these on the 1st; skip its open PR's files as above.)
 - Tuesday — human docs: README.md at the root and in every package, CONTRIBUTING.md, SECURITY.md, docs/*.md (top level only), docs/runbooks/**, docs/architecture/**. Run `node scripts/audit-markdown.mjs --fix` and resolve what it reports; then claims vs code.
 - Wednesday — scripts and workflows: scripts/**, root and package `package.json` `scripts`, .husky/**. Run `node scripts/check-orphaned-collectors.mjs`, `node scripts/check-orphaned-tests.mjs`, `node scripts/check-orphaned-cli-commands.mjs`, `node scripts/check-hook-wiring.mjs` and `node scripts/check-workflow-deps.mjs`. A script that no workflow, package script, hook, skill, test or other script invokes is an ORPHAN PROOF candidate. A workflow step that names a deleted script or flag is a defect, but .github/** is no-touch: file a `ready` issue for it.
 - Thursday — library, service and tool source: packages/**/src, services/**/src, tools/**/src, plugins/**. Run `pnpm check:boundaries` from the repo root (dependency-cruiser; its `no-orphans` rule warns on modules nothing imports) and treat each warned module as an ORPHAN PROOF candidate; then, for files in these trees changed in the last 30 days (`git log --since='30 days ago' --name-only --diff-filter=M -- <tree>`), check each `export`ed identifier for zero references outside its file.

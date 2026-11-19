@@ -21,8 +21,8 @@ import { fileIssueBySearch, ghIssueDeps } from "./lib/issue-filing.mjs";
 const ghClient = createGhClient();
 
 // A revert PR is always titled `revert: #<N> ...` by the watchdog (see
-// `.github/workflows/revert-watchdog.yml`'s "Propose Revert PR" step) and by
-// `revert-rca-loop.yml`'s own trigger condition. Matching on this title is
+// `.github/workflows/revert-watchdog.yml`'s "Propose Revert PR" step) or by
+// hand. Matching on this title is
 // how we tell "a commit/PR that reverts #<N>" apart from #<N>'s own merge
 // commit (#3583) — never assume the two are the same thing.
 const REVERT_TITLE_PATTERN = /^revert:/i;
@@ -32,8 +32,8 @@ const REVERT_TITLE_PATTERN = /^revert:/i;
  * going through the Search API (#3613). `gh pr list --search`/`--search "…"
  * in:title` is backed by GitHub's Search API, which lags minutes-to-hours
  * behind reality — a revert PR merged seconds before this script runs (the
- * `revert-rca-loop.yml` merge-triggered path fires immediately on the
- * webhook) can be invisible to Search, causing a genuine merged revert to
+ * manual `/revert-rca-loop <N>` run right after the merge) can be invisible
+ * to Search, causing a genuine merged revert to
  * silently get no RCA. The REST `/pulls` list endpoint has no such lag, so
  * candidates are fetched by direct list and filtered locally via
  * `findRevertPr` instead of asking Search to filter server-side.

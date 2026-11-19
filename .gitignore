@@ -127,7 +127,6 @@ reports/mutation/
 !/metrics/a11y-history.jsonl
 !/metrics/acmm-cold-start.json
 !/metrics/acmm-evals.jsonl
-!/metrics/agent-perf.jsonl
 !/metrics/ai-antipattern-baselines.json
 !/metrics/ai-issue-feedback.json
 !/metrics/audit-coverage.jsonl

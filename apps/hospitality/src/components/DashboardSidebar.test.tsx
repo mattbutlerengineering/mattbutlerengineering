@@ -140,4 +140,37 @@ describe("DashboardSidebar", () => {
       "page"
     );
   });
+
+  it("moves focus into the open mobile drawer, traps Tab, and restores focus to the trigger on close", () => {
+    const trigger = document.createElement("button");
+    document.body.appendChild(trigger);
+    trigger.focus();
+    const { rerender, container } = renderSidebar({ isMobileOpen: false });
+    const ui = (open: boolean) => (
+      <BrowserRouter>
+        <DashboardSidebar
+          sections={mockSections}
+          activePath="/dashboard"
+          onAction={vi.fn()}
+          isMobileOpen={open}
+          onMobileClose={vi.fn()}
+        />
+      </BrowserRouter>
+    );
+    rerender(ui(true));
+    const nav = container.querySelector("nav") as HTMLElement;
+    expect(nav.contains(document.activeElement)).toBe(true);
+
+    const focusable = Array.from(nav.querySelectorAll<HTMLElement>("button"));
+    const last = focusable[focusable.length - 1] as HTMLElement;
+    last.focus();
+    fireEvent.keyDown(document, { key: "Tab" });
+    expect(document.activeElement).toBe(focusable[0]);
+    fireEvent.keyDown(document, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(last);
+
+    rerender(ui(false));
+    expect(document.activeElement).toBe(trigger);
+    trigger.remove();
+  });
 });

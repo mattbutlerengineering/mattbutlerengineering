@@ -1,5 +1,27 @@
 # @mattbutlerengineering/rialto
 
+## 0.10.22
+
+### Patch Changes
+
+- [#9152](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9152) [`c6de55a`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/c6de55ad6e8396fb78fa44dea92d74303cf8e3a6) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - TapeChart reservation bars are reachable from the keyboard. One bar is in the tab order, and the arrow keys move between bars in a room and between rooms.
+
+## 0.10.21
+
+### Patch Changes
+
+- [#9128](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9128) [`27eb176`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/27eb1769544e2352c6b24ceb4878dcb4ca2b5529) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Combobox drops text that was never chosen: blur, Escape, and Enter with no match restore the selected option's label, or clear the field when nothing is selected. Calendar and DateRange open an empty bounded grid on today clamped into min/max, and their month buttons and keyboard month jumps stop at that range.
+
+- [#9124](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9124) [`4bc8ae7`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/4bc8ae776ccb0608ca195b48be318b5719b8d6f7) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Timeline connector lines now run from each node to the next one. They used to stop at the end of the item's content, leaving a gap the size of the item spacing, and a short item (a title with no description) had no line at all.
+
+## 0.10.20
+
+### Patch Changes
+
+- [#9087](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9087) [`6c42fe1`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/6c42fe187059e05e7fd9117491fc6aab5d68cc68) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - ReservationList and TimeSlots now show a venue-local `YYYY-MM-DD HH:mm` (or ISO `T`) time text as a localized short date plus the locale's clock ("Oct 16, 9:26 AM") instead of the raw string.
+
+- [#9093](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9093) [`ba98b61`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/ba98b6142dc1e21dfdc21397b4d30bb66b6c5fdd) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - ReservationList catalog description now tells the model to copy each row's time as is, including the date the chat tool adds when bookings span several dates.
+
 ## 0.10.19
 
 ### Patch Changes

@@ -253,3 +253,151 @@ describe("Calendar — month navigation buttons", () => {
     expect(screen.getByRole("grid")).toHaveAttribute("aria-label", expect.stringContaining("May"));
   });
 });
+
+describe("Calendar — bounded month", () => {
+  const BOUNDS = { min: "2026-07-05", max: "2026-07-25" };
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("opens on today clamped into min/max, focused on a selectable day", () => {
+    vi.useFakeTimers({ toFake: ["Date"], now: new Date(2026, 10, 18, 12) });
+    const { container } = renderCalendar({ value: null, ...BOUNDS });
+    expect(screen.getByRole("grid")).toHaveAttribute(
+      "aria-label",
+      expect.stringMatching(/July\s+2026/)
+    );
+    const focusable = container.querySelector('[role="gridcell"][tabindex="0"]');
+    expect(focusable).toHaveAttribute("data-date", "2026-07-25");
+    expect(focusable).not.toHaveAttribute("aria-disabled");
+    expect(screen.getByRole("button", { name: /previous month/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /next month/i })).toBeDisabled();
+  });
+
+  it("opens on today when today is inside the bounds, with both month buttons disabled", () => {
+    vi.useFakeTimers({ toFake: ["Date"], now: new Date(2026, 6, 10, 12) });
+    const { container } = renderCalendar({ value: null, ...BOUNDS });
+    expect(container.querySelector('[role="gridcell"][tabindex="0"]')).toHaveAttribute(
+      "data-date",
+      "2026-07-10"
+    );
+    expect(screen.getByRole("button", { name: /previous month/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /next month/i })).toBeDisabled();
+  });
+
+  it("disables only the month button that would leave a wider range", () => {
+    renderCalendar({ value: "2024-07-10", min: "2024-06-15", max: "2024-07-25" });
+    expect(screen.getByRole("button", { name: /previous month/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /next month/i })).toBeDisabled();
+  });
+
+  it("does not leave the range when a disabled month button is activated", async () => {
+    renderCalendar({ value: "2026-07-18", ...BOUNDS });
+    const previous = screen.getByRole("button", { name: /previous month/i });
+    expect(previous).toHaveAttribute("aria-disabled", "true");
+    await user.click(previous);
+    expect(screen.getByRole("grid")).toHaveAttribute(
+      "aria-label",
+      expect.stringMatching(/July\s+2026/)
+    );
+  });
+
+  it("clamps PageUp and PageDown so the visible month stays inside the range", async () => {
+    const { container } = renderCalendar({ value: "2026-07-18", ...BOUNDS });
+    act(() => cell(container, "2026-07-18").focus());
+    await user.keyboard("{PageDown}");
+    expect(activeIso()).toBe("2026-07-25");
+    expect(screen.getByRole("grid")).toHaveAttribute(
+      "aria-label",
+      expect.stringMatching(/July\s+2026/)
+    );
+    await user.keyboard("{PageUp}");
+    expect(activeIso()).toBe("2026-07-05");
+    expect(cell(container, "2026-07-05")).not.toHaveAttribute("aria-disabled");
+  });
+
+  it("clamps a month jump onto the last in-range day when the target month still overlaps", async () => {
+    const { container } = renderCalendar({
+      value: "2024-06-18",
+      min: "2024-06-01",
+      max: "2024-07-10",
+    });
+    act(() => cell(container, "2024-06-18").focus());
+    await user.keyboard("{PageDown}");
+    expect(activeIso()).toBe("2024-07-10");
+    expect(screen.getByRole("grid")).toHaveAttribute("aria-label", expect.stringContaining("July"));
+  });
+
+  it("still moves across months that stay inside the range", async () => {
+    const { container } = renderCalendar({
+      value: "2024-06-10",
+      min: "2024-05-01",
+      max: "2024-08-31",
+    });
+    expect(screen.getByRole("button", { name: /next month/i })).toBeEnabled();
+    act(() => cell(container, "2024-06-10").focus());
+    await user.keyboard("{PageDown}");
+    expect(activeIso()).toBe("2024-07-10");
+    await user.click(screen.getByRole("button", { name: /previous month/i }));
+    expect(screen.getByRole("grid")).toHaveAttribute("aria-label", expect.stringContaining("June"));
+    expect(container.querySelector('[role="gridcell"][tabindex="0"]')).toHaveAttribute(
+      "data-date",
+      "2024-06-10"
+    );
+  });
+
+  it("stops arrow keys on min and max, and still crosses into an overlapping month", async () => {
+    // Roving focus follows component state, so each edge starts on its own value.
+    const atMin = renderCalendar({ value: "2024-06-05", min: "2024-06-05", max: "2024-06-20" });
+    act(() => cell(atMin.container, "2024-06-05").focus());
+    await user.keyboard("{ArrowLeft}");
+    expect(activeIso()).toBe("2024-06-05");
+
+    const atMax = renderCalendar({ value: "2024-06-20", min: "2024-06-05", max: "2024-06-20" });
+    act(() => cell(atMax.container, "2024-06-20").focus());
+    await user.keyboard("{ArrowRight}");
+    expect(activeIso()).toBe("2024-06-20");
+
+    const wider = renderCalendar({ value: "2024-06-01", min: "2024-05-20", max: "2024-07-10" });
+    act(() => cell(wider.container, "2024-06-01").focus());
+    await user.keyboard("{ArrowLeft}");
+    expect(activeIso()).toBe("2024-05-31");
+    expect(screen.getAllByRole("grid").at(-1)).toHaveAttribute(
+      "aria-label",
+      expect.stringContaining("May")
+    );
+  });
+
+  it("keeps month navigation when a predicate replaces min and max", async () => {
+    const { container } = renderCalendar({
+      value: "2024-06-10",
+      min: "2024-06-05",
+      max: "2024-06-20",
+      isDateDisabled: (iso) => iso === "2024-06-12",
+    });
+    expect(screen.getByRole("button", { name: /previous month/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /next month/i })).toBeEnabled();
+    act(() => cell(container, "2024-06-10").focus());
+    await user.keyboard("{ArrowRight}{ArrowRight}");
+    expect(activeIso()).toBe("2024-06-12");
+    expect(cell(container, "2024-06-12")).toHaveAttribute("aria-disabled", "true");
+    await user.keyboard("{PageDown}");
+    expect(activeIso()).toBe("2024-07-12");
+  });
+
+  it("lands on the first in-range day when the previous month only partly overlaps", async () => {
+    const { container } = renderCalendar({
+      value: "2024-07-10",
+      min: "2024-06-15",
+      max: "2024-07-25",
+    });
+    await user.click(screen.getByRole("button", { name: /previous month/i }));
+    expect(screen.getByRole("grid")).toHaveAttribute("aria-label", expect.stringContaining("June"));
+    expect(container.querySelector('[role="gridcell"][tabindex="0"]')).toHaveAttribute(
+      "data-date",
+      "2024-06-15"
+    );
+    expect(cell(container, "2024-06-15")).not.toHaveAttribute("aria-disabled");
+  });
+});

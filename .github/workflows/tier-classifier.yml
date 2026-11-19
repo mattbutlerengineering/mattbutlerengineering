@@ -125,6 +125,9 @@ jobs:
           # the size rule in scripts/tier-escalation.mjs needs them to exclude
           # generated files.
           git diff --no-renames --no-ext-diff --no-textconv -z --numstat "$base_sha" "$HEAD_SHA" > /tmp/numstat.txt
+          # Deleted paths only: a deleted generated file adds no reviewable code
+          # (#9063), so classifyPaths ignores those.
+          git diff --no-renames --no-ext-diff --no-textconv -z --name-only --diff-filter=D "$base_sha" "$HEAD_SHA" > /tmp/deleted-files.txt
           echo "count=$(tr -cd '\0' < /tmp/changed-files.txt | wc -c | tr -d ' ')" >> "$GITHUB_OUTPUT"
 
       - name: Load tier policy from base branch
@@ -157,6 +160,10 @@ jobs:
           // A path is PR-controlled text. Escape control characters so it can
           // never add a line to $GITHUB_OUTPUT or the comment; rules still
           // match the raw path.
+          const deletedPath = '/tmp/deleted-files.txt';
+          const deleted = new Set(
+            fs.existsSync(deletedPath) ? fs.readFileSync(deletedPath, 'utf-8').split('\0').filter(Boolean) : []
+          );
           const show = (f) => f.replace(/[\x00-\x1f\x7f]/g, (c) => `\\x${c.charCodeAt(0).toString(16).padStart(2, '0')}`);
 
           const T1 = 1, T2 = 2, T3 = 3, T4 = 4;
@@ -179,7 +186,7 @@ jobs:
 
           // Per-file classification (rule table + unmatched-path T2 default) lives
           // in the base-branch policy module; see classifyPaths (#8398).
-          const paths = escalation.classifyPaths(files, show);
+          const paths = escalation.classifyPaths(files, show, { deleted });
           let highest = paths.tier;
           const reasons = new Set(paths.reasons);
 

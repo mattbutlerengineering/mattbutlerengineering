@@ -1,8 +1,7 @@
 # AGENTS.md - Core Development Guidelines for AI Coding Agents
 
-> This file is the primary source of project context for all AI agents (Gemini, Claude, OpenCode, Codex, Cursor).
-> For tool-specific mandates, see [CLAUDE.md](./CLAUDE.md) (Claude), [GEMINI.md](./GEMINI.md) (Gemini), or [.cursorrules](./.cursorrules) (Cursor).
-> OpenCode reads [opencode.json](./opencode.json). Codex reads [.codex/config.toml](./.codex/config.toml).
+> This file is the primary source of project context for all AI agents (Claude, Cursor).
+> For tool-specific mandates, see [CLAUDE.md](./CLAUDE.md) (Claude) or [.cursorrules](./.cursorrules) (Cursor).
 > Reference material (package inventory, tool lists, routing/Auth0/deploy facts, Semgrep config, Turborepo caching, AI context catalog) lives in [docs/agents-reference.md](./docs/agents-reference.md).
 
 ## Project Identity
@@ -47,7 +46,7 @@ Main must always be green. All PRs require **CI Gate** to pass before merge.
 
 - **No admin-merge through red checks.** Emergency revert is the only exception.
 - **If main breaks, fix is top priority.** Drop current work and restore green.
-- **Node 22 is pinned via `.nvmrc`.** Run `nvm use` before generating llms.txt files.
+- **Node 22 is pinned via `.nvmrc`.** Run `nvm use` before regenerating generated artifacts.
 - **Revert watchdog** monitors every commit to main and files CRITICAL issues if CI fails.
 
 ## Zero-Touch Audit (Quality Mandate)
@@ -60,7 +59,6 @@ To minimize human intervention and maintain a low human-touch ratio, agents must
 - [ ] **No Missing Imports:** Ensure every new component or utility (especially from Rialto or other packages) has a corresponding `import` statement.
 - [ ] **Stale Generated Files:** If you modify schemas, dependencies, or Rialto components, run the relevant regeneration scripts:
   - `pnpm build` (to update dist/exports)
-  - `mbe pack` (to update AI context skeletons)
   - `pnpm generate:dep-graph` (if package dependencies changed)
 - [ ] **Synchronize Infrastructure:** If service dependencies (`package.json`) change, update the corresponding `Dockerfile` and `infrastructure/pulumi` if necessary.
 - [ ] **No Linting Hacks:** Do NOT use `eslint-disable` or `@ts-ignore` to "fix" violations. Resolve the root cause.
@@ -154,7 +152,7 @@ Agents must signal their current phase using the following tokens:
 
 ## AI Context Catalog
 
-The files agents should know about, in load order (`CLAUDE.md`, `GEMINI.md`, `.cursorrules`, `.claude/rules/gotchas.md`, per-package `CLAUDE.md`, `llms.txt`, …): [docs/agents-reference.md § AI Context Catalog](./docs/agents-reference.md#ai-context-catalog).
+The files agents should know about, in load order (`CLAUDE.md`, `.cursorrules`, `.claude/rules/gotchas.md`, per-package `CLAUDE.md`, …): [docs/agents-reference.md § AI Context Catalog](./docs/agents-reference.md#ai-context-catalog).
 
 ## AI Tooling Adoption Gate
 

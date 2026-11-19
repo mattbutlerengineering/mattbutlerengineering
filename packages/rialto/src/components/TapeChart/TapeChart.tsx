@@ -221,6 +221,7 @@ export const TapeChart = forwardRef(function TapeChart(
         focusedReservationId={focusedReservationId ?? selectedReservationId ?? null}
         selectedReservationId={selectedReservationId ?? null}
         onReservationSelect={handleReservationSelect}
+        onFocusedReservationChange={setFocusedReservationId}
       />
     );
   };

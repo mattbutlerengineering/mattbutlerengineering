@@ -5,56 +5,28 @@
  * Usage:
  *   node scripts/regen.mjs            # regenerate everything
  *   node scripts/regen.mjs --check    # exit non-zero if any artifact is stale
- *   node scripts/regen.mjs --check --git-only
- *                                     # git-diff signal only; for use right
- *                                     # after `regen` (see runCheck)
  *
  * Entry point for `pnpm regen` and `pnpm regen --check` (see root package.json).
  * Artifact definitions live in regen-manifest.mjs — add new families there.
  */
 
-import { spawn as spawnChild, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { FAMILIES, llmsPackages } from "./regen-manifest.mjs";
+import { FAMILIES } from "./regen-manifest.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
 
-// Packs run in parallel (see regenLlms). Four keeps the root `.` pack (the
-// long pole) busy alongside the small ones on a 4-vCPU CI runner without
-// stacking up more ts-morph processes than that.
-const LLMS_PACK_CONCURRENCY = 4;
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 /** Run a command (as an argument array) from repo root. Returns the exit code. */
-function spawn(cmd, args, { silent = false } = {}) {
+function spawn(cmd, args) {
   const result = spawnSync(cmd, args, {
     cwd: ROOT,
-    stdio: silent ? "pipe" : "inherit",
+    stdio: "inherit",
     env: { ...process.env, FORCE_COLOR: "0" },
     shell: false,
   });
   return result.status ?? 1;
-}
-
-/** Run a command from repo root, buffering its output. Resolves { code, output }. */
-function spawnBuffered(cmd, args) {
-  return new Promise((done) => {
-    const child = spawnChild(cmd, args, {
-      cwd: ROOT,
-      env: { ...process.env, FORCE_COLOR: "0" },
-      shell: false,
-    });
-    let output = "";
-    child.stdout.on("data", (chunk) => (output += chunk));
-    child.stderr.on("data", (chunk) => (output += chunk));
-    child.on("error", (err) => done({ code: 1, output: `${output}${err.message}\n` }));
-    child.on("close", (code) => done({ code: code ?? 1, output }));
-  });
 }
 
 /** Returns true when all listed paths are unmodified vs. the index. */
@@ -65,45 +37,6 @@ function isClean(paths) {
     shell: false,
   });
   return result.status === 0;
-}
-
-// ---------------------------------------------------------------------------
-// Family-specific generators
-// ---------------------------------------------------------------------------
-
-/**
- * Regenerate all llms.txt files by calling `mbe pack <pkg>` for each package.
- * Reuses the existing CLI pack command rather than reimplementing it, which
- * ensures cross-platform deterministic output (sorted globs, sorted sections).
- *
- * Packs run in parallel: each reads only `.ts` sources and writes only its own
- * package's llms.txt/llms-full.txt, so no pack consumes another's output.
- * Output is buffered per pack so logs don't interleave.
- */
-async function regenLlms() {
-  console.log("\n[llms-txt] Regenerating llms.txt context files...");
-  const pending = llmsPackages(); // root `.` first: it is the long pole
-  const failed = [];
-  async function worker() {
-    for (let pkg = pending.shift(); pkg !== undefined; pkg = pending.shift()) {
-      const { code, output } = await spawnBuffered("pnpm", [
-        "--filter",
-        "@mbe/cli",
-        "start",
-        "pack",
-        pkg,
-      ]);
-      process.stdout.write(output);
-      if (code !== 0) {
-        console.error(`  ✗ pack failed for: ${pkg}`);
-        failed.push(pkg);
-      }
-    }
-  }
-  await Promise.all(Array.from({ length: LLMS_PACK_CONCURRENCY }, worker));
-  if (failed.length > 0) {
-    throw new Error(`llms.txt: ${failed.length} package(s) failed to regenerate`);
-  }
 }
 
 /** Regenerate a single family by running its generator command via pnpm. */
@@ -118,125 +51,49 @@ function regenFamily(family) {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Check mode
-// ---------------------------------------------------------------------------
-
 /**
- * Real staleness check for one llms.txt/llms-full.txt package: delegates to
- * `mbe pack <pkg> --check` (tools/cli/src/commands/pack.ts), which re-derives
- * the expected skeleton/full output from source and compares. Unlike a
- * `git diff` on the committed artifact, this catches an un-regenerated
- * source edit (or deletion) even when nobody has run `pnpm regen` yet — the
- * false negative this function replaces (#3635).
+ * These families have no `--check` mode of their own, so staleness is a
+ * git-diff check: it catches drift already materialised in the tree (the
+ * generator ran but the result wasn't committed), not an un-regenerated source
+ * edit. Acceptable here — each generator has a narrow, single-file source (a
+ * schema, design tokens, a dependency manifest) that in practice changes in the
+ * same commit as its output.
  */
-function isLlmsPackageStale(pkg) {
-  const code = spawn("pnpm", ["--filter", "@mbe/cli", "start", "pack", pkg, "--check"], {
-    silent: true,
-  });
-  return code !== 0;
-}
+function runCheck() {
+  const stale = FAMILIES.filter((f) => !isClean(f.outputs));
 
-/**
- * @param {{ gitOnly?: boolean }} [options] gitOnly skips the per-package
- *   `mbe pack --check` re-derivation. Only correct immediately after a full
- *   `regen`: the derived bytes were just written to disk, so that comparison
- *   cannot fail (see the #5574 note below) while costing ~3 min of CI time
- *   re-packing every package. The git signal still runs and still catches
- *   every committed artifact that differs from a fresh regeneration.
- */
-function runCheck({ gitOnly = false } = {}) {
-  const llmsFamily = FAMILIES.find((f) => f.id === "llms-txt");
-  const otherFamilies = FAMILIES.filter((f) => f.id !== "llms-txt");
-
-  // Non-llms families have no `--check` mode of their own, so this still
-  // relies on a git-diff staleness check: it only catches drift already
-  // materialised in the tree (e.g. the generator ran but the result wasn't
-  // committed), not an un-regenerated source edit. Acceptable here — each of
-  // these generators has a narrow, single-file source (a schema, design
-  // tokens, a dependency manifest) that in practice changes in the same
-  // commit as its output.
-  const staleOther = otherFamilies.filter((f) => !isClean(f.outputs));
-
-  // llms-txt: real source→output check per package (see isLlmsPackageStale).
-  const stalePackages = llmsFamily && !gitOnly ? llmsPackages().filter(isLlmsPackageStale) : [];
-
-  // ...AND the git signal, which #3635 replaced rather than unioned. Both are
-  // needed because each is blind to what the other sees:
-  //
-  //   - `mbe pack --check` re-derives from source and compares to the FILE on
-  //     disk. It cannot see that the file disagrees with what is COMMITTED, so
-  //     anything that writes the correct bytes first makes it pass.
-  //   - `git diff` sees only drift already materialised in the tree, so it
-  //     cannot see an un-regenerated source edit (the #3635 false negative).
-  //
-  // ci.yml's "Verify generated artifacts are in sync" step is the first case:
-  // it runs `pnpm regen` (writing the correct output) and then `pnpm regen
-  // --check`, so the llms half of that gate could never fail. Measured: #5574
-  // merged as `1c721c9c8` with `apps/hospitality/llms-full.txt` regenerated but
-  // the root `llms-full.txt` stale, and that push plus `11461c11d` after it were
-  // both CI-Gate green; it was corrected only because a later PR happened to
-  // regen it. Reported as the same one `[llms-txt]` finding, not a separate
-  // family, so a package stale by both signals is named once.
-  const llmsOutputsDirty = llmsFamily ? !isClean(llmsFamily.outputs) : false;
-  const llmsStale = stalePackages.length > 0 || llmsOutputsDirty;
-
-  if (staleOther.length === 0 && !llmsStale) {
+  if (stale.length === 0) {
     console.log("All generated artifacts are up to date.");
     process.exit(0);
     return;
   }
 
-  const staleCount = staleOther.length + (llmsStale ? 1 : 0);
-  console.error(`\nStale artifacts detected (${staleCount}):\n`);
-  for (const f of staleOther) {
+  console.error(`\nStale artifacts detected (${stale.length}):\n`);
+  for (const f of stale) {
     console.error(`  [${f.id}]  ${f.label}`);
     console.error(`          fix: ${f.command}\n`);
-  }
-  if (llmsStale && llmsFamily) {
-    // Name the packages when the source→output check identified them; fall back
-    // to the git signal's wording when only the committed files disagree.
-    const detail = stalePackages.length > 0 ? stalePackages.join(", ") : "committed output differs";
-    console.error(`  [${llmsFamily.id}]  ${llmsFamily.label} (${detail})`);
-    console.error(`          fix: ${llmsFamily.command}\n`);
   }
   process.exit(1);
 }
 
-// ---------------------------------------------------------------------------
-// Regen mode
-// ---------------------------------------------------------------------------
-
-async function runRegen() {
+function runRegen() {
   console.log("Regenerating all generated artifacts...\n");
-  // Run all non-llms-txt families first so llms.txt embeds freshly-generated
-  // artifacts (e.g. rialto-catalog-schemas / generated-schemas.ts). Running
-  // llms-txt first caused ordering-induced drift: the schema was regenerated
-  // after llms, so the committed llms embedded the pre-regen schema content
-  // while CI regenerated llms with the post-regen schema → stale artifact.
   for (const family of FAMILIES) {
-    if (family.id !== "llms-txt") {
-      regenFamily(family);
-    }
+    regenFamily(family);
   }
-  // Run llms-txt last so it reads the freshly-generated schema.
-  await regenLlms();
   console.log("\nDone. All artifacts regenerated.");
 }
 
-// ---------------------------------------------------------------------------
-// Entry point
-// ---------------------------------------------------------------------------
-
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const checkMode = process.argv.includes("--check");
-  if (checkMode) {
-    runCheck({ gitOnly: process.argv.includes("--git-only") });
+  if (process.argv.includes("--check")) {
+    runCheck();
   } else {
-    runRegen().catch((err) => {
+    try {
+      runRegen();
+    } catch (err) {
       console.error(err.message);
       process.exit(1);
-    });
+    }
   }
 }
 

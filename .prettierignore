@@ -42,3 +42,12 @@ docs/reference/eat-sheet/
 # Prettier would reflow the inlined JS for a 3 MB one-time diff and the next
 # regeneration would revert it.
 docs/assembly-line/index.html
+
+# NOT ignored on purpose (#9078): docs/features/<slug>/ and docs/fixes/<slug>/
+# run artifacts. The markdown audit skips a run once its retro.md exists
+# (scripts/audit-markdown.mjs `excludeShippedRuns`), but this file is a static
+# list and cannot tell a shipped run from a live one, so ignoring the trees
+# would drop in-progress runs from `check:prettier` too. A dynamic ignore list
+# would need a wrapper around `check:prettier`, whose script string is pinned by
+# check-prettier-claude-coverage.test.mjs and shared by repo-audit and the
+# docs-format job.

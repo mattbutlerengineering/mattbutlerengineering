@@ -82,73 +82,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "FILE=$(node \"$CLAUDE_PROJECT_DIR/.claude/hooks/hook-input.mjs\"); [ -n \"$FILE\" ] || exit 0; [ -f \"$FILE\" ] || exit 0; npx prettier --write --ignore-unknown \"$FILE\" || true"
-          }
-        ]
-      },
-      {
-        "matcher": "Edit|Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "FILE=$(node \"$CLAUDE_PROJECT_DIR/.claude/hooks/hook-input.mjs\"); [ -n \"$FILE\" ] || exit 0; [ -f \"$FILE\" ] || exit 0; case \"$FILE\" in *.ts|*.tsx|*.js|*.jsx) npx eslint --fix \"$FILE\" || true;; esac"
-          }
-        ]
-      },
-      {
-        "matcher": "Edit|Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "FILE=$(node \"$CLAUDE_PROJECT_DIR/.claude/hooks/hook-input.mjs\"); [ -n \"$FILE\" ] || exit 0; case \"$FILE\" in */migrations/*/migration.sql|*/prisma/migrations/*/migration.sql) node \"$CLAUDE_PROJECT_DIR/scripts/check-destructive-migrations.js\" --file \"$FILE\";; esac"
-          }
-        ]
-      },
-      {
-        "matcher": "Edit|Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "FILE=$(node \"$CLAUDE_PROJECT_DIR/.claude/hooks/hook-input.mjs\"); [ -n \"$FILE\" ] || exit 0; bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/check-changeset.sh\" \"$FILE\""
-          }
-        ]
-      },
-      {
-        "matcher": "Edit|Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "FILE=$(node \"$CLAUDE_PROJECT_DIR/.claude/hooks/hook-input.mjs\"); [ -n \"$FILE\" ] || exit 0; bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/check-instruction-budget.sh\" \"$FILE\""
-          }
-        ]
-      },
-      {
-        "matcher": "Edit|Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "FILE=$(node \"$CLAUDE_PROJECT_DIR/.claude/hooks/hook-input.mjs\"); [ -n \"$FILE\" ] || exit 0; bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/run-related-tests.sh\" \"$FILE\"",
-            "timeout": 60
-          }
-        ]
-      },
-      {
-        "matcher": "Edit|Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "FILE=$(node \"$CLAUDE_PROJECT_DIR/.claude/hooks/hook-input.mjs\"); [ -n \"$FILE\" ] || exit 0; bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/regen-dep-graph.sh\" \"$FILE\"",
-            "timeout": 30
-          }
-        ]
-      },
-      {
-        "matcher": "Edit|Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "FILE=$(node \"$CLAUDE_PROJECT_DIR/.claude/hooks/hook-input.mjs\"); [ -n \"$FILE\" ] || exit 0; bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/regen-llms.sh\" \"$FILE\"",
-            "timeout": 30
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/post-edit.sh\"",
+            "timeout": 150
           }
         ]
       },

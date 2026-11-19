@@ -12,7 +12,7 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { findReferencedScripts } from "../lib/knip-entry-roots.mjs";
+import { findReferencedScripts, findRootsKnipCannotSee } from "../lib/knip-entry-roots.mjs";
 
 const REPO_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const KNIP_BIN = `${REPO_ROOT}node_modules/knip/bin/knip.js`;
@@ -42,13 +42,14 @@ describe("knip scripts workspace entry", () => {
     expect(SCRIPTS_ENTRY.filter((entry) => /^\*\*\/\*/.test(entry))).toEqual([]);
   });
 
-  it("lists exactly the scripts referenced by package.json, workflows, hooks, skills and routines", () => {
+  // #9079: list only the roots knip's own plugins cannot see (Claude hooks,
+  // skills, agents, routines). Scripts run from package.json, workflows or
+  // husky are found by knip itself, so listing them is a "redundant pattern" hint.
+  it("lists exactly the roots knip cannot see: Claude settings, hooks, skills, agents, routines", () => {
     const listed = SCRIPTS_ENTRY.filter((entry) => !isGlob(entry)).sort();
-    const referenced = findReferencedScripts(REPO_ROOT);
-    const notListed = referenced.filter((file) => !listed.includes(file));
-    const stale = listed.filter(
-      (file) => !referenced.includes(file) && file !== "vitest.config.mjs"
-    );
+    const expected = findRootsKnipCannotSee(REPO_ROOT);
+    const notListed = expected.filter((file) => !listed.includes(file));
+    const stale = listed.filter((file) => !expected.includes(file));
     expect({ notListed, stale }).toEqual({ notListed: [], stale: [] });
   });
 
@@ -124,5 +125,58 @@ describe("knip root workspace Claude entries", () => {
       );
     });
     expect(unnamed).toEqual([]);
+  });
+});
+
+describe("findReferencedScripts / findRootsKnipCannotSee (#9079)", () => {
+  function fixture(files) {
+    const dir = mkdtempSync(join(tmpdir(), "knip-roots-"));
+    for (const [rel, body] of Object.entries(files)) {
+      mkdirSync(dirname(join(dir, rel)), { recursive: true });
+      writeFileSync(join(dir, rel), body);
+    }
+    return dir;
+  }
+
+  it("finds scripts named through $CLAUDE_PROJECT_DIR in .claude/settings.json", () => {
+    const dir = fixture({
+      "scripts/boot.mjs": "",
+      "scripts/braced.mjs": "",
+      ".claude/settings.json":
+        '{"c":"node \\"$CLAUDE_PROJECT_DIR/scripts/boot.mjs\\" && node ${CLAUDE_PROJECT_DIR}/scripts/braced.mjs"}',
+    });
+    try {
+      expect(findReferencedScripts(dir)).toEqual(["boot.mjs", "braced.mjs"]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("scans .claude/implement-queue.md", () => {
+    const dir = fixture({
+      "scripts/q.mjs": "",
+      ".claude/implement-queue.md": "run `node scripts/q.mjs`",
+    });
+    try {
+      expect(findReferencedScripts(dir)).toEqual(["q.mjs"]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("drops scripts that package.json, workflows or husky already reach", () => {
+    const dir = fixture({
+      "scripts/a.mjs": "",
+      "scripts/b.mjs": "",
+      "scripts/c.mjs": "",
+      "package.json": '{"scripts":{"a":"node scripts/a.mjs"}}',
+      ".github/workflows/w.yml": "run: node scripts/b.mjs",
+      ".claude/skills/s/SKILL.md": "node scripts/a.mjs and node scripts/c.mjs",
+    });
+    try {
+      expect(findRootsKnipCannotSee(dir)).toEqual(["c.mjs"]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
