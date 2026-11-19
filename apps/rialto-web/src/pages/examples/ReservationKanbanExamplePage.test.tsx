@@ -139,6 +139,38 @@ describe("ReservationKanbanExamplePage — composition", () => {
     expect(within(inProgressColumn).getByText(target.guest)).toBeInTheDocument();
   });
 
+  it("keeps focus on the moved card's next-stage button", () => {
+    render(<ReservationKanbanExamplePage />);
+    const target = KANBAN_CARDS.find((c) => c.guest === "Elena Marchetti")!;
+    const name = `Move to next stage → ${target.guest}`;
+    const button = screen.getByRole("button", { name });
+    button.focus();
+    fireEvent.click(button);
+
+    const moved = within(screen.getByLabelText("In Progress")).getByRole("button", { name });
+    expect(moved).toHaveFocus();
+  });
+
+  it("moves focus to the card itself when the card reaches the last column", () => {
+    render(<ReservationKanbanExamplePage />);
+    const target = KANBAN_CARDS.find((c) => c.guest === "Elena Marchetti")!;
+    const name = `Move to next stage → ${target.guest}`;
+    fireEvent.click(screen.getByRole("button", { name }));
+    fireEvent.click(screen.getByRole("button", { name }));
+
+    expect(screen.queryByRole("button", { name })).not.toBeInTheDocument();
+    expect(document.activeElement).toHaveAttribute("data-kanban-card", target.id);
+    expect(within(screen.getByLabelText("Checkout")).getByText(target.guest)).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(`${target.guest} moved to Checkout`);
+  });
+
+  it("announces the move in a polite live region", () => {
+    render(<ReservationKanbanExamplePage />);
+    const target = KANBAN_CARDS.find((c) => c.guest === "Elena Marchetti")!;
+    fireEvent.click(screen.getByRole("button", { name: `Move to next stage → ${target.guest}` }));
+    expect(screen.getByRole("status")).toHaveTextContent(`${target.guest} moved to In Progress`);
+  });
+
   it("the move button's accessible name contains its visible text (WCAG 2.5.3)", () => {
     render(<ReservationKanbanExamplePage />);
     const target = KANBAN_CARDS.find((c) => c.stage === "pre-arrival")!;

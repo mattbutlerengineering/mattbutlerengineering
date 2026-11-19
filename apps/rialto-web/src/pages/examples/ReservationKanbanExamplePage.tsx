@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Badge, Button, Card, Stack, Text } from "@mattbutlerengineering/rialto";
 import { CompositionNote, ExamplePageLayout } from "./ExamplePageLayout";
 import styles from "./ReservationKanbanExamplePage.module.css";
@@ -164,6 +164,14 @@ const COMPOSITION_NOTES: ReactNode = (
 
 /* ── Card component ──────────────────────────── */
 
+function focusWithRing(el: HTMLElement) {
+  try {
+    el.focus({ focusVisible: true });
+  } catch {
+    el.focus();
+  }
+}
+
 function KanbanCardItem({
   card,
   onAdvance,
@@ -173,27 +181,35 @@ function KanbanCardItem({
 }) {
   const next = nextStageId(card.stage);
   return (
-    <Card className={styles.card}>
-      <Stack gap="xs">
-        <Text variant="label">{card.guest}</Text>
-        <Text variant="caption" color="secondary">
-          {card.room} · {card.date}
-        </Text>
-        <Badge variant="neutral" size="sm">
-          {card.party} {card.party === 1 ? "guest" : "guests"}
-        </Badge>
-        {next && (
-          <Button
-            variant="ghost"
-            size="sm"
-            aria-label={`Move to next stage → ${card.guest}`}
-            onClick={() => onAdvance(card.id)}
-          >
-            Move to next stage →
-          </Button>
-        )}
-      </Stack>
-    </Card>
+    <div
+      className={styles.cardTarget}
+      data-kanban-card={card.id}
+      // The move button is the tab stop while the card can still advance.
+      // Checkout has no button, so the card itself can take focus when it lands there.
+      tabIndex={next ? undefined : -1}
+    >
+      <Card className={styles.card}>
+        <Stack gap="xs">
+          <Text variant="label">{card.guest}</Text>
+          <Text variant="caption" color="secondary">
+            {card.room} · {card.date}
+          </Text>
+          <Badge variant="neutral" size="sm">
+            {card.party} {card.party === 1 ? "guest" : "guests"}
+          </Badge>
+          {next && (
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label={`Move to next stage → ${card.guest}`}
+              onClick={() => onAdvance(card.id)}
+            >
+              Move to next stage →
+            </Button>
+          )}
+        </Stack>
+      </Card>
+    </div>
   );
 }
 
@@ -201,10 +217,34 @@ function KanbanCardItem({
 
 export function ReservationKanbanExamplePage() {
   const [cards, setCards] = useState<KanbanCard[]>(KANBAN_CARDS);
+  const [announcement, setAnnouncement] = useState("");
+  const boardRef = useRef<HTMLDivElement>(null);
+  const pendingFocusIdRef = useRef<string | null>(null);
 
   const handleAdvance = (id: string) => {
+    const card = cards.find((item) => item.id === id);
+    const next = card ? nextStageId(card.stage) : null;
+    if (card && next) {
+      pendingFocusIdRef.current = id;
+      const label = STAGES.find((stage) => stage.id === next)?.label ?? next;
+      setAnnouncement(`${card.guest} moved to ${label}.`);
+    }
     setCards((prev) => moveCardToNextStage(prev, id));
   };
+
+  // The button that was activated unmounts with the card's old column. Put
+  // focus on the card's new button, or on the card once it has nowhere to go.
+  useEffect(() => {
+    const id = pendingFocusIdRef.current;
+    if (!id || !boardRef.current) return;
+    pendingFocusIdRef.current = null;
+    const cardEl = boardRef.current.querySelector<HTMLElement>(
+      `[data-kanban-card="${CSS.escape(id)}"]`
+    );
+    if (!cardEl) return;
+    const button = cardEl.querySelector<HTMLButtonElement>("button");
+    focusWithRing(button ?? cardEl);
+  }, [cards]);
 
   return (
     <ExamplePageLayout
@@ -213,27 +253,32 @@ export function ReservationKanbanExamplePage() {
       sourceJsx={SOURCE_JSX}
       compositionNotes={COMPOSITION_NOTES}
     >
-      <div className={styles.board}>
-        {STAGES.map((stage) => {
-          const columnCards = cardsByStage(cards, stage.id);
-          return (
-            <div key={stage.id} className={styles.column} aria-label={stage.label}>
-              <div className={styles.columnHeader}>
-                <Text variant="label" color="primary">
-                  {stage.label}
-                </Text>
-                <Badge variant={stage.badgeVariant} size="sm">
-                  {columnCards.length}
-                </Badge>
+      <div ref={boardRef}>
+        <div className={styles.live} role="status">
+          {announcement}
+        </div>
+        <div className={styles.board}>
+          {STAGES.map((stage) => {
+            const columnCards = cardsByStage(cards, stage.id);
+            return (
+              <div key={stage.id} className={styles.column} aria-label={stage.label}>
+                <div className={styles.columnHeader}>
+                  <Text variant="label" color="primary">
+                    {stage.label}
+                  </Text>
+                  <Badge variant={stage.badgeVariant} size="sm">
+                    {columnCards.length}
+                  </Badge>
+                </div>
+                <Stack gap="sm">
+                  {columnCards.map((card) => (
+                    <KanbanCardItem key={card.id} card={card} onAdvance={handleAdvance} />
+                  ))}
+                </Stack>
               </div>
-              <Stack gap="sm">
-                {columnCards.map((card) => (
-                  <KanbanCardItem key={card.id} card={card} onAdvance={handleAdvance} />
-                ))}
-              </Stack>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     </ExamplePageLayout>
   );
