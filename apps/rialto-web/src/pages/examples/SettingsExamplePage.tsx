@@ -24,7 +24,7 @@ const SETTINGS_EXAMPLE_JSX = `<Stack gap="xl" className={styles.sections}>
       <Input
         label="Full Name"
         value={fullName}
-        onChange={(e) => setFullName(e.target.value)}
+        onChange={(e) => { setFullName(e.target.value); setSaved(false); }}
         error={Boolean(errors.fullName)}
         hint={errors.fullName}
         placeholder="Your name"
@@ -32,7 +32,7 @@ const SETTINGS_EXAMPLE_JSX = `<Stack gap="xl" className={styles.sections}>
       <Input
         label="Email"
         value={email}
-        onChange={(e) => setEmail(e.target.value)}
+        onChange={(e) => { setEmail(e.target.value); setSaved(false); }}
         error={Boolean(errors.email)}
         hint={errors.email}
         placeholder="Email address"
@@ -46,7 +46,7 @@ const SETTINGS_EXAMPLE_JSX = `<Stack gap="xl" className={styles.sections}>
           { value: "general-manager", label: "General Manager" },
         ]}
         value="operations-manager"
-        onChange={setRole}
+        onChange={(value) => { setRole(value); setSaved(false); }}
       />
       <Select
         label="Timezone"
@@ -57,7 +57,7 @@ const SETTINGS_EXAMPLE_JSX = `<Stack gap="xl" className={styles.sections}>
           { value: "Europe/London", label: "Europe/London" },
         ]}
         value="America/Chicago"
-        onChange={setTimezone}
+        onChange={(value) => { setTimezone(value); setSaved(false); }}
       />
     </Stack>
     <Divider />
@@ -190,7 +190,10 @@ export function SettingsExamplePage() {
             <Input
               label="Full Name"
               value={fullName}
-              onChange={(event) => setFullName(event.target.value)}
+              onChange={(event) => {
+                setFullName(event.target.value);
+                setSaved(false);
+              }}
               error={Boolean(errors.fullName)}
               hint={errors.fullName}
               placeholder="Your name"
@@ -198,17 +201,31 @@ export function SettingsExamplePage() {
             <Input
               label="Email"
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              onChange={(event) => {
+                setEmail(event.target.value);
+                setSaved(false);
+              }}
               error={Boolean(errors.email)}
               hint={errors.email}
               placeholder="Email address"
             />
-            <Select label="Role" options={ROLE_OPTIONS} value={role} onChange={setRole} />
+            <Select
+              label="Role"
+              options={ROLE_OPTIONS}
+              value={role}
+              onChange={(value) => {
+                setRole(value);
+                setSaved(false);
+              }}
+            />
             <Select
               label="Timezone"
               options={TIMEZONE_OPTIONS}
               value={timezone}
-              onChange={setTimezone}
+              onChange={(value) => {
+                setTimezone(value);
+                setSaved(false);
+              }}
             />
           </Stack>
           <Divider />
