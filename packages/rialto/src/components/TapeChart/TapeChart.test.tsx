@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { render, renderHook, screen } from "@testing-library/react";
+import { fireEvent, render, renderHook, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
 import { TapeChart } from "./TapeChart";
@@ -290,12 +290,25 @@ describe("<TapeChart /> rendering", () => {
     expect(screen.getByRole("region", { name: /reservations tape chart/i })).toBeInTheDocument();
   });
 
-  it("makes the horizontally scrolling grid keyboard-focusable (axe scrollable-region-focusable)", () => {
+  it("makes the horizontally scrolling grid keyboard-reachable (axe scrollable-region-focusable)", () => {
     render(<TapeChart {...BASE} />);
+    // A bar in the tab order is the scrollable region's keyboard access. The grid
+    // container stays a tab stop only when it has no bar to focus.
+    expect(screen.getByRole("button", { name: /Jane Doe/ })).toHaveAttribute("tabindex", "0");
+    // role=grid has to stay focusable (jsx-a11y) without becoming a second tab stop.
+    expect(screen.getByRole("grid", { name: /reservations tape chart/i })).toHaveAttribute(
+      "tabindex",
+      "-1"
+    );
+  });
+
+  it("keeps a barless grid in the tab order so the empty scroller stays keyboard-reachable", () => {
+    render(<TapeChart {...BASE} reservations={[]} />);
     expect(screen.getByRole("grid", { name: /reservations tape chart/i })).toHaveAttribute(
       "tabindex",
       "0"
     );
+    expect(screen.queryByRole("button", { name: /Jane Doe/ })).not.toBeInTheDocument();
   });
 
   // Day headers render the YYYY-MM-DD calendar day. Pinning timeZone="UTC"
@@ -536,5 +549,138 @@ describe("<TapeChart /> bar accessible name", () => {
       expect(visible).not.toBe("");
       expect(bar.getAttribute("aria-label")).toContain(visible);
     }
+  });
+});
+
+describe("<TapeChart /> roving tabindex", () => {
+  const ROOMS_THREE: TapeChartRoom[] = [
+    { id: "r1", name: "101" },
+    { id: "r2", name: "102" },
+    { id: "r3", name: "103" },
+  ];
+
+  // Room 102 is empty so ArrowDown must skip it. Bars in 101 are ordered by start.
+  const CHART = {
+    rooms: ROOMS_THREE,
+    startDate: "2026-04-20",
+    endDate: "2026-04-27",
+    reservations: [
+      buildReservation({
+        id: "a",
+        roomId: "r1",
+        start: "2026-04-20",
+        end: "2026-04-22",
+        guestName: "Ines Duarte",
+      }),
+      buildReservation({
+        id: "b",
+        roomId: "r1",
+        start: "2026-04-23",
+        end: "2026-04-26",
+        guestName: "Kofi Mensah",
+      }),
+      buildReservation({
+        id: "c",
+        roomId: "r3",
+        start: "2026-04-21",
+        end: "2026-04-24",
+        guestName: "Leila Haddad",
+      }),
+    ],
+  };
+
+  function chartBars() {
+    return {
+      ines: screen.getByRole("button", { name: /Ines Duarte/ }),
+      kofi: screen.getByRole("button", { name: /Kofi Mensah/ }),
+      leila: screen.getByRole("button", { name: /Leila Haddad/ }),
+    };
+  }
+
+  it("gives exactly one bar tabindex 0, the first in reading order", () => {
+    render(<TapeChart {...CHART} />);
+    const { ines, kofi, leila } = chartBars();
+    expect(ines).toHaveAttribute("tabindex", "0");
+    expect(kofi).toHaveAttribute("tabindex", "-1");
+    expect(leila).toHaveAttribute("tabindex", "-1");
+  });
+
+  it("uses the selected reservation as the tab stop", () => {
+    render(<TapeChart {...CHART} selectedReservationId="c" />);
+    const { ines, leila } = chartBars();
+    expect(leila).toHaveAttribute("tabindex", "0");
+    expect(ines).toHaveAttribute("tabindex", "-1");
+  });
+
+  it("moves focus to the next bar in the row on ArrowRight without selecting it", () => {
+    const onClick = vi.fn();
+    render(<TapeChart {...CHART} onReservationClick={onClick} />);
+    const { ines, kofi } = chartBars();
+    ines.focus();
+    expect(fireEvent.keyDown(ines, { key: "ArrowRight" })).toBe(false);
+
+    expect(kofi).toHaveFocus();
+    expect(kofi).toHaveAttribute("tabindex", "0");
+    expect(ines).toHaveAttribute("tabindex", "-1");
+    expect(onClick).not.toHaveBeenCalled();
+  });
+
+  it("moves focus back with ArrowLeft and clamps at the first bar of the row", () => {
+    render(<TapeChart {...CHART} />);
+    const { ines, kofi } = chartBars();
+    kofi.focus();
+    fireEvent.keyDown(kofi, { key: "ArrowLeft" });
+    expect(ines).toHaveFocus();
+
+    fireEvent.keyDown(ines, { key: "ArrowLeft" });
+    expect(ines).toHaveFocus();
+  });
+
+  it("moves focus to the next occupied row on ArrowDown, skipping empty rooms", () => {
+    render(<TapeChart {...CHART} />);
+    const { kofi, leila } = chartBars();
+    kofi.focus();
+    fireEvent.keyDown(kofi, { key: "ArrowDown" });
+    expect(leila).toHaveFocus();
+    expect(leila).toHaveAttribute("tabindex", "0");
+  });
+
+  it("moves focus to the closest bar in the previous row on ArrowUp", () => {
+    render(<TapeChart {...CHART} />);
+    // Leila starts Apr 21 (offset 1). Ines is offset 0 (distance 1); Kofi is offset 3.
+    const { ines, leila } = chartBars();
+    leila.focus();
+    fireEvent.keyDown(leila, { key: "ArrowUp" });
+    expect(ines).toHaveFocus();
+  });
+
+  it("opens the bar reached by the arrow keys on Enter and Space", () => {
+    const onClick = vi.fn();
+    render(<TapeChart {...CHART} onReservationClick={onClick} />);
+    const { ines, kofi } = chartBars();
+    ines.focus();
+    fireEvent.keyDown(ines, { key: "ArrowRight" });
+    expect(kofi).toHaveFocus();
+
+    fireEvent.keyDown(kofi, { key: "Enter" });
+    expect(onClick).toHaveBeenCalledTimes(1);
+    expect(onClick).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "b", guestName: "Kofi Mensah" })
+    );
+
+    fireEvent.keyDown(kofi, { key: " " });
+    expect(onClick).toHaveBeenCalledTimes(2);
+    expect(onClick).toHaveBeenLastCalledWith(expect.objectContaining({ id: "b" }));
+  });
+
+  it("keeps the selection on the clicked bar while arrows only move focus", () => {
+    render(<TapeChart {...CHART} selectedReservationId="c" />);
+    const { ines, leila } = chartBars();
+    expect(leila).toHaveAttribute("aria-pressed", "true");
+    leila.focus();
+    fireEvent.keyDown(leila, { key: "ArrowUp" });
+    expect(ines).toHaveFocus();
+    expect(leila).toHaveAttribute("aria-pressed", "true");
+    expect(ines).toHaveAttribute("aria-pressed", "false");
   });
 });

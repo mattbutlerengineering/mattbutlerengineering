@@ -107,6 +107,7 @@ export const TapeChartBar = forwardRef<HTMLButtonElement, TapeChartBarProps>(
         data-lane={bar.lane}
         data-overlap={bar.overlap}
         tabIndex={tabIndex}
+        data-reservation-id={r.id}
         aria-label={ariaLabel}
         aria-pressed={selected ?? false}
         onClick={() => onSelect(r)}
