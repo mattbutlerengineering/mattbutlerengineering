@@ -1,5 +1,11 @@
 # @mattbutlerengineering/rialto
 
+## 0.10.22
+
+### Patch Changes
+
+- [#9152](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9152) [`c6de55a`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/c6de55ad6e8396fb78fa44dea92d74303cf8e3a6) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - TapeChart reservation bars are reachable from the keyboard. One bar is in the tab order, and the arrow keys move between bars in a room and between rooms.
+
 ## 0.10.21
 
 ### Patch Changes
