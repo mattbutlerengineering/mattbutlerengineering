@@ -455,9 +455,10 @@ describe("AvailabilityDayEditor", () => {
     fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
     chooseScope(/Every Friday from/);
     fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
-    expect(screen.getByRole("button", { name: "Save 52 dates" })).toBeInTheDocument();
+    // One number on the button, with the dates that keep their own hours in the same sentence.
+    const saveButton = screen.getByRole("button", { name: "Save 52 dates, own hours kept on 1" });
 
-    fireEvent.click(screen.getByRole("button", { name: "Save 52 dates" }));
+    fireEvent.click(saveButton);
     expect(await screen.findByText("52 dates updated")).toBeInTheDocument();
   });
 
