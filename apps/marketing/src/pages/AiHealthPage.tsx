@@ -83,10 +83,21 @@ function QueueEfficiencyPanel({ queueEfficiency }: { queueEfficiency: QueueEffic
         </Card>
         <Card className={styles.statCard}>
           <Text className={styles.statLabel}>Cost / Issue</Text>
-          <Text className={styles.statValue}>{formatUsd(queueEfficiency.costPerIssue)}</Text>
-          {queueEfficiency.costPerIssue == null && (
-            <Text className={styles.statNote}>No PR cost data matched this window</Text>
-          )}
+          {/* #9016: a bare "—" in the value slot still read as a data-quality
+              flag to the live site audit even with an explanatory note below
+              it (#8632). The value slot itself must never be a bare dash —
+              it carries the explanation directly when there is no number. */}
+          <Text
+            className={
+              queueEfficiency.costPerIssue == null
+                ? `${styles.statValue} ${styles.statValueText}`
+                : styles.statValue
+            }
+          >
+            {queueEfficiency.costPerIssue == null
+              ? "No PR cost data matched this window"
+              : formatUsd(queueEfficiency.costPerIssue)}
+          </Text>
         </Card>
         <Card className={styles.statCard}>
           <Text className={styles.statLabel}>Time to Merge</Text>

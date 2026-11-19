@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { ElementType, ReactNode } from "react";
@@ -113,5 +113,33 @@ describe("StatusPage", () => {
       expect(screen.getByText("Users API")).toBeInTheDocument();
       expect(screen.getByText("Marketing")).toBeInTheDocument();
     });
+  });
+
+  // #9016: /ai-health can show a sensor Unavailable while /status still
+  // claims every system Operational — the two views disagreed. The
+  // e2eStability sensor's Unavailable state must pull the aggregate badge
+  // off "Operational" instead of being invisible to this page.
+  it("reflects an Unavailable e2eStability sensor as degraded, not Operational (#9016)", async () => {
+    mockFetch.mockImplementation((url: string) => {
+      if (url === "/sensor-report.json") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            sensors: { e2eStability: { available: false, reason: "no_runs" } },
+          }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ status: "ok", version: "1.0.0" }),
+      });
+    });
+    render(<StatusPage />);
+    await waitFor(() => {
+      expect(screen.getByText("E2E Tests (main)")).toBeInTheDocument();
+    });
+    const overall = screen.getByTestId("overall-status");
+    expect(within(overall).getByText("Degraded")).toBeInTheDocument();
+    expect(within(overall).queryByText("Operational")).not.toBeInTheDocument();
   });
 });
