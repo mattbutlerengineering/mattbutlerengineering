@@ -1,42 +1,3 @@
-## 2026-11-02 — mbe-evening (progress-tracker)
-
-### Metrics
-
-| Metric                                                                                    | Value                                    | Status                                                 |
-| ----------------------------------------------------------------------------------------- | ---------------------------------------- | ------------------------------------------------------ |
-| Created (7d, audit+ci-fix)                                                                | 25                                       | -                                                      |
-| Closed (7d, audit+ci-fix)                                                                 | 24                                       | -                                                      |
-| Closure Rate                                                                              | 24/25 = 96%                              | Green (>80%)                                           |
-| Time-to-Close (mean)                                                                      | 33.8h                                    | Yellow (24-72h)                                        |
-| Agent Success (has-pr/(has-pr+failed), open)                                              | 5/5 = 100%                               | Green (>70%)                                           |
-| CI Pass (`ci.yml` on main, last 20 runs)                                                  | 19/20 = 95%                              | Yellow/Green boundary (1 cancelled run, not a failure) |
-| Queue (ready, open)                                                                       | 6                                        | Yellow (5-10)                                          |
-| Stale (ready>7d)                                                                          | 0                                        | Green                                                  |
-| Blocked (agent-failed, open)                                                              | 0                                        | Green                                                  |
-| Skipped (agent-skip, open)                                                                | 0                                        | Green                                                  |
-| Daily/7d Spend (attributed, `.claude/agent-spend/sessions.jsonl`)                         | $0                                       | Green (no `mbe agent run`/`eval` sessions this window) |
-| Queue worker usage (7d, `metrics/queue-telemetry.jsonl`, not in the Daily/7d Spend total) | 4 sessions, 990,098 tokens, cost unknown | Unmeasured — never report as $0                        |
-| Cost/Issue                                                                                | unknown                                  | Unmeasured (no `cost_usd` on queue rows)               |
-| Reverts (7d)                                                                              | 1                                        | Green (<3/week)                                        |
-
-### Patterns
-
-- This session (mbe-evening, implement-queue iteration) claimed a priority-sorted, zone-spread batch of 3 ready issues — #8039 (security, `services/reservations` zone), #8059 (ci-fix, global zone), #8066 (ci-fix, `root` zone) — and opened PRs #8073, #8072, #8070 respectively. All three workers succeeded on the first pass (0 failures, circuit breaker never engaged). A fourth pre-existing open PR, #8013 (`feat(reservations)` host-brand email branding), was also carried through the full gate this session.
-- All 4 PRs required the universal reviewer (none qualified for the low-risk fast path); #8013 and #8073 additionally matched specialist reviewers (migration/ADR/generated-artifact-determinism for #8013; ADR/generated-artifact-determinism for #8073). All 4 passed every review dispatched (scores 8-9/10, 0 defects). Two more pre-existing trivial-tier PRs (#8069, #8054) qualified for the fast path and were classified pass with no specialist match.
-- Recurring, already-tracked pattern (not new): `[Merge Without Review]` session-merge denial fired on the first merge attempt this session (PR #8069) — per the documented fallback, no further merge attempts were made for the rest of the session; all 6 gated PRs (#8013, #8069, #8054, #8070, #8072, #8073) were posted a review-verdict comment and left reviewed/green/awaiting-human-merge. One metrics-only PR this session's own telemetry commits opened (#8071) merged on its own via the repo's separate GitHub Actions auto-merge automation (not this session), confirming that mechanism is independent of the CCR session-merge block.
-- New, substantive finding surfaced by the #8059 worker's investigation (not a code bug in #8059 itself, folded into PR #8072 instead): PR #8057 (issue #7963) is green, 9/10-reviewed, and stuck on the same `[Merge Without Review]` block — it has been sitting awaiting a human merge since before this session started. Flagging for Matt's attention since it predates tonight's run and will keep sitting there until someone merges it by hand.
-- Reverts (7d): 1 — below the 3/week circuit-breaker threshold, not investigated further this run.
-
-### Recommendations
-
-- No 3-day-consistent new pattern beyond the already-tracked `[Merge Without Review]` gotcha — holding off on a new `meta-improvement` issue this run.
-- Human merge needed for 7 PRs currently reviewed-green-awaiting-merge: #8013, #8054, #8057 (pre-existing, oldest), #8069, #8070, #8072, #8073.
-- Queue is Yellow (6 ready) — within the loop's own target of draining 3/iteration; no adjustment needed yet, but a second iteration soon would bring it back under 5.
-
-### Skipped Issues
-
-0 `agent-skip` issues open — nothing to manually review.
-
 ## 2026-11-02
 
 **queueEfficiency:** composite 0.846 (baseline n/a) — healthy
@@ -1176,3 +1137,43 @@ None (`agent-skip` is empty).
 - **Blockers / pipeline bugs:** none. No stopped filing.
 
 A clean fire: everything due was captured and judged, and nothing met the bar to file.
+
+## 2026-11-19 — mbe-evening (progress-tracker)
+
+### Metrics
+
+| Metric                                         | Value                                                                                               |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Created (7d, audit+ci-fix)                     | 31 (audit 11, ci-fix 20)                                                                            |
+| Closed (7d, audit+ci-fix)                      | 45 (audit 22, ci-fix 23)                                                                            |
+| Closure Rate                                   | 145% — green (>80%)                                                                                 |
+| Time-to-Close (mean)                           | ~74.9h — red (>72h)                                                                                 |
+| Agent Success                                  | 2/2 = 100% (2 has-pr / 0 agent-failed open at snapshot; n=2, low signal)                            |
+| CI Pass (main, last 20 runs, skipped excluded) | 16/16 = 100% — green                                                                                |
+| Queue (ready)                                  | 0 — green                                                                                           |
+| Stale (ready>7d)                               | 0 — green                                                                                           |
+| Blocked (agent-failed)                         | 0 — green                                                                                           |
+| Skipped (agent-skip)                           | 0 — green                                                                                           |
+| Daily Spend (attributed)                       | $0 today via recordSpend; 1 queue-worker session dispatched this run (#9016), cost_usd not recorded |
+| 7d Spend (attributed)                          | $2.44 + 2,070,210 tokens across 17 queue-worker sessions with unknown cost (37 rows missing usage)  |
+| Cost/Issue                                     | unknown — cost_usd null on all attributed queue-worker rows this window                             |
+| Reverts (7d)                                   | 0 — green (<3/week)                                                                                 |
+
+### Patterns
+
+- **implement-queue iteration this run:** backlog of `ready` issues was empty going in (0 ready, 8 stateless candidates). Promoted 2 well-specified ones (#9143, #9016); the zone-spread selector (strict main) found both in the `apps/marketing` zone and deferred #9143 to a later batch — only #9016 claimed by this session. The other 6 stateless candidates (#9125, #9086, #9074, #9073, #9047, #8691) were left unpromoted as investigations/proposals/an explicitly-epic issue (#8691 says "run `/decompose`", not ready for a blind worker) rather than well-specified fixes.
+- A separate driver, **mbe-feature-drain**, independently claimed the deferred #9143 mid-run (labeled `in-progress` 01:34 UTC, `has-pr` 01:36 UTC, PR #9147) — not touched by this session, noted only. Confirms the zone-spread deferral worked as designed (no collision) and that a second scheduled routine is actively draining the same backlog concurrently.
+- #9016 → PR #9145 (sonnet worker, 15.4 min, 170,939 tokens, 96 tool uses). Local gates (lint/typecheck/test/local-ci-precheck) all green. CI Gate's "Visual Regression (marketing)" failed — not a code bug: the PR's own intended UI change (new `/status` "CI Signals" row) made the page taller, invalidating the committed baseline PNGs (expected 1031px got 1180px; expected 1407px got 1531px — exactly the new row's height). Fixing needs `gh workflow run visual-baseline-regen.yml -f app=marketing -f grep=status`, which this cloud session cannot dispatch (`403`, no `actions: write`) — the documented cloud-routine limitation. Posted the explanation on PR #9145 and labeled issue #9016 `needs-review` (held, not auto-merged).
+- Telemetry PR #9146 (metrics-only, this run's own queue-telemetry row) qualified for the low-risk fast path (`fastPath: true`, no reviewer match), but `gh pr merge --auto` and the REST `ccr/auto_merge` route were both denied by the auto-mode classifier (`[Destructive or Unwanted Actions]`) — same family as the recurring `[Merge Without Review]` gotcha (#6125). Per the merge-command hook, not retried; posted a verdict comment, left "reviewed (fast-path), awaiting CI, awaiting human merge."
+- Not a new 3-day-consistent pattern: the visual-baseline failure is already a documented, known gotcha (stale baselines need `visual-baseline-regen.yml`; cloud routines can't dispatch it) — no new `meta-improvement` issue filed this run.
+- Reverts (7d): 0.
+
+### Recommendations
+
+- Owner: run `gh workflow run visual-baseline-regen.yml -f app=marketing -f grep=status`, merge the resulting baseline PR, then update-branch PR #9145 so CI Gate can go green.
+- Owner: merge PR #9146 (telemetry, fast-path, awaiting CI) by hand once CI Gate is green — `gh pr merge 9146 --auto --squash --delete-branch`.
+- Queue is Green (0 ready) but thin on well-specified work — only 2 of 8 stateless candidates promoted. Consider running `/decompose` on #8691 (explicitly epic-sized) and triaging the workflow-reliability investigations #9074/#9073 by hand.
+
+### Skipped Issues
+
+0 `agent-skip` issues open — nothing to manually review.
