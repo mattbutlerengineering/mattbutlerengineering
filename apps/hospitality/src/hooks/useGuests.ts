@@ -195,8 +195,6 @@ export const useUpdateGuest = createMutationHook<{ guestId: string; data: Update
 
 export const useAddStaffNote = createMutationHook<{ guestId: string; text: string }>({
   invalidateKeys: GUESTS_QUERY_KEY,
+  // The `guests` prefix already covers the `[guests, { id }]` detail entry; no per-guest key needed.
   mutationFn: (api, { guestId, text }) => api.guests.addNote(guestId, text),
-  onSuccess: (queryClient, _data, variables) => {
-    queryClient.invalidateQueries({ queryKey: [GUESTS_QUERY_KEY, { id: variables.guestId }] });
-  },
 });

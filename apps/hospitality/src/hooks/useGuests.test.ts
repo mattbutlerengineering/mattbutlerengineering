@@ -10,6 +10,8 @@ import {
   useLapsingGuests,
   useSendWinBack,
   useAddGuest,
+  useGuest,
+  useAddStaffNote,
 } from "./useGuests.js";
 import type { Guest, GuestSegment, LapsingGuest } from "@mbe/types";
 
@@ -21,6 +23,8 @@ const mockGetSegments = vi.fn();
 const mockGetLapsing = vi.fn();
 const mockSendWinBack = vi.fn();
 const mockFindOrCreate = vi.fn();
+const mockGet = vi.fn();
+const mockAddNote = vi.fn();
 
 vi.mock("./useApiClient.js", () => ({
   useApiClient: () => ({
@@ -31,6 +35,8 @@ vi.mock("./useApiClient.js", () => ({
       getLapsing: mockGetLapsing,
       sendWinBack: mockSendWinBack,
       findOrCreate: mockFindOrCreate,
+      get: mockGet,
+      addNote: mockAddNote,
     },
   }),
 }));
@@ -262,6 +268,38 @@ describe("useAddGuest", () => {
     await result.current.mutateAsync({ venueId: "venue-1", name: "Jane Doe" });
 
     expect(queryClient.getQueryState(segmentsKey)?.isInvalidated).toBe(true);
+  });
+});
+
+/* ── Tests: useAddStaffNote invalidates the guest detail entry ── */
+
+describe("useAddStaffNote", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("invalidates the guest detail query useGuest(id) reads from", async () => {
+    mockGet.mockResolvedValue(makeGuest({ id: "g-1" }));
+    mockAddNote.mockResolvedValue(makeGuest({ id: "g-1" }));
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(QueryClientProvider, { client: queryClient }, children);
+
+    const detail = renderHook(() => useGuest("g-1"), { wrapper });
+    await waitFor(() => expect(detail.result.current.data?.id).toBe("g-1"));
+    const detailKey = queryClient.getQueryCache().findAll()[0]!.queryKey;
+
+    const mutation = renderHook(() => useAddStaffNote(), { wrapper });
+    await mutation.result.current.mutateAsync({ guestId: "g-1", text: "Allergic to nuts" });
+
+    expect(mockAddNote).toHaveBeenCalledWith("g-1", "Allergic to nuts");
+    // One prefix invalidation (`guests`) refetches the detail once; a second, redundant
+    // invalidation of the same entry restarts the in-flight refetch (3 calls, not 2).
+    await waitFor(() => expect(queryClient.isFetching()).toBe(0));
+    expect(queryClient.getQueryState(detailKey)?.isInvalidated).toBe(false);
+    expect(mockGet).toHaveBeenCalledTimes(2);
   });
 });
 
