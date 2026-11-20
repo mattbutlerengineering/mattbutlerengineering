@@ -38,6 +38,42 @@ export interface PipelineOutcome {
   readonly budgetEnforced?: boolean;
 }
 
+/** The spend fields of a `SessionResult` that a thrown pipeline must not zero. */
+export type FailureSpend = Pick<
+  SessionResult,
+  "sessionId" | "costUsd" | "tokenUsage" | "durationMs" | "numTurns"
+>;
+
+/**
+ * Spend already incurred by the query phase when a later phase throws.
+ * Prefers the SDK result message (authoritative totals); otherwise sums the
+ * per-turn metrics; with neither, nothing was spent and zeros are accurate.
+ */
+export function buildFailureSpend(
+  resultMessage: SDKResultMessage | undefined,
+  turnMetrics: readonly TurnMetrics[] | undefined
+): FailureSpend {
+  if (resultMessage) {
+    const { sessionId, costUsd, tokenUsage, durationMs, numTurns } = buildSessionResult(
+      resultMessage,
+      "",
+      null
+    );
+    return { sessionId, costUsd, tokenUsage, durationMs, numTurns };
+  }
+  const turns = turnMetrics ?? [];
+  return {
+    sessionId: "",
+    costUsd: turns.reduce((sum, t) => sum + t.costUsd, 0),
+    tokenUsage: {
+      inputTokens: turns.reduce((sum, t) => sum + t.inputTokens, 0),
+      outputTokens: turns.reduce((sum, t) => sum + t.outputTokens, 0),
+    },
+    durationMs: 0,
+    numTurns: turns.length,
+  };
+}
+
 export function buildRootSpanAttributes(
   config: SessionConfig,
   tuning: QaTuningThresholds | null
