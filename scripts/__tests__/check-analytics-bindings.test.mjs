@@ -25,6 +25,7 @@ import {
   parsePulumiAnalytics,
   diffAnalyticsBindings,
   findAnalyticsBindingFindings,
+  extractEdgeRouterBlock,
 } from "../check-analytics-bindings.mjs";
 
 const REPO_ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -225,6 +226,38 @@ describe("check-analytics-bindings", () => {
       const { findings } = findAnalyticsBindingFindings(tmpDir);
       expect(kinds(findings)).toContain("missing-in-pulumi");
       expect(kinds(findings)).toContain("no-entries:pulumi");
+    });
+    it("does not let an analytics binding on a different resource satisfy the edge router", () => {
+      const pulumi = `${PULUMI_PRE_FIX}
+const other = new cloudflare.WorkersScript("mattbutlerengineering-gen", {
+  bindings: [
+    { name: "ANALYTICS", dataset: "edge_requests", type: "analytics_engine" },
+  ],
+});
+`;
+      writeInfra(tmpDir, { wrangler: WRANGLER_ANALYTICS_TABLE, pulumi });
+      const { findings } = findAnalyticsBindingFindings(tmpDir);
+      expect(kinds(findings)).toContain("no-entries:pulumi");
+      expect(kinds(findings)).toContain("missing-in-pulumi");
+    });
+
+    it("fails when the edge-router resource block is absent", () => {
+      writeInfra(tmpDir, { wrangler: WRANGLER_ANALYTICS_TABLE, pulumi: PULUMI_REFLOWED });
+      const { findings } = findAnalyticsBindingFindings(tmpDir);
+      expect(kinds(findings)).toContain("no-entries:pulumi");
+    });
+  });
+
+  describe("extractEdgeRouterBlock", () => {
+    it("returns only the edge-router call, up to its matching close", () => {
+      const text = `${PULUMI_PRE_FIX}\nconst x = new cloudflare.WorkersScript("other", { a: 1 });\n`;
+      const block = extractEdgeRouterBlock(text);
+      expect(block).toContain("HEALTH_STATE");
+      expect(block).not.toContain("other");
+    });
+
+    it("returns an empty string when the resource is missing", () => {
+      expect(extractEdgeRouterBlock("const a = 1;")).toBe("");
     });
   });
 });
