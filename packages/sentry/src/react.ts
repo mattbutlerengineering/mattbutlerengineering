@@ -2,6 +2,7 @@ import * as Sentry from "@sentry/react";
 import type { ErrorInfo } from "react";
 import { UNKNOWN_BUILD } from "./build-info.js";
 import { resolveConfig } from "./config.js";
+import { redactSignal } from "./redact.js";
 
 /**
  * Structural error type accepted by reportApiError.
@@ -67,6 +68,8 @@ export function initSentry(options: InitOptions): void {
     replaysSessionSampleRate: 0,
     replaysOnErrorSampleRate: 0,
     integrations: [],
+    // Same redaction policy as the Node init: credentials never leave the browser.
+    beforeSend: (event) => redactSignal(event) as Sentry.ErrorEvent,
   });
 
   Sentry.setTag("app", options.appName);

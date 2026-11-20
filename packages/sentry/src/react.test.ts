@@ -108,6 +108,26 @@ describe("initSentry (react)", () => {
     expect(mockSentryInit.mock.calls[0]?.[0].integrations).toEqual([]);
   });
 
+  it("redacts credentials from events before they leave the browser", () => {
+    initSentry({ appName: "my-app", dsn: "https://key@sentry.io/456" });
+
+    const beforeSend = mockSentryInit.mock.calls[0]?.[0]?.beforeSend;
+    expect(beforeSend).toBeTypeOf("function");
+
+    const event = {
+      request: {
+        url: "https://hospitality.example.com/reservations?venueId=v_123",
+        headers: { authorization: "Bearer abc.def.ghi", "x-request-id": "req_1" },
+      },
+    };
+
+    const sent = beforeSend(event) as typeof event;
+
+    expect(sent.request.headers.authorization).toBe("[redacted]");
+    expect(sent.request.headers["x-request-id"]).toBe("req_1");
+    expect(sent.request.url).toBe("https://hospitality.example.com/reservations?venueId=v_123");
+  });
+
   it("calls Sentry.setTag with app name after init", () => {
     initSentry({ appName: "hospitality", dsn: "https://key@sentry.io/456" });
     expect(mockSetTag).toHaveBeenCalledWith("app", "hospitality");
