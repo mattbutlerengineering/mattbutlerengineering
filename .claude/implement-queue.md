@@ -166,10 +166,10 @@ node scripts/fast-path-decision.mjs check --pr <N>
 
 It always exits 0 with a decision (2 = usage error; 1 = `gh` could not fetch the PR's files/labels, which is **not** a decision — retry or hold the PR, never guess). Branch on the JSON, once per PR, and do not re-derive any of it by hand:
 
-- `fastPath: true` → skip review and enqueue immediately:
+- `fastPath: true` → skip review and enqueue immediately, pinned to the head the decision ran on (`<headRefOid>` from `gh pr view <N> --json headRefOid`; see [merge-command](#merge-command)):
 
   ```bash
-  gh pr merge <N> --auto --squash --delete-branch
+  gh pr merge <N> --auto --squash --delete-branch --match-head-commit <headRefOid>
   ```
 
 - `holdForHuman: true` → a changed file matches a gate path (`GATE_PATH_MATCHERS` in the script, pinned to `GATE_PATHS` in `@mbe/agent-core`, and independent of the dist so it holds even when the dist cannot be trusted: ADRs, design docs, PRDs, architecture docs). These always hold for a human merge (ADR-0087); the PR is still reviewed, then held.
@@ -262,8 +262,10 @@ it had already altered.
 **On all-pass verdict:** enqueue immediately — a review-gate pass plus green CI is the whole bar, unless a changed file matches a gate path (`holdForHuman` in the `fast-path` hook's `node scripts/fast-path-decision.mjs check --pr <N>` JSON), which holds the PR for a human merge:
 
 ```bash
-gh pr merge <N> --auto --squash --delete-branch
+gh pr merge <N> --auto --squash --delete-branch --match-head-commit <headRefOid>
 ```
+
+`<headRefOid>` is the literal head SHA the review passed (read with `gh pr view <N> --json headRefOid` before dispatching reviewers). GitHub then refuses the merge, or the auto-merge, if anything was pushed after review, so a push during review can never merge unreviewed commits. On that refusal, re-run the review gate on the new head; never drop the flag to get the merge through.
 
 Issue that line as the whole Bash call — nothing before or after it (no `cd`, `&&`, `;`, `|`, subshell or variable assignment). `Bash(gh pr *)` in `.claude/settings.json` approves the plain form before the auto-mode classifier runs; a compound form is classified and can be denied as `[Merge Without Review]`. Cloud routines, where `gh pr merge` answers 403, use the REST form the sibling rule `Bash(gh api -X PUT repos/mattbutlerengineering/mattbutlerengineering/pulls/*)` approves — see `docs/routines/mbe-feature-drain.md`.
 
