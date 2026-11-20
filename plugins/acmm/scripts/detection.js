@@ -113,9 +113,32 @@ export function isWorkflowActive(cwd, workflowFile, maxAgeDays, opts = {}) {
       };
     }
     return { active: true, conclusion: "success", reason: "recent successful run found" };
-  } catch {
-    return { active: null, degraded: true, reason: "gh CLI unavailable or error" };
+  } catch (err) {
+    return { active: null, degraded: true, reason: describeGhFailure(err, workflowFile) };
   }
+}
+
+/**
+ * Turn a failed `gh run list` into a truthful, distinct reason. Every case is
+ * `degraded` (excluded from level math, never filed as a confirmed gap): a 404
+ * means the workflow has no run on the default branch, which is not proof the
+ * file is broken (#9201).
+ *
+ * @param {any} err
+ * @param {string} workflowFile
+ * @returns {string}
+ */
+function describeGhFailure(err, workflowFile) {
+  if (err?.code === "ENOENT") return "gh CLI not installed (binary not found)";
+  if (err?.killed === true || err?.code === "ETIMEDOUT") {
+    return "gh run list timed out after 10s";
+  }
+  const stderr = String(err?.stderr ?? "").trim();
+  if (/HTTP 404/.test(stderr)) {
+    return `workflow ${workflowFile} not found on the default branch (HTTP 404)`;
+  }
+  const detail = stderr || String(err?.message ?? "unknown error");
+  return `gh run list failed: ${detail.slice(0, 300)}`;
 }
 
 /**

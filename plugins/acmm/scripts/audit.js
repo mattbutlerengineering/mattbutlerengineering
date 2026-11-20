@@ -344,7 +344,7 @@ async function main() {
       const { evidence } = criterionVerdicts.get(c.id);
       unverifiableCriteria.push({
         id: c.id,
-        reason: evidence ?? "gh CLI unavailable or error",
+        reason: evidence ?? "unverifiable (no reason recorded)",
       });
     }
   }

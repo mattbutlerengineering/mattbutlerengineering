@@ -370,4 +370,47 @@ describe("writeReport: unverifiable section", () => {
 
     fx.cleanup();
   });
+
+  test("report renders each criterion's own reason and does not blame gh for all of them", () => {
+    const fx = fixture();
+    const computation = {
+      level: 2,
+      levelName: "Instructed",
+      role: "Rule-writer",
+      characteristic: "",
+      antiPattern: "",
+      nextTransitionTrigger: null,
+      detectedByLevel: { 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 },
+      requiredByLevel: { 2: 3, 3: 5, 4: 14, 5: 16, 6: 8 },
+      missingForNextLevel: [],
+      prerequisites: { met: 0, total: 0 },
+      crossCutting: { learning: { met: 0, total: 0 }, traceability: { met: 0, total: 0 } },
+      behavioralGates: [],
+    };
+    const reportPath = writeReport(fx.root, {
+      state: {
+        detectedIds: [],
+        history: [],
+        behavioral: null,
+        lastRun: new Date().toISOString(),
+        currentLevel: 2,
+        levelName: "Instructed",
+        role: "Rule-writer",
+      },
+      criteria: [],
+      sources: [],
+      computation,
+      diff: null,
+      hollowCriteria: [],
+      unverifiableCriteria: [
+        { id: "acmm:a", reason: "workflow a.yml not found on the default branch (HTTP 404)" },
+        { id: "acmm:b", reason: "gh run list timed out after 10s" },
+      ],
+    });
+    const content = readFileSync(reportPath, "utf-8");
+    assert.match(content, /acmm:a`\*\* — workflow a\.yml not found on the default branch/);
+    assert.match(content, /acmm:b`\*\* — gh run list timed out/);
+    assert.doesNotMatch(content, /because the `gh` CLI was unavailable/);
+    fx.cleanup();
+  });
 });
