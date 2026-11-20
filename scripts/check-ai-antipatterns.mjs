@@ -424,7 +424,7 @@ export function compareWithBaseline(current, baseline) {
  * Build a baseline object from current counts, adding descriptions.
  *
  * @param {Record<string, number>} counts
- * @returns {{ generatedAt: string; patterns: Record<string, { count: number; description: string }> }}
+ * @returns {{ patterns: Record<string, { count: number; description: string }> }}
  */
 export function buildBaseline(counts) {
   const patterns = {};
@@ -434,10 +434,9 @@ export function buildBaseline(counts) {
       description: PATTERN_DESCRIPTIONS[name] ?? `Pattern: ${name}`,
     };
   }
-  return {
-    generatedAt: new Date().toISOString(),
-    patterns,
-  };
+  // No timestamp: output must be a pure function of the counts so concurrent
+  // branches regenerating the file with equal counts never conflict.
+  return { patterns };
 }
 
 // ── CLI entry point ────────────────────────────────────────────────────────────
