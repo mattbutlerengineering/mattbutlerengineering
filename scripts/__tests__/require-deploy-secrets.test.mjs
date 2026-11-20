@@ -155,9 +155,9 @@ describe("deploy-services.yml wiring", () => {
     // No `if [ -n ... ]` skip like MANAGE_TOKEN_SECRET has: the guard above
     // already proved every value is present, so a silent skip here would only
     // re-create the blackout one layer down.
-    expect(DEPLOY_WORKFLOW).toContain('{\\"key\\":\\"SENTRY_DSN\\"');
+    expect(DEPLOY_WORKFLOW).toContain('{"key":"SENTRY_DSN"');
     for (const name of SERVICE_DSN_SECRETS) {
-      expect(DEPLOY_WORKFLOW).toContain(`\${${name}}`);
+      expect(DEPLOY_WORKFLOW).toContain(`strenv(${name})`);
       expect(DEPLOY_WORKFLOW).not.toMatch(new RegExp(`if \\[ -n "\\$\\{${name}\\}" \\]`));
     }
   });
@@ -167,11 +167,11 @@ describe("deploy-services.yml wiring", () => {
     // which is exactly the option that was considered and rejected.
     for (const [service, secret] of Object.entries(SERVICE_DSN_BY_NAME)) {
       const selectAt = DEPLOY_WORKFLOW.indexOf(
-        `select(.name == \\"${service}\\").envs) |=\n              (map(select(.key != \\"SENTRY_DSN\\"))`
+        `select(.name == "${service}").envs) |=\n              (map(select(.key != "SENTRY_DSN"))`
       );
       expect(selectAt, `no SENTRY_DSN upsert for ${service}`).toBeGreaterThan(-1);
       const block = DEPLOY_WORKFLOW.slice(selectAt, selectAt + 400);
-      expect(block).toContain(`\${${secret}}`);
+      expect(block).toContain(`strenv(${secret})`);
     }
   });
 });

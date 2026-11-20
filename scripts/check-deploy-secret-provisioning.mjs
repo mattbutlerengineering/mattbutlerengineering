@@ -57,7 +57,8 @@ export function findRequiredProductionSecrets(configDir) {
  * True when `name` is provisioned in both deploy paths, mirroring the
  * MANAGE_TOKEN_SECRET pattern:
  *   - workflowSource: passed through from `secrets.<name>` and upserted into
- *     the reservations-api component's envs, guarded on non-empty
+ *     the reservations-api component's envs via `strenv(<name>)` (never
+ *     shell-interpolated into the yq expression), guarded on non-empty
  *   - pulumiSource: declared as a `secretEnv("<name>", ...)` call
  *
  * @param {string} name
@@ -68,7 +69,7 @@ export function findRequiredProductionSecrets(configDir) {
 export function isSecretProvisioned(name, workflowSource, pulumiSource) {
   const hasPassthrough = workflowSource.includes(`${name}: \${{ secrets.${name} }}`);
   const hasGuard = workflowSource.includes(`if [ -n "\${${name}}" ]`);
-  const hasUpsert = workflowSource.includes(`\\"key\\":\\"${name}\\"`);
+  const hasUpsert = workflowSource.includes(`"key":"${name}","value":strenv(${name})`);
   const hasPulumiSecretEnv = new RegExp(`secretEnv\\("${name}"`).test(pulumiSource);
 
   return hasPassthrough && hasGuard && hasUpsert && hasPulumiSecretEnv;
