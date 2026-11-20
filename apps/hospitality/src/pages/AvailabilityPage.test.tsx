@@ -837,7 +837,7 @@ describe("AvailabilityPage", () => {
         screen.getByRole("alertdialog", { name: /Discard changes to Friday, October 30\?/ })
       ).toBeTruthy();
       fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
-      expect(screen.getByRole("button", { name: "Save for this date" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Save 1 date" })).toBeInTheDocument();
     });
 
     it("Discard closes the drawer and clears the dot", async () => {
@@ -866,7 +866,7 @@ describe("AvailabilityPage", () => {
       startDraft();
       configError.value = new Error("Network down");
       view.rerender(page());
-      expect(screen.getByRole("button", { name: "Save for this date" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Save 1 date" })).toBeInTheDocument();
       expect(screen.getByRole("alert")).toHaveTextContent("Couldn’t check for newer hours");
     });
 
@@ -894,7 +894,7 @@ describe("AvailabilityPage", () => {
       expect(screen.queryByRole("dialog", { name: /^Close / })).not.toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
       expect(screen.queryByRole("dialog", { name: /^Close / })).not.toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Save for this date" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Save 1 date" })).toBeInTheDocument();
     });
 
     it("opens the Close dialog once the draft is discarded", async () => {

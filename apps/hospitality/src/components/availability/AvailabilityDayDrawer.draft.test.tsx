@@ -102,7 +102,7 @@ describe("AvailabilityDayDrawer around a draft", () => {
     fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
     rerender(drawer({ error: "Network down" }));
     expect(screen.getByRole("alert")).toHaveTextContent("Network down");
-    expect(screen.getByRole("button", { name: "Save for this date" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save 1 date" })).toBeInTheDocument();
   });
 
   it("offers Retry on the refresh error, which reloads the config", () => {
@@ -262,7 +262,7 @@ describe("AvailabilityDayDrawer around a draft", () => {
 
       fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
       fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
-      fireEvent.click(screen.getByRole("button", { name: "Save for this date" }));
+      fireEvent.click(screen.getByRole("button", { name: "Save 1 date" }));
       await vi.waitFor(() =>
         expect(
           (save.mock.calls.at(-1)?.[0] as { body: { expectedVersion: number } }).body
@@ -326,7 +326,7 @@ describe("AvailabilityDayDrawer around a draft", () => {
       const { rerender } = render(drawer());
       fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
       fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
-      fireEvent.click(screen.getByRole("button", { name: "Save for this date" }));
+      fireEvent.click(screen.getByRole("button", { name: "Save 1 date" }));
       await vi.waitFor(() => expect(save).toHaveBeenCalled());
       await screen.findByText(/updated/i);
       // A new date is a new editor, as when the Manager opens the next day with the reload pending.

@@ -2650,6 +2650,9 @@
       "save_other": "Guardar {{count}} fechas",
       "save_many": "Guardar {{count}} fechas",
       "cancel": "Cancelar",
+      "saveKeeping_one": "Guardar {{count}} fecha, horario propio conservado en {{kept}}",
+      "saveKeeping_other": "Guardar {{count}} fechas, horario propio conservado en {{kept}}",
+      "saveKeeping_many": "Guardar {{count}} fechas, horario propio conservado en {{kept}}",
       "savedOne": "{{date}} actualizado",
       "savedMany_one": "{{count}} fecha actualizada",
       "savedMany_other": "{{count}} fechas actualizadas",
@@ -2686,26 +2689,6 @@
         "noChange": "Cambia el horario para guardar.",
         "noDates": "Lo que estás cambiando no incluye ninguna fecha, así que no hay nada que guardar.",
         "keptOwn": "Cada fecha conserva sus propios cambios. Elige Reemplazarlos para guardar."
-      },
-      "saveThisDate": "Guardar para esta fecha",
-      "review_one": "Revisar {{count}} fecha…",
-      "review_other": "Revisar {{count}} fechas…",
-      "review_many": "Revisar {{count}} fechas…",
-      "keepsOwn_one": "{{count}} conserva su horario propio",
-      "keepsOwn_other": "{{count}} conservan su horario propio",
-      "keepsOwn_many": "{{count}} conservan su horario propio",
-      "confirm": {
-        "title": "Confirmar cambio en varias fechas",
-        "back": "Atrás",
-        "summary_one": "Esto cambia {{count}} fecha, hasta el {{end}}.",
-        "summary_other": "Esto cambia {{count}} fechas, hasta el {{end}}.",
-        "summary_many": "Esto cambia {{count}} fechas, hasta el {{end}}.",
-        "kept_one": "{{count}} fecha de este alcance conserva su horario propio, así que se guardan {{saved}} de {{total}}.",
-        "kept_other": "{{count}} fechas de este alcance conservan su horario propio, así que se guardan {{saved}} de {{total}}.",
-        "kept_many": "{{count}} fechas de este alcance conservan su horario propio, así que se guardan {{saved}} de {{total}}.",
-        "replaced_one": "Se reemplazará {{count}} fecha con cambios propios.",
-        "replaced_other": "Se reemplazarán {{count}} fechas con cambios propios.",
-        "replaced_many": "Se reemplazarán {{count}} fechas con cambios propios."
       }
     },
     "preview": {

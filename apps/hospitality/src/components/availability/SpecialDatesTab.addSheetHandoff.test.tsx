@@ -122,7 +122,7 @@ describe("Add special dates, Special hours", () => {
     renderTab();
     await handOffChristmas();
     fireEvent.click(await screen.findByRole("button", { name: "Remove Lunch" }));
-    fireEvent.click(screen.getByRole("button", { name: "Save for this date" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save 1 date" }));
 
     await waitFor(() => expect(saveConfig).toHaveBeenCalledTimes(1));
     expect(saveConfig.mock.calls[0]![0].body.expectedVersion).toBe(7);
@@ -162,7 +162,7 @@ describe("Add special dates, Special hours", () => {
     fireEvent.click(await screen.findByRole("radio", { name: "Special hours" }));
     fireEvent.click(screen.getByTestId("add-dates-primary"));
     fireEvent.click(await screen.findByRole("button", { name: "Remove Lunch" }));
-    fireEvent.click(screen.getByRole("button", { name: "Save for this date" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save 1 date" }));
 
     await waitFor(() => expect(saveConfig).toHaveBeenCalledTimes(1));
     await screen.findByRole("button", { name: "Undo" });

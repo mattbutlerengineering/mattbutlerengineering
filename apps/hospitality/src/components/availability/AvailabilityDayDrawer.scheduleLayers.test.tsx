@@ -268,7 +268,7 @@ describe("AvailabilityDayDrawer: dated-schedule layers (#7981)", () => {
     );
     expect(onEditSchedule).not.toHaveBeenCalled();
     // Edit opens the drawer's editor on this date (no "Edit Lunch" button left to press).
-    expect(await screen.findByRole("button", { name: /^Save for this date$/ })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /^Save 1 date$/ })).toBeInTheDocument();
   });
 
   it("offers only the whole schedule when a closure would hide hours written for one date", () => {

@@ -136,8 +136,6 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
 
   const [edit, setEdit] = useState<EditState | null>(null);
   const [failure, setFailure] = useState<Failure | null>(null);
-  // A save that reaches more than one date is confirmed in a second step, never by the select.
-  const [confirming, setConfirming] = useState(false);
   // `seen` is the version the 409 reported, read by the server just before the change it names, so
   // Overwrite goes against what the dialog shows. Absent from an older server: no Overwrite then.
   const [conflict, setConflict] = useState<{
@@ -206,7 +204,6 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
 
   const update = (next: EditState) => {
     setEdit(next);
-    setConfirming(false);
     onDirtyChange(holdsEdits(next));
   };
 
@@ -461,20 +458,6 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
         : writtenCount === 0
           ? t("availability.editor.blocked.keptOwn")
           : null;
-  // Only the scope select can widen a one-date edit; selected dates and rule edits chose theirs.
-  const needsConfirm = !fixedDates && !ruleScope && edit.scope.kind !== "date";
-  // One number, with the dates that keep their own hours in the same sentence.
-  const savedLabel =
-    keptCount > 0
-      ? `${t("availability.editor.save", { count: writtenCount })}, ${t("availability.editor.keepsOwn", { count: keptCount })}`
-      : t("availability.editor.save", { count: writtenCount });
-  const saveLabel =
-    needsConfirm && !confirming
-      ? t("availability.editor.review", { count: writtenCount })
-      : needsConfirm || fixedDates || ruleScope
-        ? savedLabel
-        : t("availability.editor.saveThisDate");
-  const lastDate = previewDates[previewDates.length - 1] ?? date;
   const scopeOptions = [
     { value: "date", label: t("availability.editor.scope.date") },
     {
@@ -665,52 +648,21 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
           {choice}
         </>
       )}
-      {needsConfirm && confirming && saveBlock === null && (
-        <div role="group" aria-label={t("availability.editor.confirm.title")}>
-          <Text variant="body" color="primary">
-            {t("availability.editor.confirm.summary", {
-              count: writtenCount,
-              end: format.formatCalendarDate(lastDate, {
-                month: "short",
-                day: "numeric",
-                year: "numeric",
-              }),
-            })}
-          </Text>
-          {keptCount > 0 && (
-            <Text variant="caption" color="secondary">
-              {t("availability.editor.confirm.kept", {
-                count: keptCount,
-                total: previewDates.length,
-                saved: writtenCount,
-              })}
-            </Text>
-          )}
-          {edit.mode === "replace" && own.length > 0 && (
-            <Text variant="caption" color="secondary">
-              {t("availability.editor.confirm.replaced", { count: own.length })}
-            </Text>
-          )}
-        </div>
-      )}
       <BlockedReason id={saveBlockId} reason={saveBlock} />
       <div className={styles.actions}>
         <Button variant="secondary" onClick={onCancel}>
           {t("availability.editor.cancel")}
         </Button>
-        {needsConfirm && confirming && (
-          <Button variant="ghost" onClick={() => setConfirming(false)}>
-            {t("availability.editor.confirm.back")}
-          </Button>
-        )}
         <Button
           variant="primary"
           disabled={saveBlock !== null}
           aria-describedby={saveBlock ? saveBlockId : undefined}
           isLoading={isPending && !conflict}
-          onClick={() => (needsConfirm && !confirming ? setConfirming(true) : void submit(false))}
+          onClick={() => void submit(false)}
         >
-          {saveLabel}
+          {keptCount > 0
+            ? t("availability.editor.saveKeeping", { count: writtenCount, kept: keptCount })
+            : t("availability.editor.save", { count: writtenCount })}
         </Button>
       </div>
       {conflict && (

@@ -120,7 +120,7 @@ describe("a holiday's Special hours…", () => {
       )
     );
     fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
-    fireEvent.click(screen.getByRole("button", { name: "Save for this date" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save 1 date" }));
 
     await waitFor(() => expect(saveConfig).toHaveBeenCalledTimes(1));
     expect(saveConfig.mock.calls[0]![0].body.expectedVersion).toBe(7);

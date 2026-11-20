@@ -124,7 +124,7 @@ describe("a refusal for stranded bookings (ux.md S4, S7)", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
     fireEvent.click(screen.getByRole("button", { name: "Remove Dinner" }));
-    fireEvent.click(screen.getByRole("button", { name: "Save for this date" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save 1 date" }));
     const alert = await screen.findByRole("alert");
     expect(alert).toBeInTheDocument();
     expectBookings(alert);
