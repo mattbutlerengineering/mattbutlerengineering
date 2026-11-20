@@ -75,7 +75,7 @@ describe("App", () => {
     expect(fallback).toHaveAttribute("data-height", "90vh");
   });
 
-  it.each(["/acmm", "/metrics", "/ai-health"])(
+  it.each(["/acmm", "/metrics", "/ai-health", "/venues"])(
     "shows a loading state in the main area while %s lazy-loads, never a blank area (#8640)",
     (path) => {
       render(
