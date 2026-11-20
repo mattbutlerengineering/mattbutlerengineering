@@ -248,7 +248,7 @@ describe("waitlistService", () => {
       const result = await waitlistService.seat("wl-1");
 
       expect(prisma.waitlistEntry.update).toHaveBeenCalledWith({
-        where: { id: "wl-1" },
+        where: { id: "wl-1", status: { in: ["waiting", "notified"] } },
         data: { status: "seated" },
       });
       expect(prisma.waitlistEntry.findMany).toHaveBeenCalledWith({
@@ -457,6 +457,13 @@ describe("waitlistService", () => {
       expect(prisma.waitlistEntry.findMany).not.toHaveBeenCalled();
       expect(prisma.$executeRaw).not.toHaveBeenCalled();
     });
+
+    it("rethrows non-P2025 errors instead of reporting them as not found", async () => {
+      vi.mocked(prisma.waitlistEntry.update).mockRejectedValueOnce(new Error("db down") as never);
+
+      await expect(waitlistService.seat("wl-1")).rejects.toThrow("db down");
+      expect(prisma.$executeRaw).not.toHaveBeenCalled();
+    });
   });
 
   describe("cancel", () => {
@@ -472,7 +479,7 @@ describe("waitlistService", () => {
       const result = await waitlistService.cancel("wl-2");
 
       expect(prisma.waitlistEntry.update).toHaveBeenCalledWith({
-        where: { id: "wl-2" },
+        where: { id: "wl-2", status: { in: ["waiting", "notified"] } },
         data: { status: "cancelled" },
       });
       // Batched into a single $executeRaw call, not one updateMany per
@@ -488,6 +495,13 @@ describe("waitlistService", () => {
 
       expect(result).toBeNull();
       expect(prisma.waitlistEntry.findMany).not.toHaveBeenCalled();
+      expect(prisma.$executeRaw).not.toHaveBeenCalled();
+    });
+
+    it("rethrows non-P2025 errors instead of reporting them as not found", async () => {
+      vi.mocked(prisma.waitlistEntry.update).mockRejectedValueOnce(new Error("db down") as never);
+
+      await expect(waitlistService.cancel("wl-1")).rejects.toThrow("db down");
       expect(prisma.$executeRaw).not.toHaveBeenCalled();
     });
   });
