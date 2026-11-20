@@ -2,10 +2,9 @@
  * Pins `.github/workflows/instruction-regression.yml` to still invoking the
  * ACMM eval harness (`plugins/acmm/scripts/evals/index.js`) in both arms.
  *
- * Why this file exists: the harness is one of the exercised paths
- * `scripts/check-workflow-paths-coverage.mjs` ALLOWLISTs. The workflow's
- * `paths:` filter covers only CLAUDE.md / AGENTS.md, so a change to
- * the harness runs no eval. This test is the compensating control: it reads the
+ * Why this file exists: the workflow's `paths:` filter now includes
+ * `plugins/acmm/scripts/evals/**`, so a harness change runs the evals. That
+ * filter only helps while the job still invokes the harness. This test reads the
  * real workflow on every PR, so deleting either invocation fails here instead of
  * silently shipping an eval job that no longer evals anything.
  */
