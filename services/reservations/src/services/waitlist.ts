@@ -10,6 +10,14 @@ import type { VenueSettings } from "@mbe/types";
 /** How long a notified party has to claim their table before the entry expires. */
 const NOTIFY_CLAIM_WINDOW_MS = 5 * 60 * 1000;
 
+/** Statuses a host can still seat or cancel; terminal entries are left untouched. */
+const OPEN_STATUSES: WaitlistStatus[] = ["waiting", "notified"];
+
+/** Prisma raises P2025 when the guarded `where` matches no row. */
+function isRecordNotFound(err: unknown): boolean {
+  return typeof err === "object" && err !== null && (err as { code?: unknown }).code === "P2025";
+}
+
 export interface WaitlistEntryData {
   id: string;
   venueId: string;
@@ -231,11 +239,12 @@ export const waitlistService = {
     let entry: WaitlistEntryData;
     try {
       entry = await prisma.waitlistEntry.update({
-        where: { id },
+        where: { id, status: { in: OPEN_STATUSES } },
         data: { status: "seated" },
       });
-    } catch {
-      return null;
+    } catch (err) {
+      if (isRecordNotFound(err)) return null;
+      throw err;
     }
     await recalculateVenuePositions(entry.venueId, onImproved);
     return entry;
@@ -245,11 +254,12 @@ export const waitlistService = {
     let entry: WaitlistEntryData;
     try {
       entry = await prisma.waitlistEntry.update({
-        where: { id },
+        where: { id, status: { in: OPEN_STATUSES } },
         data: { status: "cancelled" },
       });
-    } catch {
-      return null;
+    } catch (err) {
+      if (isRecordNotFound(err)) return null;
+      throw err;
     }
     await recalculateVenuePositions(entry.venueId, onImproved);
     return entry;
