@@ -138,7 +138,7 @@ The overall `EvalReport` aggregates all task scores into:
 
 ```bash
 # Run the full eval suite (dry-run: loads tasks, does not invoke the agent)
-pnpm --dir packages/agent-core test -- src/eval/golden-task-set.test.ts
+pnpm --dir packages/agent-core test -- src/eval/__tests__/golden-task-set.test.ts
 
 # Run a single task through the harness. The claude-cli adapter is required
 # where ANTHROPIC_API_KEY is unset; the default SDK adapter exits 2 there.
