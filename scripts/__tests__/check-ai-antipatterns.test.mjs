@@ -154,6 +154,17 @@ describe("check-ai-antipatterns", () => {
       expect(count).toBe(0);
     });
 
+    test("does not flag hardcoded routes or any in test files, still flags source files", async () => {
+      const body = 'inject({ url: "/api/v1/users" });\nconst x: any = 1;\n';
+      fs.writeFileSync(path.join(tmpDir, "src", "routes.test.ts"), body);
+      const { scanForPattern } = await import("../check-ai-antipatterns.mjs");
+      expect(scanForPattern(tmpDir, "hardcodedRoutes")).toBe(0);
+      expect(scanForPattern(tmpDir, "anyType")).toBe(0);
+      fs.writeFileSync(path.join(tmpDir, "src", "routes.ts"), body);
+      expect(scanForPattern(tmpDir, "hardcodedRoutes")).toBe(1);
+      expect(scanForPattern(tmpDir, "anyType")).toBe(1);
+    });
+
     test("detects hardcoded API route strings", async () => {
       fs.writeFileSync(path.join(tmpDir, "src", "client.ts"), 'fetch("/api/v1/users");\n');
       const { scanForPattern } = await import("../check-ai-antipatterns.mjs");
