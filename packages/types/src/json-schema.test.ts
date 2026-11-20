@@ -247,9 +247,11 @@ describe("guestId on the staff booking request bodies (booking-guest-reuse M1.1)
     { name: "createReservationBodyJsonSchema", schema: createReservationBodyJsonSchema },
   ])("$name declares guestId as an optional plain string", ({ schema }) => {
     // Every sibling field carries a `.describe()`, so the derived property is
-    // `{ type: "string", description }` — no format, enum or length constraint.
+    // `{ type: "string", description }` plus `minLength: 1` (an empty id is
+    // rejected) — no format or enum constraint.
     expect(propertiesOf(schema).guestId).toEqual({
       type: "string",
+      minLength: 1,
       description: expect.any(String),
     });
     expect(requiredOf(schema)).not.toContain("guestId");
