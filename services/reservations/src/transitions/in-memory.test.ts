@@ -80,19 +80,12 @@ describe("createInMemoryPayments", () => {
       status: "succeeded",
     });
     expect(await payments.cancelPaymentIntent("pi_y")).toEqual({ id: "pi_y", status: "canceled" });
-    expect(await payments.retrievePaymentIntent("pi_z")).toEqual({
-      id: "pi_z",
-      status: "requires_capture",
-    });
-    expect(await payments.findDepositRefund("pi_z", "dep-1")).toBeNull();
     expect(payments.calls.map((c) => c.op)).toEqual([
       "createCustomer",
       "createPaymentIntent",
       "createPartialRefund",
       "capturePaymentIntent",
       "cancelPaymentIntent",
-      "retrievePaymentIntent",
-      "findDepositRefund",
     ]);
     expect(payments.calls[2]).toEqual({
       op: "createPartialRefund",
@@ -114,6 +107,23 @@ describe("createInMemoryPayments", () => {
       amount: 700,
     });
   });
+
+  it.each(["retrievePaymentIntent", "findDepositRefund"] as const)(
+    "%s throws when no response was scripted, naming the op and how to script it",
+    async (op) => {
+      const payments = createInMemoryPayments();
+      const call =
+        op === "retrievePaymentIntent"
+          ? payments.retrievePaymentIntent("pi_1")
+          : payments.findDepositRefund("pi_1", "dep-1");
+      const error = await call.catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(Error);
+      const message = (error as Error).message;
+      expect(message).toContain(`${op} called with no response scripted`);
+      expect(message).toContain(`payments.respond("${op}"`);
+      expect(payments.calls.map((c) => c.op)).toEqual([op]);
+    }
+  );
 
   it.each([
     ["StripeConnectionError", true],
