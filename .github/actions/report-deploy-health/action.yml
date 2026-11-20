@@ -61,6 +61,7 @@ runs:
         CF_API_TOKEN: ${{ inputs.cf-api-token }}
         KV_NS_ID: ${{ inputs.kv-namespace-id }}
       run: |
+        set -o pipefail
         # No deploy attempted (circuit-blocked or skipped) — preserve
         # the previous KV state rather than writing a false conclusion.
         if [ "$DEPLOY_RESULT" = "skipped" ]; then
@@ -99,8 +100,21 @@ runs:
         # URL-encode the KV key (/ → %2F)
         ENCODED_KEY=$(python3 -c "import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1], safe=''))" "$KV_KEY")
 
-        curl -sf -X PUT \
+        # Capture the status and body instead of `curl -f` (which hides both
+        # behind exit 22). Print only the status and Cloudflare's
+        # errors[].code/message — never headers or the Authorization value.
+        RESP_FILE="$(mktemp)"
+        HTTP_CODE="$(curl -s -o "$RESP_FILE" -w '%{http_code}' -X PUT \
           "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces/${KV_NS_ID}/values/${ENCODED_KEY}" \
           -H "Authorization: Bearer ${CF_API_TOKEN}" \
           -H "Content-Type: application/json" \
-          -d "$PAYLOAD"
+          -d "$PAYLOAD")" || HTTP_CODE="000"
+        echo "Cloudflare KV write: HTTP ${HTTP_CODE}"
+        case "$HTTP_CODE" in
+          2??) rm -f "$RESP_FILE" ;;
+          *)
+            jq -r '.errors[]? | "  error \(.code): \(.message)"' "$RESP_FILE" 2>/dev/null || true
+            rm -f "$RESP_FILE"
+            exit 1
+            ;;
+        esac
