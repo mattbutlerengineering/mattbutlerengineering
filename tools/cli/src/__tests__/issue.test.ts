@@ -24,7 +24,7 @@ function makeRunner() {
 describe("transitionIssue", () => {
   it("applies the ready→in-progress edge", () => {
     const { runner, calls } = makeRunner();
-    const client = createGhClient({ runner });
+    const client = createGhClient({ probe: () => true, runner });
 
     transitionIssue(42, "in-progress", client);
 
@@ -38,7 +38,7 @@ describe("transitionIssue", () => {
 
   it("applies the in-progress→has-pr edge", () => {
     const { runner, calls } = makeRunner();
-    const client = createGhClient({ runner });
+    const client = createGhClient({ probe: () => true, runner });
 
     transitionIssue(7, "has-pr", client);
 
@@ -62,7 +62,7 @@ describe("transitionIssue", () => {
 
   it("applies the in-progress→agent-failed edge", () => {
     const { runner, calls } = makeRunner();
-    const client = createGhClient({ runner });
+    const client = createGhClient({ probe: () => true, runner });
 
     transitionIssue(3, "agent-failed", client);
 
@@ -86,7 +86,7 @@ describe("transitionIssue", () => {
 
   it("applies the agent-failed→agent-skip edge", () => {
     const { runner, calls } = makeRunner();
-    const client = createGhClient({ runner });
+    const client = createGhClient({ probe: () => true, runner });
 
     transitionIssue(5, "agent-skip", client);
 
@@ -112,7 +112,7 @@ describe("transitionIssue", () => {
 
   it("applies the has-pr/agent-failed/agent-skip→ready re-queue edge", () => {
     const { runner, calls } = makeRunner();
-    const client = createGhClient({ runner });
+    const client = createGhClient({ probe: () => true, runner });
 
     transitionIssue(10, "ready", client);
 
