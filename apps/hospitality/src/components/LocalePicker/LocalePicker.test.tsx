@@ -243,4 +243,25 @@ describe("LocalePicker", () => {
     await act(() => runtime.changeLocale("es-MX"));
     expect(await screen.findByText("Las traducciones son automáticas.")).toBeInTheDocument();
   });
+
+  it("settings variant: each option and the selected trigger label carry their own lang", () => {
+    const { runtime } = makeRuntime();
+    renderPicker(runtime, { variant: "settings" });
+    const combobox = screen.getByRole("combobox", { name: "Language" });
+    expect(within(combobox).getByText("English (US)", { selector: "[lang]" })).toHaveAttribute(
+      "lang",
+      "en-US"
+    );
+    // jsdom has no scrollIntoView; Select calls it on the active option when it opens.
+    Element.prototype.scrollIntoView = vi.fn();
+    fireEvent.click(combobox);
+    const options = screen.getAllByRole("option");
+    expect(options).toHaveLength(SUPPORTED_LOCALES.length);
+    SUPPORTED_LOCALES.forEach((l, i) => {
+      expect(
+        within(options[i]!).getByText(l.endonym, { selector: "[lang]" }),
+        `option lang for ${l.tag}`
+      ).toHaveAttribute("lang", l.tag);
+    });
+  });
 });
