@@ -44,6 +44,11 @@ const selectBestTable = (
 ) => engineSelectBestTable(candidates, start, end, reservations, holds, new Date());
 
 describe("estimateDuration", () => {
+  it("treats an empty durationRules array as unset", () => {
+    expect(estimateDuration(3, { durationRules: [] })).toBe(90);
+    expect(estimateDuration(12, { durationRules: [] })).toBe(estimateDuration(12));
+  });
+
   it("returns 75 minutes for party of 1-2 (default rules)", () => {
     expect(estimateDuration(1)).toBe(75);
     expect(estimateDuration(2)).toBe(75);
