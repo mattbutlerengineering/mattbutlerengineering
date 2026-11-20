@@ -161,7 +161,7 @@ for (const size of SIZES) {
       // Someone else saved first; the reload that follows the refusal fails.
       mock.colleague();
       mock.failReads = true;
-      await drawer.getByRole("button", { name: "Save 1 date" }).click();
+      await drawer.getByRole("button", { name: "Save for this date" }).click();
       const conflict = mockedPage.getByRole("dialog", {
         name: "Someone changed availability first",
       });
@@ -170,7 +170,7 @@ for (const size of SIZES) {
 
       // The draft is still there under the dialog, with the failed reload named above it.
       await expect(mockedPage.getByText(DRAFT_ERROR)).toBeAttached();
-      await expect(drawer.getByRole("button", { name: "Save 1 date" })).toBeAttached();
+      await expect(drawer.getByRole("button", { name: "Save for this date" })).toBeAttached();
 
       // Overwrite needs no read: it goes against the version the 409 named. The server refuses it
       // (stranded bookings), and the reason shows in the dialog.
@@ -195,12 +195,12 @@ for (const size of SIZES) {
       // From the refused Overwrite the Manager goes back to the draft, edits intact.
       await conflict.getByRole("button", { name: "Back to my draft" }).click();
       await expect(conflict).toBeHidden();
-      await expect(drawer.getByRole("button", { name: "Save 1 date" })).toBeEnabled();
+      await expect(drawer.getByRole("button", { name: "Save for this date" })).toBeEnabled();
       await expect(drawer.getByText(/would fall outside/)).toBeVisible();
 
       // Saving again meets the same conflict afresh, and this Overwrite goes through.
       mock.failReads = false;
-      await drawer.getByRole("button", { name: "Save 1 date" }).click();
+      await drawer.getByRole("button", { name: "Save for this date" }).click();
       await expect(conflict).toBeVisible();
       await conflict.getByRole("button", { name: "Overwrite" }).click();
       await expect(conflict).toBeHidden();
@@ -218,7 +218,7 @@ for (const size of SIZES) {
       const draftVersion = mock.version;
       mock.colleague("Lunch opens at 11:00 AM");
       mock.colleague("Dinner closes at 9:00 PM");
-      await drawer.getByRole("button", { name: "Save 1 date" }).click();
+      await drawer.getByRole("button", { name: "Save for this date" }).click();
       const conflict = mockedPage.getByRole("dialog", {
         name: "Someone changed availability first",
       });
@@ -271,7 +271,7 @@ for (const size of SIZES) {
       );
 
       await drawer.getByRole("button", { name: "Remove Dinner" }).click();
-      await drawer.getByRole("button", { name: "Save 1 date" }).click();
+      await drawer.getByRole("button", { name: "Save for this date" }).click();
       await expect(mockedPage.getByRole("dialog")).toHaveCount(0);
       expect(mock.puts.map((p) => p.status)).toEqual([200]);
     });
@@ -294,7 +294,7 @@ for (const size of SIZES) {
       await expect(drawer.getByText(WAIT_FOR_RELOAD)).toHaveCount(0);
 
       await removeDinner(drawer);
-      await drawer.getByRole("button", { name: "Save 1 date" }).click();
+      await drawer.getByRole("button", { name: "Save for this date" }).click();
       await expect(mockedPage.getByRole("dialog")).toHaveCount(0);
       expect(saves(mock)).toEqual(["7 -> 200", "8 -> 200"]);
     });
@@ -311,7 +311,7 @@ for (const size of SIZES) {
 
       mock.releaseReads();
       await removeDinner(drawer);
-      await drawer.getByRole("button", { name: "Save 1 date" }).click();
+      await drawer.getByRole("button", { name: "Save for this date" }).click();
       await expect(mockedPage.getByRole("dialog")).toHaveCount(0);
       expect(saves(mock)).toEqual(["7 -> 200", "8 -> 200"]);
     });
@@ -332,7 +332,7 @@ for (const size of SIZES) {
 
       mock.releaseReads();
       await removeDinner(drawer);
-      await drawer.getByRole("button", { name: "Save 1 date" }).click();
+      await drawer.getByRole("button", { name: "Save for this date" }).click();
       await expect(mockedPage.getByRole("dialog")).toHaveCount(0);
       expect(saves(mock)).toEqual(["7 -> 200", "8 -> 200"]);
     });
@@ -346,7 +346,7 @@ for (const size of SIZES) {
       await removeDinner(drawer);
 
       mock.colleague();
-      await drawer.getByRole("button", { name: "Save 1 date" }).click();
+      await drawer.getByRole("button", { name: "Save for this date" }).click();
       await expect(
         mockedPage.getByRole("dialog", { name: "Someone changed availability first" })
       ).toBeVisible();
@@ -371,7 +371,7 @@ for (const size of SIZES) {
 
       mock.releaseReads();
       await removeDinner(drawer);
-      await drawer.getByRole("button", { name: "Save 1 date" }).click();
+      await drawer.getByRole("button", { name: "Save for this date" }).click();
       await expect(mockedPage.getByRole("dialog")).toHaveCount(0);
       expect(saves(mock)).toEqual(["7 -> 200", "9 -> 200"]);
     });
@@ -390,7 +390,7 @@ for (const size of SIZES) {
       mock.readVersion = null;
       await drawer.getByRole("button", { name: "Reload hours" }).click();
       await removeDinner(drawer);
-      await drawer.getByRole("button", { name: "Save 1 date" }).click();
+      await drawer.getByRole("button", { name: "Save for this date" }).click();
       await expect(mockedPage.getByRole("dialog")).toHaveCount(0);
       expect(saves(mock)).toEqual(["7 -> 200", "8 -> 200"]);
     });
@@ -453,7 +453,7 @@ for (const size of SIZES) {
       const first = midNextMonth();
       let drawer = await openNextMonthDay(mockedPage, first);
       await removeDinner(drawer);
-      await drawer.getByRole("button", { name: "Save 1 date" }).click();
+      await drawer.getByRole("button", { name: "Save for this date" }).click();
       await expect(mockedPage.getByRole("dialog")).toHaveCount(0);
       const undo = mockedPage
         .getByRole("region", { name: "Notifications" })
@@ -468,7 +468,7 @@ for (const size of SIZES) {
       expect(mock.reverts).toBe(0);
 
       await drawer.getByRole("button", { name: "Remove Dinner" }).click();
-      await drawer.getByRole("button", { name: "Save 1 date" }).click();
+      await drawer.getByRole("button", { name: "Save for this date" }).click();
       await expect(mockedPage.getByRole("dialog")).toHaveCount(0);
       expect(mock.puts.map((p) => p.status)).toEqual([200, 200]);
     });
@@ -579,7 +579,7 @@ for (const size of SIZES) {
       await expect(drawer).toContainText(`The rows below are from ${longDate(thursday)}.`);
       await expect(drawer).not.toContainText("selected dates.");
       await removeDinner(drawer);
-      await drawer.getByRole("button", { name: "Save 1 date" }).click();
+      await drawer.getByRole("button", { name: "Save for this date" }).click();
       await expect(mockedPage.getByRole("dialog")).toHaveCount(0);
       expect(mock.bodies[0]?.changes?.upsert?.dateRules?.map((r) => r.startsOn)).toEqual([friday]);
     });

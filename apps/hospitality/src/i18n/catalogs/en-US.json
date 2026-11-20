@@ -2582,8 +2582,6 @@
       "save_one": "Save {{count}} date",
       "save_other": "Save {{count}} dates",
       "cancel": "Cancel",
-      "saveKeeping_one": "Save {{count}} date, own hours kept on {{kept}}",
-      "saveKeeping_other": "Save {{count}} dates, own hours kept on {{kept}}",
       "savedOne": "{{date}} updated",
       "savedMany_one": "{{count}} date updated",
       "savedMany_other": "{{count}} dates updated",
@@ -2615,6 +2613,21 @@
         "noChange": "Change the hours to save.",
         "noDates": "What you’re changing reaches no dates, so there is nothing to save.",
         "keptOwn": "Every date keeps its own changes. Choose Replace them to save."
+      },
+      "saveThisDate": "Save for this date",
+      "review_one": "Review {{count}} date…",
+      "review_other": "Review {{count}} dates…",
+      "keepsOwn_one": "{{count}} keeps its own hours",
+      "keepsOwn_other": "{{count}} keep their own hours",
+      "confirm": {
+        "title": "Confirm change to several dates",
+        "back": "Back",
+        "summary_one": "This changes {{count}} date, through {{end}}.",
+        "summary_other": "This changes {{count}} dates, through {{end}}.",
+        "kept_one": "{{count}} date in this scope keeps its own hours, so {{saved}} of {{total}} are saved.",
+        "kept_other": "{{count}} dates in this scope keep their own hours, so {{saved}} of {{total}} are saved.",
+        "replaced_one": "{{count}} date with its own changes will be replaced.",
+        "replaced_other": "{{count}} dates with their own changes will be replaced."
       }
     },
     "preview": {

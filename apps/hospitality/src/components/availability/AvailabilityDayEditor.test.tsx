@@ -77,6 +77,12 @@ function renderEditor(rules: DateRule[] = [], fixedDates?: readonly string[]) {
   return { ...utils, ...handlers };
 }
 
+function reviewAndSave(save: RegExp | string) {
+  // A save that reaches more than one date is confirmed in a second step that shows the count.
+  fireEvent.click(screen.getByRole("button", { name: /^Review/ }));
+  fireEvent.click(screen.getByRole("button", { name: save }));
+}
+
 function chooseScope(name: RegExp | string) {
   fireEvent.click(screen.getByRole("combobox", { name: "You’re changing" }));
   fireEvent.click(screen.getByRole("option", { name }));
@@ -264,7 +270,7 @@ describe("AvailabilityDayEditor", () => {
 
     expect(screen.getByText("Applies to 1 date")).toBeTruthy();
     expect(screen.queryByText(/reaches no dates/)).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Save 1 date" }));
+    reviewAndSave("Save 1 date");
 
     await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
     const { body } = sentBody();
@@ -285,7 +291,7 @@ describe("AvailabilityDayEditor", () => {
     const reached = Number(/x(\d+)/.exec(strip)?.[1]);
     expect(reached).toBeGreaterThan(50);
     expect(screen.getByText(`Applies to ${reached} dates`)).toBeTruthy();
-    expect(screen.getByRole("button", { name: `Save ${reached} dates` })).toBeEnabled();
+    expect(screen.getByRole("button", { name: `Review ${reached} dates…` })).toBeEnabled();
   });
 
   it("keeps a one-date edit scoped to that date", () => {
@@ -309,7 +315,7 @@ describe("AvailabilityDayEditor", () => {
     expect(screen.getByRole("combobox", { name: "You’re changing" })).toHaveTextContent(
       "This date only"
     );
-    expect(screen.getByRole("button", { name: "Save 1 date" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save for this date" })).toBeInTheDocument();
     // Looking is not a draft.
     expect(onDirtyChange).not.toHaveBeenCalledWith(true);
   });
@@ -326,7 +332,7 @@ describe("AvailabilityDayEditor", () => {
     const { onFinished } = renderEditor();
     fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
     fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
-    fireEvent.click(screen.getByRole("button", { name: "Save 1 date" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save for this date" }));
     await waitFor(() => expect(onFinished).toHaveBeenCalledWith(true));
   });
 
@@ -336,7 +342,7 @@ describe("AvailabilityDayEditor", () => {
     fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
     expect(onDirtyChange).toHaveBeenLastCalledWith(true);
 
-    fireEvent.click(screen.getByRole("button", { name: "Save 1 date" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save for this date" }));
 
     await waitFor(() => expect(onFinished).toHaveBeenCalled());
     const { venueId, body, overwrite } = sentBody();
@@ -381,9 +387,9 @@ describe("AvailabilityDayEditor", () => {
     renderEditor();
     fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
     chooseScope(/Every Friday from/);
-    expect(screen.getByRole("button", { name: /^Save 53 dates$/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Review 53 dates…$/ })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
-    fireEvent.click(screen.getByRole("button", { name: /^Save 53 dates$/ }));
+    reviewAndSave(/^Save 53 dates$/);
 
     await waitFor(() => expect(save).toHaveBeenCalled());
     const [rule] = sentBody().body.changes.upsert.dateRules as DateRule[];
@@ -395,12 +401,41 @@ describe("AvailabilityDayEditor", () => {
     expect(await screen.findByText("53 dates updated")).toBeInTheDocument();
   });
 
+  it("never turns a one-date edit into a multi-date save in one step: a second step shows the count", async () => {
+    renderEditor([EARLY_DINNER]);
+    fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
+    chooseScope(/Every Friday from/);
+
+    // The select change alone saves nothing, and the only action is a review, not a save.
+    expect(save).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: /^Save/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Review 52 dates…" }));
+    expect(save).not.toHaveBeenCalled();
+
+    // The confirming step states the count, the end and the dates that keep their own hours.
+    const group = screen.getByRole("group", { name: "Confirm change to several dates" });
+    expect(group).toHaveTextContent(/This changes 52 dates, through /);
+    expect(group).toHaveTextContent(
+      "1 date in this scope keeps its own hours, so 52 of 53 are saved."
+    );
+
+    // Back returns to the review step without saving.
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(screen.getByRole("button", { name: "Review 52 dates…" })).toBeInTheDocument();
+    expect(save).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Review 52 dates…" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save 52 dates, 1 keeps its own hours" }));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+  });
+
   it("offers Undo on the save toast, reverting that save against the version it produced", async () => {
     revertAsync.mockResolvedValue({ version: 6, changeId: "chg-2" });
     const { rerender } = renderEditor();
     fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
     fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
-    fireEvent.click(screen.getByRole("button", { name: "Save 1 date" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save for this date" }));
 
     const undo = await screen.findByRole("button", { name: "Undo" });
     // Saved means finished: the drawer takes the editor away, and only then can Undo run.
@@ -419,9 +454,9 @@ describe("AvailabilityDayEditor", () => {
     renderEditor();
     fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
     chooseScope(/Every regular Friday/);
-    expect(screen.getByRole("button", { name: "Save 52 dates" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Review 52 dates…" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
-    fireEvent.click(screen.getByRole("button", { name: "Save 52 dates" }));
+    reviewAndSave("Save 52 dates");
 
     await waitFor(() => expect(save).toHaveBeenCalled());
     const { changes } = sentBody().body;
@@ -445,7 +480,7 @@ describe("AvailabilityDayEditor", () => {
 
     fireEvent.click(within(group).getByRole("radio", { name: "Replace them" }));
     fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
-    fireEvent.click(screen.getByRole("button", { name: /^Save 53 dates$/ }));
+    reviewAndSave(/^Save 53 dates$/);
     await waitFor(() => expect(save).toHaveBeenCalled());
     expect(sentBody().body.scopeConflicts).toBe("replace");
   });
@@ -456,9 +491,8 @@ describe("AvailabilityDayEditor", () => {
     chooseScope(/Every Friday from/);
     fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
     // One number on the button, with the dates that keep their own hours in the same sentence.
-    const saveButton = screen.getByRole("button", { name: "Save 52 dates, own hours kept on 1" });
+    reviewAndSave("Save 52 dates, 1 keeps its own hours");
 
-    fireEvent.click(saveButton);
     expect(await screen.findByText("52 dates updated")).toBeInTheDocument();
   });
 
@@ -483,7 +517,7 @@ describe("AvailabilityDayEditor", () => {
         </main>
       </ToastProvider>
     );
-    fireEvent.click(screen.getByRole("button", { name: "Save 1 date" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save for this date" }));
 
     await waitFor(() => expect(save).toHaveBeenCalled());
     expect(sentBody().body.expectedVersion).toBe(4);
@@ -513,7 +547,7 @@ describe("AvailabilityDayEditor", () => {
       fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
       rerender(reloaded(9));
       fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
-      fireEvent.click(screen.getByRole("button", { name: "Save 1 date" }));
+      fireEvent.click(screen.getByRole("button", { name: "Save for this date" }));
 
       await waitFor(() => expect(save).toHaveBeenCalled());
       expect(sentBody().body.expectedVersion).toBe(9);
@@ -524,7 +558,7 @@ describe("AvailabilityDayEditor", () => {
       fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
       rerender(reloaded(9, [EARLY_DINNER]));
       fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
-      fireEvent.click(screen.getByRole("button", { name: "Save 1 date" }));
+      fireEvent.click(screen.getByRole("button", { name: "Save for this date" }));
 
       await waitFor(() => expect(save).toHaveBeenCalled());
       const rule = sentBody().body.changes.upsert.dateRules?.[0] as {
@@ -541,7 +575,7 @@ describe("AvailabilityDayEditor", () => {
       rerender(reloaded(9));
       fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
       rerender(reloaded(10));
-      fireEvent.click(screen.getByRole("button", { name: "Save 1 date" }));
+      fireEvent.click(screen.getByRole("button", { name: "Save for this date" }));
 
       await waitFor(() => expect(save).toHaveBeenCalled());
       expect(sentBody().body.expectedVersion).toBe(9);
@@ -557,12 +591,12 @@ describe("AvailabilityDayEditor", () => {
     const { onFinished } = renderEditor();
     fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
     fireEvent.click(screen.getByRole("button", { name: "Remove Dinner" }));
-    fireEvent.click(screen.getByRole("button", { name: "Save 1 date" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save for this date" }));
 
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("Lunch overlaps Dinner.");
     expect(onFinished).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "Save 1 date" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save for this date" })).toBeInTheDocument();
   });
 
   it("disables Save when Keep theirs would write no dates", () => {
@@ -660,7 +694,7 @@ describe("AvailabilityDayEditor", () => {
     renderEditor();
     fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
     fireEvent.click(screen.getByRole("button", { name: "Remove Dinner" }));
-    fireEvent.click(screen.getByRole("button", { name: "Save 1 date" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save for this date" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "2 bookings would fall outside these hours"
@@ -681,7 +715,7 @@ describe("AvailabilityDayEditor", () => {
       const utils = renderEditor();
       fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
       fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
-      fireEvent.click(screen.getByRole("button", { name: "Save 1 date" }));
+      fireEvent.click(screen.getByRole("button", { name: "Save for this date" }));
       const dialog = await screen.findByRole("dialog", {
         name: "Someone changed availability first",
       });
@@ -837,7 +871,7 @@ describe("AvailabilityDayEditor", () => {
       fireEvent.click(within(dialog).getByRole("button", { name: "Back to my draft" }));
       expect(screen.queryByRole("dialog")).toBeNull();
       expect(screen.getByRole("alert")).toHaveTextContent("1 booking would fall outside");
-      expect(screen.getByRole("button", { name: "Save 1 date" })).toBeEnabled();
+      expect(screen.getByRole("button", { name: "Save for this date" })).toBeEnabled();
       expect(onFinished).not.toHaveBeenCalled();
     });
 
@@ -847,7 +881,7 @@ describe("AvailabilityDayEditor", () => {
       save.mockRejectedValueOnce(
         conflict("version-conflict", { winningChange, currentVersion: 6 })
       );
-      fireEvent.click(screen.getByRole("button", { name: "Save 1 date" }));
+      fireEvent.click(screen.getByRole("button", { name: "Save for this date" }));
       const again = await screen.findByRole("dialog", {
         name: "Someone changed availability first",
       });
@@ -947,7 +981,7 @@ describe("AvailabilityDayEditor", () => {
       expect(screen.getByRole("combobox", { name: "You’re changing" })).toHaveTextContent(
         "This date only"
       );
-      expect(screen.getByRole("button", { name: "Save 1 date" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Save for this date" })).toBeInTheDocument();
     });
   });
 
@@ -1094,7 +1128,7 @@ describe("AvailabilityDayEditor", () => {
         "Your edit to Late won’t be saved: it isn’t in what you’re changing now."
       );
       // Nothing to save, but the edit is not gone without a word: closing still asks.
-      expect(screen.getByRole("button", { name: /^Save/ })).toBeDisabled();
+      expect(screen.getByRole("button", { name: /^(Save|Review)/ })).toBeDisabled();
       expect(onDirtyChange).toHaveBeenLastCalledWith(true);
       // The line goes when the edit comes back.
       chooseScope("This date only");
@@ -1111,7 +1145,7 @@ describe("AvailabilityDayEditor", () => {
       fireEvent.click(screen.getByRole("option", { name: "Late" }));
       expect(screen.queryByRole("status")).not.toBeInTheDocument();
       // Late is the Manager's addition now, so it is saved, and the old edit does not return.
-      fireEvent.click(screen.getByRole("button", { name: /^Save/ }));
+      reviewAndSave(/^Save/);
       await waitFor(() => expect(save).toHaveBeenCalled());
       const rows = sentBody().body.changes.upsert.scheduleServices as { venueServiceId: string }[];
       expect(rows.map((r) => r.venueServiceId)).toContain("vs-late");
@@ -1125,7 +1159,7 @@ describe("AvailabilityDayEditor", () => {
       chooseScope("This date only");
       chooseScope(/Every regular Friday/);
       expect(screen.queryByRole("button", { name: "Remove Lunch" })).not.toBeInTheDocument();
-      fireEvent.click(screen.getByRole("button", { name: /^Save/ }));
+      reviewAndSave(/^Save/);
       await waitFor(() => expect(save).toHaveBeenCalled());
       expect(sentBody().body.changes.remove.scheduleServices).toEqual(["ss-lunch"]);
     });
@@ -1185,11 +1219,11 @@ describe("AvailabilityDayEditor", () => {
       expect(screen.queryByRole("status")).not.toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Remove Dinner" })).toBeInTheDocument();
       // Nothing differs from the regular week yet, so there is nothing to save.
-      expect(screen.getByRole("button", { name: /^Save/ })).toBeDisabled();
+      expect(screen.getByRole("button", { name: /^(Save|Review)/ })).toBeDisabled();
 
       // Only what the Manager removes afterwards is removed.
       fireEvent.click(screen.getByRole("button", { name: "Remove Dinner" }));
-      fireEvent.click(screen.getByRole("button", { name: /^Save/ }));
+      reviewAndSave(/^Save/);
       await waitFor(() => expect(save).toHaveBeenCalled());
       expect(sentBody().body.changes.remove.scheduleServices).toEqual(["ss-dinner"]);
     });
@@ -1239,7 +1273,7 @@ describe("AvailabilityDayEditor", () => {
       );
       chooseScope("This date only");
       expect(screen.getAllByLabelText("Closes")[0]).toHaveValue("11:00 PM");
-      expect(screen.getByRole("button", { name: /^Save/ })).toBeEnabled();
+      expect(screen.getByRole("button", { name: /^(Save|Review)/ })).toBeEnabled();
       expect(onDirtyChange).toHaveBeenLastCalledWith(true);
     });
 
@@ -1253,7 +1287,7 @@ describe("AvailabilityDayEditor", () => {
       chooseScope("This date only");
       expect(screen.getByRole("button", { name: "Remove Lunch" })).toBeInTheDocument();
       expect(screen.getAllByLabelText("Closes")[0]).toHaveValue("10:00 PM");
-      expect(screen.getByRole("button", { name: /^Save/ })).toBeEnabled();
+      expect(screen.getByRole("button", { name: /^(Save|Review)/ })).toBeEnabled();
       expect(onDirtyChange).toHaveBeenLastCalledWith(true);
     });
 
@@ -1300,7 +1334,7 @@ describe("AvailabilityDayEditor", () => {
       // The date's own extra service is not the regular week's, and is not carried into it.
       expect(screen.queryByRole("button", { name: "Remove Late" })).not.toBeInTheDocument();
 
-      fireEvent.click(screen.getByRole("button", { name: /^Save/ }));
+      reviewAndSave(/^Save/);
       await waitFor(() => expect(save).toHaveBeenCalled());
       const { body } = sentBody();
       expect(body.expectedVersion).toBe(4);
@@ -1318,7 +1352,7 @@ describe("AvailabilityDayEditor", () => {
       withOwnDay();
       editDinnerThenSwitch();
       fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
-      fireEvent.click(screen.getByRole("button", { name: /^Save/ }));
+      reviewAndSave(/^Save/);
       await waitFor(() => expect(save).toHaveBeenCalled());
       const { changes } = sentBody().body;
       expect(changes.remove.scheduleServices).toEqual(["ss-lunch"]);

@@ -270,7 +270,7 @@ test.describe("Holiday decisions", () => {
       .getByRole("listbox", { name: "Closes" })
       .getByRole("option", { name: "1:00 AM", exact: true })
       .click();
-    await editor.getByRole("button", { name: /^Save 1 date/ }).click();
+    await editor.getByRole("button", { name: /^Save for this date/ }).click();
 
     await expect.poll(() => store.configPuts.length + store.batches.length).toBeGreaterThan(0);
     const rules = store.config.dateRules.filter((r) => r.startsOn === "2026-12-31");

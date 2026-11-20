@@ -144,7 +144,7 @@ async function refuseDate(currentVersion: number | null = 8) {
   );
   fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
   fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
-  fireEvent.click(screen.getByRole("button", { name: "Save 1 date" }));
+  fireEvent.click(screen.getByRole("button", { name: "Save for this date" }));
   const dialog = await screen.findByRole("dialog", { name: TITLE });
   return { ...utils, dialog };
 }

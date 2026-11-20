@@ -239,7 +239,7 @@ describe("AvailabilityDayDrawer: Remove and Edit in Why this day (#7981)", () =>
     fireEvent.click(edit);
     expect(screen.queryByRole("dialog", { name: "Edit special hours" })).toBeNull();
     // The button opens the editor for this date (it used to only move focus to "Edit Lunch").
-    expect(await screen.findByRole("button", { name: /^Save 1 date$/ })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /^Save for this date$/ })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Edit Lunch" })).toBeNull();
     await settleFrames();
     expect(editorInput()).toHaveFocus();
