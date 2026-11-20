@@ -1,5 +1,6 @@
 import { useReducer, useCallback, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
+import { reportHandledError } from "@mbe/sentry/react";
 import enUS from "../../i18n/catalogs/en-US.json";
 import type {
   TimeSlot,
@@ -574,7 +575,8 @@ export function useBookingFlow({
       try {
         const result = await api.publicVenue.guestRisk(venueSlug, email ? { email } : { phone });
         return result.requiresDeposit;
-      } catch {
+      } catch (error) {
+        reportHandledError(error, "guest-risk");
         return false;
       }
     },

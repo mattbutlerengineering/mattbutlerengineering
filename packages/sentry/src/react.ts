@@ -119,3 +119,17 @@ export function reportApiError(error: ReportableApiError | ReportableValidationE
     Sentry.captureMessage(error.message, "warning");
   }
 }
+
+/**
+ * Report an error a caller handles by degrading (returning a fallback) rather
+ * than surfacing it. The `degraded` tag names the feature, so a dead surface
+ * shows up as a Sentry issue instead of a silent fallback. Network failures
+ * and non-auth 4xx responses never reach `reportApiError` as exceptions, so a
+ * catch that falls back must report for itself.
+ */
+export function reportHandledError(error: unknown, feature: string): void {
+  Sentry.withScope((scope) => {
+    scope.setTag("degraded", feature);
+    Sentry.captureException(error);
+  });
+}

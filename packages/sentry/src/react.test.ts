@@ -25,7 +25,7 @@ vi.mock("@sentry/react", () => ({
   addBreadcrumb: mockAddBreadcrumb,
 }));
 
-import { initSentry, handleErrorBoundary, reportApiError } from "./react.js";
+import { initSentry, handleErrorBoundary, reportApiError, reportHandledError } from "./react.js";
 
 describe("initSentry (react)", () => {
   const savedEnv: Record<string, string | undefined> = {};
@@ -408,5 +408,22 @@ describe("reportApiError", () => {
         issues: error.error.issues,
       });
     });
+  });
+});
+
+describe("reportHandledError", () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("captures the error tagged with the feature that degraded", () => {
+    const fakeScope = { setTag: vi.fn() };
+    mockWithScope.mockImplementation((fn: (scope: typeof fakeScope) => void) => fn(fakeScope));
+    const error = new TypeError("Failed to fetch");
+
+    reportHandledError(error, "venue-policy");
+
+    expect(fakeScope.setTag).toHaveBeenCalledWith("degraded", "venue-policy");
+    expect(mockCaptureException).toHaveBeenCalledWith(error);
   });
 });
