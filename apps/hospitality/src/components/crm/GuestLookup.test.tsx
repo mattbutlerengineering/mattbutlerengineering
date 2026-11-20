@@ -328,7 +328,12 @@ describe("GuestLookup", () => {
     expect(screen.getByText(FAILURE)).toBeInTheDocument();
     expect(screen.queryByRole("listbox")).toBeNull();
     expect(combobox()).not.toBeDisabled();
-    expect(combobox().getAttribute("aria-describedby")).toContain(screen.getByText(FAILURE).id);
+    const describedBy = (combobox().getAttribute("aria-describedby") ?? "").split(" ");
+    expect(describedBy).toContain(screen.getByText(FAILURE).id);
+    // rialto's useField derives the hint id; pin that the field still points at the real hint element.
+    const hintId = screen.getByText(HINT).id;
+    expect(hintId).not.toBe("");
+    expect(describedBy).toContain(hintId);
     expect(announce).toHaveBeenCalledTimes(1);
     expect(announce).toHaveBeenCalledWith(FAILURE);
 
