@@ -584,6 +584,55 @@ test("isWorkflowActive: anyBranch:true omits the --branch filter", () => {
   fx.cleanup();
 });
 
+// ── `--workflow` takes the workflow's FILE NAME, not its repo-relative path ──
+// Every `active` criterion stores a repo-relative path (e.g.
+// `.github/workflows/nightly-compliance.yml`), but GitHub's Actions API
+// resolves a workflow by file name or numeric id. Passing the path through
+// verbatim percent-encodes the slashes and the API answers, verbatim:
+//   HTTP 404: workflow .github/workflows/nightly-compliance.yml not found on
+//   the default branch (.../actions/workflows/.github%2Fworkflows%2Fnightly-compliance.yml)
+// which the catch-all below reports as "gh CLI unavailable or error" — so a
+// malformed argument was indistinguishable from a missing `gh`, and 9
+// criteria read `unverifiable` while the audit reported L3 instead of L5.
+// Every pre-existing test here passed a bare basename, so the gate was green
+// in tests and 404ing in production.
+
+test("isWorkflowActive: passes the workflow's basename to gh, not its repo-relative path", () => {
+  const fx = fixture();
+  let capturedArgs;
+  const mockExecFileSync = (_cmd, args) => {
+    capturedArgs = args;
+    return JSON.stringify([{ conclusion: "success", updatedAt: new Date().toISOString() }]);
+  };
+  isWorkflowActive(fx.root, ".github/workflows/nightly-compliance.yml", 7, {
+    execFileSyncFn: mockExecFileSync,
+  });
+  assert.ok(
+    capturedArgs.includes("--workflow=nightly-compliance.yml"),
+    `expected --workflow=<basename>, got: ${JSON.stringify(capturedArgs)}`
+  );
+  assert.ok(
+    !capturedArgs.some((a) => a.startsWith("--workflow=.github/")),
+    `the repo-relative path must not reach gh, got: ${JSON.stringify(capturedArgs)}`
+  );
+  fx.cleanup();
+});
+
+test("isWorkflowActive: a bare basename is passed through unchanged", () => {
+  const fx = fixture();
+  let capturedArgs;
+  const mockExecFileSync = (_cmd, args) => {
+    capturedArgs = args;
+    return JSON.stringify([{ conclusion: "success", updatedAt: new Date().toISOString() }]);
+  };
+  isWorkflowActive(fx.root, "ci.yml", 7, { execFileSyncFn: mockExecFileSync });
+  assert.ok(
+    capturedArgs.includes("--workflow=ci.yml"),
+    `expected --workflow=ci.yml, got: ${JSON.stringify(capturedArgs)}`
+  );
+  fx.cleanup();
+});
+
 test("DEFAULT_MAX_AGE_DAYS: detect/evaluate/detectAll share one constant", async () => {
   const { DEFAULT_MAX_AGE_DAYS } = await import("../detection.js");
   assert.equal(typeof DEFAULT_MAX_AGE_DAYS, "number");
