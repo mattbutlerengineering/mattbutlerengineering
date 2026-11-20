@@ -1062,18 +1062,43 @@ jobs:
             --arg sha "$GH_SHA" \
             --arg updated_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             '{id: $id, conclusion: $conclusion, branch: $branch, sha: $sha, updated_at: $updated_at}')
+          # Skip the write when nothing a consumer reads has changed. Cloudflare's
+          # free KV tier caps daily WRITES (error 10048, HTTP 429) far below reads, and
+          # every push/deploy used to write. "Unchanged" means: same stored conclusion
+          # AND the stored updated_at is under 24h old. sha/id/updated_at differ every
+          # run and are ignored, because consumers (infrastructure/worker health)
+          # classify by the CONCLUSION; the 24h bound keeps at most one refresh write
+          # per day so updated_at stays fresh. Any GET failure (404 absent key, 5xx,
+          # 000) falls through to the write.
+          KV_URL="https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces/${KV_NS_ID}/values/ci%2Flatest"
+          RESP_FILE="$(mktemp)"
+          GET_CODE="$(curl -s -o "$RESP_FILE" -w '%{http_code}' \
+            "$KV_URL" \
+            -H "Authorization: Bearer ${CF_API_TOKEN}")" || GET_CODE="000"
+          if [ "$GET_CODE" = "200" ] && jq -e --arg c "$CONCLUSION" '(.conclusion == $c) and ((now - (.updated_at | fromdateiso8601)) < 86400)' "$RESP_FILE" >/dev/null 2>&1; then
+            echo "Cloudflare KV unchanged (conclusion ${CONCLUSION}, record < 24h old); skipping write"
+            rm -f "$RESP_FILE"
+            exit 0
+          fi
+
           # Capture the status and body instead of `curl -f` (which hides both
           # behind exit 22). Print only the status and Cloudflare's
           # errors[].code/message — never headers or the Authorization value.
-          RESP_FILE="$(mktemp)"
           HTTP_CODE="$(curl -s -o "$RESP_FILE" -w '%{http_code}' -X PUT \
-            "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces/${KV_NS_ID}/values/ci%2Flatest" \
+            "$KV_URL" \
             -H "Authorization: Bearer ${CF_API_TOKEN}" \
             -H "Content-Type: application/json" \
             -d "$PAYLOAD")" || HTTP_CODE="000"
           echo "Cloudflare KV write: HTTP ${HTTP_CODE}"
           case "$HTTP_CODE" in
             2??) rm -f "$RESP_FILE" ;;
+            429)
+              # Spent free-tier quota (10048) must not turn main red or fail a deploy.
+              jq -r '.errors[]? | "  error \(.code): \(.message)"' "$RESP_FILE" 2>/dev/null || true
+              rm -f "$RESP_FILE"
+              echo "::warning::Cloudflare KV write rate/quota limited (HTTP 429); health record not updated"
+              exit 0
+              ;;
             *)
               jq -r '.errors[]? | "  error \(.code): \(.message)"' "$RESP_FILE" 2>/dev/null || true
               rm -f "$RESP_FILE"
