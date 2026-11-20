@@ -1401,6 +1401,7 @@ describe("main-push workflow arm (#6955)", () => {
       "rialto-web-e2e.yml",
       "secret-scan.yml",
       "storybook.yml",
+      "visual-regen-trigger.yml",
     ]);
   });
 

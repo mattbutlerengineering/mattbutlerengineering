@@ -1,35 +1,3 @@
-## 2026-11-02
-
-**queueEfficiency:** composite 0.846 (baseline n/a) — healthy
-**Difficulty distribution:** size:s:19, size:xs:10, size:xl:12, size:l:9, size:m:15
-**Issues filed:** 0
-
-## 2026-11-02 — mbe-ui-quality
-
-- **State:** `state.mjs checkout` exit 0, `source: branch` (ui-quality/ledger at 1496ed1, merged origin/main abc6811, no conflicts resolved).
-- **Routes:** 40 due (marketing 2, rialto-web 34, hospitality 4), 40 captured, 40 audited. 20 hospitality rows `unreachable:auth` (never captured, as designed). All three app builds succeeded.
-- **Coverage before this fire:** 100% (135/135 covered, 0 uncovered), `coverage.mjs --json` exit 0.
-- **Judging:** rubric v1. 40 routes judged, **0 unjudged**, **0 dropped tells**. Every screenshot (80 images across both viewports) read successfully — no `tool-error` routes. 0 judged findings: no `agent-built/*` or semantic-accessibility tells observed. Mechanical detectors found 2 findings (`hospitality book/:venueSlug — accessibility/axe-serious`, `marketing status — bugs/failed-request`).
-- **Calibration stamp:** `stale`. `calibration-status --model-id claude-opus-5` returned exit 3; `rate.mjs pairs --calibration` exited 2 — `docs/ui-quality/calibration.json` still has no labelled pairs (Verify-owned: Matt labels ≥ 10 pairs once). Logged, not retried. Re-queried status: still `stale`. Rating proceeded: 16 pairs over 3 apps viewed and `rate.mjs record` run (hospitality 0, marketing 0, rialto-web 0 — agent-built findings stay suppressed while uncalibrated, as intended).
-- **Rubric migration:** none needed — every key in `metrics/ui-quality-findings.json` is already `r1`, matching the current `rubric_version`.
-- **Issue states:** all 34 issues referenced by the findings ledger fetched; all `closed`. `ui-quality`-labelled search returned 36 issues on a single complete page, all closed (the two extras, #7477 and #7908, are the closed escalation issues). No refusal, no adoptions.
-- **Filing:** plan = create 1, skip 1, 0 seeds, no `fix_pr_candidate`. **Created #8106** (`ui-quality: hospitality book/:venueSlug — accessibility/axe-serious (rubric v1)`); `ui-quality` label confirmed present, so filing was not stopped. 0 reopened, 0 commented, 0 seeds appended to `docs/backlog.md`.
-- **Fix PR:** none — no action carried `fix_pr_candidate: true`.
-- **P1 SLA:** 0 open `ui-quality:p1` issues, 0 breaches, 0 escalated.
-- **Checkpoint:** committed and pushed to `ui-quality/ledger` (c6c18a4) before the fix-PR step, push accepted.
-- No `blocker: no-browser` (Chromium resolved), no stopped filing, no pipeline bug.
-
-## 2026-11-02 — mbe-learning-loop
-
-**Sensors:** 16/17 available (`e2eStability` not available). Status: Healthy.
-**Regressions:** 0 detected, 0 issues created.
-**Verifications:** 5 checked (48h window: #8123, #8122, #8103, #8100, #8067), 0 verified, 0 failed (reopened), 5 skipped — Lighthouse inventory unavailable for the two `audit` issues, no CI runs in range for the three `ci-fix`/`bug` issues. Not a threshold problem, no reopens.
-**AI issue feedback:** 7 categories, 0 unhealthy (>40% rejected); all budgets at default 3.
-**Skill proposals:** 0 — not the configured extraction day (Friday).
-**Threshold notes:** `verify-fixes.mjs`'s auto-tuner applied 1 adjustment (`acmm`: 1.41 → 1.44, headroom). 30-day false-positive rate across sensor-labelled closed issues (`ci-fix,audit,acmm,sentry,bug`): 11/274 `not_planned` ≈ 4.0% — well under the 30% loosen-threshold. 30-day fix-effectiveness rate from `verifications.jsonl` (excluding `confidence:"skip"` rows): 6/10 ≈ 60% — above the 50% floor, no strategy review flagged.
-**Bootstrap note:** this cloud checkout had no `node_modules`/workspace `dist/` on start (not a worktree, but the same missing-build symptom) — ran `pnpm install --frozen-lockfile` then `pnpm bootstrap:worktree` before any sensor script would resolve `@mbe/*` imports.
-**Sentry triage:** skipped — Sentry MCP's stored access token is expired (`find_organizations` returned "Authorization Expired"); re-authorization needs a human. No Sentry-labelled issues filed this run.
-
 ## 2026-11-03 — mbe-evening
 
 ### Metrics
@@ -1199,3 +1167,46 @@ A clean fire: everything due was captured and judged, and nothing met the bar to
 - **P1 SLA:** 0 open `ui-quality:p1` issues; 0 breaches, 0 escalated.
 - **Pipeline bugs:** none. Steps (1)–(6) all ran.
 - **Net:** a clean no-finding fire — nothing new to file, nothing regressed.
+
+## 2026-11-20 — mbe-evening
+
+### Metrics
+
+| Metric                                                  | Value                                                                  | Status          |
+| ------------------------------------------------------- | ---------------------------------------------------------------------- | --------------- |
+| Created (7d, audit+ci-fix)                              | 26                                                                     | -               |
+| Closed (7d, audit+ci-fix)                               | 26                                                                     | -               |
+| Closure Rate                                            | 100%                                                                   | Green           |
+| Time-to-Close                                           | 14.4h                                                                  | Green           |
+| Agent Success                                           | 0/0 (no open has-pr or agent-failed issues)                            | n/a             |
+| CI Pass (main, last 20 runs)                            | 16/16 non-skipped = 100%                                               | Green           |
+| Queue (ready)                                           | 0                                                                      | Green           |
+| Stale (ready >7d)                                       | 0                                                                      | Green           |
+| Blocked (agent-failed)                                  | 0                                                                      | Green           |
+| Skipped (agent-skip)                                    | 0                                                                      | Green           |
+| Reverts (7d)                                            | 0                                                                      | Green           |
+| Daily/7d Spend (attributed, agent-spend sessions.jsonl) | $0 attributed                                                          | -               |
+| Queue-worker cost (metrics/queue-telemetry.jsonl, 7d)   | cost unknown (18 sessions, 2,241,149 tokens, 37 rows with no cost_usd) | unknown, not $0 |
+
+### Patterns
+
+- **implement-queue iteration this run found nothing to do.** 0 `ready` issues, 0 `in-progress` (no other queue session active), 0 `has-pr`, 0 `agent-failed`. Main green (no failed runs in `gh run list --branch main --limit 5`). The sole open PR (#9191, `chore: record production health metrics`) is foreign to this queue — no `Closes #N`, no linked issue carrying an in-progress/has-pr/needs-review/agent-failed/stealable label — so it was left untouched.
+- `node scripts/reconcile-issue-states.mjs check` found exactly one stateless issue, #8691 (`availability: one editor for a date's hours...`). Not promoted: its own body says "Epic-sized on purpose: run `/decompose` on this issue" and "Not labelled `ready`" — a blind worker shouldn't take it as-is.
+- Worktree reaper dry run: 0 worktrees in `.claude/worktrees/` to examine, nothing eligible, nothing retained — clean.
+- 7-day issue throughput is strong (26/26 closed, 14.4h average) and CI on main is fully green — no systemic pattern to flag, no new `meta-improvement` issue filed.
+- Agent-spend attribution shows $0 over 7d from `.claude/agent-spend/sessions.jsonl` (`mbe agent run`/`eval` sessions) despite 47 lines present — worth a human glance if that's unexpected, but out of scope for an automated write-up here. Queue-worker cost is separately unknown (not zero) per the `agentCost` sensor — `cost_usd` was never populated on those 18 sessions' telemetry rows.
+
+### Recommendations
+
+- Nothing actionable from this run — queue is empty and healthy. Consider running `/decompose` on #8691 so it can re-enter the ready pool as right-sized child issues.
+- No change to thresholds or circuit breaker proposed.
+
+### Skipped Issues
+
+0 `agent-skip` issues open — nothing to manually review.
+
+## 2026-11-20
+
+**queueEfficiency:** composite 0.953 (baseline n/a) — healthy
+**Difficulty distribution:** size:s:34, size:xs:18, size:m:8, size:xl:7, size:l:3
+**Issues filed:** 0

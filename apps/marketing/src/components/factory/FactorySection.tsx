@@ -105,7 +105,7 @@ export function FactorySection() {
                 Recently shipped
               </Heading>
               <Text variant="detail" color="tertiary" as="p">
-                Snapshot from{" "}
+                Newest story from{" "}
                 <time dateTime={shippedSnapshot.generatedAt}>
                   {formatDate(shippedSnapshot.generatedAt)}
                 </time>

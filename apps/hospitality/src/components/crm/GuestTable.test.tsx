@@ -10,6 +10,8 @@ import type {
   TextProps,
 } from "@mattbutlerengineering/rialto";
 
+const textRenders = vi.hoisted(() => ({ calls: [] as unknown[] }));
+
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Badge: ({ children }: BadgeProps) => <span data-testid="badge">{children}</span>,
   Button: ({ children, onClick, className }: ButtonProps) => (
@@ -19,7 +21,10 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   ),
   Card: ({ children }: CardProps) => <div data-testid="card">{children}</div>,
   Tag: ({ children }: TagProps) => <span data-testid="tag">{children}</span>,
-  Text: ({ children }: TextProps) => <span>{children}</span>,
+  Text: ({ children }: TextProps) => {
+    textRenders.calls.push(children);
+    return <span>{children}</span>;
+  },
 }));
 
 function makeGuest(overrides: Partial<Guest> = {}): Guest {
@@ -160,5 +165,23 @@ describe("GuestTable", () => {
     // Mobile cards show the same names
     const names = screen.getAllByText("John Doe");
     expect(names.length).toBeGreaterThan(0);
+  });
+
+  it("re-renders only the previously and newly selected rows on selection change", () => {
+    const guests = [
+      makeGuest({ id: "g1", name: "Alice", email: null, phone: null }),
+      makeGuest({ id: "g2", name: "Bob", email: null, phone: null }),
+      makeGuest({ id: "g3", name: "Cara", email: null, phone: null }),
+    ];
+    const onRowClick = vi.fn();
+    const { rerender } = render(
+      <GuestTable guests={guests} selectedGuestId="g1" onRowClick={onRowClick} />
+    );
+    textRenders.calls.length = 0;
+    rerender(<GuestTable guests={guests} selectedGuestId="g2" onRowClick={onRowClick} />);
+    const count = (name: string) => textRenders.calls.filter((c) => c === name).length;
+    expect(count("Alice")).toBeGreaterThan(0);
+    expect(count("Bob")).toBeGreaterThan(0);
+    expect(count("Cara")).toBe(0);
   });
 });

@@ -153,6 +153,10 @@ Regressions: +`ci-fix`.
 
 [Suggestion or "Investigate"]
 
+## Acceptance
+
+- [ ] [One line per expected outcome; the closer ticks each with live evidence, and files any unmet remainder as a linked issue at close time (#9047)]
+
 ---
 
 _Audit ({{mode}}) YYYY-MM-DD_

@@ -114,10 +114,10 @@ describe("FactorySection recently shipped", () => {
     expect(screen.getByText(/2 days wall-clock/i)).toBeInTheDocument();
   });
 
-  it("dates the block as a snapshot instead of implying it is live", () => {
+  it("dates the block by its newest story instead of implying it is live", () => {
     shipped.features = [story(1)];
     renderSection();
-    expect(screen.getByText(/snapshot from/i)).toBeInTheDocument();
+    expect(screen.getByText(/newest story from/i)).toBeInTheDocument();
   });
 
   it("caps at three stories in snapshot order", () => {

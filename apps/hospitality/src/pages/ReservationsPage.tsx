@@ -106,6 +106,28 @@ function formatRelativeTime(date: Date, t: TFunction): string {
   return t("reservations.relative.hours", { n: hours });
 }
 
+/**
+ * Self-ticking leaf: owns the 5s re-render so the page (and its table rows) don't re-render
+ * just to refresh the "Updated Xs ago" text (same pattern as NowLineScroller in TimelineGrid).
+ */
+function UpdatedAgo({ lastUpdated }: { lastUpdated: Date }) {
+  const { t } = useTranslation();
+  const [, forceDisplayTick] = useReducer((c: number) => c + 1, 0);
+
+  useEffect(() => {
+    const id = setInterval(forceDisplayTick, 5_000);
+    return () => clearInterval(id);
+  }, [lastUpdated]);
+
+  return (
+    <div className={styles.statusBar}>
+      <Text variant="caption" color="secondary">
+        {t("reservations.updated", { when: formatRelativeTime(lastUpdated, t) })}
+      </Text>
+    </div>
+  );
+}
+
 /* ── Main component ─────────────────────────── */
 
 export function ReservationsPage() {
@@ -190,21 +212,10 @@ export function ReservationsPage() {
     }
   };
 
-  /* Keep the "Updated Xs ago" display current by forcing re-render every 5s */
-  const [, forceDisplayTick] = useReducer((c: number) => c + 1, 0);
-
   useEffect(() => {
     if (!data) return;
     setLastUpdated(new Date());
   }, [data]);
-
-  useEffect(() => {
-    if (!lastUpdated) return;
-    const id = setInterval(forceDisplayTick, 5_000);
-    return () => clearInterval(id);
-  }, [lastUpdated]);
-
-  const lastUpdatedDisplay = lastUpdated ? formatRelativeTime(lastUpdated, t) : "";
 
   const showLoading = isLoading && (data === undefined || data.length === 0);
   const loaded = !isLoading && !errorDescription;
@@ -219,13 +230,7 @@ export function ReservationsPage() {
       <LiveStatus status={status} />
 
       <div data-testid="primary-content">
-        {lastUpdatedDisplay && (
-          <div className={styles.statusBar}>
-            <Text variant="caption" color="secondary">
-              {t("reservations.updated", { when: lastUpdatedDisplay })}
-            </Text>
-          </div>
-        )}
+        {lastUpdated && <UpdatedAgo lastUpdated={lastUpdated} />}
 
         <div className={styles.statsRow}>
           <KpiStat label={t("reservations.kpi.total")} value={kpi(stats.total)} />

@@ -37,4 +37,14 @@ describe("manualChunks", () => {
     expect(manualChunks(jsonRenderReactId)).toBe("json-render-vendor");
     expect(manualChunks(jsonRenderCoreId)).toBe("json-render-vendor");
   });
+
+  it("does not route rialto locale dictionaries into rialto-vendor (lazy per-locale chunks)", () => {
+    expect(manualChunks("/repo/packages/rialto/dist/lib/i18n/locales/es-MX.js")).not.toBe(
+      "rialto-vendor"
+    );
+    expect(manualChunks("/repo/packages/rialto/src/i18n/locales/fr-CA.ts")).not.toBe(
+      "rialto-vendor"
+    );
+    expect(manualChunks("/repo/packages/rialto/dist/index.js")).toBe("rialto-vendor");
+  });
 });

@@ -17,6 +17,7 @@ on:
       - "packages/cancellation-policy/**"
       - "packages/availability/**"
       - "packages/sentry/**"
+      - "packages/site-nav/**"
   workflow_dispatch:
 
 concurrency:
@@ -80,6 +81,7 @@ jobs:
               - 'apps/marketing/**'
               - 'packages/rialto/**'
               - 'packages/sentry/**'
+              - 'packages/site-nav/**'
             hospitality:
               - '.github/workflows/deploy-static.yml'
               - 'apps/hospitality/**'
@@ -91,6 +93,7 @@ jobs:
               - 'packages/cancellation-policy/**'
               - 'packages/availability/**'
               - 'packages/sentry/**'
+              - 'packages/site-nav/**'
             rialto-web:
               - '.github/workflows/deploy-static.yml'
               - 'apps/rialto-web/**'

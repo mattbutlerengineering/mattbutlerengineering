@@ -196,6 +196,22 @@ describe("initSentry (node)", () => {
     expect(resolved.map((entry) => entry.name)).toEqual(["Http", "Console"]);
   });
 
+  it("wires the heartbeat exemption into the Dedupe integration", () => {
+    process.env.SENTRY_DSN = "https://key@sentry.io/123";
+    initSentry({ serviceName: "my-service" });
+
+    const integrations = mockSentryInit.mock.calls[0]?.[0]?.integrations;
+    const processEvent = vi.fn((event: unknown) => event);
+    const [dedupe] = integrations([{ name: "Dedupe", processEvent }]) as {
+      processEvent: (event: unknown) => unknown;
+    }[];
+
+    dedupe?.processEvent({ tags: { requestId: "mbe-round-trip-1" } });
+    expect(processEvent).not.toHaveBeenCalled();
+    dedupe?.processEvent({ tags: { requestId: "req-1" } });
+    expect(processEvent).toHaveBeenCalledTimes(1);
+  });
+
   it("redacts credentials from events before they leave the process", () => {
     process.env.SENTRY_DSN = "https://key@sentry.io/123";
 

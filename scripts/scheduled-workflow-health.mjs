@@ -302,6 +302,9 @@ export const MAIN_PUSH_WORKFLOW_FILES = [
   "rialto-web-e2e.yml",
   "secret-scan.yml",
   "storybook.yml",
+  // Push arm dispatches the marketing baseline regen (#8781); a streak of
+  // failed dispatches would silently stall it.
+  "visual-regen-trigger.yml",
 ];
 
 /**

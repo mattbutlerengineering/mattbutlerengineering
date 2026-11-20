@@ -26,4 +26,15 @@ describe("AppNav", () => {
     expect(screen.getByRole("link", { name: "Design System" })).toBeDefined();
     expect(screen.queryByRole("link", { name: "eat-sheet" })).toBeNull();
   });
+
+  it("gives the GlobalNav the site's Engineering menu on mattbutlerengineering.com (#9151)", () => {
+    render(
+      <AppNav
+        host={hostConfig("mattbutlerengineering.com")}
+        theme="light"
+        onThemeToggle={vi.fn()}
+      />
+    );
+    expect(screen.getByRole("button", { name: "Engineering" })).toBeDefined();
+  });
 });

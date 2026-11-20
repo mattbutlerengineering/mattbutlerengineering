@@ -1,8 +1,8 @@
 import { lazy, Suspense, useEffect } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router";
 import { Footer, GlobalNav, Skeleton, Text } from "@mattbutlerengineering/rialto";
+import { engineeringMenu, siteCopyright, siteFooterColumns } from "@mbe/site-nav";
 import { useRouteMeta } from "./utils/route-meta";
-import { ENGINEERING_PAGES, isEngineeringPageCurrent } from "./data/engineering-menu";
 import styles from "./App.module.css";
 
 const HomePage = lazy(() => import("./pages/HomePage").then((m) => ({ default: m.HomePage })));
@@ -54,19 +54,6 @@ function RouteFallback() {
 export function App({ theme, onThemeToggle }: AppProps) {
   useRouteMeta();
   const { pathname } = useLocation();
-  const engineeringMenu = {
-    label: "Engineering",
-    items: [
-      ...ENGINEERING_PAGES.map((page) => ({
-        ...page,
-        current: isEngineeringPageCurrent(pathname, page.href),
-      })),
-      // Gen is a sibling app (served at the edge, full page load) rather than
-      // an engineering dashboard, so it never participates in current-page
-      // highlighting from within marketing's own router.
-      { label: "Gen", href: "/gen/" },
-    ],
-  };
   useEffect(() => {
     const main = document.getElementById("main-content");
     if (main && !window.location.hash) {
@@ -92,7 +79,7 @@ export function App({ theme, onThemeToggle }: AppProps) {
         currentPath={pathname}
         theme={theme}
         onThemeToggle={onThemeToggle}
-        menu={engineeringMenu}
+        menu={engineeringMenu(pathname)}
       />
       <main id="main-content" tabIndex={-1} className={styles.main}>
         <Suspense fallback={<RouteFallback />}>
@@ -124,26 +111,8 @@ export function App({ theme, onThemeToggle }: AppProps) {
         variant="rich"
         className={styles.footer}
         logo={<Text>MBE</Text>}
-        columns={[
-          {
-            title: "Projects",
-            links: [
-              { label: "Rialto Design System", href: "/rialto/" },
-              { label: "Hospitality Platform", href: "/hospitality/" },
-              { label: "Gen Playground", href: "/gen/" },
-              ...ENGINEERING_PAGES,
-            ],
-          },
-          {
-            title: "Connect",
-            links: [
-              { label: "GitHub", href: "https://github.com/mattbutlerengineering" },
-              { label: "LinkedIn", href: "https://www.linkedin.com/in/matt-butler-66496a68/" },
-              { label: "Email", href: "mailto:mattbutlerengineering+webapp@gmail.com" },
-            ],
-          },
-        ]}
-        copyright={`\u00A9 ${CURRENT_YEAR} Matt Butler Engineering`}
+        columns={siteFooterColumns()}
+        copyright={siteCopyright(CURRENT_YEAR)}
       />
     </div>
   );
