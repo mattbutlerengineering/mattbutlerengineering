@@ -107,8 +107,20 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   Handshake: ({ "aria-label": ariaLabel }: { "aria-label": string }) => (
     <div role="img" aria-label={ariaLabel} />
   ),
-  Button: ({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) => (
-    <button onClick={onClick}>{children}</button>
+  Button: ({
+    children,
+    onClick,
+    isLoading,
+    loadingText,
+  }: {
+    children: React.ReactNode;
+    onClick?: () => void;
+    isLoading?: boolean;
+    loadingText?: React.ReactNode;
+  }) => (
+    <button onClick={onClick} aria-busy={isLoading || undefined} disabled={isLoading}>
+      {isLoading && loadingText ? loadingText : children}
+    </button>
   ),
   Stack: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   Text: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
@@ -605,6 +617,28 @@ describe("DashboardLayout", () => {
       await user.click(actionButton);
 
       expect(signIn).toHaveBeenCalledWith({ returnTo: "/reservations?date=2026-09-01" });
+      expect(actionButton).not.toHaveAttribute("aria-busy");
+    });
+
+    it("shows the busy label and blocks a second click while the redirect is in flight", async () => {
+      const signIn = vi.fn();
+      vi.mocked(useAuth).mockReturnValue({
+        signIn,
+        signOut: vi.fn(),
+        accessToken: "test-token",
+        activeNavigator: "signinRedirect",
+      } as unknown as ReturnType<typeof useAuth>);
+      vi.mocked(useAccessToken).mockReturnValue({
+        accessToken: "test-token",
+        refreshError: new Error("refresh failed"),
+      });
+
+      renderLayout("/timeline");
+      const busyButton = screen.getByRole("button", { name: SESSION_LAPSE_COPY.actionBusy });
+      expect(busyButton).toHaveAttribute("aria-busy", "true");
+      await userEvent.setup().click(busyButton);
+
+      expect(signIn).not.toHaveBeenCalled();
     });
   });
 
