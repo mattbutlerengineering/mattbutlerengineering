@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, onTestFinished } from "vitest";
 import { render, screen, fireEvent, waitFor, act, within } from "@testing-library/react";
 import { I18nextProvider } from "react-i18next";
 import { esMX as rialtoESMX } from "@mattbutlerengineering/rialto/locales/es-MX";
@@ -253,6 +253,10 @@ describe("LocalePicker", () => {
       "en-US"
     );
     // jsdom has no scrollIntoView; Select calls it on the active option when it opens.
+    const originalScrollIntoView = Element.prototype.scrollIntoView;
+    onTestFinished(() => {
+      Element.prototype.scrollIntoView = originalScrollIntoView;
+    });
     Element.prototype.scrollIntoView = vi.fn();
     fireEvent.click(combobox);
     const options = screen.getAllByRole("option");
