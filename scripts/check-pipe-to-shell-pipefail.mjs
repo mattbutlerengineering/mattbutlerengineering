@@ -24,10 +24,9 @@
  * path (`pulumi-up.yml`), both arms of `pulumi-r2-checksum-validation.yml`, and
  * any future install site cannot land unguarded.
  *
- * Scope note: only a downloader (`curl`/`wget`) piped into a shell is flagged.
- * That is the shape where a silent no-op is indistinguishable from success and
- * the blast radius is "wrong binary deploys production". Broader piped commands
- * are left to review.
+ * Scope note: a downloader (`curl`/`wget`) piped into a shell is flagged, and
+ * so is `curl ... | jq` captured in `$(...)` (#9223: a failed request reads as
+ * an empty result). Broader piped commands are left to review.
  *
  * Shell note: no workflow in this repo declares a `shell:`, so every block runs
  * under the default `bash -e`. A step that later adopts `shell: bash -eo
@@ -62,6 +61,31 @@ const DOWNLOAD_PIPE_TO_SHELL =
 
 /** A `set` builtin that turns pipefail on (`set -o pipefail`, `set -euo pipefail`). */
 const SETS_PIPEFAIL = /^\s*set\s+[^\n]*\bpipefail\b/;
+
+/**
+ * `curl ... | jq` inside a command substitution (#9223). Without pipefail a
+ * failed `curl` leaves `jq` reading empty input, which exits 0, so the
+ * assignment captures "" and the step carries on as if the response were empty.
+ * Only `$(...)` is flagged: a bare `curl | jq .` is display-only.
+ */
+const CURL_JQ_IN_SUBSTITUTION = /\$\([^\n]*\b(?:curl|wget)\b[^\n]*\|\s*jq\b/;
+
+/**
+ * Splits a block into logical lines, joining `\`-continued physical lines.
+ * Each entry keeps the index of its first physical line.
+ */
+function logicalLines(bodyLines) {
+  const joined = [];
+  for (let i = 0; i < bodyLines.length; i++) {
+    let text = bodyLines[i];
+    const start = i;
+    while (text.endsWith("\\") && i + 1 < bodyLines.length) {
+      text = `${text.slice(0, -1)} ${bodyLines[++i].trim()}`;
+    }
+    joined.push({ index: start, text });
+  }
+  return joined;
+}
 
 /**
  * Every `run:` block in a workflow, as `{ line, body }`.
@@ -121,18 +145,28 @@ export function checkWorkflow(name, content) {
     const bodyLines = block.body.split("\n");
     const pipefailAt = bodyLines.findIndex((line) => SETS_PIPEFAIL.test(line));
 
-    bodyLines.forEach((line, index) => {
-      if (!DOWNLOAD_PIPE_TO_SHELL.test(line)) return;
-      if (pipefailAt !== -1 && pipefailAt < index) return;
+    for (const { index, text } of logicalLines(bodyLines)) {
+      if (pipefailAt !== -1 && pipefailAt < index) continue;
 
-      errors.push({
-        line: block.line,
-        message:
-          `pipes a downloader into a shell without pipefail: \`${line.trim()}\` — ` +
-          "a failed download exits 0 through the pipe, so the step goes green with " +
-          "nothing installed; add `set -euo pipefail` as the first line of the block",
-      });
-    });
+      if (DOWNLOAD_PIPE_TO_SHELL.test(text)) {
+        errors.push({
+          line: block.line,
+          message:
+            `pipes a downloader into a shell without pipefail: \`${text.trim()}\` — ` +
+            "a failed download exits 0 through the pipe, so the step goes green with " +
+            "nothing installed; add `set -euo pipefail` as the first line of the block",
+        });
+      } else if (CURL_JQ_IN_SUBSTITUTION.test(text)) {
+        errors.push({
+          line: block.line,
+          message:
+            `captures \`curl | jq\` in $(...) without pipefail: \`${text.trim()}\` — ` +
+            "a failed request leaves jq reading empty input and exiting 0, so the " +
+            "step proceeds on an empty result; add `set -euo pipefail` as the first " +
+            "line of the block",
+        });
+      }
+    }
   }
 
   return { name, errors };
