@@ -643,6 +643,20 @@ describe("agent eval command", () => {
       expect(errSpy.mock.calls.flat().join("\n")).not.toContain("worktree kept for inspection");
     });
 
+    it("(e2) reports a failed worktree removal with exactly one stderr line naming the task and path", async () => {
+      mockLoadSuite.mockResolvedValue([task]);
+      mockRunAgentSession.mockResolvedValue(fakeSession({ status: "succeeded" }));
+      mockRemoveWorktree.mockRejectedValue(new Error("worktree locked"));
+
+      await agentEvalCommand.parseAsync([], { from: "user" });
+
+      const lines = errSpy.mock.calls.flat().filter((l: unknown) => String(l).includes(WT));
+      expect(lines).toHaveLength(1);
+      expect(String(lines[0])).toContain("t1");
+      expect(String(lines[0])).toContain("worktree locked");
+      expect(process.exitCode).toBe(0);
+    });
+
     it("(e) keeps the worktree of a failed session and prints its path", async () => {
       mockLoadSuite.mockResolvedValue([task]);
       mockRunAgentSession.mockResolvedValue(fakeSession({ status: "failed", numTurns: 5 }));
