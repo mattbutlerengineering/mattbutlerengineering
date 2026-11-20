@@ -63,11 +63,9 @@ export function LocalePicker({
             label={t("localePicker.label")}
             options={SUPPORTED_LOCALES.map((l) => ({
               value: l.tag,
-              label: (
-                <Text as="span" lang={l.tag}>
-                  {l.endonym}
-                </Text>
-              ),
+              // Plain span, not rialto Text: the label must inherit the Select's
+              // own typography exactly as the old string label did.
+              label: <Text lang={l.tag}>{l.endonym}</Text>,
               textValue: l.endonym,
             }))}
             value={current}
