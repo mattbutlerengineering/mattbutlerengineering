@@ -1,20 +1,34 @@
 {
-  "collected_at": "2026-11-19T19:34:15.857Z",
+  "collected_at": "2026-11-20T19:10:36.900Z",
   "period_days": 90,
   "categories": {
-    "audit": {
-      "total": 47,
-      "accepted": 38,
-      "rejected": 6,
-      "wontfix": 3,
-      "rejection_rate": 0.1276595744680851
+    "acmm": {
+      "total": 3,
+      "accepted": 0,
+      "rejected": 1,
+      "wontfix": 2,
+      "rejection_rate": 0.3333333333333333
     },
     "ci-fix": {
-      "total": 58,
-      "accepted": 20,
+      "total": 60,
+      "accepted": 22,
+      "rejected": 10,
+      "wontfix": 28,
+      "rejection_rate": 0.16666666666666666
+    },
+    "audit": {
+      "total": 51,
+      "accepted": 37,
       "rejected": 8,
-      "wontfix": 30,
-      "rejection_rate": 0.13793103448275862
+      "wontfix": 6,
+      "rejection_rate": 0.1568627450980392
+    },
+    "sentry": {
+      "total": 13,
+      "accepted": 4,
+      "rejected": 0,
+      "wontfix": 9,
+      "rejection_rate": 0
     },
     "meta-improvement": {
       "total": 25,
@@ -23,33 +37,19 @@
       "wontfix": 0,
       "rejection_rate": 0
     },
-    "acmm": {
-      "total": 2,
-      "accepted": 0,
-      "rejected": 1,
-      "wontfix": 1,
-      "rejection_rate": 0.5
-    },
-    "feature": {
-      "total": 49,
-      "accepted": 26,
-      "rejected": 1,
-      "wontfix": 22,
-      "rejection_rate": 0.02040816326530612
-    },
-    "sentry": {
-      "total": 16,
-      "accepted": 10,
-      "rejected": 0,
-      "wontfix": 6,
-      "rejection_rate": 0
-    },
     "agent-failed": {
       "total": 1,
       "accepted": 0,
       "rejected": 1,
       "wontfix": 0,
       "rejection_rate": 1
+    },
+    "feature": {
+      "total": 45,
+      "accepted": 19,
+      "rejected": 2,
+      "wontfix": 24,
+      "rejection_rate": 0.044444444444444446
     },
     "dependencies": {
       "total": 2,
@@ -65,7 +65,7 @@
     "agent-failed": 1,
     "meta-improvement": 3,
     "sentry": 3,
-    "acmm": 1,
+    "acmm": 3,
     "feature": 3,
     "dependencies": 3
   }
