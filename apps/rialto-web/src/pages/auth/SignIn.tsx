@@ -51,7 +51,7 @@ const HANDSHAKE_STATIONS = ["Browser", "Identity"] as const;
 
 type SignInPhase = "idle" | "submitting" | "verifying" | "rejected" | "verified";
 
-const SIGN_IN_PHASES: Record<
+export const SIGN_IN_PHASES: Record<
   SignInPhase,
   { state: HandshakeState; status: string; ariaLabel: string }
 > = {
