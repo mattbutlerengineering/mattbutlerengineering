@@ -154,6 +154,27 @@ describe("runEffects — executor", () => {
     });
   });
 
+  it("a background job failure is reported with its job type, not only the op", async () => {
+    const { ports, logger } = setup();
+    const report = vi.fn();
+    ports.jobs = {
+      schedule: async () => {
+        throw new Error("redis down");
+      },
+      cancel: async () => false,
+    };
+    await runEffects([schedule("background", "log")], ports, logger, {
+      transition: "created",
+      report,
+    });
+    await flush();
+    expect(report).toHaveBeenCalledWith(expect.any(Error), {
+      transition: "created",
+      port: "jobs",
+      kind: "schedule:booking-reminder",
+    });
+  });
+
   it("a throwing reporter cannot reject the detached chain or stop it", async () => {
     const { ports, logger, messaging, jobs } = setup();
     messaging.failNext("booking-modified");

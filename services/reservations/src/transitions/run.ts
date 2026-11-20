@@ -39,7 +39,8 @@ function effectKind(effect: Effect): string {
     case "messaging":
       return effect.message.kind;
     case "jobs":
-      return effect.op.op;
+      // Keep the job type: "which reminder failed" is the question operators ask.
+      return effect.op.op === "cancel" ? "cancel" : `${effect.op.op}:${effect.op.jobType}`;
   }
 }
 
