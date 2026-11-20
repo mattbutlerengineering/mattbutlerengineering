@@ -13,6 +13,7 @@ import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { REPO_AUDIT_CHECKS, runAllChecks, formatSummary, exitCodeFor } from "../run-repo-audit.mjs";
+import { BLOCKED_EXIT_CODES } from "../check-rialto-changeset.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
@@ -99,6 +100,47 @@ describe("formatSummary", () => {
         .split("\n")
         .at(-1)
     ).toBe("1 of 1 checks passed");
+  });
+});
+
+// ── BLOCKED (#9203): an environmental blocker is not a violation ─────────
+describe("blocked checks", () => {
+  const BLOCKED = { 10: "shallow clone — base unresolvable" };
+  const blockable = { name: "alpha", command: "node", args: ["alpha.mjs"], blocked: BLOCKED };
+
+  it("marks a check exiting with a declared blocked code as blocked, still not ok", () => {
+    const [result] = runAllChecks([blockable], () => ({ ok: false, detail: "exit 10" }));
+    expect(result).toEqual({
+      name: "alpha",
+      ok: false,
+      blocked: true,
+      detail: "shallow clone — base unresolvable",
+    });
+  });
+
+  it("leaves an undeclared exit code as a plain failure", () => {
+    const [result] = runAllChecks([blockable], () => ({ ok: false, detail: "exit 1" }));
+    expect(result).toEqual({ name: "alpha", ok: false, detail: "exit 1" });
+  });
+
+  it("summarises BLOCKED distinctly from FAIL and keeps the run non-zero", () => {
+    const results = [
+      { name: "alpha", ok: false, blocked: true, detail: "shallow clone — base unresolvable" },
+      { name: "beta", ok: false, detail: "exit 1" },
+      { name: "gamma", ok: true, detail: "" },
+    ];
+    const summary = formatSummary(results);
+    expect(summary).toContain("BLOCKED  alpha (shallow clone — base unresolvable)");
+    expect(summary).toContain("FAIL  beta (exit 1)");
+    expect(summary.split("\n").at(-1)).toBe(
+      "2 of 3 checks did not pass: 1 failed (beta), 1 blocked (alpha)"
+    );
+    expect(exitCodeFor(results)).toBe(1);
+  });
+
+  it("wires check-rialto-changeset's blocked codes into the audit", () => {
+    const check = REPO_AUDIT_CHECKS.find((c) => c.name === "check-rialto-changeset");
+    expect(check.blocked[BLOCKED_EXIT_CODES.shallow]).toBe("shallow clone — base unresolvable");
   });
 });
 
