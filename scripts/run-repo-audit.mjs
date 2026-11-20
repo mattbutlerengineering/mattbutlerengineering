@@ -50,6 +50,11 @@ export const REPO_AUDIT_CHECKS = [
     args: ["scripts/check-analytics-bindings.mjs"],
   },
   {
+    name: "check-rate-limit-bindings",
+    command: "node",
+    args: ["scripts/check-rate-limit-bindings.mjs"],
+  },
+  {
     name: "check-destructive-migrations",
     command: "node",
     args: ["scripts/check-destructive-migrations.js"],

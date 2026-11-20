@@ -162,6 +162,7 @@ describe("REPO_AUDIT_CHECKS is the audit's source of truth", () => {
       "check-env-sync",
       "check-service-bindings",
       "check-analytics-bindings",
+      "check-rate-limit-bindings",
       "check-destructive-migrations",
       "check-dockerfile-deps",
       "check-schema-compat",
