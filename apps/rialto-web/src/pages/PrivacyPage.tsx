@@ -45,9 +45,11 @@ export function PrivacyPage() {
             color: "var(--rialto-text-secondary)",
           }}
         >
-          When you visit this site, we may collect anonymous usage data via analytics cookies (e.g.
-          page views, referrer, session duration). We do not collect personally identifiable
-          information unless you voluntarily provide it.
+          This site sets no analytics cookies. Our edge server keeps a cookie-free request log: the
+          route, method, country, page path, response status and response time of each request. It
+          stores no cookie, IP address or other identifier. When a page fails, an error report goes
+          to our error tracker; it can include your browser, operating system and IP address. We do
+          not collect personally identifiable information unless you voluntarily provide it.
         </p>
       </section>
 
@@ -68,8 +70,7 @@ export function PrivacyPage() {
             color: "var(--rialto-text-secondary)",
           }}
         >
-          We use cookies to remember your preferences and understand how visitors use the site.
-          Essential cookies are required for the site to function. Analytics and functional cookies
+          Essential cookies are required for the site to function. Functional and Marketing cookies
           are optional and only set with your consent. You can change your preferences at any time
           using the cookie banner.
         </p>
@@ -92,8 +93,8 @@ export function PrivacyPage() {
             color: "var(--rialto-text-secondary)",
           }}
         >
-          This site may use third-party analytics providers. These providers may set their own
-          cookies and are governed by their respective privacy policies.
+          Error reports are processed by Sentry, and pages are served through Cloudflare. Each is
+          governed by its own privacy policy.
         </p>
       </section>
 
