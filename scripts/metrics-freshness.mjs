@@ -401,6 +401,69 @@ export function assessQueueTelemetryCompleteness({
 }
 
 /**
+ * Minimum rows with a known (numeric) `cost_usd`, claimed in the trailing
+ * COMPLETENESS_WINDOW_DAYS, below which the cost metric is `unmeasured`
+ * (#9098). `cost_per_issue_usd` sat null 17+ days because no in-repo source
+ * records per-issue cost, and nothing said so. The queue lands a handful of
+ * issues a week, so a fraction would be noisy on a small denominator; an
+ * absolute floor of 3 means "a mean over fewer than three issues is an
+ * anecdote, not a measurement". Cost is never estimated to fill the gap
+ * (#5885); below the floor the honest answer is "unmeasured".
+ */
+export const COST_COVERAGE_MIN_KNOWN_ROWS = 3;
+
+/**
+ * Cost-coverage floor for queue-telemetry (#9098): `unmeasured` when fewer than
+ * COST_COVERAGE_MIN_KNOWN_ROWS rows claimed in the trailing 7 days carry a
+ * numeric `cost_usd`. Missing, empty, or stale data all land here too, with
+ * the known/total count shown. Appended to `assessFreshness` results.
+ *
+ * @param {object} [params]
+ * @param {(metric: string) => unknown} [params.readMetric]
+ * @param {Date} [params.now]
+ * @returns {Array<object>} one result
+ */
+export function assessQueueTelemetryCostCoverage({
+  readMetric = (metric) => read(metric),
+  now = new Date(),
+} = {}) {
+  const base = {
+    metric: "queue-telemetry",
+    label: "queue-telemetry cost coverage",
+    producer: "scripts/reconcile-queue-telemetry.mjs (scripts/lib/queue-telemetry-cost-source.mjs)",
+    latest: null,
+    ageDays: null,
+  };
+  let rows;
+  try {
+    rows = readMetric("queue-telemetry");
+  } catch (error) {
+    return [
+      {
+        ...base,
+        state: "unreadable",
+        error: error instanceof Error ? error.message : String(error),
+      },
+    ];
+  }
+  const since = now.getTime() - COMPLETENESS_WINDOW_DAYS * MS_PER_DAY;
+  const windowed = (Array.isArray(rows) ? rows : []).filter(
+    (r) => Date.parse(r?.claimed_at) >= since
+  );
+  const knownRows = windowed.filter(
+    (r) => typeof r.cost_usd === "number" && Number.isFinite(r.cost_usd)
+  ).length;
+  return [
+    {
+      ...base,
+      state: knownRows < COST_COVERAGE_MIN_KNOWN_ROWS ? "unmeasured" : FRESH,
+      knownRows,
+      rowsN: windowed.length,
+    },
+  ];
+}
+
+/**
  * Every result that is not explicitly `fresh`.
  *
  * @param {Array<{ state: string }>} results
@@ -477,6 +540,9 @@ export function formatFinding(result) {
   if (result.state === "incomplete") {
     return `${result.label}: incomplete — ${result.silentRows}/${result.rowsN} recent rows have a silent null; written by ${result.producer}`;
   }
+  if (result.state === "unmeasured") {
+    return `${result.label}: unmeasured — ${result.knownRows}/${result.rowsN} rows claimed in the last ${COMPLETENESS_WINDOW_DAYS}d have a known cost_usd (floor ${COST_COVERAGE_MIN_KNOWN_ROWS}); cost is not estimated; written by ${result.producer}`;
+  }
   const age = result.ageDays === null ? "no dated entry" : `${result.ageDays}d old`;
   const detail = result.error ? ` (${result.error})` : "";
   return `${result.label ?? result.metric}: ${result.state} — ${age}${detail}; written by ${result.producer ?? "unknown producer"}`;
@@ -485,7 +551,11 @@ export function formatFinding(result) {
 /* ── CLI ─────────────────────────────────────────────────── */
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-  const results = [...assessFreshness(), ...assessQueueTelemetryCompleteness()];
+  const results = [
+    ...assessFreshness(),
+    ...assessQueueTelemetryCompleteness(),
+    ...assessQueueTelemetryCostCoverage(),
+  ];
 
   // An empty policy must not render as PASS — freshnessExitCode() already
   // calls that state a failure, so the reported findings have to agree.
