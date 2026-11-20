@@ -255,7 +255,13 @@
       "statusRetrying": "Starting a fresh sign-in",
       "statusFailed": "The exchange didn't go through",
       "retry": "Try again",
-      "technicalDetails": "Technical details"
+      "technicalDetails": "Technical details",
+      "signOut": {
+        "failedLabel": "Your sign-out could not be completed",
+        "title": "Sign-out hit a snag",
+        "body": "We couldn't reach Identity to finish signing you out. Try again to complete it.",
+        "retry": "Try signing out again"
+      }
     },
     "error": {
       "accessDenied": {

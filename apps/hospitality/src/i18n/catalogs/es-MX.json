@@ -262,7 +262,13 @@
       "statusRetrying": "Iniciando una sesión nueva",
       "statusFailed": "El intercambio no se completó",
       "retry": "Intentar de nuevo",
-      "technicalDetails": "Detalles técnicos"
+      "technicalDetails": "Detalles técnicos",
+      "signOut": {
+        "failedLabel": "No se pudo completar tu cierre de sesión",
+        "title": "El cierre de sesión tuvo un problema",
+        "body": "No pudimos conectar con Identidad para terminar de cerrar tu sesión. Inténtalo de nuevo para completarlo.",
+        "retry": "Intentar cerrar sesión de nuevo"
+      }
     },
     "error": {
       "accessDenied": {
