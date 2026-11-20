@@ -8,6 +8,9 @@ on:
       - "AGENTS.md"
       # The eval harness the job runs; a harness change must run the evals.
       - "plugins/acmm/scripts/evals/**"
+      # evals/index.js --report imports ../evals.js, which imports evals-freshness.js.
+      - "plugins/acmm/scripts/evals.js"
+      - "plugins/acmm/scripts/evals-freshness.js"
   pull_request:
     branches: [main]
     paths:
@@ -15,6 +18,9 @@ on:
       - "AGENTS.md"
       # The eval harness the job runs; a harness change must run the evals.
       - "plugins/acmm/scripts/evals/**"
+      # evals/index.js --report imports ../evals.js, which imports evals-freshness.js.
+      - "plugins/acmm/scripts/evals.js"
+      - "plugins/acmm/scripts/evals-freshness.js"
   workflow_dispatch: # Allow manual trigger
 
 # A new push to a pull request supersedes its older run (#8723: runners are

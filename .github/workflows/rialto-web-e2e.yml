@@ -80,6 +80,8 @@ on:
       # The visual-diff publisher runs in publish-visual-diffs (PR-only) with
       # contents: write; a change to it must run the job that exercises it.
       - "scripts/publish-visual-diffs.mjs"
+      # ...and the visual-diff-{report,comment,refs}.mjs modules it imports.
+      - "scripts/visual-diff-*.mjs"
 
 permissions:
   contents: read
