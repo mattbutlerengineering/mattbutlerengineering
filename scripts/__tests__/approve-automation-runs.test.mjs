@@ -4,6 +4,7 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   isAutomationPrApprovable,
+  isVersionPackagesPrApprovable,
   selectActionRequiredRuns,
   decidePollStep,
   approvePendingRuns,
@@ -432,5 +433,80 @@ describe("automation-pr-rescue.yml wiring (#3982)", () => {
 
   it("still runs the rescue script (approval is wired inside rescue-automation-prs.mjs itself)", () => {
     expect(workflow).toMatch(/node scripts\/rescue-automation-prs\.mjs/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isVersionPackagesPrApprovable — the changesets Version Packages PR
+// (`changeset-release/main`, opened by release.yml with GITHUB_TOKEN) parks
+// its runs the same way. Narrow: exact branch + exact author + same repo.
+// ---------------------------------------------------------------------------
+
+const makeVersionPr = (overrides = {}) => ({
+  headRefName: "changeset-release/main",
+  labels: [],
+  author: { login: "app/github-actions" },
+  isCrossRepository: false,
+  ...overrides,
+});
+
+describe("isVersionPackagesPrApprovable", () => {
+  it("approves the Version Packages PR from the trusted author, same repo", () => {
+    expect(isVersionPackagesPrApprovable(makeVersionPr()).approvable).toBe(true);
+  });
+
+  it("refuses another branch", () => {
+    expect(
+      isVersionPackagesPrApprovable(makeVersionPr({ headRefName: "feature/x" })).approvable
+    ).toBe(false);
+  });
+
+  it("refuses a branch that merely starts with changeset-release/", () => {
+    for (const headRefName of ["changeset-release/main-evil", "changeset-release/other"]) {
+      expect(isVersionPackagesPrApprovable(makeVersionPr({ headRefName })).approvable).toBe(false);
+    }
+  });
+
+  it("refuses another author", () => {
+    expect(
+      isVersionPackagesPrApprovable(makeVersionPr({ author: { login: "someone" } })).approvable
+    ).toBe(false);
+  });
+
+  it("refuses a fork", () => {
+    expect(
+      isVersionPackagesPrApprovable(makeVersionPr({ isCrossRepository: true })).approvable
+    ).toBe(false);
+  });
+
+  it("refuses when fork status is unknown (fails closed)", () => {
+    expect(
+      isVersionPackagesPrApprovable(makeVersionPr({ isCrossRepository: undefined })).approvable
+    ).toBe(false);
+  });
+});
+
+describe("approvePendingRuns on the Version Packages PR", () => {
+  it("approves its parked runs", async () => {
+    const approveRun = vi.fn(async () => {});
+    const approved = await approvePendingRuns({
+      getPr: async () => makeVersionPr(),
+      listRuns: async () => [{ databaseId: 7, status: "action_required" }],
+      approveRun,
+      ...makeFakeClock(),
+    });
+    expect(approved).toEqual([7]);
+    expect(approveRun).toHaveBeenCalledWith(7);
+  });
+
+  it("refuses a fork PR on that branch name", async () => {
+    const approveRun = vi.fn(async () => {});
+    const approved = await approvePendingRuns({
+      getPr: async () => makeVersionPr({ isCrossRepository: true }),
+      listRuns: async () => [{ databaseId: 7, status: "action_required" }],
+      approveRun,
+    });
+    expect(approved).toEqual([]);
+    expect(approveRun).not.toHaveBeenCalled();
   });
 });
