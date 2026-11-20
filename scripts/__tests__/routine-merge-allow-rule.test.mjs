@@ -71,6 +71,21 @@ describe("merge allow rule (#6125)", () => {
     }
   });
 
+  it("local merge commands pin the merge to the reviewed head commit", () => {
+    // A push between review and merge must not merge unreviewed commits:
+    // `--match-head-commit` makes GitHub refuse the merge (or auto-merge)
+    // when the head moved off the SHA the review passed.
+    for (const rel of LOCAL_MERGE_PATHS) {
+      const mergeLines = read(rel)
+        .split("\n")
+        .filter((line) => /^\s*gh pr merge <N> --auto/.test(line));
+      expect(mergeLines.length, rel).toBeGreaterThan(0);
+      for (const line of mergeLines) {
+        expect(line, rel).toContain("--match-head-commit <headRefOid>");
+      }
+    }
+  });
+
   describe.each(CLOUD_MERGING_ROUTINES)("%s", (name) => {
     const prompt = promptOf(name);
 
