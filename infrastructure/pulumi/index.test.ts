@@ -69,7 +69,6 @@ const configEntries: Record<string, string> = {
   databaseUrl: TEST_DB_URL,
   otelEndpoint: "https://otlp.example.com",
   otelHeaders: "Authorization=Basic abc123",
-  aiGatewayApiKey: "gw-key-123",
   remediationWebhookSecret: "webhook-secret-123",
   e2eUserPassword: "test-password-123",
   e2eNonAdminUserPassword: "test-nonadmin-password-123",
@@ -389,16 +388,6 @@ describe("Configuration Validation", () => {
       expect(spec.domainNames).toHaveLength(1);
       expect(spec.domainNames[0].name).toBe(`api.${TEST_DOMAIN}`);
       expect(spec.domainNames[0].type).toBe("PRIMARY");
-    });
-
-    it("all services have CORS_ORIGIN set to the domain", () => {
-      const spec = getAppSpec();
-
-      for (const service of spec.services) {
-        const corsOrigin = service.envs.find((e: { key: string }) => e.key === "CORS_ORIGIN");
-        expect(corsOrigin).toBeDefined();
-        expect(corsOrigin.value).toBe(`https://${TEST_DOMAIN}`);
-      }
     });
 
     it("all services have Auth0 authority and audience configured", () => {
@@ -968,7 +957,7 @@ describe("apiService factory", () => {
     expect(service.healthCheck.failureThreshold).toBe(3);
   });
 
-  it("includes shared environment variables (NODE_ENV, PORT, CORS_ORIGIN, etc.)", () => {
+  it("includes shared environment variables (NODE_ENV, PORT, API_BASE_URL, etc.)", () => {
     const service = makeService({
       name: "users-api",
       port: 3001,
@@ -979,7 +968,6 @@ describe("apiService factory", () => {
 
     expect(envs.find((e) => e.key === "NODE_ENV")?.value).toBe("production");
     expect(envs.find((e) => e.key === "PORT")?.value).toBe("3001");
-    expect(envs.find((e) => e.key === "CORS_ORIGIN")?.value).toBe(`https://${TEST_DOMAIN}`);
     expect(envs.find((e) => e.key === "API_BASE_URL")?.value).toBe(
       `https://api.${TEST_DOMAIN}/api`
     );
