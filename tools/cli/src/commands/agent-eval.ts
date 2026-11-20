@@ -487,7 +487,13 @@ async function releaseWorktree(
   } catch (err) {
     // Best-effort: a leftover worktree is litter, not a scoring error — but
     // say so, or leftover `.agent-worktrees/agent-*` dirs pile up untraced.
-    const reason = err instanceof Error ? err.message : String(err);
+    // execFile errors embed multi-line git output; keep it to one stderr line.
+    const reason = (err instanceof Error ? err.message : String(err))
+      .trim()
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l !== "")
+      .join(" | ");
     console.error(`${taskId}: worktree removal failed at ${worktreePath} — ${reason}`);
   }
 }

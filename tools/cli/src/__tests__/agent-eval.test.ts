@@ -657,6 +657,25 @@ describe("agent eval command", () => {
       expect(process.exitCode).toBe(0);
     });
 
+    it("(e3) collapses a multi-line removal error into one stderr line", async () => {
+      mockLoadSuite.mockResolvedValue([task]);
+      mockRunAgentSession.mockResolvedValue(fakeSession({ status: "succeeded" }));
+      mockRemoveWorktree.mockRejectedValue(
+        new Error(
+          `git worktree remove --force -- ${WT} failed: Command failed: git worktree remove\nfatal: '${WT}' is not a working tree\n`
+        )
+      );
+
+      await agentEvalCommand.parseAsync([], { from: "user" });
+
+      const lines = errSpy.mock.calls.flat().filter((l: unknown) => String(l).includes(WT));
+      expect(lines).toHaveLength(1);
+      const line = String(lines[0]);
+      expect(line).toContain("t1");
+      expect(line).toContain("fatal:");
+      expect(line).not.toContain("\n");
+    });
+
     it("(e) keeps the worktree of a failed session and prints its path", async () => {
       mockLoadSuite.mockResolvedValue([task]);
       mockRunAgentSession.mockResolvedValue(fakeSession({ status: "failed", numTurns: 5 }));
