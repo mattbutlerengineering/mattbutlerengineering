@@ -579,7 +579,8 @@ for (const size of SIZES) {
       await expect(drawer).toContainText(`The rows below are from ${longDate(thursday)}.`);
       await expect(drawer).not.toContainText("selected dates.");
       await removeDinner(drawer);
-      await drawer.getByRole("button", { name: "Save for this date" }).click();
+      // Selected dates chose their scope already: one step, and the kept date is named in the label.
+      await drawer.getByRole("button", { name: "Save 1 date, 1 keeps its own hours" }).click();
       await expect(mockedPage.getByRole("dialog")).toHaveCount(0);
       expect(mock.bodies[0]?.changes?.upsert?.dateRules?.map((r) => r.startsOn)).toEqual([friday]);
     });
