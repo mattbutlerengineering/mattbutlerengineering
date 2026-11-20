@@ -6,6 +6,7 @@ import {
   useGuests,
   useGuestSegments,
   useGuestSearch,
+  useGuestLookupSearch,
   useLapsingGuests,
   useSendWinBack,
   useAddGuest,
@@ -261,5 +262,52 @@ describe("useAddGuest", () => {
     await result.current.mutateAsync({ venueId: "venue-1", name: "Jane Doe" });
 
     expect(queryClient.getQueryState(segmentsKey)?.isInvalidated).toBe(true);
+  });
+});
+
+describe("useGuestSearch vs useGuestLookupSearch — previous data", () => {
+  const rerenderTo = (hook: typeof useGuestSearch) => {
+    mockSearch.mockImplementation(
+      ({ query }: { query: string }) =>
+        new Promise((resolve) =>
+          setTimeout(
+            () =>
+              resolve({
+                data: [makeGuest({ id: query, name: query })],
+                pagination: {
+                  page: 1,
+                  limit: 50,
+                  total: 1,
+                  totalPages: 1,
+                  hasNext: false,
+                  hasPrev: false,
+                },
+              }),
+            30
+          )
+        )
+    );
+    return renderHook(({ query }) => hook({ venueId: "venue-1", query, enabled: true }), {
+      wrapper: createWrapper(),
+      initialProps: { query: "al" },
+    });
+  };
+
+  it("directory search drops the old rows when the query changes", async () => {
+    const { result, rerender } = rerenderTo(useGuestSearch);
+    await waitFor(() => expect(result.current.data?.data[0]?.id).toBe("al"));
+    rerender({ query: "ali" });
+    expect(result.current.data).toBeUndefined();
+    expect(result.current.isPlaceholderData).toBe(false);
+  });
+
+  it("lookup search keeps the old rows, flagged as placeholder, until the new ones land", async () => {
+    const { result, rerender } = rerenderTo(useGuestLookupSearch);
+    await waitFor(() => expect(result.current.data?.data[0]?.id).toBe("al"));
+    rerender({ query: "ali" });
+    expect(result.current.data?.data[0]?.id).toBe("al");
+    expect(result.current.isPlaceholderData).toBe(true);
+    await waitFor(() => expect(result.current.data?.data[0]?.id).toBe("ali"));
+    expect(result.current.isPlaceholderData).toBe(false);
   });
 });
