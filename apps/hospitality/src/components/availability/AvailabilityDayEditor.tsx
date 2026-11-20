@@ -216,6 +216,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
   // Which row takes focus once the editor is up: its button is gone by then.
   const focusRowRef = useRef<number | "new" | null>(null);
   const servicesRef = useRef<HTMLDivElement>(null);
+  const confirmRef = useRef<HTMLDivElement>(null);
   useEffect(
     () => () => {
       releaseOpenRef.current?.();
@@ -266,6 +267,11 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
     const row = target === "new" ? rows[rows.length - 1] : (rows[target] ?? rows[0]);
     row?.querySelector("input")?.focus();
   }, [edit]);
+
+  // The Review button is replaced by Save, so focus goes to the summary it asked to be read.
+  useEffect(() => {
+    if (confirming) confirmRef.current?.focus();
+  }, [confirming]);
 
   const chooseScope = (kind: string) => {
     if (!edit) return;
@@ -666,7 +672,12 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
         </>
       )}
       {needsConfirm && confirming && saveBlock === null && (
-        <div role="group" aria-label={t("availability.editor.confirm.title")}>
+        <div
+          ref={confirmRef}
+          tabIndex={-1}
+          role="group"
+          aria-label={t("availability.editor.confirm.title")}
+        >
           <Text variant="body" color="primary">
             {t("availability.editor.confirm.summary", {
               count: writtenCount,
@@ -703,7 +714,9 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
             {t("availability.editor.confirm.back")}
           </Button>
         )}
+        {/* A separate key per step: a double click's second event must not land on Save. */}
         <Button
+          key={needsConfirm && !confirming ? "review" : "save"}
           variant="primary"
           disabled={saveBlock !== null}
           aria-describedby={saveBlock ? saveBlockId : undefined}

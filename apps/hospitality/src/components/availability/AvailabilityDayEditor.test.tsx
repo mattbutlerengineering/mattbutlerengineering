@@ -430,6 +430,33 @@ describe("AvailabilityDayEditor", () => {
     await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
   });
 
+  it("a double click on Review cannot land on Save: the second click hits a replaced button", () => {
+    renderEditor([EARLY_DINNER]);
+    fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
+    chooseScope(/Every Friday from/);
+
+    const review = screen.getByRole("button", { name: "Review 52 dates…" });
+    fireEvent.click(review);
+    fireEvent.click(review);
+
+    expect(save).not.toHaveBeenCalled();
+    expect(review).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("group", { name: "Confirm change to several dates" })
+    ).toBeInTheDocument();
+  });
+
+  it("moves focus to the confirm summary when Review opens it", () => {
+    renderEditor([EARLY_DINNER]);
+    fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
+    chooseScope(/Every Friday from/);
+    fireEvent.click(screen.getByRole("button", { name: "Review 52 dates…" }));
+
+    expect(screen.getByRole("group", { name: "Confirm change to several dates" })).toHaveFocus();
+  });
+
   it("offers Undo on the save toast, reverting that save against the version it produced", async () => {
     revertAsync.mockResolvedValue({ version: 6, changeId: "chg-2" });
     const { rerender } = renderEditor();
