@@ -7,7 +7,7 @@ import { useGuestLookup } from "./useGuestLookup.js";
 const mockUseGuestSearch = vi.fn<(params: UseGuestSearchParams) => UseGuestsResult>();
 
 vi.mock("./useGuests.js", () => ({
-  useGuestSearch: (params: UseGuestSearchParams) => mockUseGuestSearch(params),
+  useGuestLookupSearch: (params: UseGuestSearchParams) => mockUseGuestSearch(params),
 }));
 
 function makeGuest(i: number): Guest {
@@ -43,7 +43,7 @@ const SEVEN_PAGINATION = {
 
 const idle: UseGuestsResult = { data: undefined, isLoading: false, error: null, refetch: vi.fn() };
 
-/** The params of every `useGuestSearch` call made with `enabled: true`. */
+/** The params of every `useGuestLookupSearch` call made with `enabled: true`. */
 function enabledCalls() {
   return mockUseGuestSearch.mock.calls.map(([params]) => params).filter((p) => p.enabled);
 }
@@ -193,6 +193,18 @@ describe("useGuestLookup", () => {
     });
     expect(result.current.query).toBe("ali");
     expect(result.current.stale).toBe(false);
+  });
+
+  it("stays stale after the pause while the new query still shows placeholder rows", () => {
+    mockUseGuestSearch.mockImplementation((params) =>
+      params.enabled ? { ...idle, isPlaceholderData: params.query === "ali" } : idle
+    );
+    const { result } = renderHook(() => useGuestLookup({ venueId: "venue-1", text: "ali" }));
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    expect(result.current.query).toBe("ali");
+    expect(result.current.stale).toBe(true);
   });
 
   it("drops the old answer once the text falls under the minimum, so it never resurfaces", () => {

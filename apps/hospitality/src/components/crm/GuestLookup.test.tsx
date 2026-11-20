@@ -271,6 +271,17 @@ describe("GuestLookup", () => {
     expect(screen.queryByRole("listbox")).toBeNull();
   });
 
+  it("announces loading, not a count or no-match, while the rows are stale", () => {
+    mockUseGuestLookup.mockReturnValue({ ...idle, rows: [priya], query: "pri", stale: true });
+    const { rerender } = render(<Harness />);
+    type("prir");
+    expect(screen.getByRole("status")).toHaveTextContent(LOADING);
+    expect(screen.queryByText(NO_MATCH)).toBeNull();
+    mockUseGuestLookup.mockReturnValue({ ...idle, rows: [], query: "pri", stale: true });
+    rerender(<Harness />);
+    expect(screen.queryByText(NO_MATCH)).toBeNull();
+  });
+
   it("lets an Escape through untouched when no listbox is showing", () => {
     render(<Harness />);
     const escape = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });

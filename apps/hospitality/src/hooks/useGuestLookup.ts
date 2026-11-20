@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Guest } from "@mbe/types";
-import { useGuestSearch } from "./useGuests.js";
+import { useGuestLookupSearch } from "./useGuests.js";
 
 /** Typing fewer characters than this never searches (ux.md § Field). */
 const MIN_CHARS = 2;
@@ -26,13 +26,13 @@ export interface UseGuestLookupResult {
   failed: boolean;
   /** The text the rows answer, or "" while under the minimum. During the pause it is the previous settled text. */
   query: string;
-  /** The Host has typed past `query`: the rows are the previous answer, kept on screen until the new one lands. */
+  /** The Host has typed past `query`, or its answer is still loading: the rows are the previous answer, kept on screen until the new one lands. */
   stale: boolean;
 }
 
 /**
  * Turns typed text into listbox rows: a 2-character minimum, a 300 ms pause, then
- * `useGuestSearch`. The pause is a timer in a ref re-armed on every text change; the effect body
+ * `useGuestLookupSearch`. The pause is a timer in a ref re-armed on every text change; the effect body
  * sets no state — only the timer callback does, once the Host has stopped typing. `query` is the
  * last settled text, so the previous rows stay on screen (flagged `stale`) during the pause rather
  * than blanking on every keystroke; it clears the moment the text drops under the minimum.
@@ -57,7 +57,11 @@ export function useGuestLookup({ venueId, text }: UseGuestLookupParams): UseGues
   if (!eligible && settled !== "") setSettled("");
 
   const query = eligible ? settled : "";
-  const { data, isLoading, error } = useGuestSearch({ venueId, query, enabled: query !== "" });
+  const { data, isLoading, isPlaceholderData, error } = useGuestLookupSearch({
+    venueId,
+    query,
+    enabled: query !== "",
+  });
   const matches = query !== "" ? (data?.data ?? []) : [];
 
   return {
@@ -66,6 +70,6 @@ export function useGuestLookup({ venueId, text }: UseGuestLookupParams): UseGues
     isLoading: query !== "" && isLoading,
     failed: query !== "" && error !== null,
     query,
-    stale: query !== "" && query !== trimmed,
+    stale: query !== "" && (query !== trimmed || isPlaceholderData === true),
   };
 }

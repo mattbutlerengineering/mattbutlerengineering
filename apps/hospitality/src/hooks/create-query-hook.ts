@@ -7,6 +7,8 @@ export interface QueryHookResult<TData> {
   data: TData | undefined;
   isLoading: boolean;
   error: Error | null;
+  /** True while `data` is the previous key's, kept by `keepPreviousData` until this key lands. */
+  isPlaceholderData?: boolean;
   /** Resolves when the refetch settles; `error` is null on success (so a Retry handler can speak). */
   refetch: () => Promise<{ error: Error | null }>;
 }
@@ -65,6 +67,7 @@ export function createQueryHook<TData, TParams = undefined, TResult = TData>(
       data,
       isLoading: query.isLoading,
       error: query.error ?? null,
+      isPlaceholderData: query.isPlaceholderData,
       refetch: query.refetch,
     };
   };
