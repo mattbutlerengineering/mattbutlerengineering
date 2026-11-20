@@ -33,3 +33,29 @@ export function localDay(offsetDays = 0): string {
 export function atLocal(time: string, day: string = localDay()): string {
   return new Date(`${day}T${time}`).toISOString();
 }
+
+interface Timed {
+  readonly startTime: unknown;
+  readonly endTime: unknown;
+}
+
+/**
+ * Fixture reservations re-dated onto `day` (default: the local day). Each fixture time is read as
+ * its *intended local wall clock* (`…T18:00:00.000Z` → 18:00 local), because the timeline grid
+ * positions blocks by browser-local hours (#5275). Rewriting only the date prefix keeps the `Z`
+ * and lands blocks off the grid; taking the day from a UTC slice empties the grid every evening.
+ */
+export function onLocalDay<T extends Timed>(
+  rows: readonly T[],
+  day: string = localDay()
+): Array<
+  Omit<T, "date" | "startTime" | "endTime"> & { date: string; startTime: string; endTime: string }
+> {
+  const wallClock = (iso: unknown): string => atLocal(String(iso).slice(11, 23), day); // "18:00:00.000"
+  return rows.map((r) => ({
+    ...r,
+    date: day,
+    startTime: wallClock(r.startTime),
+    endTime: wallClock(r.endTime),
+  }));
+}

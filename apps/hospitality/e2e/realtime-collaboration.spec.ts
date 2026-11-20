@@ -26,6 +26,7 @@
 import { test as base, expect } from "@playwright/test";
 import type { BrowserContext, Page } from "@playwright/test";
 import { mockApi } from "./api-mocks.js";
+import { atLocal, localDay, onLocalDay } from "./local-day.js";
 import { readFileSync } from "fs";
 import { join } from "path";
 
@@ -33,12 +34,16 @@ const FIXTURES_DIR = join(import.meta.dirname, "fixtures");
 
 const SSE_TIMEOUT_MS = 5_000; // Flow 10 criterion: events broadcast within 1 second; 5s headroom for CI
 
-/** New walk-in reservation injected via SSE into Context B. */
-const WALKIN_RESERVATION = {
+/**
+ * New walk-in reservation injected via SSE into Context B, on the local day at 18:00 local — the
+ * day and clock the timeline filters and positions on. A function, not a module constant, so the
+ * day is read at use time (`e2e/local-day.ts`); a UTC slice is tomorrow after 16:00 Pacific.
+ */
+const walkinReservation = () => ({
   id: "res_e2e_collab_walkin",
-  date: new Date().toISOString().slice(0, 10),
-  startTime: new Date().toISOString().replace(/T.*/, "T18:00:00.000Z"),
-  endTime: new Date().toISOString().replace(/T.*/, "T19:30:00.000Z"),
+  date: localDay(),
+  startTime: atLocal("18:00:00.000"),
+  endTime: atLocal("19:30:00.000"),
   partySize: 2,
   status: "CONFIRMED",
   notes: "Walk-in",
@@ -55,23 +60,18 @@ const WALKIN_RESERVATION = {
   updatedAt: new Date().toISOString(),
   occasion: null,
   seatingPreference: null,
-};
+});
 
 /** Reservations list fixture with the collab walk-in appended — returned after SSE invalidation. */
 function buildUpdatedReservations(): string {
-  const today = new Date().toISOString().slice(0, 10);
   const fixture = JSON.parse(
     readFileSync(join(FIXTURES_DIR, "reservations-list.json"), "utf-8")
-  ) as { data: Array<Record<string, unknown>>; pagination: Record<string, unknown> };
+  ) as {
+    data: Array<Record<string, unknown> & { startTime: unknown; endTime: unknown }>;
+    pagination: Record<string, unknown>;
+  };
 
-  const updatedData = fixture.data
-    .map((r) => ({
-      ...r,
-      date: today,
-      startTime: String(r.startTime).replace(/^\d{4}-\d{2}-\d{2}/, today),
-      endTime: String(r.endTime).replace(/^\d{4}-\d{2}-\d{2}/, today),
-    }))
-    .concat([{ ...WALKIN_RESERVATION }]);
+  const updatedData = [...onLocalDay(fixture.data), walkinReservation()];
 
   return JSON.stringify({
     ...fixture,
@@ -127,7 +127,7 @@ const test = base.extend<{
       type: "reservation:created",
       venueId: "ven_e2e_001",
       timestamp: new Date().toISOString(),
-      data: WALKIN_RESERVATION,
+      data: walkinReservation(),
     };
     sse.setEvents([{ type: "reservation:created", data: ssePayload }]);
 
