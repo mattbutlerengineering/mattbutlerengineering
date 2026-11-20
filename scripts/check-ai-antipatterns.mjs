@@ -13,7 +13,8 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { walkFiles } from "./lib/repo-scan.mjs";
+import { execFileSync } from "node:child_process";
+import { walkFiles, DEFAULT_IGNORE_DIRS } from "./lib/repo-scan.mjs";
 import { runCheck } from "./lib/fitness-check.mjs";
 import { compare } from "./lib/ratchet.mjs";
 import { read, write, resolvePath } from "./metrics-store.mjs";
@@ -49,7 +50,46 @@ const PATTERN_DESCRIPTIONS = {
  * @returns {string[]}
  */
 function collectFiles(dir) {
+  const tracked = listTrackedFiles(dir);
+  if (tracked) return tracked;
+  console.warn(
+    "warning: git ls-files unavailable; falling back to a filesystem walk (git-ignored files will be counted)"
+  );
   return walkFiles(dir, { match: (name) => SCAN_EXTENSIONS.has(path.extname(name)) });
+}
+
+/**
+ * Git-tracked files under `dir` that match SCAN_EXTENSIONS and are not inside
+ * a shared ignore dir. Scoping to tracked files keeps git-ignored scratch
+ * dirs from counting locally when CI (a clean checkout) never sees them.
+ *
+ * @param {string} dir - Absolute directory path
+ * @returns {string[] | null} null when git is unavailable or `dir` is not in a repo
+ */
+function listTrackedFiles(dir) {
+  let out;
+  try {
+    out = execFileSync("git", ["ls-files", "-z"], {
+      cwd: dir,
+      encoding: "utf-8",
+      maxBuffer: 256 * 1024 * 1024,
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+  } catch {
+    return null;
+  }
+  return out
+    .split("\0")
+    .filter((rel) => rel && SCAN_EXTENSIONS.has(path.extname(rel)))
+    .filter(
+      (rel) =>
+        !rel
+          .split("/")
+          .slice(0, -1)
+          .some((seg) => DEFAULT_IGNORE_DIRS.has(seg))
+    )
+    .map((rel) => path.join(dir, rel))
+    .filter((abs) => fs.existsSync(abs) && fs.statSync(abs).isFile());
 }
 
 /** Returns true if the file path looks like a test file. */
