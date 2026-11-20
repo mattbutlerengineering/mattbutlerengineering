@@ -99,11 +99,16 @@ async function runBackgroundChain(
       await applyEffect(planned.effect, ports);
     } catch (err) {
       logger.error({ err, ...describe(planned.effect) }, "Background transition effect failed");
-      reporting?.report(err, {
-        transition: reporting.transition,
-        port: planned.effect.port,
-        kind: effectKind(planned.effect),
-      });
+      try {
+        reporting?.report(err, {
+          transition: reporting.transition,
+          port: planned.effect.port,
+          kind: effectKind(planned.effect),
+        });
+      } catch (reportErr) {
+        // Reporting is best-effort: this chain is detached and must never reject.
+        logger.error({ err: reportErr }, "Background effect failure could not be reported");
+      }
       if (planned.onFailure === "propagate") return;
     }
   }

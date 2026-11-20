@@ -154,6 +154,23 @@ describe("runEffects — executor", () => {
     });
   });
 
+  it("a throwing reporter cannot reject the detached chain or stop it", async () => {
+    const { ports, logger, messaging, jobs } = setup();
+    messaging.failNext("booking-modified");
+    const report = vi.fn(() => {
+      throw new Error("reporter broke");
+    });
+    await runEffects(
+      [modified("background", "log"), schedule("background", "propagate")],
+      ports,
+      logger,
+      { transition: "modified", report }
+    );
+    await flush();
+    expect(report).toHaveBeenCalledTimes(1);
+    expect(jobs.jobs.size).toBe(1);
+  });
+
   it("replace-if-present schedules only when cancel removed an existing job", async () => {
     const { ports, logger, jobs } = setup();
     await runEffects([replace], ports, logger);
