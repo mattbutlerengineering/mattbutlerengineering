@@ -720,6 +720,8 @@ describe("POST /api/v1/stripe/webhook", () => {
         ...depositMock,
         postCaptureRefundCents: 2500,
       });
+      // partial_refunded looks for the deposit's own refund leg at Stripe; none exists.
+      payments.respond("findDepositRefund", () => null);
 
       const app = await buildApp({ logger: false, payments });
       await app.ready();
@@ -1047,6 +1049,8 @@ describe("POST /api/v1/stripe/webhook", () => {
     };
 
     beforeEach(() => {
+      // No newer closure refund exists at Stripe unless a test scripts one.
+      payments.respond("findDepositRefund", () => null);
       mockDepositFindFirst.mockResolvedValue({
         id: "dep_closure",
         reservationId: "res_closure",
