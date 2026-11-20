@@ -22,6 +22,7 @@ import { spawnSync } from "node:child_process";
 
 import {
   checkGhAvailable,
+  mayWriteState,
   shouldWriteState,
   buildFlakeSnapshot,
   formatBehavioralGateLine,
@@ -44,22 +45,51 @@ describe("checkGhAvailable", () => {
     assert.equal(checkGhAvailable({ execFn }), false);
   });
 
-  test("false when gh auth status fails", () => {
+  test("false when the REST probe is unauthorized (401/403)", () => {
     const execFn = () => {
-      throw new Error("You are not logged into any GitHub hosts");
+      const err = new Error("gh: Bad credentials (HTTP 401)");
+      err.status = 1;
+      throw err;
     };
     assert.equal(checkGhAvailable({ execFn }), false);
   });
 
-  test("probes with `gh auth status --hostname github.com` (review item 7)", () => {
+  // `gh auth status` exits 1 in Claude Code Remote ("The token in GH_TOKEN is
+  // invalid") while `gh api` works — the probe must follow REST, not auth
+  // status (#9202; gotchas.md § Claude Code Remote).
+  test("true when `gh auth status` would fail but `gh api` succeeds (CCR)", () => {
+    const execFn = (bin, args) => {
+      if (args[0] === "auth") throw new Error("The token in GH_TOKEN is invalid.");
+      return "{}";
+    };
+    assert.equal(checkGhAvailable({ execFn }), true);
+  });
+
+  test("probes with `gh api rate_limit` and an explicit timeout (#9202)", () => {
     let seenArgs;
+    let seenOpts;
     checkGhAvailable({
-      execFn: (bin, args) => {
+      execFn: (bin, args, o) => {
         seenArgs = [bin, ...args];
+        seenOpts = o;
         return "";
       },
     });
-    assert.deepEqual(seenArgs, ["gh", "auth", "status", "--hostname", "github.com"]);
+    assert.deepEqual(seenArgs, ["gh", "api", "rate_limit"]);
+    assert.ok(seenOpts.timeout > 0, "probe must carry a timeout");
+  });
+});
+
+describe("mayWriteState — state/badge writes need explicit intent (#9202)", () => {
+  test("never writes without gh", () => {
+    assert.equal(mayWriteState({ ghAvailable: false, apply: true, badge: true }), false);
+  });
+  test("a bare run (no --apply/--badge) is read-only even with gh", () => {
+    assert.equal(mayWriteState({ ghAvailable: true, apply: false, badge: false }), false);
+  });
+  test("--apply or --badge with gh may write", () => {
+    assert.equal(mayWriteState({ ghAvailable: true, apply: true, badge: false }), true);
+    assert.equal(mayWriteState({ ghAvailable: true, apply: false, badge: true }), true);
   });
 });
 
