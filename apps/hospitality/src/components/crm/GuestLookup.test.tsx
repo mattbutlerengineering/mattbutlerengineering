@@ -57,6 +57,7 @@ const idle: UseGuestLookupResult = {
   isLoading: false,
   failed: false,
   query: "",
+  stale: false,
 };
 
 const LOADING = "Looking up guests…";
@@ -256,6 +257,18 @@ describe("GuestLookup", () => {
     expect(escape.defaultPrevented).toBe(true);
     expect(screen.queryByRole("listbox")).toBeNull();
     expect(combobox()).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("keeps the previous rows listed while the Host types on, and Escape there closes only the list", () => {
+    mockUseGuestLookup.mockReturnValue({ ...idle, rows: [priya], query: "pri", stale: true });
+    render(<Harness />);
+    type("prir");
+    expect(screen.getByRole("listbox")).toBeInTheDocument();
+    expect(screen.getByText("Priya Shah")).toBeInTheDocument();
+    const escape = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+    fireEvent(combobox(), escape);
+    expect(escape.defaultPrevented).toBe(true);
+    expect(screen.queryByRole("listbox")).toBeNull();
   });
 
   it("lets an Escape through untouched when no listbox is showing", () => {

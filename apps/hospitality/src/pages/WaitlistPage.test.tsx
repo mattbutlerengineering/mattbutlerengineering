@@ -36,6 +36,7 @@ const idleLookup: UseGuestLookupResult = {
   isLoading: false,
   failed: false,
   query: "",
+  stale: false,
 };
 
 vi.mock("react-router", async () => ({

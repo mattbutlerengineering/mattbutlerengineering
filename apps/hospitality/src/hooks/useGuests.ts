@@ -63,6 +63,7 @@ const useGuestSearchQuery = createQueryHook<PaginatedResponse<Guest>, UseGuestSe
     return api.guests.search({ venueId: params.venueId, query: params.query });
   },
   getEnabled: (params) => !!params?.venueId && !!params?.query,
+  keepPreviousData: true,
 });
 
 export function useGuestSearch(params: UseGuestSearchParams): UseGuestsResult {

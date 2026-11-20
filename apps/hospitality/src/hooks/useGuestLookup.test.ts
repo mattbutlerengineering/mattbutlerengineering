@@ -168,4 +168,44 @@ describe("useGuestLookup", () => {
     });
     expect(result.current.failed).toBe(true);
   });
+
+  it("keeps the previous query's rows, marked stale, while a further keystroke is pending", () => {
+    const two = [makeGuest(1), makeGuest(2)];
+    mockUseGuestSearch.mockImplementation((params) =>
+      params.enabled && params.query === "al"
+        ? { ...idle, data: { data: two, pagination: SEVEN_PAGINATION } }
+        : idle
+    );
+    const { result, rerender } = renderHook(
+      ({ text }: { text: string }) => useGuestLookup({ venueId: "venue-1", text }),
+      { initialProps: { text: "al" } }
+    );
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    expect(result.current.stale).toBe(false);
+    rerender({ text: "ali" });
+    expect(result.current.query).toBe("al");
+    expect(result.current.stale).toBe(true);
+    expect(result.current.rows.map((g) => g.id)).toEqual(["gst_1", "gst_2"]);
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    expect(result.current.query).toBe("ali");
+    expect(result.current.stale).toBe(false);
+  });
+
+  it("drops the old answer once the text falls under the minimum, so it never resurfaces", () => {
+    const { result, rerender } = renderHook(
+      ({ text }: { text: string }) => useGuestLookup({ venueId: "venue-1", text }),
+      { initialProps: { text: "al" } }
+    );
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    rerender({ text: "" });
+    expect(result.current.query).toBe("");
+    rerender({ text: "bo" });
+    expect(result.current.query).toBe("");
+  });
 });
