@@ -3,6 +3,7 @@ import fp from "fastify-plugin";
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { redactSignal } from "./redact.js";
 import { resolveConfig } from "./config.js";
+import { exemptHeartbeatFromDedupe } from "./heartbeat-dedupe.js";
 
 /**
  * Minimal user shape expected by Sentry context.
@@ -73,7 +74,10 @@ export function initSentry(options: InitOptions): void {
     // already decorated, so Fastify throws FST_ERR_DEC_ALREADY_PRESENT during
     // boot and the container exits non-zero. Filtering by name rather than
     // replacing the list wholesale keeps future Sentry defaults arriving.
-    integrations: (defaults) => defaults.filter((integration) => integration.name !== "Fastify"),
+    // The daily heartbeat's marked events must also bypass Dedupe (see
+    // heartbeat-dedupe.ts); ordinary events keep the default dedupe.
+    integrations: (defaults) =>
+      exemptHeartbeatFromDedupe(defaults.filter((integration) => integration.name !== "Fastify")),
     // Sentry v11 flipped every `dataCollection` category from opt-in (gated
     // on the now-removed `sendDefaultPii`, which defaulted to not collecting)
     // to on-by-default. Measured directly from both versions'
