@@ -86,7 +86,7 @@ async function lostRace(arrived: boolean) {
   const view = render(editor(4, []));
   fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
   fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
-  fireEvent.click(screen.getByRole("button", { name: "Save 1 date" }));
+  fireEvent.click(screen.getByRole("button", { name: "Save for this date" }));
   const dialog = await screen.findByRole("dialog", { name: "Someone changed availability first" });
   if (arrived) view.rerender(editor(5, [EARLY_DINNER]));
   fireEvent.click(within(dialog).getByRole("button", { name: "Review their change" }));
@@ -127,7 +127,7 @@ describe("the date editor's conflict dialog", () => {
     expect(screen.getByRole("button", { name: "Remove Dinner" })).toBeTruthy();
     expect(onFinished).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole("button", { name: "Save 1 date" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save for this date" }));
     await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
     // The next save is checked against the version the Manager has now seen.
     expect(save.mock.calls[1]?.[0].body.expectedVersion).toBe(5);
@@ -138,7 +138,7 @@ describe("the date editor's conflict dialog", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Start over" }));
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(screen.getByRole("button", { name: "Remove Lunch" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Save 1 date" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save for this date" })).toBeDisabled();
     expect(onFinished).not.toHaveBeenCalled();
     expect(onDirtyChange).toHaveBeenLastCalledWith(false);
     expect(save).toHaveBeenCalledTimes(1);

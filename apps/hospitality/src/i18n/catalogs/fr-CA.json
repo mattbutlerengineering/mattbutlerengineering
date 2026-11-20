@@ -2650,9 +2650,6 @@
       "save_other": "Enregistrer {{count}} dates",
       "save_many": "Enregistrer {{count}} dates",
       "cancel": "Annuler",
-      "saveKeeping_one": "Enregistrer {{count}} date, horaire propre conservé pour {{kept}}",
-      "saveKeeping_other": "Enregistrer {{count}} dates, horaire propre conservé pour {{kept}}",
-      "saveKeeping_many": "Enregistrer {{count}} dates, horaire propre conservé pour {{kept}}",
       "savedOne": "{{date}} mis à jour",
       "savedMany_one": "{{count}} date mise à jour",
       "savedMany_other": "{{count}} dates mises à jour",
@@ -2689,6 +2686,26 @@
         "noChange": "Modifiez les heures pour enregistrer.",
         "noDates": "Ce que vous modifiez ne touche aucune date : il n’y a rien à enregistrer.",
         "keptOwn": "Chaque date garde ses propres modifications. Choisissez Les remplacer pour enregistrer."
+      },
+      "saveThisDate": "Enregistrer pour cette date",
+      "review_one": "Vérifier {{count}} date…",
+      "review_other": "Vérifier {{count}} dates…",
+      "review_many": "Vérifier {{count}} dates…",
+      "keepsOwn_one": "{{count}} conserve son horaire propre",
+      "keepsOwn_other": "{{count}} conservent leur horaire propre",
+      "keepsOwn_many": "{{count}} conservent leur horaire propre",
+      "confirm": {
+        "title": "Confirmer le changement sur plusieurs dates",
+        "back": "Retour",
+        "summary_one": "Cela modifie {{count}} date, jusqu’au {{end}}.",
+        "summary_other": "Cela modifie {{count}} dates, jusqu’au {{end}}.",
+        "summary_many": "Cela modifie {{count}} dates, jusqu’au {{end}}.",
+        "kept_one": "{{count}} date de cette portée conserve son horaire propre; {{saved}} sur {{total}} sont enregistrées.",
+        "kept_other": "{{count}} dates de cette portée conservent leur horaire propre; {{saved}} sur {{total}} sont enregistrées.",
+        "kept_many": "{{count}} dates de cette portée conservent leur horaire propre; {{saved}} sur {{total}} sont enregistrées.",
+        "replaced_one": "{{count}} date avec ses propres changements sera remplacée.",
+        "replaced_other": "{{count}} dates avec leurs propres changements seront remplacées.",
+        "replaced_many": "{{count}} dates avec leurs propres changements seront remplacées."
       }
     },
     "preview": {
