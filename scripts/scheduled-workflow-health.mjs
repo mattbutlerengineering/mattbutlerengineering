@@ -1305,7 +1305,8 @@ function main() {
 
   const failing = results.filter((r) => r.status === "failing-streak");
   if (failing.length > 0) {
-    console.error(`${failing.length} workflow(s) failing ${threshold}+ consecutive runs.`);
+    // Each workflow has its own cadence-scaled threshold (#9244), so name none here.
+    console.error(`${failing.length} workflow(s) reached their consecutive-failure threshold.`);
   }
 
   const overdue = recencyResults.filter((r) => r.status === "overdue");
