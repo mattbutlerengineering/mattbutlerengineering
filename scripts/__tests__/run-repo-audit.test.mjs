@@ -167,6 +167,7 @@ describe("REPO_AUDIT_CHECKS is the audit's source of truth", () => {
       "check-schema-compat",
       "check-ci-dispatch",
       "check-pipe-to-shell-pipefail",
+      "check-action-pins",
       "check-pulumi-version-assertion",
       "check-issue-filing-seam",
       "check-workflow-deps",
