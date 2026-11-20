@@ -41,7 +41,8 @@ export default [
   // nonexistent repo-root path and hard-failed every commit touching an
   // agent-core test file (discovered while landing #3468).
   {
-    files: ["**/src/**/*.test.ts"],
+    // __tests__/** too: tsconfig.json also excludes the non-test helpers there.
+    files: ["**/src/**/*.test.ts", "**/src/**/__tests__/**/*.ts"],
     languageOptions: {
       parserOptions: {
         projectService: false,
