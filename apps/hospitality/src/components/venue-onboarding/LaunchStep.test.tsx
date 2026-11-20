@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, act, within } from "@testing-library/react";
-import type { ComponentProps } from "react";
+import { StrictMode, type ComponentProps } from "react";
 import type * as RialtoModule from "@mattbutlerengineering/rialto";
 import { LaunchStep } from "./LaunchStep";
 import type { BasicInfoData } from "./BasicInfoStep.js";
@@ -360,5 +360,36 @@ describe("LaunchStep", () => {
 
     expect(screen.queryByText("Retry")).toBeNull();
     expect(screen.queryByText(/Retry picks up at/)).toBeNull();
+  });
+
+  // StrictMode's dev-only mount -> unmount -> remount runs the effect cleanup once
+  // without recreating refs; the unmountedRef reset on mount keeps handleLaunch live (#5017).
+  it("survives StrictMode double-invoked effects: celebrates and hands off exactly once", async () => {
+    vi.useFakeTimers();
+    const onLaunch = vi.fn().mockResolvedValue(undefined);
+    const onCelebrationDone = vi.fn();
+    render(
+      <StrictMode>
+        <LaunchStep
+          basicInfo={basicInfo}
+          locationTime={locationTime}
+          hoursDraft={hoursDraft}
+          settings={settings}
+          onLaunch={onLaunch}
+          onCelebrationDone={onCelebrationDone}
+        />
+      </StrictMode>
+    );
+
+    fireEvent.click(screen.getByText("Launch Venue"));
+    await flushMicrotasks();
+
+    expect(onLaunch).toHaveBeenCalledOnce();
+    expect(screen.getByText("Your venue is live — add tables next")).toBeTruthy();
+
+    await act(async () => {
+      vi.advanceTimersByTime(1500);
+    });
+    expect(onCelebrationDone).toHaveBeenCalledOnce();
   });
 });

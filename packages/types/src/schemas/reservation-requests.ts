@@ -71,6 +71,7 @@ export const WalkInBodySchema = z
     venueId: z.string().describe("ID of the venue"),
     guestId: z
       .string()
+      .min(1)
       .describe("ID of an existing guest at this venue to link the walk-in to")
       .optional(),
     guestName: z.string().describe("Guest name (defaults to 'Walk-in')").optional(),
@@ -106,6 +107,7 @@ export const CreateReservationBodySchema = z
     guestPhone: z.string().describe("Guest phone number").optional(),
     guestId: z
       .string()
+      .min(1)
       .describe("ID of an existing guest at this venue to link the reservation to")
       .optional(),
     venueId: z.string().describe("ID of the venue for this reservation").optional(),
@@ -306,7 +308,7 @@ export const ConfirmHoldBodySchema = z.object({
   guestName: z.string().describe("Guest name").optional(),
   guestEmail: z.email().describe("Guest email").optional(),
   guestPhone: z.string().describe("Guest phone number").optional(),
-  guestId: z.string().describe("ID of existing guest record").optional(),
+  guestId: z.string().min(1).describe("ID of existing guest record").optional(),
   notes: z.string().describe("Special requests or notes").optional(),
   occasion: OccasionSchema.describe("Occasion for the reservation").optional(),
   seatingPreference: SeatingPreferenceSchema.describe("Guest seating preference").optional(),

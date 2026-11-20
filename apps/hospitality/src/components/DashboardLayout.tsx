@@ -113,7 +113,7 @@ function DashboardLayoutInner() {
   const sessionCopy = getSessionLapseCopy(t);
   const navigate = useNavigate();
   const location = useLocation();
-  const { signIn, signOut, accessToken } = useAuth();
+  const { signIn, signOut, accessToken, activeNavigator } = useAuth();
   const { refreshError } = useAccessToken();
   const { resolvedTheme, setTheme } = useTheme();
   const readiness = useVenueReadiness();
@@ -383,7 +383,12 @@ function DashboardLayoutInner() {
               dismissible
               onDismiss={() => setDismissedRefreshError(refreshError)}
               action={
-                <Button variant="secondary" onClick={handleSignInAgain}>
+                <Button
+                  variant="secondary"
+                  onClick={handleSignInAgain}
+                  isLoading={activeNavigator === "signinRedirect"}
+                  loadingText={sessionCopy.actionBusy}
+                >
                   {sessionCopy.action}
                 </Button>
               }
