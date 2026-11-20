@@ -115,12 +115,12 @@ export function writeReport(
     lines.push("");
   }
 
-  // ── Unverifiable criteria (gh CLI unavailable) ────────────
+  // ── Unverifiable criteria (per-criterion reason) ────────────
   if (unverifiableCriteria.length > 0) {
     lines.push(`## Unverifiable criteria (${unverifiableCriteria.length})`);
     lines.push("");
     lines.push(
-      "These criteria could **not** be verified because the `gh` CLI was unavailable or timed out. " +
+      "These criteria could **not** be verified; the reason for each is listed below. " +
         "Unverifiable criteria are **excluded** from level math and from the total count."
     );
     lines.push("");

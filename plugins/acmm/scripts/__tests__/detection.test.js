@@ -232,14 +232,57 @@ test("detectAll: returns detected set and meta map", () => {
 
 // ── active detection type tests ────────────────────────────
 
-test("isWorkflowActive: returns degraded when gh CLI is unavailable", () => {
-  // Use a temp dir that's not a git repo — gh will fail
-  const fx = fixture();
-  const result = isWorkflowActive(fx.root, "nonexistent.yml", 7);
+const GH_404_STDERR =
+  "HTTP 404: workflow .github/workflows/nightly-compliance.yml not found on the default branch (https://api.github.com/repos/mattbutlerengineering/mattbutlerengineering/actions/workflows/.github%2Fworkflows%2Fnightly-compliance.yml)\n";
+
+/** @param {Record<string, unknown>} props */
+function throwingExec(props) {
+  return () => {
+    throw Object.assign(new Error("Command failed: gh run list"), props);
+  };
+}
+
+test("isWorkflowActive: gh binary absent (ENOENT) reports gh unavailable", () => {
+  const result = isWorkflowActive("/x", "ci.yml", 7, {
+    execFileSyncFn: throwingExec({ code: "ENOENT", syscall: "spawnSync gh" }),
+  });
   assert.equal(result.active, null);
   assert.equal(result.degraded, true);
-  assert.ok(result.reason.includes("gh CLI unavailable"));
-  fx.cleanup();
+  assert.match(result.reason, /gh CLI not installed/);
+});
+
+test("isWorkflowActive: HTTP 404 is degraded and does not blame gh availability", () => {
+  const result = isWorkflowActive("/x", "nightly-compliance.yml", 7, {
+    execFileSyncFn: throwingExec({ status: 1, stderr: GH_404_STDERR }),
+  });
+  assert.equal(result.active, null);
+  assert.equal(result.degraded, true);
+  assert.match(result.reason, /not found on the default branch/);
+  assert.match(result.reason, /nightly-compliance\.yml/);
+  assert.doesNotMatch(result.reason, /unavailable/i);
+});
+
+test("isWorkflowActive: timeout (killed / ETIMEDOUT) reports timeout", () => {
+  const killed = isWorkflowActive("/x", "ci.yml", 7, {
+    execFileSyncFn: throwingExec({ killed: true, signal: "SIGTERM" }),
+  });
+  assert.equal(killed.degraded, true);
+  assert.match(killed.reason, /timed out/);
+  const code = isWorkflowActive("/x", "ci.yml", 7, {
+    execFileSyncFn: throwingExec({ code: "ETIMEDOUT" }),
+  });
+  assert.match(code.reason, /timed out/);
+});
+
+test("isWorkflowActive: other errors keep a generic reason with captured stderr", () => {
+  const stderr = "HTTP 401: Bad credentials (https://api.github.com/graphql)\n";
+  const result = isWorkflowActive("/x", "ci.yml", 7, {
+    execFileSyncFn: throwingExec({ status: 1, stderr }),
+  });
+  assert.equal(result.active, null);
+  assert.equal(result.degraded, true);
+  assert.match(result.reason, /gh run list failed/);
+  assert.ok(result.reason.includes("HTTP 401: Bad credentials"));
 });
 
 test("isWorkflowActive: queries only successful runs so skipped/failed noise can't crowd out the success", () => {
