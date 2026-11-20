@@ -27,12 +27,16 @@ import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { BLOCKED_EXIT_CODES } from "./check-rialto-changeset.mjs";
+
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 /**
- * Every check `pnpm repo-audit` runs, in order.
+ * Every check `pnpm repo-audit` runs, in order. `blocked` maps an exit code
+ * to the reason a check reports an environmental blocker (e.g. a shallow
+ * clone) — shown as BLOCKED, not FAIL, but still a non-zero run (#9203).
  *
- * @type {ReadonlyArray<{ name: string, command: string, args: string[] }>}
+ * @type {ReadonlyArray<{ name: string, command: string, args: string[], blocked?: Record<number, string> }>}
  */
 export const REPO_AUDIT_CHECKS = [
   { name: "prettier", command: "pnpm", args: ["check:prettier"] },
@@ -103,7 +107,16 @@ export const REPO_AUDIT_CHECKS = [
     args: ["scripts/check-audit-persistence-caller.mjs"],
   },
   { name: "check-story-coverage", command: "node", args: ["scripts/check-story-coverage.mjs"] },
-  { name: "check-rialto-changeset", command: "node", args: ["scripts/check-rialto-changeset.mjs"] },
+  {
+    name: "check-rialto-changeset",
+    command: "node",
+    args: ["scripts/check-rialto-changeset.mjs"],
+    blocked: {
+      [BLOCKED_EXIT_CODES.shallow]: "shallow clone — base unresolvable",
+      [BLOCKED_EXIT_CODES["origin-main-missing"]]: "origin/main missing — base unresolvable",
+      [BLOCKED_EXIT_CODES["diff-unreadable"]]: "diff unreadable — base resolved",
+    },
+  },
   { name: "check-changeset-tree", command: "node", args: ["scripts/check-changeset-tree.mjs"] },
   {
     name: "check-claude-md-table-drift",
@@ -142,12 +155,15 @@ export const REPO_AUDIT_CHECKS = [
  *
  * @param {ReadonlyArray<{ name: string, command: string, args: string[] }>} checks
  * @param {(check: { name: string, command: string, args: string[] }) => { ok: boolean, detail?: string }} runCheck
- * @returns {{ name: string, ok: boolean, detail: string }[]}
+ * @returns {{ name: string, ok: boolean, detail: string, blocked?: true }[]}
  */
 export function runAllChecks(checks, runCheck) {
   return checks.map((check) => {
     try {
       const { ok, detail = "" } = runCheck(check);
+      const code = /^exit (\d+)$/.exec(detail)?.[1];
+      const reason = ok || code === undefined ? undefined : check.blocked?.[Number(code)];
+      if (reason) return { name: check.name, ok, blocked: true, detail: reason };
       return { name: check.name, ok, detail };
     } catch (error) {
       return { name: check.name, ok: false, detail: error instanceof Error ? error.message : "" };
@@ -166,19 +182,30 @@ export function exitCodeFor(results) {
 /**
  * PASS/FAIL line per check, then a count naming every failure.
  *
- * @param {ReadonlyArray<{ name: string, ok: boolean, detail: string }>} results
+ * A BLOCKED check (environmental, e.g. a shallow clone) is listed apart from
+ * FAIL so a reader can tell it from a real violation; it is still not a pass.
+ *
+ * @param {ReadonlyArray<{ name: string, ok: boolean, detail: string, blocked?: boolean }>} results
  * @returns {string}
  */
 export function formatSummary(results) {
-  const failed = results.filter((result) => !result.ok);
+  const label = (result) => (result.ok ? "PASS" : result.blocked ? "BLOCKED" : "FAIL");
+  const failed = results.filter((result) => !result.ok && !result.blocked);
+  const blocked = results.filter((result) => result.blocked);
   const lines = results.map(
-    (result) =>
-      `  ${result.ok ? "PASS" : "FAIL"}  ${result.name}${result.detail ? ` (${result.detail})` : ""}`
+    (result) => `  ${label(result)}  ${result.name}${result.detail ? ` (${result.detail})` : ""}`
   );
-  const tally =
-    failed.length === 0
-      ? `${results.length} of ${results.length} checks passed`
-      : `${failed.length} of ${results.length} checks failed: ${failed.map((r) => r.name).join(", ")}`;
+  const names = (list) => list.map((r) => r.name).join(", ");
+  let tally = `${results.length} of ${results.length} checks passed`;
+  if (blocked.length === 0 && failed.length > 0) {
+    tally = `${failed.length} of ${results.length} checks failed: ${names(failed)}`;
+  } else if (blocked.length > 0) {
+    const parts = [
+      ...(failed.length > 0 ? [`${failed.length} failed (${names(failed)})`] : []),
+      `${blocked.length} blocked (${names(blocked)})`,
+    ];
+    tally = `${failed.length + blocked.length} of ${results.length} checks did not pass: ${parts.join(", ")}`;
+  }
 
   return ["repo-audit summary:", ...lines, tally].join("\n");
 }

@@ -15,9 +15,16 @@
  * cannot accumulate into a silent allowlist).
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
+  BLOCKED_EXIT_CODES,
+  classifyBaseFailure,
   RIALTO_PACKAGE,
   isRialtoReleaseSource,
   parseChangesetPackages,
@@ -176,5 +183,139 @@ describe("evaluateRialtoChangesetGate", () => {
   it("passes an empty diff", () => {
     const { findings } = evaluateRialtoChangesetGate({ changedFiles: [], changesets: [] });
     expect(findings).toEqual([]);
+  });
+});
+
+// ── Base-resolution failures (#9203) ─────────────────────────────────────
+// Cloud sessions clone shallow, so `git merge-base HEAD origin/main` cannot
+// resolve. The gate must still fail closed (never skip), but say WHY, and
+// exit with a distinct code so `pnpm repo-audit` can label it BLOCKED.
+describe("classifyBaseFailure", () => {
+  it("names a shallow clone and the unshallow remedy", () => {
+    const failure = classifyBaseFailure({
+      isShallow: true,
+      hasOriginMain: true,
+      baseResolved: false,
+      overrideSet: false,
+    });
+    expect(failure.kind).toBe("shallow");
+    expect(failure.exitCode).toBe(BLOCKED_EXIT_CODES.shallow);
+    expect(failure.exitCode).not.toBe(0);
+    expect(failure.message).toContain("shallow clone");
+    expect(failure.message).toContain("git fetch --unshallow --filter=blob:none origin main");
+    expect(failure.message).toContain("RIALTO_CHANGESET_BASE");
+  });
+
+  it("names a missing origin/main in a full-history clone", () => {
+    const failure = classifyBaseFailure({
+      isShallow: false,
+      hasOriginMain: false,
+      baseResolved: false,
+      overrideSet: false,
+    });
+    expect(failure.kind).toBe("origin-main-missing");
+    expect(failure.exitCode).toBe(BLOCKED_EXIT_CODES["origin-main-missing"]);
+    expect(failure.message).toContain("origin/main is missing");
+    expect(failure.message).toContain("git fetch origin main");
+  });
+
+  it("names an unreadable diff when a base did resolve", () => {
+    const failure = classifyBaseFailure({
+      isShallow: true,
+      hasOriginMain: true,
+      baseResolved: true,
+      overrideSet: false,
+    });
+    expect(failure.kind).toBe("diff-unreadable");
+    expect(failure.exitCode).toBe(BLOCKED_EXIT_CODES["diff-unreadable"]);
+    expect(failure.message).toContain("could not be read");
+  });
+
+  it("reports a bad RIALTO_CHANGESET_BASE override as a plain failure, not a clone problem", () => {
+    const failure = classifyBaseFailure({
+      isShallow: true,
+      hasOriginMain: true,
+      baseResolved: false,
+      overrideSet: true,
+    });
+    expect(failure.kind).toBe("override-unresolvable");
+    expect(failure.exitCode).toBe(1);
+  });
+
+  it("keeps a generic non-zero failure when full history still has no merge base", () => {
+    const failure = classifyBaseFailure({
+      isShallow: false,
+      hasOriginMain: true,
+      baseResolved: false,
+      overrideSet: false,
+    });
+    expect(failure.kind).toBe("no-merge-base");
+    expect(failure.exitCode).toBe(1);
+  });
+
+  it("gives every blocked kind a distinct non-zero exit code", () => {
+    const codes = Object.values(BLOCKED_EXIT_CODES);
+    expect(new Set(codes).size).toBe(codes.length);
+    expect(codes.every((code) => code > 1)).toBe(true);
+  });
+});
+
+describe("check-rialto-changeset CLI in a real shallow clone", () => {
+  const SCRIPT = join(dirname(fileURLToPath(import.meta.url)), "..", "check-rialto-changeset.mjs");
+  const run = (cwd, args, env = {}) =>
+    spawnSync(args[0], args.slice(1), {
+      cwd,
+      encoding: "utf-8",
+      env: { ...process.env, GIT_TERMINAL_PROMPT: "0", ...env },
+    });
+  const gitIn = (cwd, ...args) => {
+    const result = run(cwd, ["git", ...args]);
+    if (result.status !== 0) throw new Error(`git ${args.join(" ")}: ${result.stderr}`);
+    return result.stdout.trim();
+  };
+  const identity = ["-c", "user.name=t", "-c", "user.email=t@example.com"];
+
+  let dir;
+  beforeAll(() => {
+    dir = mkdtempSync(join(tmpdir(), "rialto-cs-"));
+    const source = join(dir, "source");
+    gitIn(dir, "init", "-q", "-b", "main", source);
+    for (const n of [1, 2, 3]) {
+      gitIn(source, ...identity, "commit", "-q", "--allow-empty", "-m", `c${n}`);
+    }
+    gitIn(dir, "clone", "-q", "--depth", "1", `file://${source}`, join(dir, "clone"));
+    // Reproduce the cloud shape: HEAD unrelated to the shallow origin/main.
+    gitIn(join(dir, "clone"), "checkout", "-q", "--orphan", "work");
+    gitIn(join(dir, "clone"), ...identity, "commit", "-q", "--allow-empty", "-m", "work");
+  });
+  afterAll(() => rmSync(dir, { recursive: true, force: true }));
+
+  it("is genuinely shallow with an origin/main that does not share history", () => {
+    const clone = join(dir, "clone");
+    expect(gitIn(clone, "rev-parse", "--is-shallow-repository")).toBe("true");
+    expect(run(clone, ["git", "merge-base", "HEAD", "origin/main"]).status).not.toBe(0);
+  });
+
+  it("exits with the shallow code and the shallow message, not a bare failure", () => {
+    const result = run(join(dir, "clone"), ["node", SCRIPT]);
+    expect(result.status).toBe(BLOCKED_EXIT_CODES.shallow);
+    expect(result.stdout).toContain("BLOCKED: rialto changeset check (shallow clone)");
+    expect(result.stdout).toContain("git fetch --unshallow --filter=blob:none origin main");
+    expect(result.stdout).not.toMatch(/^PASS/m);
+  });
+
+  it("still honours RIALTO_CHANGESET_BASE in the shallow clone", () => {
+    const result = run(join(dir, "clone"), ["node", SCRIPT], { RIALTO_CHANGESET_BASE: "HEAD" });
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("PASS");
+  });
+
+  it("reports a missing origin/main in a clone with no remote", () => {
+    const lone = join(dir, "lone");
+    gitIn(dir, "init", "-q", "-b", "main", lone);
+    gitIn(lone, ...identity, "commit", "-q", "--allow-empty", "-m", "only");
+    const result = run(lone, ["node", SCRIPT]);
+    expect(result.status).toBe(BLOCKED_EXIT_CODES["origin-main-missing"]);
+    expect(result.stdout).toContain("BLOCKED: rialto changeset check (origin/main missing)");
   });
 });
