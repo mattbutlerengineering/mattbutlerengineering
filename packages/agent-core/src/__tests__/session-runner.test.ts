@@ -254,15 +254,13 @@ describe("runSession", () => {
       expect(result.sessionId).toBe("session-123");
     });
 
-    it("falls back to summing per-turn metrics when no result message arrived", async () => {
-      const signal = abortAfterQuery(
-        hardenedResult({ rawTurnMetrics: [turn(1, 0.1), turn(2, 0.2)] })
-      );
+    it("falls back to turns and tokens (cost stays 0, as event-mapper emits) when no result message arrived", async () => {
+      const signal = abortAfterQuery(hardenedResult({ rawTurnMetrics: [turn(1, 0), turn(2, 0)] }));
 
       const result = await runSession(BASE_CONFIG, undefined, deps, signal);
 
       expect(result.status).toBe("failed");
-      expect(result.costUsd).toBeCloseTo(0.3, 10);
+      expect(result.costUsd).toBe(0);
       expect(result.numTurns).toBe(2);
       expect(result.tokenUsage).toEqual({ inputTokens: 300, outputTokens: 30 });
     });

@@ -46,8 +46,11 @@ export type FailureSpend = Pick<
 
 /**
  * Spend already incurred by the query phase when a later phase throws.
- * Prefers the SDK result message (authoritative totals); otherwise sums the
- * per-turn metrics; with neither, nothing was spent and zeros are accurate.
+ * Prefers the SDK result message (authoritative totals, including cost);
+ * otherwise recovers turns and tokens only from the per-turn metrics. Their
+ * `costUsd` is always 0 (event-mapper.ts emits 0 on every turn_metrics event;
+ * real cost comes only from the result message), so the fallback cost is 0.
+ * With neither, nothing is known and zeros are reported.
  */
 export function buildFailureSpend(
   resultMessage: SDKResultMessage | undefined,
