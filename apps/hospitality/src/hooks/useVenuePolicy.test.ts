@@ -54,6 +54,7 @@ function createWrapper() {
 
 beforeEach(() => {
   mockFetch.mockReset();
+  mockReportHandledError.mockClear();
 });
 
 describe("useVenuePolicy", () => {
