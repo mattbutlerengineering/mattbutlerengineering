@@ -837,7 +837,7 @@
     },
     "cancel": {
       "title": "Annuler la réservation",
-      "intro": "Annulation de la réservation de <strong>{{name}}</strong>",
+      "intro": "Annulation de la réservation de <guest/>",
       "reasonLabel": "Motif",
       "reasons": {
         "guestCancelled": "Annulée par le client",
@@ -859,7 +859,7 @@
     },
     "noShowDialog": {
       "title": "Marquer comme absent",
-      "body": "Marquer <strong>{{name}}</strong> comme absent ne peut pas être annulé. Si un dépôt est au dossier, la politique de frais d'absence de l'établissement s'applique : il peut être perçu en partie ou en totalité, ou remboursé si aucun frais ne s'applique.",
+      "body": "Marquer <guest/> comme absent ne peut pas être annulé. Si un dépôt est au dossier, la politique de frais d'absence de l'établissement s'applique : il peut être perçu en partie ou en totalité, ou remboursé si aucun frais ne s'applique.",
       "failed": "La réservation n'a pas été marquée comme une absence.",
       "keep": "Garder la réservation",
       "confirm": "Marquer comme absent",

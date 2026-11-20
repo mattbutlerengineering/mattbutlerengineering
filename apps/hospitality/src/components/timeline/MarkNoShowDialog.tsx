@@ -90,8 +90,7 @@ export function MarkNoShowDialog({ guestName, onConfirm, onClose }: MarkNoShowDi
             <Text variant="body" color="secondary">
               <Trans
                 i18nKey="timeline.noShowDialog.body"
-                values={{ name: displayName }}
-                components={{ strong: <strong /> }}
+                components={{ guest: <strong>{displayName}</strong> }}
               />
             </Text>
           </div>
