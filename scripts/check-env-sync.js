@@ -93,6 +93,9 @@ const HELPER_BRACKET_RE = /(?<![\w.])env\[\s*["']([A-Z][A-Z0-9_]*)["']\s*\]/g;
 const ENV_INDEX_RE = /(?<![\w.])env\[/;
 const ENV_NAME_CONST_RE = /\bconst\s+\w*_(?:KEY|ENV)\s*=\s*["']([A-Z][A-Z0-9_]*)["']/g;
 
+// Cloudflare Worker `env` is a bindings/secrets object, not process env vars.
+const WORKER_PATH_RE = /[\\/]infrastructure[\\/]worker[\\/]/;
+
 export function collectHelperEnvVars(packageDir) {
   const vars = new Set();
   const files = walkFiles(packageDir, {
@@ -100,6 +103,7 @@ export function collectHelperEnvVars(packageDir) {
   });
 
   for (const file of files) {
+    if (WORKER_PATH_RE.test(file)) continue;
     const content = readFileSync(file, "utf-8");
     const patterns = ENV_INDEX_RE.test(content)
       ? [HELPER_DOT_RE, HELPER_BRACKET_RE, ENV_NAME_CONST_RE]

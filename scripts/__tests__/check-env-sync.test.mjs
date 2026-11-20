@@ -201,6 +201,12 @@ describe("check-env-sync", () => {
       expect(r.missing).toEqual([]);
     });
 
+    test("collectHelperEnvVars skips Cloudflare Worker env bindings", async () => {
+      write("infrastructure/worker/router.js", "export const f = (env) => env.HEALTH_STATE;\n");
+      const { collectHelperEnvVars } = await import("../check-env-sync.js");
+      expect(collectHelperEnvVars(tmpDir).size).toBe(0);
+    });
+
     test("a documented helper read is not unguarded", async () => {
       write("svc/.env.example", "HELPER_VAR=1\n");
       write("svc/src/index.ts", "export const f = (env) => env.HELPER_VAR;\n");
