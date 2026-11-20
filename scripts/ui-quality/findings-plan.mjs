@@ -488,14 +488,50 @@ export function planFindings({
     version,
   });
 
+  const drift = issueDrift(ledger, states);
+  // A planned key with no state was already reported (and skipped) by decide().
+  for (const [key, rec] of drift.unknown.filter(([k]) => !planned.has(k))) {
+    ctx.reports.push(`${key}: issue #${rec.issue} has no state — not reconciled`);
+  }
+  const reconciled = drift.drifted
+    .filter(([key]) => !planned.has(key))
+    .map(([key, rec]) => ({
+      key,
+      action: "close",
+      issue: rec.issue,
+      carrier: rec.carrier,
+      severity: rec.severity,
+      state: "closed",
+      state_reason: "issue_closed",
+    }));
+
   return {
-    actions: [...actions, ...adoptions, ...declines, ...closes].map((a) =>
+    actions: [...actions, ...adoptions, ...declines, ...closes, ...reconciled].map((a) =>
       a === candidate ? { ...a, fix_pr_candidate: true } : a
     ),
     seeds,
     fix_pr_candidate: candidate?.key ?? null,
     dropped,
     reports: ctx.reports,
+    issue_drift: {
+      open_with_closed_issue: drift.drifted.length,
+      unknown_state: drift.unknown.length,
+    },
+  };
+}
+
+/**
+ * Open records whose linked issue the fetched state map says is closed
+ * (`drifted`), and those whose issue has no state at all (`unknown` — a failed
+ * fetch). Unknown is never read as closed: those records stay open.
+ */
+function issueDrift(ledger, states) {
+  const linked = Object.entries(ledger)
+    .filter(([, rec]) => rec.state === "open" && Number.isInteger(rec.issue))
+    .sort(([a], [b]) => byString(a, b));
+  return {
+    drifted: linked.filter(([, rec]) => states[rec.issue] === "closed"),
+    unknown: linked.filter(([, rec]) => states[rec.issue] === undefined),
   };
 }
 
