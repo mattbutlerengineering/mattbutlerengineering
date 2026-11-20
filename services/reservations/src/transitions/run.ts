@@ -16,6 +16,33 @@ export interface EffectLogger {
   error(details: object, msg: string): void;
 }
 
+/** Tags for an error report: low-cardinality names, never ids. */
+export interface EffectFailureContext {
+  transition: string;
+  port: Effect["port"];
+  kind: string;
+}
+
+/**
+ * Optional error reporting for background failures, which settle after the
+ * response and are otherwise visible only as a log line.
+ */
+export interface EffectReporting {
+  transition: string;
+  report: (err: unknown, context: EffectFailureContext) => void;
+}
+
+function effectKind(effect: Effect): string {
+  switch (effect.port) {
+    case "events":
+      return effect.event.type;
+    case "messaging":
+      return effect.message.kind;
+    case "jobs":
+      return effect.op.op;
+  }
+}
+
 function describe(effect: Effect): Record<string, unknown> {
   switch (effect.port) {
     case "events":
@@ -64,13 +91,19 @@ async function applyEffect(effect: Effect, ports: EffectPorts): Promise<void> {
 async function runBackgroundChain(
   chain: PlannedEffect[],
   ports: EffectPorts,
-  logger: EffectLogger
+  logger: EffectLogger,
+  reporting?: EffectReporting
 ): Promise<void> {
   for (const planned of chain) {
     try {
       await applyEffect(planned.effect, ports);
     } catch (err) {
       logger.error({ err, ...describe(planned.effect) }, "Background transition effect failed");
+      reporting?.report(err, {
+        transition: reporting.transition,
+        port: planned.effect.port,
+        kind: effectKind(planned.effect),
+      });
       if (planned.onFailure === "propagate") return;
     }
   }
@@ -79,13 +112,14 @@ async function runBackgroundChain(
 export async function runEffects(
   planned: PlannedEffect[],
   ports: EffectPorts,
-  logger: EffectLogger
+  logger: EffectLogger,
+  reporting?: EffectReporting
 ): Promise<void> {
   const chain = planned.filter((p) => p.timing === "background");
   if (chain.length > 0) {
     // Detached by design: background effects settle after the response.
     // runBackgroundChain never rejects — every failure is caught and logged.
-    void runBackgroundChain(chain, ports, logger);
+    void runBackgroundChain(chain, ports, logger, reporting);
   }
 
   for (const step of planned) {

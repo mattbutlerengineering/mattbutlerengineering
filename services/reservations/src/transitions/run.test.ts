@@ -137,6 +137,23 @@ describe("runEffects — executor", () => {
     expect(logger.error).toHaveBeenCalledTimes(1);
   });
 
+  it("a background failure is reported with the transition name and effect kind", async () => {
+    const { ports, logger, messaging } = setup();
+    const report = vi.fn();
+    messaging.failNext("booking-modified");
+    await runEffects([modified("background", "log")], ports, logger, {
+      transition: "modified",
+      report,
+    });
+    await flush();
+    expect(report).toHaveBeenCalledTimes(1);
+    expect(report).toHaveBeenCalledWith(expect.any(Error), {
+      transition: "modified",
+      port: "messaging",
+      kind: "booking-modified",
+    });
+  });
+
   it("replace-if-present schedules only when cancel removed an existing job", async () => {
     const { ports, logger, jobs } = setup();
     await runEffects([replace], ports, logger);
