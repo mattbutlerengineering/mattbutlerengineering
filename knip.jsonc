@@ -170,6 +170,7 @@
         "ci-gate-status.mjs",
         "cloud-session-bootstrap.mjs",
         "collect-queue-efficiency.mjs",
+        "dep-graph-discovery.mjs",
         "fast-path-decision.mjs",
         "hook-input.mjs",
         "instruction-budget-hook.mjs",
