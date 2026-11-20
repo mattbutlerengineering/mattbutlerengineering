@@ -36,6 +36,8 @@ import {
   classifyRunRecency,
   extractScheduleCrons,
   estimateCronPeriodDays,
+  estimateFailureCadenceDays,
+  cadenceFailureThreshold,
   resolveWorkflowPeriodDays,
   buildMissedRunTitle,
   extractWorkflowNameFromMissedRunTitle,
@@ -1960,5 +1962,79 @@ describe("cancelled-as-failure workflows (#8376)", () => {
     expect(created).toEqual(["ci-fix: nightly-compliance has failed 3 consecutive scheduled runs"]);
     expect(results[0].status).toBe("failing-streak");
     expect(results[1].status).toBe("insufficient-history");
+  });
+});
+
+describe("estimateFailureCadenceDays", () => {
+  it("reuses the daily and weekly estimates and adds a monthly one", () => {
+    expect(estimateFailureCadenceDays(["0 6 * * *"])).toBe(1);
+    expect(estimateFailureCadenceDays(["0 6 * * 1"])).toBe(7);
+    expect(estimateFailureCadenceDays(["0 6 1 * *"])).toBe(31);
+  });
+
+  it("returns null for shapes it cannot classify", () => {
+    expect(estimateFailureCadenceDays(["*/15 * * * *"])).toBeNull();
+    expect(estimateFailureCadenceDays(["0 6 1 3 *"])).toBeNull();
+    expect(estimateFailureCadenceDays([])).toBeNull();
+  });
+});
+
+describe("cadenceFailureThreshold", () => {
+  it("flags a monthly workflow after one failure and a weekly one after two", () => {
+    expect(cadenceFailureThreshold(31, 3)).toBe(1);
+    expect(cadenceFailureThreshold(7, 3)).toBe(2);
+  });
+
+  it("keeps the base threshold for daily, unknown or invalid cadence", () => {
+    expect(cadenceFailureThreshold(1, 3)).toBe(3);
+    expect(cadenceFailureThreshold(null, 3)).toBe(3);
+    expect(cadenceFailureThreshold(Number.NaN, 3)).toBe(3);
+  });
+
+  it("never raises an explicitly lower base threshold", () => {
+    expect(cadenceFailureThreshold(7, 1)).toBe(1);
+  });
+});
+
+describe("runScheduledWorkflowHealthCheck cadence scaling", () => {
+  const failing = (n) =>
+    Array.from({ length: n }, (_, i) => ({ conclusion: "failure", url: `u${i}` }));
+  const run = (periodDays, runCount) => {
+    const created = [];
+    const results = runScheduledWorkflowHealthCheck({
+      workflows: [{ name: "w.yml", file: "w.yml", path: ".github/workflows/w.yml" }],
+      getRuns: () => failing(runCount),
+      getPeriodDays: () => periodDays,
+      createIssue: (title) => {
+        created.push(title);
+        return 7;
+      },
+    });
+    return { created, results };
+  };
+
+  it("flags a monthly workflow with a single failure", () => {
+    const { created, results } = run(31, 1);
+    expect(results[0].status).toBe("failing-streak");
+    expect(created).toEqual(["ci-fix: w.yml has failed 1 consecutive scheduled runs"]);
+  });
+
+  it("does not flag a daily workflow with a single failure", () => {
+    expect(run(1, 1).results[0].status).toBe("insufficient-history");
+  });
+
+  it("falls back to the default threshold when cadence is unknown", () => {
+    expect(run(null, 2).results[0].status).toBe("insufficient-history");
+    expect(run(null, 3).results[0].status).toBe("failing-streak");
+  });
+
+  it("does not scale deploy workflows", () => {
+    const results = runScheduledWorkflowHealthCheck({
+      workflows: [{ name: "d.yml", path: "p", kind: "deploy" }],
+      getRuns: () => failing(1),
+      getPeriodDays: () => 31,
+      createIssue: () => 1,
+    });
+    expect(results[0].status).toBe("insufficient-history");
   });
 });

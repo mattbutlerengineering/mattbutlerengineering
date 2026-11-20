@@ -558,6 +558,46 @@ export function estimateCronPeriodDays(crons) {
 }
 
 /**
+ * Cadence estimate for the failure-streak threshold only. Same as
+ * `estimateCronPeriodDays`, plus one more shape: a fixed day-of-month with
+ * every month and every weekday (`min hour <dom> * *`) -> 31 (the longest
+ * gap between two runs). Kept separate so the recency check's behaviour
+ * does not change: monthly workflows stay `undeterminable` there.
+ *
+ * @param {string[]} crons
+ * @returns {number|null}
+ */
+export function estimateFailureCadenceDays(crons) {
+  const base = estimateCronPeriodDays(crons);
+  if (base !== null) return base;
+  if (!Array.isArray(crons) || crons.length !== 1) return null;
+  const fields = crons[0].trim().split(/\s+/);
+  if (fields.length !== 5) return null;
+  const [minute, hour, dom, month, dow] = fields;
+  const isFixed = (field) => /^\d+$/.test(field);
+  return isFixed(minute) && isFixed(hour) && isFixed(dom) && month === "*" && dow === "*"
+    ? 31
+    : null;
+}
+
+/**
+ * Pure: scales the consecutive-failure threshold to a workflow's cadence
+ * (backlog seed: three failures of a monthly job take three months to flag).
+ * Rule: period >= 28 days -> 1 failure; period >= 7 days -> 2; faster, or an
+ * unknown/invalid cadence -> `base` unchanged. Never raises `base`.
+ *
+ * @param {number|null|undefined} periodDays
+ * @param {number} base
+ * @returns {number}
+ */
+export function cadenceFailureThreshold(periodDays, base) {
+  if (!Number.isFinite(periodDays) || periodDays <= 0) return base;
+  if (periodDays >= 28) return Math.min(base, 1);
+  if (periodDays >= 7) return Math.min(base, 2);
+  return base;
+}
+
+/**
  * Reads a workflow file directly off disk (no git involved — unlike
  * `resolveWorkflowModifiedAt`, this only needs the file's current content)
  * and estimates its cron period. Returns `null` on any failure — missing
@@ -571,11 +611,15 @@ export function estimateCronPeriodDays(crons) {
  */
 export function resolveWorkflowPeriodDays(
   workflowFile,
-  { workflowsDir = join(ROOT, ".github", "workflows"), readFile = readFileSync } = {}
+  {
+    workflowsDir = join(ROOT, ".github", "workflows"),
+    readFile = readFileSync,
+    estimate = estimateCronPeriodDays,
+  } = {}
 ) {
   try {
     const source = readFile(join(workflowsDir, workflowFile), "utf-8");
-    return estimateCronPeriodDays(extractScheduleCrons(source));
+    return estimate(extractScheduleCrons(source));
   } catch {
     return null;
   }
@@ -812,16 +856,22 @@ export function runScheduledWorkflowHealthCheck({
   reopenIssue = () => {},
   log = () => {},
   getWorkflowModifiedAt = () => undefined,
+  getPeriodDays = () => null,
 }) {
   return workflows.map((workflow) => {
     const runs = getRuns(workflow.name);
+    // Only scheduled workflows have a cadence; deploy/main-push keep `threshold`.
+    const workflowThreshold =
+      (workflow.kind ?? "scheduled") === "scheduled" && workflow.file
+        ? cadenceFailureThreshold(getPeriodDays(workflow.file), threshold)
+        : threshold;
     const workflowModifiedAt = getWorkflowModifiedAt(workflow.path);
     const cancelledCountsAsFailure = CANCELLED_IS_FAILURE_WORKFLOW_FILES.some((file) =>
       workflow.path?.endsWith(`/${file}`)
     );
     const health = classifyScheduledWorkflowHealth({
       runs,
-      threshold,
+      threshold: workflowThreshold,
       workflowModifiedAt,
       cancelledCountsAsFailure,
     });
@@ -1200,6 +1250,8 @@ function main() {
     ...commonDeps,
     workflows: scheduledWorkflows,
     getRuns: getScheduledRuns,
+    getPeriodDays: (file) =>
+      resolveWorkflowPeriodDays(file, { workflowsDir, estimate: estimateFailureCadenceDays }),
   });
 
   const recencyResults = runScheduledWorkflowRecencyCheck({
