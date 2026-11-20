@@ -1,9 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act, within } from "@testing-library/react";
 import { I18nextProvider } from "react-i18next";
 import { esMX as rialtoESMX } from "@mattbutlerengineering/rialto/locales/es-MX";
 import { createLocaleRuntime, type RuntimeDeps } from "../../i18n/runtime.js";
-import type { LocaleTag } from "../../i18n/locales.js";
+import { SUPPORTED_LOCALES, type LocaleTag } from "../../i18n/locales.js";
+import { MACHINE_TRANSLATION_TAGS } from "./machine-translation-tags.js";
 import esMX from "../../i18n/catalogs/es-MX.json";
 import { LocalePicker, type LocalePickerProps } from "./LocalePicker.js";
 
@@ -176,6 +177,25 @@ describe("LocalePicker", () => {
       "lang",
       "en-US"
     );
+  });
+
+  it("marks each menu item's endonym and machine-translation tag with its own lang", () => {
+    const { runtime } = makeRuntime();
+    renderPicker(runtime);
+    openMenu();
+    const items = screen.getAllByRole("menuitem");
+    expect(items).toHaveLength(SUPPORTED_LOCALES.length);
+    SUPPORTED_LOCALES.forEach((l, i) => {
+      const item = items[i]!;
+      expect(
+        within(item).getByText(l.endonym, { selector: "[lang]" }),
+        `endonym lang for ${l.tag}`
+      ).toHaveAttribute("lang", l.tag);
+      const mt = MACHINE_TRANSLATION_TAGS[l.tag];
+      if (mt) {
+        expect(within(item).getByText(mt, { selector: "[lang]" })).toHaveAttribute("lang", l.tag);
+      }
+    });
   });
 
   it("on rejection keeps the value, shows Retry, and Retry succeeds", async () => {

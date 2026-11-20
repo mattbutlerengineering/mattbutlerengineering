@@ -59,6 +59,9 @@ export function LocalePicker({
     <div className={styles.root} data-variant={variant} aria-busy={pending !== null || undefined}>
       <div className={styles.row}>
         {variant === "settings" ? (
+          // WCAG 3.1.2 gap: rialto's Select options are plain strings and cannot
+          // carry a per-option `lang`, so these endonyms are read with the page's
+          // language rules. The menu variants below set `lang` per item.
           <Select
             label={t("localePicker.label")}
             options={SUPPORTED_LOCALES.map((l) => ({ value: l.tag, label: l.endonym }))}
@@ -93,11 +96,11 @@ export function LocalePicker({
               id: l.tag,
               label: (
                 <Text as="span" className={styles.itemLabel}>
-                  <Text as="span" className={styles.endonym}>
+                  <Text as="span" className={styles.endonym} lang={l.tag}>
                     {l.endonym}
                   </Text>
                   {MACHINE_TRANSLATION_TAGS[l.tag] && (
-                    <Text as="span" variant="caption" className={styles.mtTag}>
+                    <Text as="span" variant="caption" className={styles.mtTag} lang={l.tag}>
                       {MACHINE_TRANSLATION_TAGS[l.tag]}
                     </Text>
                   )}
