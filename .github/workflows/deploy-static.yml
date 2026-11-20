@@ -423,6 +423,7 @@ jobs:
 
       - name: Re-verify after rollback
         run: |
+          set -euo pipefail
           sleep 5
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "https://mattbutlerengineering.com/health/system")
           HEALTH=$(curl -s --max-time 15 "https://mattbutlerengineering.com/health/system" | jq -r '.subsystems.static_sites.status')
