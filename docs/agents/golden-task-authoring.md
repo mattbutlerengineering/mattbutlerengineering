@@ -1,6 +1,6 @@
 # Golden Task Authoring Guide
 
-This guide explains how to add a new golden task to the agent eval harness.
+This guide explains how to add a new golden task to the agent evaluation harness.
 
 ## What is a golden task?
 
@@ -140,8 +140,9 @@ The overall `EvalReport` aggregates all task scores into:
 # Run the full eval suite (dry-run: loads tasks, does not invoke the agent)
 pnpm --dir packages/agent-core test -- src/eval/golden-task-set.test.ts
 
-# Run a single task through the harness
-mbe agent eval --suite golden --only <task-id>
+# Run a single task through the harness. The claude-cli adapter is required
+# where ANTHROPIC_API_KEY is unset; the default SDK adapter exits 2 there.
+node tools/cli/dist/index.js agent eval --adapter claude-cli --suite packages/agent-core/src/eval/suites --task <task-id>
 ```
 
 ## Dos and don'ts
