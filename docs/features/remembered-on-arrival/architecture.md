@@ -34,7 +34,7 @@ The feature echoes a field that every surface already holds in memory, at render
 
 `Reservation.notes` already reaches all four data paths: the widget's confirm response, the manage GET, the timeline's reservation list and the briefing (PRD § Problem statement). No request, schema, route, `@mbe/types` or `@mbe/api-client` change is needed (SC10).
 
-**Policy.** The en-US catalog's Special Requests keys own the four strings (SC4, SC8). `specialRequestsText(notes)` in `utils/reservation-display.ts` answers whether there is a request and what text shows (SC5 and the PRD's _displayed text_).
+**Policy.** The en-US catalog owns the four strings (SC4, SC8): three `bookingWidget.specialRequests` keys and `bookingWidget.confirmation.contactLine`. `specialRequestsText(notes)` in `utils/reservation-display.ts` answers whether there is a request and what text shows (SC5 and the PRD's _displayed text_).
 
 **Detail.** Each surface renders the UX block with rialto `Text`, `Stack` and `Card`. The guest's words are one text node under a CSS wrapping rule (SC6, SC9). The two ticket surfaces share `SpecialRequestsTicket`, because their markup is identical.
 
