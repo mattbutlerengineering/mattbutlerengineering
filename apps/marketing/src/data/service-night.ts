@@ -87,7 +87,7 @@ export const SCENES: readonly Scene[] = [
         id: "open-sign",
         label: "A sign that tells the truth",
         detail:
-          "The neon sign on your page follows your real hours, so guests know if you are open.",
+          "The neon sign on your dashboard follows your real hours, so the team sees if you are trading.",
         status: "shipped",
       },
     ],
@@ -108,7 +108,8 @@ export const SCENES: readonly Scene[] = [
       {
         id: "late-badge",
         label: "Late parties flagged",
-        detail: "A reservation running 15 minutes behind is marked before anyone has to ask.",
+        detail:
+          "When a guest says they are running late, the booking is marked before anyone has to ask.",
         status: "shipped",
       },
       {
@@ -155,13 +156,13 @@ export const SCENES: readonly Scene[] = [
     time: "21:00",
     name: "The guest",
     heading: "Guests keep you posted without a phone call.",
-    body: "One link in the confirmation lets a guest change the booking, bring their party in, or tell you they are on the way. The host stand hears a chime.",
+    body: "One link in the confirmation lets a guest change the booking, bring their party in, or tell you they are running late. When they arrive, the host stand hears a chime.",
     claims: [
       {
-        id: "on-my-way",
-        label: "On my way",
+        id: "guest-signals",
+        label: "Running late, or here",
         detail:
-          "On the night, guests tap to say they are coming or running late. The host stand chimes.",
+          "On the night, guests tap to say they are running late or have arrived. An arrival chimes at the host stand.",
         status: "shipped",
       },
       {
@@ -295,10 +296,7 @@ export const RUSH_TABLES: readonly RushTable[] = [
   },
   {
     label: "Terrace 1",
-    bookings: [
-      { party: "Novak", covers: 2, startSlot: 0, slots: 5, state: "finished" },
-      { party: "Reyes", covers: 4, startSlot: 9, slots: 7, state: "confirmed" },
-    ],
+    bookings: [{ party: "Novak", covers: 2, startSlot: 0, slots: 5, state: "finished" }],
   },
 ];
 

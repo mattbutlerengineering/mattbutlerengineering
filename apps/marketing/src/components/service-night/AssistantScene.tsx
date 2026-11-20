@@ -29,8 +29,8 @@ export function AssistantScene() {
           ) : (
             <>
               <Text>
-                I will block Terrace 1 to 4 from 20:15 until close. One reservation is affected: the
-                Reyes party. Go ahead?
+                I will block Terrace 1 to 4 from 20:15 until close. No bookings are affected. Go
+                ahead?
               </Text>
               <Button variant="primary" size="sm" onClick={() => setBlocked(true)}>
                 Confirm
@@ -41,7 +41,8 @@ export function AssistantScene() {
         <div className={styles.bubbleConcept}>
           <StatusMark status="concept" />
           <Text color="secondary">
-            Shall I offer the Reyes party a table indoors and text them the change?
+            Rain is forecast tomorrow too. Shall I move tomorrow&apos;s terrace bookings indoors and
+            text those guests?
           </Text>
         </div>
         <Text variant="detail" color="tertiary">

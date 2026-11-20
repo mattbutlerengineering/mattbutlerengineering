@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { RialtoProvider, ToastProvider } from "@mattbutlerengineering/rialto";
 import { VenuesPage } from "./VenuesPage.js";
@@ -69,16 +69,16 @@ describe("VenuesPage", () => {
     expect(within(chat).queryByText(/terrace is blocked/i)).toBeNull();
   });
 
-  it("chimes the host stand when the guest taps On my way", () => {
+  it("tells the host stand when the guest is running late, then when they arrive", () => {
     renderVenuesPage();
     const hostStand = screen.getByRole("status", { name: "Host stand" });
     expect(hostStand).toHaveTextContent("Waiting for the Ito party");
 
-    fireEvent.click(screen.getByRole("button", { name: "On my way" }));
-    expect(hostStand).toHaveTextContent("The Ito party is on the way");
+    fireEvent.click(screen.getByRole("button", { name: "Running 15 min late" }));
+    expect(hostStand).toHaveTextContent("The Ito party is running 15 minutes late");
 
-    fireEvent.click(screen.getByRole("button", { name: "Running late" }));
-    expect(hostStand).toHaveTextContent("The Ito party is running late");
+    fireEvent.click(screen.getByRole("button", { name: "We're here" }));
+    expect(hostStand).toHaveTextContent("The Ito party is here");
   });
 
   it("lists the rush as tables with their bookings, not only as a picture", () => {
@@ -99,5 +99,59 @@ describe("VenuesPage", () => {
       expect.stringMatching(/^mailto:/),
       "/hospitality/?ref=marketing",
     ]);
+  });
+
+  describe("day and night", () => {
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    /** Stands in for the browser observer and lets the test say which scene is centred. */
+    function stubSceneObserver() {
+      const state = {
+        callback: undefined as IntersectionObserverCallback | undefined,
+        disconnect: vi.fn(),
+      };
+      class CapturingObserver {
+        constructor(callback: IntersectionObserverCallback) {
+          state.callback = callback;
+        }
+        observe(): void {}
+        unobserve(): void {}
+        disconnect = state.disconnect;
+        takeRecords(): IntersectionObserverEntry[] {
+          return [];
+        }
+      }
+      vi.stubGlobal("IntersectionObserver", CapturingObserver);
+      return state;
+    }
+
+    it("turns the lights down and the sign on at doors, then up again at morning", () => {
+      const observer = stubSceneObserver();
+      const { container, unmount } = renderVenuesPage();
+      const sky = container.querySelector("[data-sky]");
+      const centre = (sceneId: string) => {
+        const target = container.querySelector(`[data-scene="${sceneId}"]`);
+        expect(target, sceneId).not.toBeNull();
+        act(() =>
+          observer.callback?.(
+            [{ isIntersecting: true, target } as IntersectionObserverEntry],
+            {} as IntersectionObserver
+          )
+        );
+      };
+
+      centre("doors");
+      expect(sky).toHaveAttribute("data-theme", "dark");
+      expect(screen.getByRole("img", { name: /open until/i })).toBeInTheDocument();
+
+      centre("morning");
+      expect(sky).toHaveAttribute("data-theme", "light");
+      expect(screen.getByRole("img", { name: /closed/i })).toBeInTheDocument();
+
+      unmount();
+      expect(observer.disconnect).toHaveBeenCalled();
+    });
   });
 });

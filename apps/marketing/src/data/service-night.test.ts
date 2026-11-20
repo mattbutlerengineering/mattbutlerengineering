@@ -3,6 +3,7 @@ import {
   SCENES,
   BRIEFING_LINES,
   BRIEFING_LINE_MAX,
+  RUSH_SLOT_COUNT,
   RUSH_TABLES,
   ROADMAP,
   NIGHT_TOTALS,
@@ -83,7 +84,7 @@ describe("service-night scene data", () => {
     for (const table of RUSH_TABLES) {
       for (const booking of table.bookings) {
         expect(booking.startSlot).toBeGreaterThanOrEqual(0);
-        expect(booking.startSlot + booking.slots).toBeLessThanOrEqual(16);
+        expect(booking.startSlot + booking.slots).toBeLessThanOrEqual(RUSH_SLOT_COUNT);
       }
     }
   });
