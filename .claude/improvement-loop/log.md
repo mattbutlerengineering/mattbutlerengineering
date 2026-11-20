@@ -1210,3 +1210,22 @@ A clean fire: everything due was captured and judged, and nothing met the bar to
 **queueEfficiency:** composite 0.953 (baseline n/a) — healthy
 **Difficulty distribution:** size:s:34, size:xs:18, size:m:8, size:xl:7, size:l:3
 **Issues filed:** 0
+
+## 2026-11-20 — mbe-ui-quality
+
+- **State**: `state.mjs checkout` → `source: branch`, head `2ab12ac`, merged `origin/main` `ec9453b`, `resolved: []`. Ledger branch was identical to `origin/main` at start (prior ledger work already merged).
+- **Builds**: all green — `@mbe/cli...`, `@mattbutlerengineering/rialto`, and all three apps (marketing, rialto-web, hospitality). No `unreachable:build` rows.
+- **Routes**: 40 due / 40 captured / 40 audited (38 rialto-web, 2 hospitality public). 25 hospitality rows `unreachable:auth`, never captured. No marketing routes were due — its capture run skipped with "no marketing routes planned".
+- **Coverage before this fire**: 100% (136/136 covered, 0 uncovered, `provisional: false`).
+- **Browser**: resolved — `/opt/pw-browsers/chromium_headless_shell-1243/...`. No `blocker: no-browser`.
+- **Mechanical**: 0 findings. Verified non-vacuous: axe ran on all 40 routes with 0 violations across every impact level, and no route showed a page error, failed request or blank render. Several routes that previously carried axe findings (components/pagination, page-header, neon-sign, master-override, navigation-menu, scroll-area) are now clean.
+- **Judged**: 40 routes judged, **0 unjudged**, **0 dropped tells**. One finding: `rialto-web demos/drivers/:id — agent-built/gray-card-border` (P2) — stat tiles are 1px-bordered panels nested inside 1px-bordered cards, repeated by the Profile card wrapping a ruled table.
+- **Calibration stamp**: `stale`. `calibration-status` returned exit 3; `rate.mjs pairs --calibration` exited 2 — `docs/ui-quality/calibration.json` still has no labelled pairs (Verify-owned: Matt labels ≥ 10 pairs once). Logged, not retried. Re-queried status: still `stale`, so calibration could not clear and the fire proceeded to rating per the branch.
+- **Rating**: 10 pairs over 2 apps judged and recorded — hospitality 0.63, rialto-web 3.33.
+- **Filing**: plan exit 0, **no actions**. The one agent-built finding was dropped by the stale calibration gate (`calibration stale — 1 agent-built finding(s) dropped`) — intended behaviour, not a miss. Issues created: 0. Reopened: 0. Commented: 0. Adopted: 0.
+- **Issue state read**: all 37 findings-ledger issues carry the `ui-quality` label and are all closed; the full labelled listing (40, single page, no next page) adds only the three past escalation issues (#8959, #7908, #7477), all closed. No escalation issue is open and the plan opened none.
+- **Seeds**: 0 P2 overflow seeds appended to `docs/backlog.md`.
+- **Fix PR**: none — `fix_pr_candidate` was null and there were no actions to draw one from.
+- **P1 SLA**: 0 open `ui-quality:p1` issues; 0 breaches, 0 escalated.
+- **Observation outside the rubric (not filed, no tell covers it)**: at 375×812 the cookie-consent banner on rialto-web renders as a narrow transparent column overlapping page content — text wraps one word per line and its buttons sit on top of the page's own controls. Reproduced consistently on every rialto-web mobile capture (demos/auth-flow, demos/drivers, demos/drivers/:id, drivers/new, drivers/:id/edit, demos/layouts, demos/session-expired, demos/telemetry), so it is not a one-off animation frame. Rubric v1 has no judged tell for a mobile layout/overlap defect and the mechanical detectors do not see it, so no Finding was written. Raising it would need a human rubric bump (`rubric_version` + `tells_hash`). Also noted: at 375px the `components/navbar` demo escapes its "FULL NAVBAR (CONTAINED)" box, leaving that box empty.
+- **Pipeline bugs**: none. One input-shape stumble of my own: `p1-age.mjs` wants a bare JSON array for `--issues` (exit 2 on `{issues: [...]}`); re-run with `[]` succeeded.
