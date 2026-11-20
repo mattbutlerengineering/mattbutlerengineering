@@ -50,3 +50,4 @@
 {"timestamp":"2026-11-17T00:00:00.000Z","criterion":"acmm","old_value":1.72,"new_value":1.731,"trigger":"headroom"}
 {"timestamp":"2026-11-18T00:00:00.000Z","criterion":"acmm","old_value":1.731,"new_value":1.754,"trigger":"headroom"}
 {"timestamp":"2026-11-19T00:00:00.000Z","criterion":"acmm","old_value":1.754,"new_value":1.783,"trigger":"headroom"}
+{"timestamp":"2026-11-20T00:00:00.000Z","criterion":"acmm","old_value":1.783,"new_value":1.812,"trigger":"headroom"}

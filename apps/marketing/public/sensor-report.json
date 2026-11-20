@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-20T01:18:12.893Z",
+  "generated_at": "2026-11-20T19:05:12.879Z",
   "period": {
     "start": "2026-11-13",
     "end": "2026-11-20"
@@ -9,9 +9,9 @@
       "available": true,
       "level": 5,
       "level_name": "Semi-Automated",
-      "criteria_met": 70,
+      "criteria_met": 71,
       "criteria_total": 84,
-      "last_run": "2026-11-19T12:36:02.030Z",
+      "last_run": "2026-11-20T12:36:14.413Z",
       "capped": false,
       "failing_gates": []
     },
@@ -42,71 +42,71 @@
         {
           "metric": "review-burden",
           "state": "fresh",
-          "age_days": 0.24,
+          "age_days": 0.98,
           "latest": "2026-11-19T19:32:39.910Z",
           "max_age_days": 3
         },
         {
           "metric": "queue-telemetry",
           "state": "fresh",
-          "age_days": 0.24,
+          "age_days": 0.98,
           "latest": "2026-11-19T19:26:53.000Z",
           "max_age_days": 3
         },
         {
           "metric": "queueEfficiency",
           "state": "fresh",
-          "age_days": 1.05,
-          "latest": "2026-11-19T00:00:00.000Z",
+          "age_days": 0.8,
+          "latest": "2026-11-20T00:00:00.000Z",
           "max_age_days": 5
         },
         {
           "metric": "sdlcSpeed",
           "state": "stale",
-          "age_days": 14.05,
+          "age_days": 14.8,
           "latest": "2026-11-06T00:00:00.000Z",
           "max_age_days": 14
         },
         {
           "metric": "lighthouse",
           "state": "fresh",
-          "age_days": 4.05,
+          "age_days": 4.8,
           "latest": "2026-11-16T00:00:00.000Z",
           "max_age_days": 21
         },
         {
           "metric": "audit-coverage",
           "state": "fresh",
-          "age_days": 3.05,
+          "age_days": 3.8,
           "latest": "2026-11-17T00:00:00.000Z",
           "max_age_days": 21
         },
         {
           "metric": "mutation-score",
           "state": "fresh",
-          "age_days": 4.05,
+          "age_days": 4.8,
           "latest": "2026-11-16T00:00:00.000Z",
           "max_age_days": 21
         },
         {
           "metric": "ai-issue-feedback",
           "state": "fresh",
-          "age_days": 0.24,
+          "age_days": 0.98,
           "latest": "2026-11-19T19:34:15.857Z",
           "max_age_days": 5
         },
         {
           "metric": "shipped-features",
           "state": "fresh",
-          "age_days": 7.89,
+          "age_days": 8.63,
           "latest": "2026-11-12T03:55:48.000Z",
           "max_age_days": 14
         },
         {
           "metric": "marketing-metrics",
           "state": "fresh",
-          "age_days": 0.53,
-          "latest": "2026-11-19T12:36:09.132Z",
+          "age_days": 0.27,
+          "latest": "2026-11-20T12:36:17.016Z",
           "max_age_days": 3
         }
       ]
@@ -126,37 +126,42 @@
     },
     "prCategoryMetrics": {
       "available": true,
-      "total_prs": 98,
-      "total_merged": 95,
+      "total_prs": 99,
+      "total_merged": 96,
       "total_closed_without_merge": 3,
       "by_category": {
+        "tier:sensitive": {
+          "merged": 15,
+          "closed_without_merge": 0,
+          "acceptance_rate": 1
+        },
+        "tier:trivial": {
+          "merged": 23,
+          "closed_without_merge": 0,
+          "acceptance_rate": 1
+        },
         "tier:standard": {
-          "merged": 43,
+          "merged": 53,
           "closed_without_merge": 1,
           "acceptance_rate": 0.98
         },
-        "tier:sensitive": {
-          "merged": 18,
-          "closed_without_merge": 0,
-          "acceptance_rate": 1
+        "priority:critical": {
+          "merged": 0,
+          "closed_without_merge": 1,
+          "acceptance_rate": 0
         },
         "audit": {
           "merged": 0,
           "closed_without_merge": 1,
           "acceptance_rate": 0
         },
-        "tier:trivial": {
-          "merged": 24,
+        "tier:critical": {
+          "merged": 2,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
-        "tier:critical": {
-          "merged": 6,
-          "closed_without_merge": 1,
-          "acceptance_rate": 0.86
-        },
         "unlabeled": {
-          "merged": 4,
+          "merged": 3,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         }
@@ -165,17 +170,17 @@
     "agentCost": {
       "available": true,
       "attribution_only": true,
-      "spend_today_usd": 0,
-      "spend_7d_usd": 0,
-      "sessions_7d": 0,
-      "avg_cost_per_session": 0,
-      "total_input_tokens_7d": 0,
-      "total_output_tokens_7d": 0,
-      "avg_turns_per_session": 0,
+      "spend_today_usd": 2,
+      "spend_7d_usd": 2,
+      "sessions_7d": 5,
+      "avg_cost_per_session": 0.4,
+      "total_input_tokens_7d": 110,
+      "total_output_tokens_7d": 20229,
+      "avg_turns_per_session": 11.2,
       "queue": {
-        "sessions_7d": 18,
-        "sessions_without_usage_7d": 37,
-        "tokens_7d": 2241149,
+        "sessions_7d": 16,
+        "sessions_without_usage_7d": 31,
+        "tokens_7d": 1971948,
         "cost_7d_usd": null,
         "cost_known_sessions_7d": 0
       }
@@ -185,36 +190,36 @@
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 4006937,
-      "output_tokens": 15159,
-      "cache_creation_tokens": 97223,
-      "cache_hit_rate": 0.9763,
+      "cache_read_tokens": 360810,
+      "output_tokens": 632,
+      "cache_creation_tokens": 37630,
+      "cache_hit_rate": 0.9055,
       "by_model": {
         "claude-sonnet-5": {
           "cost": 0,
-          "input_tokens": 58,
-          "output_tokens": 15159,
-          "cache_read_tokens": 4006937,
-          "cache_creation_tokens": 97223
+          "input_tokens": 8,
+          "output_tokens": 632,
+          "cache_read_tokens": 360810,
+          "cache_creation_tokens": 37630
         }
       }
     },
     "ciHealth": {
       "available": true,
       "total_runs": 30,
-      "completed": 30,
-      "passed": 24,
+      "completed": 14,
+      "passed": 10,
       "failed": 0,
       "phantom": 0,
       "pass_rate_pct": 100,
       "most_recent": {
-        "databaseId": 44652611721,
-        "status": "completed",
-        "conclusion": "skipped",
-        "createdAt": "2026-11-20T01:18:16Z",
-        "name": "Auto-Merge Policy",
+        "databaseId": 44798831423,
+        "status": "queued",
+        "conclusion": null,
+        "createdAt": "2026-11-20T19:05:14Z",
+        "name": "Secret Scan",
         "headBranch": "main",
-        "headSha": "af62b59ccfb14a6d9cd27a6cbe3465cd78581f38"
+        "headSha": "2d5efbc2ad65aaaace4c91ed8553fcd3f7dfc4ef"
       }
     },
     "lighthouse": {
@@ -246,10 +251,10 @@
     },
     "issues": {
       "available": true,
-      "open": 9,
-      "created_7d": 102,
-      "closed_7d": 129,
-      "closure_rate": 126,
+      "open": 5,
+      "created_7d": 115,
+      "closed_7d": 147,
+      "closure_rate": 128,
       "queue_depth": 0,
       "agent_failed": 0
     },
@@ -337,9 +342,9 @@
     },
     "codeChurn": {
       "available": true,
-      "churn_rate": 0.006,
-      "total_lines_added_7d": 1090941,
-      "lines_churned_7d": 6105,
+      "churn_rate": 0.001,
+      "total_lines_added_7d": 1087292,
+      "lines_churned_7d": 1032,
       "window_days": 7,
       "churn_threshold": 0.3
     },
@@ -398,27 +403,27 @@
       "available": true,
       "flaky_count": 0,
       "flaky_tests": [],
-      "total_runs": 756943,
-      "window_shas": 61
+      "total_runs": 14141,
+      "window_shas": 2
     },
     "e2eStability": {
       "available": false,
-      "reason": "no_resolvable_runs"
+      "reason": "no_runs"
     },
     "queueEfficiency": {
       "available": true,
-      "composite": 0.953,
+      "composite": 0.964,
       "sub_metrics": {
-        "issues_merged": 70,
-        "first_pass_success_rate": 0.929,
+        "issues_merged": 74,
+        "first_pass_success_rate": 0.946,
         "median_time_to_merge_hours": 0.2,
         "median_rework_cycles": 0,
         "cost_per_issue_usd": null,
         "cost_coverage_n": 0,
-        "review_coverage": 0.414,
-        "review_coverage_n": 29,
-        "review_coverage_unmeasured_n": 41,
-        "review_coverage_unmeasured_share": 0.586,
+        "review_coverage": 0.275,
+        "review_coverage_n": 40,
+        "review_coverage_unmeasured_n": 34,
+        "review_coverage_unmeasured_share": 0.459,
         "review_coverage_trail": [
           {
             "value": 0.324,
@@ -429,16 +434,16 @@
             "n": 27
           },
           {
-            "value": 0.414,
-            "n": 29
+            "value": 0.275,
+            "n": 40
           }
         ]
       },
       "distribution": {
         "size:s": {
-          "count": 34,
+          "count": 38,
           "avg_commits": 1.3,
-          "avg_ttm_hours": 2.5
+          "avg_ttm_hours": 2.2
         },
         "size:xs": {
           "count": 18,
@@ -446,14 +451,14 @@
           "avg_ttm_hours": 0.2
         },
         "size:m": {
-          "count": 8,
-          "avg_commits": 1,
+          "count": 9,
+          "avg_commits": 1.1,
           "avg_ttm_hours": 0.2
         },
         "size:xl": {
-          "count": 7,
-          "avg_commits": 2.6,
-          "avg_ttm_hours": 5.4
+          "count": 6,
+          "avg_commits": 2.5,
+          "avg_ttm_hours": 2.5
         },
         "size:l": {
           "count": 3,
@@ -482,7 +487,7 @@
       "metric": "sdlcSpeed",
       "current": "stale",
       "previous": "2026-11-06T00:00:00.000Z",
-      "delta": 14.05,
+      "delta": 14.8,
       "severity": "medium"
     }
   ],
