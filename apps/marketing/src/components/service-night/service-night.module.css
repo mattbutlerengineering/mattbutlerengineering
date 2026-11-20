@@ -135,6 +135,15 @@
   width: 100%;
 }
 
+/* ── Doors: the sign ──────────────────────────── */
+
+/* The sign is the whole scene, so it runs larger than NeonSign's `lg`. Two
+   classes outrank the component's own size class, whatever the load order. */
+.stage .sign {
+  --neon-tube: var(--rialto-text-4xl);
+  --neon-caption: var(--rialto-text-base);
+}
+
 /* ── Rush: tables against the clock ───────────── */
 
 .chart {
@@ -362,6 +371,10 @@
   /* No room for a pinned clock beside the copy; each scene prints its own time. */
   .railAnchor {
     display: none;
+  }
+
+  .stage .sign {
+    --neon-tube: var(--rialto-text-3xl);
   }
 
   .chart {
