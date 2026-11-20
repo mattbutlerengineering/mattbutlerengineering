@@ -3,6 +3,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { test, expect } from "./fixtures.js";
 import { loadFixture } from "./api-mocks.js";
 import { mockAvailability } from "./availability-draft-mock.js";
+import { localDay } from "./local-day.js";
 
 /**
  * #7980: Availability on a phone and from a keyboard. Layout only exists in a browser, so the
@@ -703,7 +704,7 @@ test.describe("375 px: Use schedule's preview fits", () => {
     test(`the dialog and its preview in ${locale}`, async ({ mockedPage: page }) => {
       await mockAvailability(page);
       await mockTwoSchedules(page);
-      const day = new Date(Date.now() + 40 * 86_400_000).toISOString().slice(0, 10);
+      const day = localDay(40);
       await page.route("**/availability/preview*", (route) =>
         route.fulfill(
           json({
