@@ -50,6 +50,25 @@ export function parseWranglerAnalytics(text) {
   return entries;
 }
 
+const EDGE_ROUTER_CALL = 'new cloudflare.WorkersScript("mattbutlerengineering-edge-router"';
+
+/**
+ * The edge-router WorkersScript call, from `new cloudflare.WorkersScript(...` to
+ * its matching `)`. "" when the resource is absent or unbalanced, so the caller
+ * parses zero bindings and fails anti-vacuously. Naive paren counting: the
+ * block holds no parens inside string literals.
+ */
+export function extractEdgeRouterBlock(text) {
+  const start = text.indexOf(EDGE_ROUTER_CALL);
+  if (start === -1) return "";
+  let depth = 0;
+  for (let i = start + EDGE_ROUTER_CALL.indexOf("("); i < text.length; i++) {
+    if (text[i] === "(") depth++;
+    else if (text[i] === ")" && --depth === 0) return text.slice(start, i + 1);
+  }
+  return "";
+}
+
 /**
  * S2: `{ name, dataset, type: "analytics_engine" }` literals → [{ name, dataset }].
  * `\s*` throughout and an optional trailing comma so a prettier reflow
@@ -123,7 +142,9 @@ export function findAnalyticsBindingFindings(root = DEFAULT_ROOT) {
     readFileSync(join(root, "infrastructure", "worker", "wrangler.toml"), "utf-8")
   );
   const pulumi = parsePulumiAnalytics(
-    readFileSync(join(root, "infrastructure", "pulumi", "index.ts"), "utf-8")
+    extractEdgeRouterBlock(
+      readFileSync(join(root, "infrastructure", "pulumi", "index.ts"), "utf-8")
+    )
   );
   const schema = SCHEMA_SOURCE;
   const findings = diffAnalyticsBindings(wrangler, pulumi, schema);
