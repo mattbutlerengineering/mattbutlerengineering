@@ -1,5 +1,7 @@
 import { renderHook } from "@testing-library/react";
+import { createElement, type ReactNode } from "react";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { RialtoLocaleProvider } from "../../i18n/RialtoLocaleProvider";
 import { useTapeChartI18n } from "./useTapeChartI18n";
 
 describe("useTapeChartI18n", () => {
@@ -116,6 +118,29 @@ describe("useTapeChartI18n", () => {
     it("falls back to navigator.language when locale is not passed", () => {
       const { result } = renderHook(() => useTapeChartI18n());
       expect(result.current.locale).toBe(navigator.language);
+    });
+
+    // ADR-028 order: explicit prop, then RialtoLocaleProvider, then navigator.
+    const providerWrapper = ({ children }: { children: ReactNode }) =>
+      // children travel as the third argument; the cast satisfies the required `children` prop.
+      createElement(
+        RialtoLocaleProvider,
+        { locale: "fr-CA" } as { locale: string; children: ReactNode },
+        children
+      );
+
+    it("uses the RialtoLocaleProvider locale when no prop is passed", () => {
+      const { result } = renderHook(() => useTapeChartI18n(), { wrapper: providerWrapper });
+      expect(result.current.locale).toBe("fr-CA");
+      expect(result.current.dayWeekdayShort("2026-11-04")).toBe("mer.");
+    });
+
+    it("lets an explicit locale prop beat the provider", () => {
+      const { result } = renderHook(() => useTapeChartI18n("en-US"), {
+        wrapper: providerWrapper,
+      });
+      expect(result.current.locale).toBe("en-US");
+      expect(result.current.dayWeekdayShort("2026-11-04")).toBe("Wed");
     });
   });
 });
