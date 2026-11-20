@@ -34,8 +34,8 @@ const PATTERN_DESCRIPTIONS = {
   emptyCatch: "Empty or comment-only catch blocks that swallow errors silently",
   noopTestAssertions:
     "Test functions containing no recognized assertion call (expect(), assert(), assert.<method>(), or t.assert.<method>())",
-  hardcodedRoutes: "Hardcoded /api/... route strings instead of route constants",
-  anyType: "TypeScript `as any` casts or `: any` type annotations",
+  hardcodedRoutes: "Hardcoded /api/... route strings instead of route constants (non-test files)",
+  anyType: "TypeScript `as any` casts or `: any` type annotations (non-test files)",
   consoleLogs: "console.log() calls in production (non-test) source files",
   unusedParams: "Function parameters that look unused (not prefixed with _)",
   mockShapeMismatch:
@@ -298,6 +298,7 @@ const SCANNERS = {
     const RE = /["'`]\/api\/[^"'`\s]+["'`]/g;
     let total = 0;
     for (const f of files) {
+      if (isTestFile(f)) continue;
       const content = fs.readFileSync(f, "utf-8");
       total += countMatches(content, RE);
     }
@@ -310,6 +311,7 @@ const SCANNERS = {
     let total = 0;
     for (const f of files) {
       if (!f.endsWith(".ts") && !f.endsWith(".tsx")) continue;
+      if (isTestFile(f)) continue;
       const content = fs.readFileSync(f, "utf-8");
       total += countMatches(content, RE);
     }
