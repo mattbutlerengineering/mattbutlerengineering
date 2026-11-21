@@ -1,8 +1,9 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button, Text } from "@mattbutlerengineering/rialto";
-import { SceneShell } from "./SceneShell";
-import { StatusMark } from "./StatusMark";
-import styles from "./service-night.module.css";
+import { SceneShell } from "./SceneShell.js";
+import { StatusMark } from "./StatusMark.js";
+import styles from "./showcase.module.css";
 
 /**
  * A scripted exchange with the venue assistant. The confirm-then-undo steps
@@ -10,43 +11,36 @@ import styles from "./service-night.module.css";
  * only flip local state.
  */
 export function AssistantScene() {
+  const { t } = useTranslation();
   const [blocked, setBlocked] = useState(false);
 
   return (
     <SceneShell sceneId="assistant">
-      <section className={styles.chat} aria-label="Assistant conversation">
-        <Text className={styles.bubbleOperator}>
-          Rain is coming. Block the terrace for tonight.
-        </Text>
+      <section className={styles.chat} aria-label={t("showcase.assistant.label")}>
+        <Text className={styles.bubbleOperator}>{t("showcase.assistant.operator")}</Text>
         <div className={styles.bubbleAssistant} aria-live="polite">
           {blocked ? (
             <>
-              <Text>Done. The terrace is blocked until close, and new bookings go indoors.</Text>
+              <Text>{t("showcase.assistant.done")}</Text>
               <Button variant="ghost" size="sm" onClick={() => setBlocked(false)}>
-                Undo
+                {t("showcase.assistant.undo")}
               </Button>
             </>
           ) : (
             <>
-              <Text>
-                I will block Terrace 1 to 4 from 20:15 until close. No bookings are affected. Go
-                ahead?
-              </Text>
+              <Text>{t("showcase.assistant.proposal")}</Text>
               <Button variant="primary" size="sm" onClick={() => setBlocked(true)}>
-                Confirm
+                {t("showcase.assistant.confirm")}
               </Button>
             </>
           )}
         </div>
         <div className={styles.bubbleConcept}>
           <StatusMark status="concept" />
-          <Text color="secondary">
-            Rain is forecast tomorrow too. Shall I move tomorrow&apos;s terrace bookings indoors and
-            text those guests?
-          </Text>
+          <Text color="secondary">{t("showcase.assistant.concept")}</Text>
         </div>
         <Text variant="detail" color="tertiary">
-          This is a demo. Nothing here changes a real venue.
+          {t("showcase.assistant.disclaimer")}
         </Text>
       </section>
     </SceneShell>

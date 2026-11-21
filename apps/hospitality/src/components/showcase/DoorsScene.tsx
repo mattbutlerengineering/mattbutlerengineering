@@ -1,9 +1,11 @@
+import { useTranslation } from "react-i18next";
 import { NeonSign } from "@mattbutlerengineering/rialto";
-import { SceneShell } from "./SceneShell";
-import styles from "./service-night.module.css";
+import { SceneShell } from "./SceneShell.js";
+import styles from "./showcase.module.css";
 
 /** `lit` is true once the night has reached doors: the tube strikes on. */
 export function DoorsScene({ lit }: { lit: boolean }) {
+  const { t } = useTranslation();
   return (
     <SceneShell sceneId="doors">
       <NeonSign
@@ -11,7 +13,7 @@ export function DoorsScene({ lit }: { lit: boolean }) {
         className={styles.sign}
         shape="swoosh"
         state={lit ? "open" : "closed"}
-        aria-label={lit ? "Open until 11:00 PM" : "Closed. Doors at 5:00 PM"}
+        aria-label={lit ? t("showcase.doors.open") : t("showcase.doors.closed")}
       />
     </SceneShell>
   );

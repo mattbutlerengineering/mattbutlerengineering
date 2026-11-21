@@ -209,6 +209,11 @@
       "name": "Booking rules model (shared by availability, venue onboarding and Venue Setup, hoisted; 3.13 kB gzip at #8528)",
       "path": "dist/assets/booking-rules-*.js",
       "limit": "3.5 kB"
+    },
+    {
+      "name": "Showcase Landing (lazy chunk; the signed-out landing with the rialto Hero, SilkFlow and Letterboard chunks that only it uses; 5.74 kB measured)",
+      "path": "dist/assets/ShowcaseLanding-*.js",
+      "limit": "7 kB"
     }
   ],
   "dependencies": {

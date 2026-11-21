@@ -1,6 +1,6 @@
-import { useEffect } from "react";
+import { lazy, useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { Outlet, Navigate } from "react-router";
+import { Outlet, Navigate, useLocation } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Suspense } from "react";
 import { useAuthGate, signinReturnTo } from "@mbe/auth/react";
@@ -19,6 +19,14 @@ import { AuthFailurePage } from "./pages/AuthFailurePage";
 import { SignOutPage } from "./pages/SignOutPage";
 import styles from "./App.module.css";
 
+// The signed-out landing is a long, animated page that staff never see once
+// signed in, so it stays out of the main bundle.
+const ShowcaseLanding = lazy(() =>
+  import("./components/showcase/ShowcaseLanding.js").then((m) => ({ default: m.ShowcaseLanding }))
+);
+
+type NavSky = "light" | "dark" | null;
+
 /**
  * Shared shell for all unauthenticated views (loading, error, login).
  * Renders the skip-link, nav, main content, and a minimal footer.
@@ -26,18 +34,25 @@ import styles from "./App.module.css";
 function UnauthenticatedShell({
   nav,
   children,
+  landing = false,
 }: {
   readonly nav: ReactNode;
   readonly children: ReactNode;
+  /** The showcase landing: a full-width scrolling page, not a centred card. */
+  readonly landing?: boolean;
 }) {
   const { t } = useTranslation();
   return (
-    <div className={styles.unauthLayout}>
+    <div className={landing ? styles.landingLayout : styles.unauthLayout}>
       <a href="#main-content" className={styles.skipLink}>
         {t("shell.skipToMain")}
       </a>
       {nav}
-      <main id="main-content" tabIndex={-1} className={styles.loginContainer}>
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className={landing ? styles.landingContainer : styles.loginContainer}
+      >
         {children}
       </main>
       {currentHostConfig().standalone ? (
@@ -90,12 +105,33 @@ function unauthenticatedScreen(gate: Exclude<AuthGate, { phase: "ready" }>): Rea
 }
 
 /**
+ * A signed-out visitor at the app's root gets the showcase landing. Everyone
+ * else who is signed out keeps the plain sign-in gate: a deep link is staff on
+ * their way somewhere, a sign-out round-trip deserves its "you're signed out"
+ * line, and a standalone host (eat-sheet.com) is the product's own brand, not
+ * a place to pitch Matt's work.
+ */
+function showsShowcaseLanding(
+  gate: Exclude<AuthGate, { phase: "ready" }>,
+  pathname: string
+): boolean {
+  return (
+    gate.phase === "signed-out" &&
+    !gate.afterSignOut &&
+    pathname === "/" &&
+    !currentHostConfig().standalone
+  );
+}
+
+/**
  * Root layout route — handles auth gating before any child routes render.
  * Used as the top-level `element` in createBrowserRouter so that
  * route matching (including basename stripping) happens BEFORE auth checks.
  */
 export function App() {
   const gate = useAuthGate();
+  const { pathname } = useLocation();
+  const [navSky, setNavSky] = useState<NavSky>(null);
 
   useEffect(() => {
     const main = document.getElementById("main-content");
@@ -109,13 +145,26 @@ export function App() {
     setTheme(resolved === "dark" ? "light" : "dark");
   };
 
+  // The showcase landing lends the nav its own light (day, then night) through
+  // `navSky`. `display: contents` keeps the nav sticky against the layout.
   const nav = (
-    <AppNav host={currentHostConfig()} theme={resolved} onThemeToggle={handleThemeToggle} />
+    <div className={styles.navSky} data-nav-sky data-theme={navSky ?? undefined}>
+      <AppNav host={currentHostConfig()} theme={resolved} onThemeToggle={handleThemeToggle} />
+    </div>
   );
 
   // The gate ORDER (which phase for which lifecycle facts + URL) is owned by
   // @mbe/auth's useAuthGate; this component only maps phase → screen.
   if (gate.phase !== "ready") {
+    if (showsShowcaseLanding(gate, pathname)) {
+      return (
+        <UnauthenticatedShell nav={nav} landing>
+          <Suspense fallback={<LoadingPage />}>
+            <ShowcaseLanding onSkyChange={setNavSky} />
+          </Suspense>
+        </UnauthenticatedShell>
+      );
+    }
     return <UnauthenticatedShell nav={nav}>{unauthenticatedScreen(gate)}</UnauthenticatedShell>;
   }
 

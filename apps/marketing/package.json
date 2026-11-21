@@ -44,11 +44,6 @@
       "limit": "52 kB"
     },
     {
-      "name": "Venues Page (lazy chunk)",
-      "path": "dist/assets/VenuesPage-*.js",
-      "limit": "12 kB"
-    },
-    {
       "name": "Shipped Features (lazy chunk)",
       "path": "dist/assets/shipped-features-*.js",
       "limit": "48 kB"

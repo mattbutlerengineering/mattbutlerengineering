@@ -1,4 +1,4 @@
-/* "One night of service" (/venues). Every colour, space, radius, shadow and
+/* "One night of service": the signed-out landing. Every colour, space, radius, shadow and
    timing is a Rialto token; the page's day and night are the light and dark
    token sets, switched by `data-theme` on `.night`. */
 
@@ -389,9 +389,165 @@
 
 /* Rialto <Text> brings its own size and colour; these hand both back to the
    surrounding eyebrow, clock and chart-axis styles. */
-.eyebrowName,
-.chartHour {
+.inheritText {
   font-size: inherit;
   letter-spacing: inherit;
   color: inherit;
+}
+
+/* ── Scene header: gold eyebrow over display heading ── */
+
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-sm);
+  font-size: var(--rialto-text-xs);
+  font-weight: var(--rialto-weight-medium);
+  letter-spacing: var(--rialto-tracking-wide);
+  text-transform: uppercase;
+  /* --rialto-accent is UI-control-only (tested at 3:1, not 4.5:1 — see
+     packages/rialto/src/test/token-contrast.test.ts) and fails WCAG AA text
+     contrast here (3.15:1 on --rialto-surface, #3901). --rialto-warning is
+     the design system's already AA-verified warm-gold text token. */
+  color: var(--rialto-warning);
+  margin: 0;
+}
+
+.eyebrow::before {
+  content: "";
+  width: 2rem;
+  height: 1px;
+  background: var(--rialto-warning);
+}
+
+.heading {
+  font-family: var(--rialto-font-display);
+  font-size: var(--rialto-text-3xl);
+  font-weight: var(--rialto-weight-light);
+  line-height: var(--rialto-leading-tight);
+  color: var(--rialto-text-primary);
+  letter-spacing: var(--rialto-tracking-tight);
+  margin: 0;
+}
+
+/* ── Hero ─────────────────────────────────────── */
+
+/* SilkFlow sits full-bleed behind the Hero, which paints on top in DOM order. */
+.heroWrapper {
+  position: relative;
+}
+
+.heroWrapper .silkFlow {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+/* Links styled as buttons: an <a> may not wrap a <button>. */
+.ctaLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--rialto-space-xs);
+  padding: var(--rialto-space-sm) var(--rialto-space-lg);
+  border-radius: var(--rialto-radius-default);
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-base);
+  font-weight: var(--rialto-weight-medium);
+  letter-spacing: var(--rialto-tracking-wide);
+  line-height: var(--rialto-leading-tight);
+  white-space: nowrap;
+  text-decoration: none;
+  user-select: none;
+  cursor: pointer;
+  transition:
+    transform var(--rialto-duration-standard) var(--rialto-ease-precision),
+    box-shadow var(--rialto-duration-standard) var(--rialto-ease-precision);
+}
+
+.primaryCtaLink {
+  composes: ctaLink;
+  border: 1px solid var(--rialto-accent);
+  background: var(--rialto-accent);
+  color: var(--rialto-text-on-accent);
+  box-shadow: var(--rialto-shadow-luminous);
+}
+
+.secondaryCtaLink {
+  composes: ctaLink;
+  border: 1px solid var(--rialto-border);
+  background: var(--rialto-surface-elevated);
+  color: var(--rialto-text-primary);
+  box-shadow: var(--rialto-shadow-sm);
+}
+
+.primaryCtaLink:hover,
+.secondaryCtaLink:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--rialto-shadow-md), var(--rialto-shadow-ambient);
+}
+
+.primaryCtaLink:active,
+.secondaryCtaLink:active {
+  transform: translateY(1px);
+  box-shadow: var(--rialto-shadow-pressed);
+}
+
+.primaryCtaLink:focus-visible,
+.secondaryCtaLink:focus-visible {
+  outline: none;
+  box-shadow: var(--rialto-shadow-focus);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ctaLink {
+    transition: none;
+  }
+}
+
+/* ── Reveal: copy and chart rows arrive with the scene ── */
+
+/* Children wait below their resting place until `data-revealed` flips, then
+   settle in turn. Every timing is a rialto duration token, so reduced motion
+   (which zeroes those tokens) lands the content in one frame. Attribute
+   selectors stay global in a CSS module, so `:where(.night)` keeps these rules
+   inside the landing without raising their specificity. */
+:where(.night) [data-reveal] > *,
+:where(.night) [data-reveal] .chartRow {
+  opacity: 0;
+  transform: translateY(var(--rialto-space-md));
+  transition:
+    opacity var(--rialto-duration-slow) var(--rialto-ease-smooth),
+    transform var(--rialto-duration-slow) var(--rialto-ease-smooth);
+}
+
+:where(.night) [data-reveal="rush-chart"] > * {
+  opacity: 1;
+  transform: none;
+}
+
+:where(.night) [data-revealed="true"] > *,
+:where(.night) [data-revealed="true"] .chartRow {
+  opacity: 1;
+  transform: none;
+}
+
+:where(.night) [data-revealed="true"] > :nth-child(2),
+:where(.night) [data-revealed="true"] .chartRow:nth-child(2) {
+  transition-delay: var(--rialto-duration-fast);
+}
+
+:where(.night) [data-revealed="true"] > :nth-child(3),
+:where(.night) [data-revealed="true"] .chartRow:nth-child(3) {
+  transition-delay: var(--rialto-duration-standard);
+}
+
+:where(.night) [data-revealed="true"] > :nth-child(4),
+:where(.night) [data-revealed="true"] .chartRow:nth-child(4) {
+  transition-delay: var(--rialto-duration-slow);
+}
+
+:where(.night) [data-revealed="true"] > :nth-child(n + 5),
+:where(.night) [data-revealed="true"] .chartRow:nth-child(n + 5) {
+  transition-delay: calc(var(--rialto-duration-slow) + var(--rialto-duration-fast));
 }

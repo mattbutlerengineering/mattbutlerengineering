@@ -8,7 +8,7 @@ Page/route inventory, key components and the E2E spec inventory: [docs/reference
 
 ## Pages
 
-Routes: `/`, `/status`, `/metrics`, `/shipped`, `/shipped/:slug`, `/venues`, `*` (404). Full table: [docs/reference.md](./docs/reference.md#pages).
+Routes: `/`, `/status`, `/metrics`, `/shipped`, `/shipped/:slug`, `*` (404). Full table: [docs/reference.md](./docs/reference.md#pages).
 
 Fallback redirects: `/rialto/*` and `/hospitality/*` redirect to their respective apps (safety net for edge router failures).
 

@@ -609,7 +609,9 @@ test.describe("Why this day: Remove and Edit special hours (#7981)", () => {
         await expect(drawer.getByRole("button", { name: c.service })).toHaveCount(0);
         const editor = drawer.locator("fieldset input").first();
         await expect(editor).toBeFocused();
-        await expect(editor).toBeInViewport({ ratio: 1 });
+        // Not `ratio: 1`: with the brand fonts loaded, rows sit on fractional pixels and the
+        // field can land 1/32 px past the drawer's edge (measured 0.99929 on phone, fr-CA).
+        await expect(editor).toBeInViewport({ ratio: 0.99 });
       });
     }
   }

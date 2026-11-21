@@ -1,5 +1,5 @@
 import { useEffect, useState, type RefObject } from "react";
-import { SCENES, type SceneId } from "../../data/service-night";
+import { SCENES, type SceneId } from "./service-night.js";
 
 const SCENE_IDS: ReadonlySet<string> = new Set(SCENES.map((scene) => scene.id));
 

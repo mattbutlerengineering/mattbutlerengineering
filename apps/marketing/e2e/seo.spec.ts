@@ -9,7 +9,6 @@ const INDEXABLE_ROUTES: readonly { readonly path: string; readonly title: string
   { path: "/acmm", title: "ACMM Dashboard — Matt Butler Engineering" },
   { path: "/ai-health", title: "AI Health Dashboard — Matt Butler Engineering" },
   { path: "/shipped", title: "Shipped by the Factory — Matt Butler Engineering" },
-  { path: "/venues", title: "One Night of Service — Matt Butler Engineering" },
 ];
 
 test.describe("SEO metadata", () => {

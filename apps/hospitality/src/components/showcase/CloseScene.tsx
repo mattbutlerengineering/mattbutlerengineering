@@ -1,9 +1,11 @@
+import { useTranslation } from "react-i18next";
 import { Odometer, Text, useScrollReveal } from "@mattbutlerengineering/rialto";
-import { NIGHT_TOTALS } from "../../data/service-night";
-import { SceneShell } from "./SceneShell";
-import styles from "./service-night.module.css";
+import { NIGHT_TOTALS } from "./service-night.js";
+import { SceneShell } from "./SceneShell.js";
+import styles from "./showcase.module.css";
 
 export function CloseScene() {
+  const { t } = useTranslation();
   // `revealed` gates the count-up, so the reels roll once the totals are on screen.
   const { ref, revealed } = useScrollReveal();
 
@@ -15,12 +17,12 @@ export function CloseScene() {
             <Odometer
               value={revealed ? total.value : 0}
               size="md"
-              aria-label={total.label}
+              aria-label={t(`showcase.close.${total.id}`)}
               // Pinned to the final digit count, so the count-up never changes the layout.
               formatOptions={{ minimumIntegerDigits: String(total.value).length }}
             />
             <Text variant="detail" color="secondary">
-              {total.label}
+              {t(`showcase.close.${total.id}`)}
             </Text>
           </div>
         ))}

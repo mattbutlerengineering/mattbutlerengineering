@@ -4092,5 +4092,212 @@
       "runAgain": "Repetir",
       "weeknight": "Probar una noche entre semana"
     }
+  },
+  "showcase": {
+    "status": {
+      "shipped": "Disponible hoy",
+      "concept": "Concepto"
+    },
+    "hero": {
+      "eyebrow": "Para restaurantes y locales",
+      "start": "Empezar la noche"
+    },
+    "scenes": {
+      "hero": {
+        "name": "Antes del servicio",
+        "heading": "Esta noche, resuelta.",
+        "body": "Recorre una noche de servicio, desde la reunión de la tarde hasta la última mesa. Cada escena es algo que ya construimos para restaurantes, o que podemos construir para el tuyo."
+      },
+      "prep": {
+        "name": "Preparación",
+        "heading": "Llega conociendo ya la sala.",
+        "body": "El resumen te espera antes de que llegue el primer comensal. Quién viene, cuántas veces ha venido, dónde prefiere sentarse y qué no puede comer."
+      },
+      "doors": {
+        "name": "Apertura",
+        "heading": "Se enciende el letrero. El libro ya se está llenando.",
+        "body": "Los comensales reservan desde tu propia página mientras preparas la sala. Cuando la noche se complica, un toque detiene las reservas nuevas."
+      },
+      "rush": {
+        "name": "La hora pico",
+        "heading": "Toda la sala en una sola pantalla.",
+        "body": "Cada mesa contra el reloj. Sienta a alguien sin reserva, libera una mesa o detecta al grupo que viene tarde, y todas las pantallas se actualizan al instante."
+      },
+      "assistant": {
+        "name": "El asistente",
+        "heading": "Di lo que necesitas. Él hace el resto.",
+        "body": "Empieza a llover y hay que cerrar la terraza. Díselo al asistente con tus palabras. Te muestra qué va a cambiar, espera tu confirmación y puedes deshacerlo."
+      },
+      "guest": {
+        "name": "El comensal",
+        "heading": "Los comensales te avisan sin llamar por teléfono.",
+        "body": "Un enlace en la confirmación le permite al comensal cambiar la reserva, sumar a su grupo o avisarte que viene tarde. Cuando llega, suena un aviso en la recepción."
+      },
+      "close": {
+        "name": "Cierre",
+        "heading": "Se va la última mesa. La noche hace cuentas.",
+        "body": "Cubiertos, rotaciones de mesa y ausencias, contados en cuanto termina el servicio, junto con las reservas que tuviste que rechazar."
+      },
+      "roadmap": {
+        "name": "Después del cierre",
+        "heading": "Lo que construiríamos después.",
+        "body": "Son ideas, no funciones. Cada una está diseñada y espera al restaurante que la quiera primero."
+      },
+      "morning": {
+        "name": "Mañana",
+        "heading": "El día siguiente ya está listo.",
+        "body": "Cuéntale a Matt cómo funciona tu restaurante. Te mostrará cómo se ve una noche así con tus mesas, tus horarios y tus comensales."
+      }
+    },
+    "claims": {
+      "briefing": {
+        "label": "Resumen previo al turno",
+        "detail": "Los comensales de esta noche por turno, con número de visitas, preferencias de mesa y alergias."
+      },
+      "dressRehearsal": {
+        "label": "Ensayo general",
+        "detail": "Simula el servicio de esta noche en tu plano real antes de abrir. No se guarda nada."
+      },
+      "publicBooking": {
+        "label": "Tu propia página de reservas",
+        "detail": "Los comensales eligen hora, reservan, lo agregan a su calendario e invitan a su grupo."
+      },
+      "pauseBooking": {
+        "label": "Pausar las reservas en línea",
+        "detail": "Detén las reservas nuevas de esta noche, cierra antes o bloquea mesas. Todo se puede deshacer."
+      },
+      "openSign": {
+        "label": "Un letrero que dice la verdad",
+        "detail": "El letrero de neón de tu panel sigue tu horario real, así el equipo ve si están abiertos."
+      },
+      "liveTimeline": {
+        "label": "Cronología de mesas en vivo",
+        "detail": "Mesas por hora, actualizadas en todas las pantallas en cuanto algo cambia."
+      },
+      "lateBadge": {
+        "label": "Retrasos señalados",
+        "detail": "Cuando un comensal avisa que viene tarde, la reserva queda marcada antes de que alguien pregunte."
+      },
+      "waitlist": {
+        "label": "Lista de espera con memoria",
+        "detail": "Agrega un grupo, envíale un mensaje cuando la mesa esté lista y reconoce a quienes regresan."
+      },
+      "assistantActions": {
+        "label": "Unas 40 acciones en lenguaje natural",
+        "detail": "Sentar sin reserva, bloquear mesas, marcar un platillo agotado, cambiar horarios, llevar la lista de espera."
+      },
+      "confirmUndo": {
+        "label": "Tú sigues al mando",
+        "detail": "Todo lo que cambia el libro te pregunta primero, y los cambios de esta noche se pueden deshacer."
+      },
+      "tonightAutopilot": {
+        "label": "Piloto automático de la noche",
+        "detail": "Un asistente que observa la sala y propone por sí mismo los cambios de mesa y los mensajes a comensales."
+      },
+      "guestSignals": {
+        "label": "Voy tarde, o ya llegué",
+        "detail": "Esa noche, los comensales avisan con un toque si vienen tarde o si ya llegaron. Una llegada suena en la recepción."
+      },
+      "invitation": {
+        "label": "La invitación",
+        "detail": "Quien reserva comparte un enlace y el resto del grupo responde con su nombre."
+      },
+      "manageLink": {
+        "label": "Cambiar o cancelar",
+        "detail": "Los comensales gestionan su reserva desde el enlace, sin crear una cuenta."
+      },
+      "nightInNumbers": {
+        "label": "La noche en números",
+        "detail": "Un resumen de cierre en una pantalla, listo antes de subir las sillas."
+      },
+      "lostDemandLedger": {
+        "label": "Registro de demanda perdida",
+        "detail": "Cada reserva que no pudiste aceptar, para ver cuánto te costó una noche llena."
+      },
+      "guestPassport": {
+        "label": "Pasaporte del comensal",
+        "detail": "Tus mejores comensales llevan su buen historial a cada restaurante independiente que visitan."
+      },
+      "kitchenAwareBooking": {
+        "label": "Reservas al ritmo de la cocina",
+        "detail": "Acepta las reservas que la cocina puede atender y conoce la preparación de mañana antes de abrir."
+      },
+      "headlessVenue": {
+        "label": "Restaurante sin pantalla",
+        "detail": "Dirige el restaurante desde el asistente de IA que ya usas, directo sobre tu libro en vivo."
+      },
+      "regularsClub": {
+        "label": "Club de habituales",
+        "detail": "Vende tu propio acceso prioritario del viernes en lugar de rentar a tus habituales."
+      }
+    },
+    "prep": {
+      "boardLabel": "Resumen de esta noche: 84 cubiertos reservados, alergia a las nueces en la mesa 12, novena visita del grupo Okafor, lluvia probable a las 8 p. m.",
+      "board": {
+        "covers": "84 CUBIERTOS HOY",
+        "allergy": "M12 ALERGIA NUEZ",
+        "regular": "OKAFOR VISITA 9",
+        "rain": "LLUVIA A LAS 8"
+      }
+    },
+    "doors": {
+      "open": "Abierto hasta las 11:00 p. m.",
+      "closed": "Cerrado. Abrimos a las 5:00 p. m."
+    },
+    "rush": {
+      "chartLabel": "Mesas de 18:00 a 22:00",
+      "trackLabel": "Reservas de {{table}}",
+      "legendLabel": "Estados de las reservas",
+      "table": "Mesa {{number}}",
+      "terrace": "Terraza {{number}}",
+      "walkIn": "Sin reserva",
+      "lateBadge": "+15 min",
+      "bar": "{{party}} · {{covers}}",
+      "booking": "{{party}}, grupo de {{covers}}, {{time}}, {{state}}",
+      "states": {
+        "seated": "en mesa",
+        "confirmed": "confirmada",
+        "late": "con retraso",
+        "finished": "terminada"
+      }
+    },
+    "assistant": {
+      "label": "Conversación con el asistente",
+      "operator": "Viene lluvia. Bloquea la terraza esta noche.",
+      "proposal": "Voy a bloquear las mesas 1 a 4 de la terraza desde las 20:15 hasta el cierre. No afecta ninguna reserva. ¿Continúo?",
+      "confirm": "Confirmar",
+      "done": "Listo. La terraza queda bloqueada hasta el cierre y las reservas nuevas van al interior.",
+      "undo": "Deshacer",
+      "concept": "Mañana también se espera lluvia. ¿Paso al interior las reservas de terraza de mañana y les aviso por mensaje?",
+      "disclaimer": "Esto es una demostración. Nada de aquí cambia un restaurante real."
+    },
+    "guest": {
+      "reservationLabel": "Tu reserva",
+      "reservation": "Mesa para 4 esta noche a las 8:45 p. m.",
+      "late": "Llego 15 min tarde",
+      "here": "Ya llegamos",
+      "hostStand": "Recepción",
+      "waiting": "Esperando al grupo Ito",
+      "runningLate": "El grupo Ito viene 15 minutos tarde",
+      "arrived": "El grupo Ito ya llegó"
+    },
+    "close": {
+      "covers": "Cubiertos servidos",
+      "turns": "Rotaciones de mesa",
+      "noShows": "Ausencias"
+    },
+    "roadmap": {
+      "boardHeading": "Proximamente",
+      "board": {
+        "guestPassport": "Pasaporte",
+        "kitchenAwareBooking": "Ritmo de cocina",
+        "headlessVenue": "Sin pantalla",
+        "regularsClub": "Club habituales"
+      }
+    },
+    "morning": {
+      "email": "Cuéntale a Matt de tu restaurante",
+      "open": "Abrir tu restaurante"
+    }
   }
 }
