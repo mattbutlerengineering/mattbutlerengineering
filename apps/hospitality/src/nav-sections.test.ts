@@ -1,4 +1,6 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect } from "vitest";
+import esMX from "./i18n/catalogs/es-MX.json";
+import { localeRuntime } from "./i18n/runtime.js";
 import { buildNavSections } from "./nav-sections.js";
 import type { VenueReadiness } from "./hooks/useVenueReadiness.js";
 
@@ -28,6 +30,23 @@ const OPERATIONAL_READINESS: VenueReadiness = {
 /* ── Tests ──────────────────────────────────────────────────── */
 
 describe("buildNavSections", () => {
+  describe("default t", () => {
+    afterEach(async () => {
+      await localeRuntime.i18n.changeLanguage("en-US");
+    });
+
+    it("follows the dashboard locale when no t is passed", async () => {
+      localeRuntime.i18n.addResourceBundle("es-MX", "translation", esMX, true, true);
+      await localeRuntime.i18n.changeLanguage("es-MX");
+
+      const sections = buildNavSections(OPERATIONAL_READINESS, false);
+      const account = sections.find((s) => s.items.some((i) => i.id === "profile"));
+
+      expect(account?.label).toBe(esMX.nav.sections.account);
+      expect(account?.label).not.toBe("Account");
+    });
+  });
+
   describe("setup readiness", () => {
     it("returns a 'Get Started' section holding one Availability map item with the progress count", () => {
       const sections = buildNavSections(SETUP_READINESS, false);

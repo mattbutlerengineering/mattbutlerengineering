@@ -27,12 +27,17 @@ import type { VibeOverrides } from "./vibes";
 /**
  * Zeroed duration overrides applied when the user prefers reduced motion.
  * Each key shadows the corresponding default from `tokens/shadows.css`
- * (fast 0.1s → 0s, standard 0.15s → 0s, slow 0.2s → 0s).
+ * (fast 0.1s → 0s, standard 0.15s → 0s, slow 0.2s → 0s, and the long
+ * expressive steps scene 0.6s, cinematic 1.2s and ambient 8s → 0s). Every
+ * duration token declared there must appear here; the adapter's test pins it.
  */
 export const reducedMotionOverrides: VibeOverrides = {
   "--rialto-duration-fast": "0s",
   "--rialto-duration-standard": "0s",
   "--rialto-duration-slow": "0s",
+  "--rialto-duration-scene": "0s",
+  "--rialto-duration-cinematic": "0s",
+  "--rialto-duration-ambient": "0s",
 };
 
 /**

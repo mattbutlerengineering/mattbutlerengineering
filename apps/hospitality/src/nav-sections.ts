@@ -10,7 +10,7 @@
 
 import type { TFunction } from "i18next";
 import { availabilityPath } from "./components/availability/availability-address.js";
-import { localeRuntime } from "./i18n/runtime.js";
+import { defaultT } from "./i18n/default-t.js";
 import type { NavAction } from "./nav-actions.js";
 import type { VenueReadiness } from "./hooks/useVenueReadiness.js";
 
@@ -43,8 +43,6 @@ const SETUP_ITEM_ID = "setup";
 const SETUP_PATH = availabilityPath({ view: "map" });
 /** Launch steps counted in the pre-launch badge: venue basics, regular week, floor plan. */
 const SETUP_STEP_COUNT = 3;
-
-const defaultT = (): TFunction => localeRuntime.i18n.t;
 
 /* ── Account ────────────────────────────────── */
 
@@ -142,7 +140,7 @@ function buildOperationalSections(isAdmin: boolean, t: TFunction): readonly NavS
 export function buildNavSections(
   readiness: VenueReadiness,
   isAdmin: boolean,
-  t: TFunction = defaultT()
+  t: TFunction = defaultT
 ): readonly NavSection[] {
   if (readiness.status !== "operational") {
     return buildSetupSections(readiness, isAdmin, t);

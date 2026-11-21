@@ -49,6 +49,7 @@ describe("PROJECTS", () => {
     expect(hospitality!.stack).toContain("Auth0");
     expect(hospitality!.stack).toContain("PWA");
     expect(hospitality!.href).toBe("/hospitality/?ref=marketing");
+    expect(hospitality!.story).toEqual({ label: "See a night of service", href: "/venues" });
   });
 
   it("Gen project has a deep-linking href with a pre-loaded prompt", () => {

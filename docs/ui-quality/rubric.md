@@ -33,22 +33,30 @@ the abstract.
 
 ### agent-built/unrequested-dark-theme
 
-**Looks like:** a permanent dark background on a page whose product or brand
-never asked for one — black or near-black canvas, light text, with no light
-variant or with the light variant as an afterthought.
+**Looks like:** a dark background nobody chose — a black or near-black canvas
+in raw colours that ignores the theme, sits on a page whose content gives it no
+reason to be dark, or lets text and controls fall below contrast.
 
-**A professional team instead:** follows the brand's colour scheme (rialto's
-`--rialto-surface-*` tokens) and honours `prefers-color-scheme`, shipping dark
-only as a supported theme, not as the only look.
+**A professional team instead:** makes dark a decision. A deliberate dark scene
+(a showcase, a hero, a venue at night) is fine when every colour is a rialto
+theme token (`--rialto-surface-*`, the text tokens) and contrast holds: zero axe
+violations, `color-contrast` included. Everywhere else the page follows the
+theme and honours `prefers-color-scheme`
+([ADR-033](../adr/ADR-033-expressive-motion-and-atmosphere-repo-wide.md)).
 
 ### agent-built/gradient-background
 
-**Looks like:** a purple-to-blue (or any two-hue) gradient filling a hero, card
-or whole page as decoration, carrying no information.
+**Looks like:** a purple-to-blue (or any off-palette) gradient in raw colours
+filling a hero, card or whole page — the stock generated-page backdrop, with no
+tie to the brand and text that loses contrast where the gradient shifts.
 
-**A professional team instead:** uses flat surfaces from the token palette and
-reserves colour for meaning — state, emphasis, brand accent — so the eye goes
-where the content is.
+**A professional team instead:** builds gradients, glow and atmosphere from
+rialto tokens only, never a raw hex. The gold accent may be used as light
+through the existing `--rialto-accent-glow`, `--rialto-shadow-ambient` and
+`--rialto-shadow-luminous` tokens. A token-built gradient or glow is not this
+tell; it still must keep text contrast across its whole range (zero axe
+violations) and leave the eye on the content
+([ADR-033](../adr/ADR-033-expressive-motion-and-atmosphere-repo-wide.md)).
 
 ### agent-built/icon-card-grid
 
@@ -219,10 +227,14 @@ recomputes `tells_hash`.
 
 - **Animation on a 100+/day action** — command palette, keyboard shortcut,
   typing, tab or filter switch. These are instant or an opacity-only fade.
-- **Two expressive animations in one view** — springs, stagger or signature
-  instruments compete; one at a time.
-- **Infinite loop in task UI** — only status loops (loading, live, LED) are
-  allowed, and decorative loops must pause offscreen or after N cycles.
+- **An ambient loop beside a field someone is filling in** — ambient loops are
+  allowed anywhere else, and several expressive animations may run together
+  ([ADR-033](../adr/ADR-033-expressive-motion-and-atmosphere-repo-wide.md)).
+- **A loop longer than 5 seconds with no way to pause it**, or a decorative
+  loop that keeps running offscreen (WCAG 2.2.2).
+- **Anything that flashes more than three times a second** (WCAG 2.3.1).
 - **Scale from below 0.9** — enter from 0.9 or above with opacity.
+- **Animating anything but `transform` and `opacity`**, or a literal duration
+  in place of a `--rialto-duration-*` token.
 - **Motion that carries information reduced motion drops** — reduced motion
   swaps movement for opacity or an instant change, never removes the message.

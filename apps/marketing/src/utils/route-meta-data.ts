@@ -56,6 +56,12 @@ export const ROUTE_META: readonly RouteMeta[] = [
       "How one feature went from proposal to decomposition to merged pull requests in the software factory.",
   },
   {
+    pattern: "/venues",
+    title: `One Night of Service — ${SITE_NAME}`,
+    description:
+      "Follow one night at a restaurant, from the afternoon briefing to close, and see what we build to make running a venue easier.",
+  },
+  {
     pattern: "*",
     title: `Page not found — ${SITE_NAME}`,
     description: "This page does not exist on mattbutlerengineering.com.",

@@ -10,6 +10,8 @@ import {
   normalizeCiRun,
   upsertSensorRow,
   selectBaseline,
+  latestSdlcSpeedDate,
+  isSdlcSpeedDue,
 } from "../collect-sdlc-speed.mjs";
 
 // Shape of a `gh api repos/{owner}/{repo}/pulls?state=closed` item (repo-scoped, carries head.ref).
@@ -320,5 +322,54 @@ describe("selectBaseline (#8418: non-overlapping windows only)", () => {
     expect(selectBaseline([row("2026-10-30", { days: 14 })], "2026-11-06", 7)?.date).toBe(
       "2026-10-30"
     );
+  });
+});
+
+describe("latestSdlcSpeedDate", () => {
+  const row = (date, over = {}) => ({ date, sensor: "sdlcSpeed", available: true, ...over });
+
+  it("returns the most recent healthy row's date", () => {
+    expect(latestSdlcSpeedDate([row("2026-11-02"), row("2026-11-09"), row("2026-10-26")])).toBe(
+      "2026-11-09"
+    );
+  });
+
+  it("ignores unavailable rows and other sensors", () => {
+    expect(
+      latestSdlcSpeedDate([
+        row("2026-11-09", { available: false }),
+        row("2026-11-10", { sensor: "ciHealth" }),
+        row("2026-11-02"),
+      ])
+    ).toBe("2026-11-02");
+  });
+
+  it("is null when no row exists", () => {
+    expect(latestSdlcSpeedDate([])).toBeNull();
+  });
+});
+
+describe("isSdlcSpeedDue (#9236: self-heal a dropped Monday write)", () => {
+  const row = (date, over = {}) => ({ date, sensor: "sdlcSpeed", available: true, ...over });
+
+  it("is always due on Monday, regardless of recent rows", () => {
+    // 2026-11-09 is a Monday.
+    expect(isSdlcSpeedDue({ rows: [row("2026-11-06")], date: "2026-11-09", days: 7 })).toBe(true);
+  });
+
+  it("is not due on a non-Monday when the latest row is still fresh", () => {
+    // 2026-11-10 is a Tuesday; latest row is only 1 day old.
+    expect(isSdlcSpeedDue({ rows: [row("2026-11-09")], date: "2026-11-10", days: 7 })).toBe(false);
+  });
+
+  it("self-heals on a non-Monday once the latest merged row is a full window old", () => {
+    // 2026-11-17 is a Tuesday. The automation PR's branch-vs-main race (#9236)
+    // can silently drop Monday's write, so the next day must not wait a full
+    // week for the following Monday once the gap reaches `days`.
+    expect(isSdlcSpeedDue({ rows: [row("2026-11-09")], date: "2026-11-17", days: 7 })).toBe(true);
+  });
+
+  it("is due when no row has ever been recorded", () => {
+    expect(isSdlcSpeedDue({ rows: [], date: "2026-11-10", days: 7 })).toBe(true);
   });
 });

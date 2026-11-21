@@ -464,4 +464,8 @@
     <loc>https://mattbutlerengineering.com/status</loc>
     <priority>0.6</priority>
   </url>
+  <url>
+    <loc>https://mattbutlerengineering.com/venues</loc>
+    <priority>0.6</priority>
+  </url>
 </urlset>

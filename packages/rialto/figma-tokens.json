@@ -634,6 +634,21 @@
         "$value": "0.2s",
         "$type": "duration",
         "$description": "Deliberate movements — card hover lift, panel slide"
+      },
+      "scene": {
+        "$value": "0.6s",
+        "$type": "duration",
+        "$description": "Scene changes — an expressive entrance, a panel of a staged sequence (ADR-033)"
+      },
+      "cinematic": {
+        "$value": "1.2s",
+        "$type": "duration",
+        "$description": "Cinematic beats — a hero reveal, a rare signature moment (ADR-033)"
+      },
+      "ambient": {
+        "$value": "8s",
+        "$type": "duration",
+        "$description": "Ambient loops — one cycle of a slow glow, drift or breathe (ADR-033)"
       }
     },
     "z": {

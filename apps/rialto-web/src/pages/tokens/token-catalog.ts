@@ -215,6 +215,18 @@ export const MOTION_GROUPS: readonly TokenGroup[] = [
         name: "--rialto-duration-slow",
         usage: "Deliberate movement — card hover lift, panel slide",
       },
+      {
+        name: "--rialto-duration-scene",
+        usage: "Scene changes — an expressive entrance, one panel of a staged sequence",
+      },
+      {
+        name: "--rialto-duration-cinematic",
+        usage: "Cinematic beats — a hero reveal, a rare signature moment",
+      },
+      {
+        name: "--rialto-duration-ambient",
+        usage: "Ambient loops — one cycle of a slow glow, drift or breathe",
+      },
     ],
   },
   {
@@ -260,8 +272,10 @@ export const MOTION_FREQUENCY_BUDGET: readonly {
 
 /** Restraint rules that keep expressive motion from overwhelming. */
 export const MOTION_RESTRAINT_RULES: readonly string[] = [
-  "One expressive element per view at a time.",
-  "No looping motion in task UI except status (loading, live, LED).",
+  "Several expressive animations may run together; 100+/day actions still get none.",
+  "Ambient loops are allowed anywhere except beside a field someone is filling in.",
+  "A loop longer than 5 seconds needs a pause control; decorative loops pause offscreen.",
+  "Nothing flashes more than three times a second.",
   "Never scale from 0; start at 0.9 or above, with opacity.",
   "Animate only transform and opacity; layout changes use framer's layout prop.",
   "No parallax or auto-scroll in staff tools.",

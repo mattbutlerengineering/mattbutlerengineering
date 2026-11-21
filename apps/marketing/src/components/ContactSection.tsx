@@ -9,7 +9,7 @@ import {
 import { motion, useReducedMotion } from "framer-motion";
 import styles from "../pages/HomePage.module.css";
 
-const EMAIL = "mattbutlerengineering+webapp@gmail.com";
+export const EMAIL = "mattbutlerengineering+webapp@gmail.com";
 
 const LINKS = [
   {
