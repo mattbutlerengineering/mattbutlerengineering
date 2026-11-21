@@ -38,6 +38,7 @@ This directory contains Architecture Decision Records (ADRs) documenting signifi
 | [ADR-030](ADR-030-availability-layered-rows-pure-engine.md)                       | Venue Availability as Layered Rows with Typed Payloads, Resolved by One Pure Engine | amended (by ADR-031)    | 2026-10-25 |
 | [ADR-031](ADR-031-regular-week-service-days-and-hour-sets.md)                     | A Service Row Carries Its Own Days and Per-Weekday Hour Sets                        | provisional             | 2026-11-03 |
 | [ADR-032](ADR-032-section-closure-is-a-tables-rule-that-remembers-its-section.md) | A Section Closure Is a Tables Rule That Remembers Its Section                       | provisional             | 2026-11-07 |
+| [ADR-033](ADR-033-expressive-motion-and-atmosphere-repo-wide.md)                  | Expressive Motion and Atmosphere Are Allowed Repo-Wide                              | active                  | 2026-11-20 |
 
 ## Format
 
