@@ -1194,3 +1194,22 @@ A clean fire: everything due was captured and judged, and nothing met the bar to
 ### Skipped Issues
 
 0 skipped after max retries (agent-skip label: empty).
+
+## 2026-11-21 — mbe-ui-quality
+
+- **State**: `state.mjs checkout` → `source: branch`, head `b13009f9`, merged `origin/main` `23c8d1d1`, `resolved: []`.
+- **Builds**: all green — `@mbe/cli...`, `@mattbutlerengineering/rialto`, and all three apps (marketing, rialto-web, hospitality). No `unreachable:build` rows.
+- **Routes**: 16 due / 16 captured / 16 audited (8 marketing, 8 rialto-web). 25 hospitality rows `unreachable:auth`, never captured — its capture run skipped with "no hospitality routes planned".
+- **Coverage before this fire**: 100% (136/136 covered, 0 uncovered, `provisional: false`).
+- **Browser**: resolved — `/opt/pw-browsers/chromium_headless_shell-1243/...`. No `blocker: no-browser`.
+- **Mechanical**: 0 findings. Non-vacuous: axe ran on all 16 routes with 0 violations at every impact level, and no route showed a page error, failed request or blank render. Eight "out of inventory" log lines (marketing routes linking `/gen/`, mount `/gen` → `apps/gen`) are the dead-link detector correctly declining to judge a sibling app's mount.
+- **Judged**: 16 routes judged, **0 unjudged**, **0 dropped tells**, **0 findings** — every route clean against the v1 judged tells. Marketing holds its display face and domain-specific hero copy ("This site ships itself.", "Shipped by the factory"); rialto-web's docs and demo routes are token-built with no gradient, icon-card grid or three-card template.
+- **Calibration stamp**: `stale`. `calibration-status` exit 3; `rate.mjs pairs --calibration` exit 2 — `docs/ui-quality/calibration.json` still has no labelled pairs (Verify-owned: Matt labels ≥ 10 pairs once). Logged, not retried. Re-queried: still `stale`, so calibration could not clear and the fire proceeded to rating per the branch.
+- **Rating**: 12 pairs over 2 apps judged and recorded — marketing 0, rialto-web 3.33. Our rialto-web docs pages were rated above both button-docs references (Chakra, Mantine); the marketing folds were rated below both landing-page references (shadcn, Mantine) and the settings example below the shadcn dashboard and Tremor overview.
+- **Filing**: plan exit 0 — 38 actions, all `close` (37 ledger rows whose issues are already closed, plus one seed re-audited clean: `marketing|status|r1|bugs/failed-request`). No `create`, `reopen`, `comment` or `adopt`, so nothing was written to GitHub. Issues created: 0. Reopened: 0. Commented: 0. Adopted: 0. No escalation file was written and no escalation issue is open.
+- **Issue state read**: all 37 findings-ledger issues carry the `ui-quality` label and are all closed; the full labelled listing (40, single page, `hasNextPage: false`) adds only the three past escalation issues (#8959, #7908, #7477), all closed. Listing used `mcp__github__list_issues` with `labels: [ui-quality]` (the GitHub MCP `search_issues` tool is not available in this sandbox and `gh` is barred by this routine); one `issue_read` spot-check (#8763) confirmed the listing's state values.
+- **Seeds**: 0 P2 overflow seeds appended to `docs/backlog.md`.
+- **Fix PR**: none — `fix_pr_candidate` was null and every action was a `close`.
+- **P1 SLA**: 0 open `ui-quality:p1` issues; 0 breaches, 0 escalated.
+- **Observations outside the rubric (not filed, no tell covers them)**: (1) On rialto-web, several routes' document height exceeds the painted app shell (`components/table` 1190px, `components/checkbox-radio` 1205px, `demos/dashboard` 1201px, `demos/login` 1032px against a 720px shell), leaving a blank band below the fold in the full-page capture. (2) At 1280×720 the `demos/dashboard` panels render as empty gradient placeholders that never resolve (355 text chars, the lowest of the set) while the same panels render fully at 375×812. (3) The cookie-consent banner overlaps page content on `demos/login` (desktop, over the primary submit button) and collides badly with the Best Lap / Tires card on `demos/dashboard` at 375×812 — the same mobile-overlap defect logged on 2026-11-20. Rubric v1 has no judged tell for an overlay-overlap or dead-whitespace layout defect, and the mechanical detectors do not see them, so no Finding was written. Raising any would need a human rubric bump (`rubric_version` + `tells_hash`).
+- **Pipeline bugs**: none.
