@@ -1,4 +1,4 @@
-import { test, expect, describe, beforeEach, afterEach } from "vitest";
+import { test, expect, describe, beforeEach, afterEach, vi } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
@@ -152,6 +152,17 @@ describe("check-ai-antipatterns", () => {
       const { scanForPattern } = await import("../check-ai-antipatterns.mjs");
       const count = scanForPattern(tmpDir, "consoleLogs");
       expect(count).toBe(0);
+    });
+
+    test("does not flag hardcoded routes or any in test files, still flags source files", async () => {
+      const body = 'inject({ url: "/api/v1/users" });\nconst x: any = 1;\n';
+      fs.writeFileSync(path.join(tmpDir, "src", "routes.test.ts"), body);
+      const { scanForPattern } = await import("../check-ai-antipatterns.mjs");
+      expect(scanForPattern(tmpDir, "hardcodedRoutes")).toBe(0);
+      expect(scanForPattern(tmpDir, "anyType")).toBe(0);
+      fs.writeFileSync(path.join(tmpDir, "src", "routes.ts"), body);
+      expect(scanForPattern(tmpDir, "hardcodedRoutes")).toBe(1);
+      expect(scanForPattern(tmpDir, "anyType")).toBe(1);
     });
 
     test("detects hardcoded API route strings", async () => {
@@ -506,7 +517,6 @@ describe("check-ai-antipatterns", () => {
       const { buildBaseline } = await import("../check-ai-antipatterns.mjs");
       const counts = { magicTimeouts: 5, emptyCatch: 2 };
       const result = buildBaseline(counts);
-      expect(result).toHaveProperty("generatedAt");
       expect(result).toHaveProperty("patterns");
       expect(result.patterns.magicTimeouts).toMatchObject({
         count: 5,
@@ -516,6 +526,22 @@ describe("check-ai-antipatterns", () => {
         count: 2,
         description: expect.any(String),
       });
+    });
+
+    test("is byte-identical across runs with unchanged counts (no timestamp)", async () => {
+      vi.useFakeTimers();
+      try {
+        const { buildBaseline } = await import("../check-ai-antipatterns.mjs");
+        const counts = { magicTimeouts: 5, emptyCatch: 2 };
+        vi.setSystemTime(new Date("2026-01-01T00:00:00Z"));
+        const first = JSON.stringify(buildBaseline(counts));
+        vi.setSystemTime(new Date("2026-06-01T00:00:00Z"));
+        const second = JSON.stringify(buildBaseline(counts));
+        expect(second).toBe(first);
+        expect(buildBaseline(counts)).not.toHaveProperty("generatedAt");
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 });

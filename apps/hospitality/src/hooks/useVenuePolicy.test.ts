@@ -13,6 +13,12 @@ import { useVenuePolicy } from "./useVenuePolicy.js";
 const mockFetch = vi.fn<typeof fetch>();
 vi.stubGlobal("fetch", mockFetch);
 
+const { mockReportHandledError } = vi.hoisted(() => ({ mockReportHandledError: vi.fn() }));
+vi.mock("@mbe/sentry/react", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  reportHandledError: mockReportHandledError,
+}));
+
 vi.mock("./useApiClient.js", () => ({
   useApiClient: () => createApiClient({ baseUrl: "https://api.test.com", maxRetries: 0 }),
 }));
@@ -48,6 +54,7 @@ function createWrapper() {
 
 beforeEach(() => {
   mockFetch.mockReset();
+  mockReportHandledError.mockClear();
 });
 
 describe("useVenuePolicy", () => {
@@ -82,6 +89,20 @@ describe("useVenuePolicy", () => {
       lateCancellationFeePercent: 50,
       noShowFeePercent: 100,
     });
+  });
+
+  it("reports a failed fetch to Sentry before degrading to no policy", async () => {
+    const failure = new TypeError("Failed to fetch");
+    mockFetch.mockRejectedValueOnce(failure);
+
+    const { result } = renderHook(() => useVenuePolicy("the-oak-table"), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.policy).toBeNull();
+    expect(mockReportHandledError).toHaveBeenCalledTimes(1);
+    expect(mockReportHandledError).toHaveBeenCalledWith(failure, "venue-policy");
   });
 
   it("returns null when the deposit is disabled", async () => {

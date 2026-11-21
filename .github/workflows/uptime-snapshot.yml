@@ -57,11 +57,18 @@ jobs:
           CF_API_TOKEN: ${{ secrets.MBE_CLOUDFLARE_API_TOKEN }}
           KV_NS_ID: ${{ secrets.HEALTH_KV_NAMESPACE_ID }}
         run: |
+          set -euo pipefail
           CUTOFF=$(date -u -d "90 days ago" +%Y-%m-%d 2>/dev/null || date -u -v-90d +%Y-%m-%d)
 
+          # pipefail: a failed list request must fail the step, not read as "no keys".
           KEYS=$(curl -sf \
             "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces/${KV_NS_ID}/keys?prefix=uptime%2F&limit=1000" \
             -H "Authorization: Bearer ${CF_API_TOKEN}" | jq -r '.result[].name')
+
+          if [ -z "$KEYS" ]; then
+            echo "No snapshots found under uptime/; nothing to clean up"
+            exit 0
+          fi
 
           DELETED=0
           for KEY in $KEYS; do

@@ -107,6 +107,8 @@ function seedDeposit(fields: Record<string, unknown> = {}) {
 
 function setup(rowOverrides: Partial<ClosureRefundRow> = {}) {
   const payments = createInMemoryPayments();
+  // No prior closure refund exists at Stripe unless a test scripts one.
+  payments.respond("findDepositRefund", () => null);
   const { store, state } = makeStore(rowOverrides);
   const deps = { deposits: new DepositService(payments), payments, store };
   return { payments, store, state, deps };
@@ -140,6 +142,7 @@ describe("settleClosureRefund", () => {
   it("resolves a pending deposit whose authorization landed: hold, then refund", async () => {
     seedDeposit({ status: "pending" });
     const { deps, payments, state } = setup();
+    payments.respond("retrievePaymentIntent", (id) => ({ id, status: "requires_capture" }));
 
     await settleClosureRefund(deps, PAYLOAD);
 
@@ -200,7 +203,7 @@ describe("settleClosureRefund", () => {
   it("cancels a still-live authorization on a refunded deposit (crash after the row write)", async () => {
     seedDeposit({ status: "refunded" });
     const { deps, payments, state } = setup();
-    // default in-memory retrieve: requires_capture
+    payments.respond("retrievePaymentIntent", (id) => ({ id, status: "requires_capture" }));
 
     await settleClosureRefund(deps, PAYLOAD);
 
@@ -545,6 +548,7 @@ describe("settleClosureRefund", () => {
     async (status) => {
       seedDeposit({ status, refundAmountCents: status === "partial_refunded" ? 2000 : null });
       const { deps, payments, state } = setup();
+      payments.respond("retrievePaymentIntent", (id) => ({ id, status: "requires_capture" }));
 
       await settleClosureRefund(deps, PAYLOAD);
 
@@ -592,6 +596,7 @@ describe("settleClosureRefund", () => {
   it("re-reads and refunds when the authorization webhook holds a pending deposit mid-job", async () => {
     seedDeposit({ status: "pending" });
     const { deps, payments, state } = setup();
+    payments.respond("retrievePaymentIntent", (id) => ({ id, status: "requires_capture" }));
     const read = deps.deposits.getByReservationId.bind(deps.deposits);
     vi.spyOn(deps.deposits, "getByReservationId").mockImplementationOnce(async (id) => {
       const seen = await read(id);

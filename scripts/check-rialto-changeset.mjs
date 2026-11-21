@@ -34,7 +34,12 @@
  * (with the fix) rather than silently passing — a diff-based gate that
  * no-ops in a shallow clone is exactly the shipped-but-never-exercised
  * class this repo keeps rediscovering. CI's Build job checkout therefore
- * needs `fetch-depth: 0` (same as migration-dry-run). On a push to main,
+ * needs `fetch-depth: 0` (same as migration-dry-run). The failure is
+ * attributed, not softened (#9203): a shallow clone, a missing origin/main
+ * and an unreadable diff each print a distinct `BLOCKED:` message and exit
+ * with a distinct non-zero code (`BLOCKED_EXIT_CODES`), so `pnpm repo-audit`
+ * reports an environmental blocker as BLOCKED rather than as a changeset
+ * violation — but it is never a pass and never a skip. On a push to main,
  * merge-base == HEAD, the diff is empty, and the check passes vacuously:
  * the gate does its work at PR time.
  */
@@ -124,6 +129,96 @@ export const FAIL_MESSAGE =
   "  pnpm changeset --empty    # explicitly declare no consumer-visible change\n" +
   "Uncovered published-source files:";
 
+/**
+ * Exit codes for the environmental "blocked" outcomes. Every one is
+ * non-zero (the gate never skips), and each is distinct from the plain `1`
+ * of a real changeset violation so `scripts/run-repo-audit.mjs` can label
+ * the line BLOCKED instead of a bare FAIL (#9203).
+ */
+export const BLOCKED_EXIT_CODES = {
+  shallow: 10,
+  "origin-main-missing": 11,
+  "diff-unreadable": 12,
+};
+
+const OVERRIDE_HINT = "Or set RIALTO_CHANGESET_BASE=<ref> to name the base explicitly.";
+const FAIL_CLOSED = "Failing closed: a silently skipped gate reads exactly like a green one.";
+
+/**
+ * Why the gate could not produce a verdict, as a pure decision over facts
+ * the CLI gathers from git.
+ *
+ * @param {object} facts
+ * @param {boolean} facts.isShallow - `git rev-parse --is-shallow-repository`
+ * @param {boolean} facts.hasOriginMain - `origin/main` resolves to a commit
+ * @param {boolean} facts.baseResolved - a base commit resolved (so the diff itself failed)
+ * @param {boolean} facts.overrideSet - RIALTO_CHANGESET_BASE was provided
+ * @returns {{ kind: string, exitCode: number, message: string }}
+ */
+export function classifyBaseFailure({ isShallow, hasOriginMain, baseResolved, overrideSet }) {
+  if (baseResolved) {
+    return {
+      kind: "diff-unreadable",
+      exitCode: BLOCKED_EXIT_CODES["diff-unreadable"],
+      message:
+        "BLOCKED: rialto changeset check (diff unreadable)\n" +
+        "A diff base resolved but the diff against HEAD could not be read —\n" +
+        "usually missing objects in a partial or shallow clone. Fetch the\n" +
+        "history (`git fetch --unshallow --filter=blob:none origin main`) and re-run.\n" +
+        FAIL_CLOSED,
+    };
+  }
+  if (overrideSet) {
+    return {
+      kind: "override-unresolvable",
+      exitCode: 1,
+      message:
+        "FAIL: RIALTO_CHANGESET_BASE does not resolve to a commit in this checkout.\n" +
+        "Pass a ref or sha that exists locally, or unset it to use merge-base(HEAD, origin/main).\n" +
+        FAIL_CLOSED,
+    };
+  }
+  if (isShallow) {
+    return {
+      kind: "shallow",
+      exitCode: BLOCKED_EXIT_CODES.shallow,
+      message:
+        "BLOCKED: rialto changeset check (shallow clone)\n" +
+        "This checkout is a shallow clone, so merge-base(HEAD, origin/main)\n" +
+        "cannot resolve. This is the checkout, not your diff. In an ephemeral\n" +
+        "checkout (e.g. a cloud session) run:\n" +
+        "  git fetch --unshallow --filter=blob:none origin main\n" +
+        OVERRIDE_HINT +
+        "\nCI uses `fetch-depth: 0`, so this does not occur there.\n" +
+        FAIL_CLOSED,
+    };
+  }
+  if (!hasOriginMain) {
+    return {
+      kind: "origin-main-missing",
+      exitCode: BLOCKED_EXIT_CODES["origin-main-missing"],
+      message:
+        "BLOCKED: rialto changeset check (origin/main missing)\n" +
+        "origin/main is missing from this checkout, so there is no diff base.\n" +
+        "Run `git fetch origin main` (CI: `fetch-depth: 0`). " +
+        OVERRIDE_HINT +
+        "\n" +
+        FAIL_CLOSED,
+    };
+  }
+  return {
+    kind: "no-merge-base",
+    exitCode: 1,
+    message:
+      "FAIL: rialto changeset check could not resolve a diff base.\n" +
+      "origin/main exists and the clone has full history, but HEAD shares no\n" +
+      "merge base with it. Rebase onto origin/main. " +
+      OVERRIDE_HINT +
+      "\n" +
+      FAIL_CLOSED,
+  };
+}
+
 /* c8 ignore start -- thin CLI over the pure functions above; exercised via repo-audit */
 
 /**
@@ -131,7 +226,19 @@ export const FAIL_MESSAGE =
  * @returns {string}
  */
 function git(...args) {
-  return execFileSync("git", args, { encoding: "utf-8" }).trim();
+  return execFileSync("git", args, { encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+}
+
+/**
+ * @param {string[]} args
+ * @returns {string | null} trimmed stdout, or null when git exits non-zero
+ */
+function gitOutput(...args) {
+  try {
+    return git(...args);
+  } catch {
+    return null;
+  }
 }
 
 /** @returns {string} */
@@ -141,6 +248,23 @@ function resolveBase() {
   return git("merge-base", "HEAD", "origin/main");
 }
 
+/**
+ * Print the classified failure and exit non-zero. Never returns.
+ *
+ * @param {boolean} baseResolved
+ * @returns {never}
+ */
+function failClosed(baseResolved) {
+  const failure = classifyBaseFailure({
+    isShallow: gitOutput("rev-parse", "--is-shallow-repository") === "true",
+    hasOriginMain: gitOutput("rev-parse", "--verify", "origin/main^{commit}") !== null,
+    baseResolved,
+    overrideSet: Boolean(process.env.RIALTO_CHANGESET_BASE),
+  });
+  console.log(failure.message);
+  process.exit(failure.exitCode);
+}
+
 const isMain = process.argv[1] && process.argv[1].endsWith("check-rialto-changeset.mjs");
 
 if (isMain) {
@@ -148,34 +272,20 @@ if (isMain) {
   try {
     base = resolveBase();
   } catch {
-    process.exit(
-      runCheck({
-        name: "rialto changeset coverage",
-        findings: ["merge-base(HEAD, origin/main) did not resolve"],
-        formatFinding: (line) => line,
-        failMessage:
-          "FAIL: rialto changeset check could not resolve a diff base.\n" +
-          "It needs `origin/main` and enough history for a merge base — in CI\n" +
-          "that means `fetch-depth: 0` on the checkout; locally, `git fetch\n" +
-          "origin main`. Set RIALTO_CHANGESET_BASE=<ref> to override.\n" +
-          "Failing closed: a silently skipped gate reads exactly like a green one.",
-      })
-    );
+    failClosed(false);
   }
 
-  const changedFiles = git("diff", "--name-only", base, "HEAD").split("\n").filter(Boolean);
-  const changesets = git(
-    "diff",
-    "--name-only",
-    "--diff-filter=AM",
-    base,
-    "HEAD",
-    "--",
-    ".changeset"
-  )
-    .split("\n")
-    .filter((path) => path.endsWith(".md") && !path.endsWith("README.md"))
-    .map((path) => ({ path, content: readFileSync(path, "utf-8") }));
+  let changedFiles;
+  let changesets;
+  try {
+    changedFiles = git("diff", "--name-only", base, "HEAD").split("\n").filter(Boolean);
+    changesets = git("diff", "--name-only", "--diff-filter=AM", base, "HEAD", "--", ".changeset")
+      .split("\n")
+      .filter((path) => path.endsWith(".md") && !path.endsWith("README.md"))
+      .map((path) => ({ path, content: readFileSync(path, "utf-8") }));
+  } catch {
+    failClosed(true);
+  }
 
   const { findings } = evaluateRialtoChangesetGate({ changedFiles, changesets });
 

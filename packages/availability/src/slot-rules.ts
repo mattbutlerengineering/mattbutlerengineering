@@ -65,7 +65,9 @@ function passesThreshold(value: Date, threshold: DateThreshold): boolean {
 }
 
 export function estimateDuration(partySize: number, settings?: EngineSettings | null): number {
-  const rules = settings?.durationRules ?? DEFAULT_DURATION_RULES;
+  // An empty array is treated as unset: reduce() below needs at least one rule.
+  const configured = settings?.durationRules;
+  const rules = configured && configured.length > 0 ? configured : DEFAULT_DURATION_RULES;
   const rule = rules.find((r) => partySize >= r.minPartySize && partySize <= r.maxPartySize);
 
   if (rule) return rule.durationMinutes;

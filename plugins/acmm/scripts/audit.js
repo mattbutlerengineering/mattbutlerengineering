@@ -7,7 +7,7 @@
  *   web/src/lib/acmm/sources/{acmm,fullsend,agentic-engineering-framework,claude-reflect}.ts
  *
  * Usage:
- *   node scripts/acmm/audit.js                     # dry run — write state + report
+ *   node scripts/acmm/audit.js                     # dry run — report only, state untouched
  *   node scripts/acmm/audit.js --apply             # + create deduplicated GitHub issues for gaps
  *   node scripts/acmm/audit.js --badge             # + rewrite README badge
  *   node scripts/acmm/audit.js --apply --badge     # full run (what scheduled triggers call)
@@ -43,10 +43,14 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const STATE_HEARTBEAT_MAX_AGE_DAYS = 6;
 
 /**
- * Is `gh` usable right now — binary present AND authenticated? A single
- * upfront check drives the state-write policy (AC9): per-criterion
- * evaluation and the flake/PR-outcome readers already handle a `gh` failure
- * on their own call sites and are unaffected by this flag.
+ * Is `gh` usable right now? Probes the capability the flag gates — a REST
+ * call — not `gh auth status`, which exits 1 in Claude Code Remote ("token
+ * invalid") while `gh api` works (#9202; gotchas.md § Claude Code Remote).
+ * A missing binary or a 401/403 makes `gh api` exit non-zero → false. The
+ * timeout keeps a hung network from stalling the audit. A single upfront
+ * check drives the state-write policy (AC9): per-criterion evaluation and the
+ * flake/PR-outcome readers already handle a `gh` failure on their own call
+ * sites and are unaffected by this flag.
  *
  * @param {{ execFn?: typeof execFileSync, ghBin?: string }} [opts]
  * @returns {boolean}
@@ -55,13 +59,27 @@ export function checkGhAvailable(opts = {}) {
   const execFn = opts.execFn ?? execFileSync;
   const ghBin = opts.ghBin ?? "gh";
   try {
-    execFn(ghBin, ["auth", "status", "--hostname", "github.com"], {
+    execFn(ghBin, ["api", "rate_limit"], {
       stdio: ["ignore", "pipe", "pipe"],
+      timeout: 10_000,
     });
     return true;
   } catch {
     return false;
   }
+}
+
+/**
+ * May this run write `state.json` / the badge? Needs a usable `gh` AND
+ * explicit intent (`--apply` / `--badge`). A truthful probe makes `gh`
+ * available in ephemeral cloud checkouts; without the intent gate a bare
+ * run there would dirty `.claude/acmm/state.json` for nothing (#9202).
+ *
+ * @param {{ ghAvailable: boolean, apply: boolean, badge: boolean }} o
+ * @returns {boolean}
+ */
+export function mayWriteState({ ghAvailable, apply, badge }) {
+  return ghAvailable && (apply || badge);
 }
 
 /**
@@ -326,7 +344,7 @@ async function main() {
       const { evidence } = criterionVerdicts.get(c.id);
       unverifiableCriteria.push({
         id: c.id,
-        reason: evidence ?? "gh CLI unavailable or error",
+        reason: evidence ?? "unverifiable (no reason recorded)",
       });
     }
   }
@@ -509,7 +527,7 @@ async function main() {
 
   /* ── State write policy (#5852 AC9) ──────────────────────────
    * `gh` unavailable  → read-only: never write state, never touch the badge.
-   * `gh` available    → write only when something significant changed (or
+   * `gh` available    → needs --apply/--badge (#9202); then write only when something significant changed (or
    *                      the prior run is old enough to need a heartbeat);
    *                      otherwise leave state.json and the badge untouched.
    * report.md (above) is gitignored and always regenerated regardless — it
@@ -518,6 +536,8 @@ async function main() {
   let stateWriteOutcome;
   if (!ghAvailable) {
     stateWriteOutcome = "read-only: gh unavailable";
+  } else if (!mayWriteState({ ghAvailable, apply: APPLY, badge: BADGE })) {
+    stateWriteOutcome = "read-only: pass --apply or --badge to write state";
   } else if (shouldWriteState(prior, finalState)) {
     await saveState(cwd, finalState);
     if (BADGE) badgeOutcome = updateBadge(cwd, computation.level, finalState);

@@ -104,6 +104,37 @@ export function isAutomationPrApprovable(pr) {
   return { approvable: true, reason: "automation/* branch, auto-merge label, trusted author" };
 }
 
+/** The one branch `changesets/action` in release.yml opens its PR from. */
+export const VERSION_PACKAGES_BRANCH = "changeset-release/main";
+
+/**
+ * Pure gate for the changesets `Version Packages` PR. release.yml opens it
+ * with `GITHUB_TOKEN`, so its `pull_request` runs park at `action_required`
+ * like the automation/* PRs'. Deliberately narrower than a prefix match:
+ * exact head branch, the same trusted bot author, and same-repo only (a
+ * fork can name its branch anything).
+ *
+ * @param {{headRefName?:string, author?:{login?:string}, isCrossRepository?:boolean}} pr
+ * @returns {{ approvable: boolean, reason: string }}
+ */
+export function isVersionPackagesPrApprovable(pr) {
+  if (pr?.headRefName !== VERSION_PACKAGES_BRANCH) {
+    return { approvable: false, reason: `head branch is not exactly ${VERSION_PACKAGES_BRANCH}` };
+  }
+  // Fail closed: only an explicit `false` proves the head is in this repo.
+  if (pr?.isCrossRepository !== false) {
+    return { approvable: false, reason: "PR head is a fork or its origin is unknown" };
+  }
+  const authorLogin = pr?.author?.login;
+  if (!isTrustedAutomationAuthor(authorLogin)) {
+    return {
+      approvable: false,
+      reason: `author '${authorLogin ?? ""}' not in TRUSTED_AUTOMATION_AUTHORS`,
+    };
+  }
+  return { approvable: true, reason: "Version Packages PR, trusted author, same repo" };
+}
+
 /**
  * Pure: filters a `gh run list --json` result down to runs parked at
  * `action_required` — the state a run sits in while awaiting approval.
@@ -187,9 +218,10 @@ export async function approvePendingRuns({
     return [];
   }
 
-  const decision = isAutomationPrApprovable(pr);
+  const automation = isAutomationPrApprovable(pr);
+  const decision = automation.approvable ? automation : isVersionPackagesPrApprovable(pr);
   if (!decision.approvable) {
-    log(`skipping: ${decision.reason}`);
+    log(`skipping: ${automation.reason}`);
     return [];
   }
 
@@ -277,9 +309,13 @@ async function run() {
   const approved = await approvePendingRuns({
     getPr: async () =>
       JSON.parse(
-        execFileSync("gh", ["pr", "view", prNumber, "--json", "headRefName,labels,author"], {
-          encoding: "utf-8",
-        })
+        execFileSync(
+          "gh",
+          ["pr", "view", prNumber, "--json", "headRefName,labels,author,isCrossRepository"],
+          {
+            encoding: "utf-8",
+          }
+        )
       ),
     listRuns: async (headRefName) =>
       JSON.parse(

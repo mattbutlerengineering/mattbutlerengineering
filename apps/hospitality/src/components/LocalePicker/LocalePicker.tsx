@@ -61,7 +61,14 @@ export function LocalePicker({
         {variant === "settings" ? (
           <Select
             label={t("localePicker.label")}
-            options={SUPPORTED_LOCALES.map((l) => ({ value: l.tag, label: l.endonym }))}
+            options={SUPPORTED_LOCALES.map((l) => ({
+              value: l.tag,
+              // Plain span, not rialto Text: the label must inherit the Select's
+              // own typography exactly as the old string label did.
+              // eslint-disable-next-line mbe-local/prefer-rialto-components -- Text adds its own type-scale class; and without the disable, `eslint --fix` rewrites this span to Text
+              label: <span lang={l.tag}>{l.endonym}</span>,
+              textValue: l.endonym,
+            }))}
             value={current}
             onChange={(value) => void pick(value as LocaleTag)}
           />
@@ -93,11 +100,11 @@ export function LocalePicker({
               id: l.tag,
               label: (
                 <Text as="span" className={styles.itemLabel}>
-                  <Text as="span" className={styles.endonym}>
+                  <Text as="span" className={styles.endonym} lang={l.tag}>
                     {l.endonym}
                   </Text>
                   {MACHINE_TRANSLATION_TAGS[l.tag] && (
-                    <Text as="span" variant="caption" className={styles.mtTag}>
+                    <Text as="span" variant="caption" className={styles.mtTag} lang={l.tag}>
                       {MACHINE_TRANSLATION_TAGS[l.tag]}
                     </Text>
                   )}

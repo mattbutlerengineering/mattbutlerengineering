@@ -19,7 +19,7 @@
 
 import { execFileSync } from "node:child_process";
 import { existsSync, statSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 
 /**
  * Shared fallback for `maxAgeDays` when a criterion's `active` detection
@@ -60,13 +60,24 @@ export function isWorkflowActive(cwd, workflowFile, maxAgeDays, opts = {}) {
   // documented opt-out for a workflow with no push/schedule trigger (where
   // "the default branch" isn't a meaningful concept to filter on).
   const branchArgs = opts.anyBranch === true ? [] : [`--branch=${opts.branch ?? "main"}`];
+  // GitHub's Actions API resolves a workflow by its FILE NAME (or numeric id),
+  // never by a repo-relative path: every `active` criterion stores
+  // `.github/workflows/<file>.yml`, and passing that through verbatim
+  // percent-encodes the slashes, so the API answers, verbatim:
+  //   HTTP 404: workflow .github/workflows/nightly-compliance.yml not found on
+  //   the default branch (.../actions/workflows/.github%2Fworkflows%2F...)
+  // The catch-all below cannot tell that apart from a missing `gh`, so it
+  // reported "gh CLI unavailable or error" and 9 criteria read `unverifiable`
+  // — the audit printed L3 where the same repo scores L5. `basename` is a
+  // no-op on the bare file names this function is also called with.
+  const workflowName = basename(workflowFile);
   try {
     const result = fn(
       "gh",
       [
         "run",
         "list",
-        `--workflow=${workflowFile}`,
+        `--workflow=${workflowName}`,
         ...branchArgs,
         // Query successful runs directly. A high volume of `skipped`/`failure`
         // runs — e.g. auto-rollback.yml skips on every passing deploy — must not
@@ -102,9 +113,32 @@ export function isWorkflowActive(cwd, workflowFile, maxAgeDays, opts = {}) {
       };
     }
     return { active: true, conclusion: "success", reason: "recent successful run found" };
-  } catch {
-    return { active: null, degraded: true, reason: "gh CLI unavailable or error" };
+  } catch (err) {
+    return { active: null, degraded: true, reason: describeGhFailure(err, workflowFile) };
   }
+}
+
+/**
+ * Turn a failed `gh run list` into a truthful, distinct reason. Every case is
+ * `degraded` (excluded from level math, never filed as a confirmed gap): a 404
+ * means the workflow has no run on the default branch, which is not proof the
+ * file is broken (#9201).
+ *
+ * @param {any} err
+ * @param {string} workflowFile
+ * @returns {string}
+ */
+function describeGhFailure(err, workflowFile) {
+  if (err?.code === "ENOENT") return "gh CLI not installed (binary not found)";
+  if (err?.killed === true || err?.code === "ETIMEDOUT") {
+    return "gh run list timed out after 10s";
+  }
+  const stderr = String(err?.stderr ?? "").trim();
+  if (/HTTP 404/.test(stderr)) {
+    return `workflow ${workflowFile} not found on the default branch (HTTP 404)`;
+  }
+  const detail = stderr || String(err?.message ?? "unknown error");
+  return `gh run list failed: ${detail.slice(0, 300)}`;
 }
 
 /**

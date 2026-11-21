@@ -86,7 +86,7 @@ type PaymentsImpl<Op extends PaymentsOp> = (
 export interface InMemoryPayments extends PaymentsPort {
   /** Every call, in order, with its arguments (idempotency keys included). */
   readonly calls: { op: PaymentsOp; args: unknown[] }[];
-  /** Replace an op's default result (or make it throw) from now on. */
+  /** Script an op's result (required for `retrievePaymentIntent`/`findDepositRefund`) (or make it throw) from now on. */
   respond<Op extends PaymentsOp>(op: Op, impl: PaymentsImpl<Op>): void;
   /** The next call to `op` throws a `StripeOperationError` of `stripeType`, as `StripeService` would. */
   failNext(op: PaymentsOp, stripeType: string, code?: string): void;
@@ -94,13 +94,24 @@ export interface InMemoryPayments extends PaymentsPort {
 
 /**
  * Payments recorder. Ids are deterministic per kind (`cus_mem_1`, `pi_mem_1`,
- * `re_mem_1`, ...); defaults model the happy path of each Stripe call.
+ * `re_mem_1`, ...); defaults model the happy path of each Stripe call, except `retrievePaymentIntent` and
+ * `findDepositRefund`, which throw until scripted via `respond`.
  */
 export function createInMemoryPayments(): InMemoryPayments {
   const calls: { op: PaymentsOp; args: unknown[] }[] = [];
   const counters = { cus: 0, pi: 0, re: 0 };
   const nextId = (kind: keyof typeof counters) => `${kind}_mem_${++counters[kind]}`;
   const failures = new Map<PaymentsOp, { stripeType: string; code?: string }>();
+
+  // These two report Stripe-side state a test must choose; a made-up default
+  // would let a test pass against payment state nobody set.
+  const unscripted =
+    <Op extends PaymentsOp>(op: Op): PaymentsImpl<Op> =>
+    () => {
+      throw new Error(
+        `createInMemoryPayments: ${op} called with no response scripted; script it with payments.respond("${op}", ...)`
+      );
+    };
 
   const defaults: { [Op in PaymentsOp]: PaymentsImpl<Op> } = {
     createCustomer: (options) => ({
@@ -115,8 +126,8 @@ export function createInMemoryPayments(): InMemoryPayments {
     capturePaymentIntent: (id) => ({ id, status: "succeeded" }),
     cancelPaymentIntent: (id) => ({ id, status: "canceled" }),
     createPartialRefund: (_id, amount) => ({ id: nextId("re"), status: "succeeded", amount }),
-    retrievePaymentIntent: (id) => ({ id, status: "requires_capture" }),
-    findDepositRefund: () => null,
+    retrievePaymentIntent: unscripted("retrievePaymentIntent"),
+    findDepositRefund: unscripted("findDepositRefund"),
     // Nothing refunded; "captured" is unbounded so tests only set what they assert on.
     getChargeAmounts: () => ({ capturedCents: Number.MAX_SAFE_INTEGER, refundedCents: 0 }),
     countFailedDepositRefunds: () => 0,

@@ -93,7 +93,7 @@ You are implementing a specific GitHub issue in an isolated git worktree. Your j
    git status --short                          # surfaces any artifact the regen changed
    ```
 
-   If `check-adr`/`check-deps` fail, fix the violation. **`pnpm regen` is the authoritative drift fix — run it, do not hand-pick generators.** CI's Integrity job regenerates _from source_ and fails on any diff, so the only way to match it locally is to regenerate from source too. `pnpm regen` covers every family in `scripts/regen-manifest.mjs`.
+   If `check-adr`/`check-deps` fail, fix the violation. **`pnpm regen` is the authoritative drift fix — run it, do not hand-pick generators.** CI's `Build` job ("Verify generated artifacts are in sync" step) regenerates _from source_ and fails on any diff, so the only way to match it locally is to regenerate from source too. `pnpm regen` covers every family in `scripts/regen-manifest.mjs`.
 
    If `pnpm regen` changed any artifact (`docs/architecture/dependency-graph.md`, `registry.json`, `generated-schemas.ts`), stage **those specific files** alongside your change (never `git add -A`). Re-run `git status --short` and confirm it is clean of generated files before committing — do not push until it is.
 

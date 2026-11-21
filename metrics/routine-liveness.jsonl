@@ -33,3 +33,14 @@
 {"detected_at":"2026-11-19T17:19:52.036Z","routine":"mbe-monthly-meta-audit","status":"alive","artifact_age_hours":435}
 {"detected_at":"2026-11-19T17:19:52.036Z","routine":"mbe-ui-quality","status":"alive","artifact_age_hours":8.7}
 {"detected_at":"2026-11-19T17:19:52.036Z","routine":"mbe-feature-drain","status":"alive","artifact_age_hours":5.4}
+{"detected_at":"2026-11-20T16:55:40.221Z","routine":"mbe-evening","status":"alive","artifact_age_hours":15.5}
+{"detected_at":"2026-11-20T16:55:40.221Z","routine":"mbe-auditor","status":"alive","artifact_age_hours":6.2}
+{"detected_at":"2026-11-20T16:55:40.221Z","routine":"mbe-daily-issue","status":"alive","artifact_age_hours":1.6}
+{"detected_at":"2026-11-20T16:55:40.221Z","routine":"mbe-morning","status":"alive","artifact_age_hours":23.8}
+{"detected_at":"2026-11-20T16:55:40.221Z","routine":"mbe-learning-loop","status":"alive","artifact_age_hours":21.7}
+{"detected_at":"2026-11-20T16:55:40.221Z","routine":"mbe-weekly-improve","status":"alive","artifact_age_hours":1.5}
+{"detected_at":"2026-11-20T16:55:40.221Z","routine":"mbe-doc-rot","status":"alive","artifact_age_hours":0.7}
+{"detected_at":"2026-11-20T16:55:40.221Z","routine":"mbe-weekly-retro","status":"alive","artifact_age_hours":112.5}
+{"detected_at":"2026-11-20T16:55:40.221Z","routine":"mbe-monthly-meta-audit","status":"alive","artifact_age_hours":458.6}
+{"detected_at":"2026-11-20T16:55:40.221Z","routine":"mbe-ui-quality","status":"alive","artifact_age_hours":8.3}
+{"detected_at":"2026-11-20T16:55:40.221Z","routine":"mbe-feature-drain","status":"alive","artifact_age_hours":0.3}

@@ -600,10 +600,11 @@ export function TemplateGallery({ open, onClose, onSelect }: TemplateGalleryProp
                     className={`${styles.card} ${styles.cardEnter}`}
                     style={{ animationDelay: `${index * 50}ms` }}
                     onClick={() => handleCardClick(template.prompt)}
-                    aria-label={`Use ${template.title} template`}
                   >
-                    <h3 className={styles.cardTitle}>{template.title}</h3>
-                    <p className={styles.cardDescription}>{template.description}</p>
+                    {/* No aria-label: the name is the visible content (WCAG 2.5.3). The literal
+                        spaces keep title, description and category from gluing. */}
+                    <h3 className={styles.cardTitle}>{template.title} </h3>
+                    <p className={styles.cardDescription}>{template.description} </p>
                     <div className={styles.cardFooter}>
                       <Badge variant={CATEGORY_VARIANT[template.category]} size="sm">
                         {template.category}

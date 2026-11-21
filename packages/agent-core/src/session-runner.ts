@@ -11,7 +11,7 @@ import { startActiveObservation, propagateAttributes } from "@langfuse/tracing";
 import { recordSpend } from "./spend-recorder.js";
 import { buildSessionResultSummary } from "./cost-tracker.js";
 import type { StuckPattern } from "./stuck-detector.js";
-import type { PhaseDeps, PhaseExecution } from "./phases/index.js";
+import type { PhaseDeps, PhaseExecution, QueryPhaseOutput } from "./phases/index.js";
 import {
   createDefaultPhaseDeps,
   WorktreePhase,
@@ -21,7 +21,7 @@ import {
   FeedbackPhase,
 } from "./phases/index.js";
 import type { PipelineOutcome } from "./result-builder.js";
-import { buildFinalResult, buildRootSpanAttributes } from "./result-builder.js";
+import { buildFailureSpend, buildFinalResult, buildRootSpanAttributes } from "./result-builder.js";
 
 const tracer = trace.getTracer("@mbe/agent-core");
 
@@ -49,6 +49,8 @@ type PipelineRun =
       readonly error: unknown;
       readonly worktree?: WorktreeInfo;
       readonly stuckReason?: StuckPattern;
+      /** Query-phase output known at throw time, so spend is not recorded as zero. */
+      readonly query?: Pick<QueryPhaseOutput, "resultMessage" | "turnMetrics">;
     };
 
 function pipelineWorktree(run: PipelineRun | undefined): WorktreeInfo | undefined {
@@ -115,15 +117,15 @@ export async function runSession(
 
             rootSpan.setAttribute("session.status", "failed");
             const keptWorktree = pipelineWorktree(run);
+            const spend = buildFailureSpend(
+              run && !run.ok ? run.query?.resultMessage : undefined,
+              run && !run.ok ? run.query?.turnMetrics : undefined
+            );
             pendingResult = {
-              sessionId: "",
+              ...spend,
               status: "failed",
               branchName: pipelineWorktree(run)?.branchName ?? "",
               prUrl,
-              costUsd: 0,
-              tokenUsage: { inputTokens: 0, outputTokens: 0 },
-              durationMs: 0,
-              numTurns: 0,
               resultText: "",
               errors: [errorMessage],
               stuckPattern: pipelineStuckReason(run)?.type,
@@ -240,6 +242,7 @@ async function runPipeline(
   // threaded as consts below.
   let recoveryWorktree: WorktreeInfo | undefined;
   let recoveryStuckReason: StuckPattern | undefined;
+  let recoveryQuery: Pick<QueryPhaseOutput, "resultMessage" | "turnMetrics"> | undefined;
 
   try {
     // WorktreePhase
@@ -269,6 +272,7 @@ async function runPipeline(
     // QueryPhase
     const queryExec = await queryPhase.run({ config, onEvent, worktree, systemPrompt }, deps);
     recoveryStuckReason = queryExec.output?.stuckReason;
+    recoveryQuery = queryExec.output ?? undefined;
     const queryAbort = await abortOnFailure(
       queryExec.result,
       config,
@@ -435,7 +439,13 @@ async function runPipeline(
       },
     };
   } catch (error) {
-    return { ok: false, error, worktree: recoveryWorktree, stuckReason: recoveryStuckReason };
+    return {
+      ok: false,
+      error,
+      worktree: recoveryWorktree,
+      stuckReason: recoveryStuckReason,
+      query: recoveryQuery,
+    };
   }
 }
 

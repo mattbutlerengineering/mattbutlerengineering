@@ -171,6 +171,57 @@ describe("checkWorkflow", () => {
   });
 });
 
+describe("curl piped into jq inside a command substitution (#9223)", () => {
+  const unguarded = [
+    "      - name: Cleanup",
+    "        run: |",
+    "          CUTOFF=today",
+    "          KEYS=$(curl -sf \\",
+    '            "https://api.example.com/keys" \\',
+    "            -H \"Authorization: Bearer $TOKEN\" | jq -r '.result[].name')",
+    "",
+  ].join("\n");
+
+  it("flags a multi-line curl | jq in $(...) without pipefail", () => {
+    const { errors } = checkWorkflow("a.yml", unguarded);
+
+    expect(errors).toHaveLength(1);
+    expect(errors[0].line).toBe(2);
+    expect(errors[0].message).toContain("jq");
+  });
+
+  it("flags a single-line curl | jq in $(...)", () => {
+    const single = [
+      "      - name: Check",
+      "        run: |",
+      '          HEALTH=$(curl -s "https://x" | jq -r .status)',
+      "",
+    ].join("\n");
+
+    expect(checkWorkflow("a.yml", single).errors).toHaveLength(1);
+  });
+
+  it("accepts the same step once pipefail is set above it", () => {
+    const guarded = unguarded.replace(
+      "          CUTOFF=today",
+      "          set -euo pipefail\n          CUTOFF=today"
+    );
+
+    expect(checkWorkflow("a.yml", guarded).errors).toEqual([]);
+  });
+
+  it("ignores curl | jq outside a command substitution", () => {
+    const bare = [
+      "      - name: Show",
+      "        run: |",
+      "          curl -fsSL https://x | jq .",
+      "",
+    ].join("\n");
+
+    expect(checkWorkflow("a.yml", bare).errors).toEqual([]);
+  });
+});
+
 describe("the real .github/workflows tree", () => {
   it("has no pipe-to-shell installer running without pipefail", () => {
     const { findings } = findPipeToShellFindings();

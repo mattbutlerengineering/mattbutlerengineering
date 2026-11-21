@@ -35,11 +35,18 @@
  *    ends its body, and SseClient reconnects about once a second, flipping the
  *    live indicator between frames.
  *
+ * The web fonts (index.html loads DM Sans, DM Mono and Bricolage Grotesque from
+ * Google Fonts) are answered from frozen copies in `e2e/fixtures/visual/fonts/`.
+ * Fetched live, marketing's pages rendered with fractionally different text
+ * advances from one Linux runner to the next (apps/marketing/e2e/visual.spec.ts),
+ * which no pixel budget absorbs. A font file with no frozen copy fails the row
+ * like an unmocked API call.
+ *
  * Baselines live in e2e/screenshots/ and are Linux-only: committed from the
  * noise-floor workflow's `visual-actuals-replica-a` artifact, never from macOS.
  * Run only through playwright.visual.config.ts.
  */
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { buildDepositsFixture, buildSlotsBody } from "./api-mocks.js";
 import { test as base, expect } from "./fixtures.js";
 
@@ -64,6 +71,22 @@ const FIXED_NOW = new Date("2026-06-15T17:30:00Z");
 /** Same-origin API traffic: what the preview server would otherwise 404/502. */
 const isAppApi = (url: URL) =>
   url.hostname === "localhost" && /^\/(api|public)\//.test(url.pathname);
+
+/**
+ * Frozen copy of the Google Fonts stylesheet and of the latin font files the
+ * app's routes request from it. Refresh them with the baselines, and only then.
+ */
+const FONT_DIR = new URL("fixtures/visual/fonts/", import.meta.url);
+const FONT_CSS = readFileSync(new URL("fonts.css", FONT_DIR), "utf8");
+const FONT_FILES: Record<string, Buffer> = Object.fromEntries(
+  readdirSync(FONT_DIR)
+    .filter((name) => name.endsWith(".woff2"))
+    .map((name) => [name, readFileSync(new URL(name, FONT_DIR))])
+);
+
+/** Google Fonts' stylesheet host and font-file host. */
+const isFontRequest = (url: URL) =>
+  url.hostname === "fonts.googleapis.com" || url.hostname === "fonts.gstatic.com";
 
 /** FIXED_NOW's calendar day, in the pinned UTC zone. */
 const DAY = FIXED_NOW.toISOString().slice(0, 10);
@@ -251,6 +274,18 @@ const test = base.extend<{ unmockedApi: string[] }>({
       unmockedApi.push(`${route.request().method()} ${url.pathname}${url.search}`);
       return route.fulfill({ status: 599, contentType: "text/plain", body: "unmocked" });
     });
+    await page.route(isFontRequest, (route) => {
+      const url = new URL(route.request().url());
+      if (url.hostname === "fonts.googleapis.com") {
+        return route.fulfill({ status: 200, contentType: "text/css", body: FONT_CSS });
+      }
+      const font = FONT_FILES[url.pathname.split("/").pop() ?? ""];
+      if (font !== undefined) {
+        return route.fulfill({ status: 200, contentType: "font/woff2", body: font });
+      }
+      unmockedApi.push(`${route.request().method()} ${url.host}${url.pathname}`);
+      return route.fulfill({ status: 599, contentType: "text/plain", body: "unmocked" });
+    });
     // The claims too: ProfilePage counts the session down from `profile.exp`.
     await page.addInitScript(
       (iat) => {
@@ -354,6 +389,8 @@ for (const { route } of pages) {
       );
       await page.goto(`${path ?? ""}${QUERY[route] ?? ""}`);
       await page.waitForLoadState("networkidle");
+      // Before the unmocked check: a font file with no frozen copy must be on the list by then.
+      await page.evaluate(() => document.fonts.ready);
       const landing = LANDS_ON[route] ?? path ?? "";
       const requested = new URL(landing, test.info().project.use.baseURL).pathname;
       const trim = (p: string) => p.replace(/\/$/, "");

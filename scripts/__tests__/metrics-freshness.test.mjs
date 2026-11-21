@@ -24,6 +24,8 @@ import {
   assessFreshness,
   readWatched,
   assessQueueTelemetryCompleteness,
+  assessQueueTelemetryCostCoverage,
+  COST_COVERAGE_MIN_KNOWN_ROWS,
   freshnessFindings,
   freshnessRegressions,
   freshnessExitCode,
@@ -600,6 +602,60 @@ describe("assessQueueTelemetryCompleteness", () => {
 
   it("reports an unreadable sink as a finding", () => {
     const results = assessQueueTelemetryCompleteness({
+      readMetric: () => {
+        throw new Error("corrupt");
+      },
+      now: NOW,
+    });
+    expect(results[0].state).toBe("unreadable");
+  });
+});
+
+/* ── #9098: cost coverage floor ──────────────────────────────────────────── */
+
+describe("assessQueueTelemetryCostCoverage", () => {
+  const hoursAgo = (h) => new Date(NOW.getTime() - h * 3600 * 1000).toISOString();
+  const known = (h) => ({ claimed_at: hoursAgo(h), cost_usd: 1.5 });
+  const unknown = (h) => ({ claimed_at: hoursAgo(h), cost_usd: null });
+  const assess = (rows) => assessQueueTelemetryCostCoverage({ readMetric: () => rows, now: NOW });
+  const knownRows = (n) => Array.from({ length: n }, () => known(48));
+
+  it("is unmeasured below the floor and shows the count", () => {
+    const results = assess([...knownRows(COST_COVERAGE_MIN_KNOWN_ROWS - 1), unknown(10)]);
+    expect(results[0].state).toBe("unmeasured");
+    expect(results[0].knownRows).toBe(COST_COVERAGE_MIN_KNOWN_ROWS - 1);
+    expect(results[0].rowsN).toBe(COST_COVERAGE_MIN_KNOWN_ROWS);
+    expect(freshnessExitCode(results)).toBe(1);
+    expect(formatFinding(results[0])).toMatch(
+      new RegExp(
+        `unmeasured — ${COST_COVERAGE_MIN_KNOWN_ROWS - 1}/${COST_COVERAGE_MIN_KNOWN_ROWS} `
+      )
+    );
+  });
+
+  it("is fresh at the floor", () => {
+    const results = assess(knownRows(COST_COVERAGE_MIN_KNOWN_ROWS));
+    expect(results[0].state).toBe("fresh");
+    expect(freshnessExitCode(results)).toBe(0);
+  });
+
+  it("ignores known rows older than 7 days", () => {
+    const rows = [...knownRows(COST_COVERAGE_MIN_KNOWN_ROWS - 1), known(24 * 10)];
+    expect(assess(rows)[0].state).toBe("unmeasured");
+  });
+
+  it("does not count non-numeric cost_usd as known", () => {
+    const rows = Array.from({ length: 5 }, () => ({ claimed_at: hoursAgo(5), cost_usd: "1.2" }));
+    expect(assess(rows)[0]).toMatchObject({ state: "unmeasured", knownRows: 0 });
+  });
+
+  it("is unmeasured with zero known rows for missing or empty data", () => {
+    expect(assess([])[0]).toMatchObject({ state: "unmeasured", knownRows: 0 });
+    expect(assess(null)[0]).toMatchObject({ state: "unmeasured", knownRows: 0 });
+  });
+
+  it("reports an unreadable sink as a finding", () => {
+    const results = assessQueueTelemetryCostCoverage({
       readMetric: () => {
         throw new Error("corrupt");
       },

@@ -57,6 +57,7 @@ const idle: UseGuestLookupResult = {
   isLoading: false,
   failed: false,
   query: "",
+  stale: false,
 };
 
 const LOADING = "Looking up guests…";
@@ -258,6 +259,29 @@ describe("GuestLookup", () => {
     expect(combobox()).toHaveAttribute("aria-expanded", "false");
   });
 
+  it("keeps the previous rows listed while the Host types on, and Escape there closes only the list", () => {
+    mockUseGuestLookup.mockReturnValue({ ...idle, rows: [priya], query: "pri", stale: true });
+    render(<Harness />);
+    type("prir");
+    expect(screen.getByRole("listbox")).toBeInTheDocument();
+    expect(screen.getByText("Priya Shah")).toBeInTheDocument();
+    const escape = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+    fireEvent(combobox(), escape);
+    expect(escape.defaultPrevented).toBe(true);
+    expect(screen.queryByRole("listbox")).toBeNull();
+  });
+
+  it("announces loading, not a count or no-match, while the rows are stale", () => {
+    mockUseGuestLookup.mockReturnValue({ ...idle, rows: [priya], query: "pri", stale: true });
+    const { rerender } = render(<Harness />);
+    type("prir");
+    expect(screen.getByRole("status")).toHaveTextContent(LOADING);
+    expect(screen.queryByText(NO_MATCH)).toBeNull();
+    mockUseGuestLookup.mockReturnValue({ ...idle, rows: [], query: "pri", stale: true });
+    rerender(<Harness />);
+    expect(screen.queryByText(NO_MATCH)).toBeNull();
+  });
+
   it("lets an Escape through untouched when no listbox is showing", () => {
     render(<Harness />);
     const escape = new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
@@ -328,7 +352,12 @@ describe("GuestLookup", () => {
     expect(screen.getByText(FAILURE)).toBeInTheDocument();
     expect(screen.queryByRole("listbox")).toBeNull();
     expect(combobox()).not.toBeDisabled();
-    expect(combobox().getAttribute("aria-describedby")).toContain(screen.getByText(FAILURE).id);
+    const describedBy = (combobox().getAttribute("aria-describedby") ?? "").split(" ");
+    expect(describedBy).toContain(screen.getByText(FAILURE).id);
+    // rialto's useField derives the hint id; pin that the field still points at the real hint element.
+    const hintId = screen.getByText(HINT).id;
+    expect(hintId).not.toBe("");
+    expect(describedBy).toContain(hintId);
     expect(announce).toHaveBeenCalledTimes(1);
     expect(announce).toHaveBeenCalledWith(FAILURE);
 

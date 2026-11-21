@@ -15,6 +15,7 @@ import {
 import { initSentry, handleErrorBoundary } from "@mbe/sentry/react";
 import { QueryProvider } from "./providers/QueryProvider.js";
 import { App } from "./App";
+import { installPreloadErrorReload } from "./utils/preload-reload";
 
 initSentry({
   appName: "marketing",
@@ -24,6 +25,7 @@ initSentry({
 
 // Unregister stale service workers (e.g. from previous misconfigured builds)
 unregisterStaleServiceWorkers();
+installPreloadErrorReload();
 
 /* ── Root component ───────────────────────────── */
 function ThemedApp() {

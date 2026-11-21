@@ -924,7 +924,9 @@ describe("SpecialDatesTab", () => {
         const shortenAndSave = () => {
           fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
           fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
-          fireEvent.click(screen.getByRole("button", { name: /^Save \d+ dates?$/ }));
+          fireEvent.click(
+            screen.getByRole("button", { name: /^Save (\d+ dates?|for this date)$/ })
+          );
         };
         const sent = () => saveConfig.mock.calls.at(-1)![0].body;
 
@@ -1031,7 +1033,7 @@ describe("SpecialDatesTab", () => {
               screen.getByText("1 date in this scope already has its own changes")
             ).toBeTruthy();
             fireEvent.click(
-              screen.getByRole("button", { name: "Save 13 dates, own hours kept on 1" })
+              screen.getByRole("button", { name: "Save 13 dates, 1 keeps its own hours" })
             );
 
             await waitFor(() => expect(saveConfig).toHaveBeenCalledTimes(1));

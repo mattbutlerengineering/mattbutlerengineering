@@ -255,7 +255,13 @@
       "statusRetrying": "Starting a fresh sign-in",
       "statusFailed": "The exchange didn't go through",
       "retry": "Try again",
-      "technicalDetails": "Technical details"
+      "technicalDetails": "Technical details",
+      "signOut": {
+        "failedLabel": "Your sign-out could not be completed",
+        "title": "Sign-out hit a snag",
+        "body": "We couldn't reach Identity to finish signing you out. Try again to complete it.",
+        "retry": "Try signing out again"
+      }
     },
     "error": {
       "accessDenied": {
@@ -338,7 +344,6 @@
     "searchPlaceholder": "Search pages and actions...",
     "openSidebar": "Open sidebar",
     "closeSidebar": "Close sidebar",
-    "openPalette": "Open command palette",
     "search": "Search",
     "ctrlKey": "Ctrl",
     "errorHeading": "Something went wrong",
@@ -361,7 +366,6 @@
       "tableCount_other": "{{count}} tables",
       "updated": "Updated {{date}}",
       "clone": "Clone",
-      "openAria": "Open floor plan: {{name}}",
       "cloneAria": "Clone floor plan: {{name}}",
       "delete": "Delete",
       "deleteAria": "Delete floor plan: {{name}}",
@@ -759,7 +763,8 @@
       "upcoming": "Upcoming",
       "empty": "No reservations",
       "unassigned": "Unassigned",
-      "cardLabel": "{{guest}}, party of {{size}}, {{time}}, table {{table}}",
+      "cardLabel": "{{guest}} {{time}} · {{guests}} · {{table}} {{status}}",
+      "tableContext": "table {{table}}",
       "seated": "Seated"
     },
     "emptyNight": {
@@ -818,7 +823,7 @@
     },
     "cancel": {
       "title": "Cancel Reservation",
-      "intro": "Cancelling reservation for <strong>{{name}}</strong>",
+      "intro": "Cancelling reservation for <guest/>",
       "reasonLabel": "Reason",
       "reasons": {
         "guestCancelled": "Guest Cancelled",
@@ -840,7 +845,7 @@
     },
     "noShowDialog": {
       "title": "Mark No-Show",
-      "body": "Marking <strong>{{name}}</strong> as a no-show cannot be undone. If a deposit is on file, the venue's no-show fee policy applies — this may capture some or all of it, or refund it if no fee applies.",
+      "body": "Marking <guest/> as a no-show cannot be undone. If a deposit is on file, the venue's no-show fee policy applies — this may capture some or all of it, or refund it if no fee applies.",
       "failed": "Reservation not marked as no-show.",
       "keep": "Keep Reservation",
       "confirm": "Mark No-Show",
@@ -2277,7 +2282,7 @@
         "subjectDated": "{{name}} ({{span}})",
         "subjectRule": "“{{label}}” on {{date}}",
         "editNamed": "Edit {{name}}",
-        "changeFor": "Change the schedule for {{date}}",
+        "changeFor": "Edit the schedule for {{date}}",
         "removeFor": "Remove {{subject}}",
         "removeTitle": "Remove {{subject}}?",
         "removeDescriptionDated": "{{name}} stops applying on every date of this period, not just this one. Those dates go back to your regular week, or to another schedule that covers them. The schedule stays on the Schedules tab. Bookings are never cancelled by this.",
@@ -2582,8 +2587,6 @@
       "save_one": "Save {{count}} date",
       "save_other": "Save {{count}} dates",
       "cancel": "Cancel",
-      "saveKeeping_one": "Save {{count}} date, own hours kept on {{kept}}",
-      "saveKeeping_other": "Save {{count}} dates, own hours kept on {{kept}}",
       "savedOne": "{{date}} updated",
       "savedMany_one": "{{count}} date updated",
       "savedMany_other": "{{count}} dates updated",
@@ -2615,6 +2618,21 @@
         "noChange": "Change the hours to save.",
         "noDates": "What you’re changing reaches no dates, so there is nothing to save.",
         "keptOwn": "Every date keeps its own changes. Choose Replace them to save."
+      },
+      "saveThisDate": "Save for this date",
+      "review_one": "Review {{count}} date…",
+      "review_other": "Review {{count}} dates…",
+      "keepsOwn_one": "{{count}} keeps its own hours",
+      "keepsOwn_other": "{{count}} keep their own hours",
+      "confirm": {
+        "title": "Confirm change to several dates",
+        "back": "Back",
+        "summary_one": "This changes {{count}} date, through {{end}}.",
+        "summary_other": "This changes {{count}} dates, through {{end}}.",
+        "kept_one": "{{count}} date in this scope keeps its own hours, so {{saved}} of {{total}} are saved.",
+        "kept_other": "{{count}} dates in this scope keep their own hours, so {{saved}} of {{total}} are saved.",
+        "replaced_one": "{{count}} date with its own changes will be replaced.",
+        "replaced_other": "{{count}} dates with their own changes will be replaced."
       }
     },
     "preview": {
@@ -3963,6 +3981,213 @@
       "minutes": "{{minutes}} min",
       "runAgain": "Run it again",
       "weeknight": "Try a weeknight"
+    }
+  },
+  "showcase": {
+    "status": {
+      "shipped": "Live today",
+      "concept": "Concept"
+    },
+    "hero": {
+      "eyebrow": "For venues and restaurants",
+      "start": "Start the night"
+    },
+    "scenes": {
+      "hero": {
+        "name": "Before service",
+        "heading": "Tonight, handled.",
+        "body": "Follow one night of service, from the afternoon briefing to the last table. Each scene is something we have built for venues, or are ready to build for yours."
+      },
+      "prep": {
+        "name": "Prep",
+        "heading": "Walk in already knowing the room.",
+        "body": "The briefing is waiting before the first cover arrives. Who is coming, how often they have been, where they like to sit and what they cannot eat."
+      },
+      "doors": {
+        "name": "Doors",
+        "heading": "The sign comes on. The book is already filling.",
+        "body": "Guests reserve from your own booking page while you set the room. When the night gets away from you, one tap stops new bookings coming in."
+      },
+      "rush": {
+        "name": "The rush",
+        "heading": "See the whole room on one screen.",
+        "body": "Every table against the clock. Seat a walk-in, turn a table or spot the party running late, and every host screen updates as it happens."
+      },
+      "assistant": {
+        "name": "The assistant",
+        "heading": "Say what you need. It does the rest.",
+        "body": "The rain starts and the terrace has to close. Tell the assistant in your own words. It shows you what will change, waits for your yes, and you can undo it."
+      },
+      "guest": {
+        "name": "The guest",
+        "heading": "Guests keep you posted without a phone call.",
+        "body": "One link in the confirmation lets a guest change the booking, bring their party in, or tell you they are running late. When they arrive, the host stand hears a chime."
+      },
+      "close": {
+        "name": "Close",
+        "heading": "The last table leaves. The night adds up.",
+        "body": "Covers, table turns and no-shows, counted the moment service ends, with the bookings you had to turn away counted beside them."
+      },
+      "roadmap": {
+        "name": "After hours",
+        "heading": "What we would build next.",
+        "body": "These are ideas, not features. Each one is designed and waiting for the venue that wants it first."
+      },
+      "morning": {
+        "name": "Morning",
+        "heading": "Tomorrow is already set.",
+        "body": "Tell Matt how your venue runs. He will show you what a night like this looks like with your tables, your hours and your guests."
+      }
+    },
+    "claims": {
+      "briefing": {
+        "label": "Pre-shift briefing",
+        "detail": "Tonight's guests by seating, with visit counts, seating preferences and allergies."
+      },
+      "dressRehearsal": {
+        "label": "Dress rehearsal",
+        "detail": "Play tonight's service on your real floor plan before the doors open. Nothing is saved."
+      },
+      "publicBooking": {
+        "label": "Your own booking page",
+        "detail": "Guests pick a time, book, add it to their calendar and invite their party."
+      },
+      "pauseBooking": {
+        "label": "Pause online booking",
+        "detail": "Stop new reservations for tonight, close early or block tables. Each one can be undone."
+      },
+      "openSign": {
+        "label": "A sign that tells the truth",
+        "detail": "The neon sign on your dashboard follows your real hours, so the team sees if you are trading."
+      },
+      "liveTimeline": {
+        "label": "Live table timeline",
+        "detail": "Tables by time, updated on every screen the moment anything changes."
+      },
+      "lateBadge": {
+        "label": "Late parties flagged",
+        "detail": "When a guest says they are running late, the booking is marked before anyone has to ask."
+      },
+      "waitlist": {
+        "label": "Waitlist that remembers",
+        "detail": "Add a party, text them when the table is ready, and returning guests are recognised."
+      },
+      "assistantActions": {
+        "label": "Around 40 actions in plain language",
+        "detail": "Seat walk-ins, block tables, mark a dish sold out, change hours, run the waitlist."
+      },
+      "confirmUndo": {
+        "label": "You stay in charge",
+        "detail": "Anything that changes the book asks you first, and tonight's changes can be undone."
+      },
+      "tonightAutopilot": {
+        "label": "Tonight Autopilot",
+        "detail": "An assistant that watches the room and proposes the reseats and guest messages itself."
+      },
+      "guestSignals": {
+        "label": "Running late, or here",
+        "detail": "On the night, guests tap to say they are running late or have arrived. An arrival chimes at the host stand."
+      },
+      "invitation": {
+        "label": "The invitation",
+        "detail": "The booker shares a link and the rest of the party replies with a first name."
+      },
+      "manageLink": {
+        "label": "Change or cancel",
+        "detail": "Guests manage their own reservation from the link, with no account to create."
+      },
+      "nightInNumbers": {
+        "label": "The night in numbers",
+        "detail": "A closing summary on one screen, ready before the chairs go up."
+      },
+      "lostDemandLedger": {
+        "label": "Lost Demand Ledger",
+        "detail": "Every booking you could not take, so you can see what a full night cost you."
+      },
+      "guestPassport": {
+        "label": "Guest Passport",
+        "detail": "Your best guests carry their good record to every independent venue they visit."
+      },
+      "kitchenAwareBooking": {
+        "label": "Kitchen-Aware Booking",
+        "detail": "Take the bookings the kitchen can cook, and know tomorrow's prep before the doors open."
+      },
+      "headlessVenue": {
+        "label": "Headless Venue",
+        "detail": "Run the restaurant from the AI assistant you already use, straight from your live book."
+      },
+      "regularsClub": {
+        "label": "Regulars Club",
+        "detail": "Sell your own priority access for Friday night instead of renting your regulars out."
+      }
+    },
+    "prep": {
+      "boardLabel": "Tonight's briefing: 84 covers booked, a nut allergy at table 12, the Okafor party's ninth visit, rain likely at 8 PM",
+      "board": {
+        "covers": "84 COVERS BOOKED",
+        "allergy": "T12 NUT ALLERGY",
+        "regular": "OKAFOR 9TH VISIT",
+        "rain": "RAIN LIKELY 8PM"
+      }
+    },
+    "doors": {
+      "open": "Open until 11:00 PM",
+      "closed": "Closed. Doors at 5:00 PM"
+    },
+    "rush": {
+      "chartLabel": "Tables from 18:00 to 22:00",
+      "trackLabel": "{{table}} bookings",
+      "legendLabel": "Booking states",
+      "table": "Table {{number}}",
+      "terrace": "Terrace {{number}}",
+      "walkIn": "Walk-in",
+      "lateBadge": "+15 min",
+      "bar": "{{party}} · {{covers}}",
+      "booking": "{{party}}, party of {{covers}}, {{time}}, {{state}}",
+      "states": {
+        "seated": "seated",
+        "confirmed": "confirmed",
+        "late": "running late",
+        "finished": "finished"
+      }
+    },
+    "assistant": {
+      "label": "Assistant conversation",
+      "operator": "Rain is coming. Block the terrace for tonight.",
+      "proposal": "I will block Terrace 1 to 4 from 20:15 until close. No bookings are affected. Go ahead?",
+      "confirm": "Confirm",
+      "done": "Done. The terrace is blocked until close, and new bookings go indoors.",
+      "undo": "Undo",
+      "concept": "Rain is forecast tomorrow too. Shall I move tomorrow's terrace bookings indoors and text those guests?",
+      "disclaimer": "This is a demo. Nothing here changes a real venue."
+    },
+    "guest": {
+      "reservationLabel": "Your reservation",
+      "reservation": "Table for 4 tonight at 8:45 PM",
+      "late": "Running 15 min late",
+      "here": "We're here",
+      "hostStand": "Host stand",
+      "waiting": "Waiting for the Ito party",
+      "runningLate": "The Ito party is running 15 minutes late",
+      "arrived": "The Ito party is here"
+    },
+    "close": {
+      "covers": "Covers served",
+      "turns": "Table turns",
+      "noShows": "No-shows"
+    },
+    "roadmap": {
+      "boardHeading": "Coming next",
+      "board": {
+        "guestPassport": "Guest Passport",
+        "kitchenAwareBooking": "Kitchen Aware",
+        "headlessVenue": "Headless Venue",
+        "regularsClub": "Regulars Club"
+      }
+    },
+    "morning": {
+      "email": "Tell Matt about your venue",
+      "open": "Open your venue"
     }
   }
 }

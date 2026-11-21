@@ -121,6 +121,7 @@ vi.mock("jose", () => ({
 import { jwtVerify } from "jose";
 import type { VenueMembershipLookup } from "@mbe/auth/fastify";
 import { confirmHold } from "../services/confirm-hold.js";
+import { guestService } from "../services/guest.js";
 import { getCurrentVenueId } from "../services/venue-context-store.js";
 import { resetRateLimitState } from "../middleware/public-rate-limit.js";
 
@@ -676,6 +677,68 @@ describe("Hold Routes", () => {
         code: "soft-limit",
         limits: ["after_last_seating"],
       });
+    });
+
+    // A supplied guestId must belong to the hold's venue, or staff of venue A
+    // could link a booking to venue B's guest and read it back in the 201.
+    it("returns 400 and confirms nothing when guestId belongs to another venue", async () => {
+      vi.mocked(guestService.getById).mockResolvedValue({
+        id: "guest-of-venue-B",
+        venueId: "venue-B",
+      } as Awaited<ReturnType<typeof guestService.getById>>);
+
+      const response = await authInject({
+        method: "POST",
+        url: CONFIRM_URL,
+        headers: { "x-session-id": "session-abc" },
+        payload: { guestName: "John Doe", guestId: "guest-of-venue-B" },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(JSON.parse(response.body).detail).toBe("Unknown guest for this venue");
+      expect(guestService.getById).toHaveBeenCalledWith("guest-of-venue-B");
+      expect(confirmHold).not.toHaveBeenCalled();
+    });
+
+    it("returns 400 and confirms nothing when guestId does not exist", async () => {
+      vi.mocked(guestService.getById).mockResolvedValue(null);
+
+      const response = await authInject({
+        method: "POST",
+        url: CONFIRM_URL,
+        headers: { "x-session-id": "session-abc" },
+        payload: { guestName: "John Doe", guestId: "no-such-guest" },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(JSON.parse(response.body).detail).toBe("Unknown guest for this venue");
+      expect(confirmHold).not.toHaveBeenCalled();
+    });
+
+    it("links a guestId that belongs to the hold's venue", async () => {
+      vi.mocked(guestService.getById).mockResolvedValue({
+        id: "guest-of-venue-123",
+        venueId: "venue-123",
+      } as Awaited<ReturnType<typeof guestService.getById>>);
+      vi.mocked(confirmHold).mockResolvedValue({
+        success: true,
+        reservation: { ...mockReservation, guestId: "guest-of-venue-123" },
+      });
+
+      const response = await authInject({
+        method: "POST",
+        url: CONFIRM_URL,
+        headers: { "x-session-id": "session-abc" },
+        payload: { guestName: "John Doe", guestId: "guest-of-venue-123" },
+      });
+
+      expect(response.statusCode).toBe(201);
+      expect(confirmHold).toHaveBeenCalledWith(
+        expect.objectContaining({
+          guestDetails: { guestName: "John Doe", guestId: "guest-of-venue-123" },
+          venueId: "venue-123",
+        })
+      );
     });
   });
 

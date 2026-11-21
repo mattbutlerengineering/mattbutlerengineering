@@ -41,6 +41,7 @@ const GUARDED_FILES = [
   "docs/routines/mbe-weekly-improve.md",
   "docs/routines/mbe-evening.md",
   ".claude/skills/optimize-implement-queue/SKILL.md",
+  "docs/agents/golden-task-authoring.md",
 ];
 
 const WEEKLY_IMPROVE = "docs/routines/mbe-weekly-improve.md";

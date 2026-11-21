@@ -10,6 +10,12 @@ import { useBookingFlow, deriveStepKeys, MISSING_VENUE_SLUG_ERROR } from "./useB
 import { ApiClientError } from "@mbe/api-client";
 import { ERROR_COPY } from "../../lib/describe-api-error.js";
 
+const { mockReportHandledError } = vi.hoisted(() => ({ mockReportHandledError: vi.fn() }));
+vi.mock("@mbe/sentry/react", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  reportHandledError: mockReportHandledError,
+}));
+
 /** A 5xx the way `@mbe/api-client` raises it; the guest must see the house sentence, never `raw`. */
 function serverError(method: string, path: string): ApiClientError {
   return new ApiClientError(
@@ -817,6 +823,28 @@ describe("useBookingFlow", () => {
       const index = result.current.currentStepIndex;
       expect(index).toBeGreaterThanOrEqual(0);
       expect(result.current.stepKeys[index]).toBe("payment");
+    });
+
+    it("a failed guest-risk lookup is reported to Sentry and treated as not risky", async () => {
+      const fakeApi = makeFakeApi();
+      fakeApi.venues.getPublicConfig.mockResolvedValue(depositVenueConfig({ enabled: false }));
+      const failure = new TypeError("Failed to fetch");
+      fakeApi.publicVenue.guestRisk.mockRejectedValue(failure);
+      const { result } = renderBookingFlow(fakeApi, {
+        venueSlug: "the-oak-table",
+        stripePublishableKey: "pk_test_abc",
+      });
+      await waitFor(() => expect(result.current.data.depositConfig).not.toBeNull());
+      act(() => result.current.actions.setSelectedDate("2026-05-20"));
+      await act(async () => {
+        await result.current.actions.selectSlotAndHold(mockSlot);
+      });
+      await act(async () => {
+        await result.current.actions.confirmReservation(guestDetails);
+      });
+
+      expect(mockReportHandledError).toHaveBeenCalledWith(failure, "guest-risk");
+      expect(result.current.state).toBe("confirmation");
     });
 
     it("non-risky guest at a venue with a disabled deposit policy: stepKeys stays deposit-free", async () => {

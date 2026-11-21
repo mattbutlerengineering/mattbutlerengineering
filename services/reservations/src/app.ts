@@ -11,7 +11,7 @@ import { availabilityChangesRoutes } from "./routes/availability-changes.js";
 import { holidayDecisionRoutes } from "./routes/holiday-decisions.js";
 import { closureRoutes } from "./routes/closures.js";
 import { tonightRoutes } from "./routes/tonight.js";
-import { AVAILABILITY_CONFIG_PREFIX } from "@mbe/types";
+import { AVAILABILITY_CONFIG_PREFIX, GUESTS_PREFIX } from "@mbe/types";
 import { availabilityRoutes } from "./routes/availability.js";
 import { holdRoutes } from "./routes/holds.js";
 import { eventRoutes } from "./routes/events.js";
@@ -331,7 +331,7 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   await fastify.register(floorPlanRoutes, { prefix: "/api/v1/floor-plans" });
   await fastify.register(floorPlanSectionRoutes, { prefix: "/api/v1/floor-plan-sections" });
   await fastify.register(menuRoutes, { prefix: "/api/v1/menus" });
-  await fastify.register(guestRoutes, { prefix: "/api/v1/guests" });
+  await fastify.register(guestRoutes, { prefix: GUESTS_PREFIX });
   await fastify.register(waitlistRoutes, { prefix: "/api/v1/waitlist" });
   await fastify.register(briefingRoutes, { prefix: "/api/v1/briefing" });
   await fastify.register(bookingMetricsRoutes, { prefix: "/api/v1/reservations/metrics" });

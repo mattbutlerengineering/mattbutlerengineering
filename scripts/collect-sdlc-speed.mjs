@@ -15,10 +15,13 @@
  *    never overlap (#8418); see selectBaseline.
  *
  * Usage:
- *   node scripts/collect-sdlc-speed.mjs [--days 7] [--record] [--regressions]
+ *   node scripts/collect-sdlc-speed.mjs [--days 7] [--record] [--regressions] [--check-due]
  *     --record       upsert today's `sdlcSpeed` row into metrics/process-metrics.jsonl
  *     --regressions  add `proposals`: de-duplicated regression issues (at most one)
- * Output is one JSON document on stdout.
+ *     --check-due    print "true"/"false": is today's run due, with no API calls
+ *                    (#9236: Monday, or self-heal once the latest merged row is
+ *                    a full `--days` window old — see isSdlcSpeedDue)
+ * Output is one JSON document on stdout, except under --check-due.
  */
 
 import { execFileSync } from "node:child_process";
@@ -213,6 +216,37 @@ export function selectBaseline(rows, date, days) {
   return best;
 }
 
+/** Latest healthy, recorded sdlcSpeed row's date; null when none exists. */
+export function latestSdlcSpeedDate(rows) {
+  let best = null;
+  for (const r of rows) {
+    if (r?.sensor !== SENSOR || r.available !== true || !r.date) continue;
+    if (best === null || r.date > best) best = r.date;
+  }
+  return best;
+}
+
+/**
+ * Whether today's run should collect+record the weekly sdlcSpeed row (#9236).
+ * Monday keeps the one-row-per-week cadence #6654 intended.
+ *
+ * Self-heal clause: the automation PR (`automation/metrics-collectors`) can
+ * still be open when the next day's scheduled run checks out a fresh `main`
+ * and force-pushes a new diff off it, silently dropping Monday's uncommitted
+ * sdlcSpeed row before it ever merges (#9236 root cause). `rows` is read from
+ * that same fresh checkout, so once the latest row actually merged into
+ * `main` is already a full `days` window old, collect again today instead of
+ * waiting for the next Monday.
+ */
+export function isSdlcSpeedDue({ rows, date, days }) {
+  const dayOfWeek = new Date(`${date}T00:00:00Z`).getUTCDay(); // 0=Sun, 1=Mon
+  if (dayOfWeek === 1) return true;
+  const latest = latestSdlcSpeedDate(rows);
+  if (latest === null) return true;
+  const ageDays = (Date.parse(date) - Date.parse(latest)) / 86_400_000;
+  return ageDays >= days;
+}
+
 /** At most one proposal per run, and none whose title matches an open issue. */
 export function dedupeProposals(proposals, openTitles) {
   const open = new Set(openTitles);
@@ -370,12 +404,23 @@ function main(argv) {
   const days = dIdx >= 0 ? Number(argv[dIdx + 1]) : 7;
   const now = new Date();
   const date = now.toISOString().slice(0, 10);
+  const path = resolvePath("process-metrics");
+
+  // Cheap, network-free gate (#9236): decide whether today's run is due
+  // without spending the API calls below. Checked against `main`'s actual
+  // on-disk state, never the ephemeral automation PR branch.
+  if (argv.includes("--check-due")) {
+    process.stdout.write(
+      isSdlcSpeedDue({ rows: readRows(path), date, days }) ? "true\n" : "false\n"
+    );
+    return;
+  }
+
   const summary = summarizeSdlcSpeed({
     prs: fetchPrs(days, now),
     ciRuns: fetchCiRuns(days, now),
     protection: fetchProtection(),
   });
-  const path = resolvePath("process-metrics");
   const prior = selectBaseline(readRows(path), date, days);
   const result = { date, days, ...summary };
   const record = argv.includes("--record");

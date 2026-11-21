@@ -31,8 +31,8 @@ const execFileAsync = promisify(execFile);
 const TS_TEST_FILE = /\.(test|spec)\.(ts|tsx|mts|cts)$/;
 
 /**
- * The tsc projects a `typecheck` script runs, in order. Handles `&&`/`;`
- * chains and env-var prefixes (`NODE_OPTIONS=… tsc --noEmit`). A `tsc` with
+ * The tsc projects a `typecheck` script runs, in order. Handles `&&`
+ * chains (`||`/`;` after a tsc would mask its exit code, so they throw) and env-var prefixes (`NODE_OPTIONS=… tsc --noEmit`). A `tsc` with
  * no `-p`/`--project` runs `tsconfig.json`. Throws on anything it cannot
  * resolve, so an unfamiliar script shape fails loudly instead of passing.
  *
@@ -41,10 +41,17 @@ const TS_TEST_FILE = /\.(test|spec)\.(ts|tsx|mts|cts)$/;
  */
 export function tscProjectsOf(script) {
   const projects = [];
-  for (const segment of script.split(/&&|\|\||;/)) {
-    const tokens = segment.trim().split(/\s+/).filter(Boolean);
+  // Odd indexes are the operators between segments (split keeps the capture group).
+  const parts = script.split(/(&&|\|\||;)/);
+  for (let i = 0; i < parts.length; i += 2) {
+    const tokens = parts[i].trim().split(/\s+/).filter(Boolean);
     const tscAt = tokens.findIndex((t) => t === "tsc" || t.endsWith("/tsc"));
     if (tscAt === -1) continue;
+    const next = parts[i + 1];
+    const hasMore = parts.slice(i + 2).some((part) => part.trim() !== "");
+    if (next === "||" || (next === ";" && hasMore)) {
+      throw new Error(`tsc failure can be swallowed by "${next}": ${script}`);
+    }
     const args = tokens.slice(tscAt + 1);
     if (args.some((a) => a === "-b" || a === "--build")) {
       throw new Error(`tsc --build is not supported by this guard: ${script}`);
@@ -138,6 +145,14 @@ describe("tscProjectsOf", () => {
     expect(tscProjectsOf("tsc --noEmit --project tsconfig.test.json")).toEqual([
       "tsconfig.test.json",
     ]);
+  });
+
+  it("rejects a script that lets a tsc failure be swallowed", () => {
+    expect(() => tscProjectsOf("tsc --noEmit -p tsconfig.test.json || true")).toThrow(/swallowed/);
+    expect(() => tscProjectsOf("tsc --noEmit || echo failed")).toThrow(/swallowed/);
+    expect(() => tscProjectsOf("tsc --noEmit; echo done")).toThrow(/swallowed/);
+    expect(() => tscProjectsOf("tsc --noEmit && tsc -p a.json || true")).toThrow(/swallowed/);
+    expect(tscProjectsOf("tsc --noEmit && echo ok")).toEqual(["tsconfig.json"]);
   });
 
   it("refuses scripts it cannot resolve rather than passing them", () => {

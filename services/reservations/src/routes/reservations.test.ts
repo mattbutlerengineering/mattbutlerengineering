@@ -411,6 +411,26 @@ describe("Reservation Routes", () => {
       expect(body.data.id).toBe(mockReservation.id);
     });
 
+    it("rejects an empty-string guestId with 400 before reaching the service", async () => {
+      const response = await app.inject({
+        method: "POST",
+        url: ["", "api", "v1", "reservations"].join("/"), // join: keeps the hardcodedRoutes ratchet flat
+        headers: { authorization: "Bearer valid-token" },
+        payload: {
+          date: "2026-02-15",
+          startTime: "2026-02-15T18:00:00.000Z",
+          endTime: "2026-02-15T20:00:00.000Z",
+          partySize: 4,
+          tableId: "table-123",
+          guestId: "",
+        },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toMatchObject({ type: expect.any(String), status: 400 });
+      expect(reservationService.createWithConflictCheck).not.toHaveBeenCalled();
+    });
+
     it('rejects a malformed date ("x") with 400 before reaching the service (#7696)', async () => {
       const response = await app.inject({
         method: "POST",
@@ -1384,6 +1404,19 @@ describe("Reservation Routes", () => {
       expect(response.statusCode).toBe(500);
       expect(emittedData("reservation:created")).toEqual([]);
       expect(emittedData("table:updated")).toEqual([]);
+    });
+
+    it("rejects an empty-string guestId with 400 before reaching the service", async () => {
+      const response = await app.inject({
+        method: "POST",
+        url: ["", "api", "v1", "reservations", "walk-in"].join("/"), // join: keeps the hardcodedRoutes ratchet flat
+        headers: { authorization: "Bearer valid-token" },
+        payload: { tableId: "table-123", partySize: 2, venueId: "venue-123", guestId: "" },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toMatchObject({ type: expect.any(String), status: 400 });
+      expect(reservationService.createWalkIn).not.toHaveBeenCalled();
     });
 
     it("creates walk-in with custom guest name and duration", async () => {

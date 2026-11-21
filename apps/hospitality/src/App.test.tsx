@@ -2,12 +2,14 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { useAuth, useAuthGate } from "@mbe/auth/react";
 import type { AuthGate } from "@mbe/auth/react";
 import { describeAuthError } from "./lib/describe-auth-error.js";
 import { App } from "./App.js";
+import { currentHostConfig } from "./lib/host-brand.js";
+import type * as HostBrand from "./lib/host-brand.js";
 import React from "react";
 import type * as AuthReact from "@mbe/auth/react";
 
@@ -39,6 +41,22 @@ vi.mock("@mbe/auth/react", async (importOriginal) => ({
   useAuthGate: vi.fn(),
 }));
 
+// The real landing is a long animated page with its own tests; here it is a
+// stub that can report a sky, so the shell's routing and nav wiring are what
+// these tests exercise.
+vi.mock("./components/showcase/ShowcaseLanding.js", () => ({
+  ShowcaseLanding: ({ onSkyChange }: { onSkyChange?: (sky: "light" | "dark" | null) => void }) => (
+    <div data-testid="showcase-landing">
+      <button onClick={() => onSkyChange?.("dark")}>night falls</button>
+    </div>
+  ),
+}));
+
+vi.mock("./lib/host-brand.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof HostBrand>();
+  return { ...actual, currentHostConfig: vi.fn(actual.currentHostConfig) };
+});
+
 vi.mock("./hooks/use-theme.js", () => ({
   useTheme: vi.fn(() => ({ theme: "system", resolvedTheme: "light", setTheme: vi.fn() })),
   useThemeServerHydration: vi.fn(),
@@ -56,6 +74,8 @@ vi.mock("./hooks/useUsers.js", () => ({
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Stack: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  // The standalone host's brand bar renders a ThemeToggle where GlobalNav has its own.
+  ThemeToggle: () => <div data-testid="theme-toggle" />,
   Text: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
   Button: ({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) => (
     <button onClick={onClick}>{children}</button>
@@ -131,10 +151,13 @@ describe("App", () => {
     vi.mocked(useAuth).mockReturnValue(authState());
   });
 
-  const renderAt = (gate: AuthGate) => {
+  /** A staff deep link: signed out there, a visitor gets the plain gate, not the landing. */
+  const DEEP_LINK = "/reservations";
+
+  const renderAt = (gate: AuthGate, path = "/") => {
     vi.mocked(useAuthGate).mockReturnValue(gate);
     return render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[path]}>
         <App />
       </MemoryRouter>
     );
@@ -158,11 +181,48 @@ describe("App", () => {
     expect(screen.queryByTestId("loading-page")).toBeNull();
   });
 
-  it("renders the cold login gate when signed out", () => {
-    renderAt({ phase: "signed-out", afterSignOut: false });
+  it("renders the cold login gate when signed out on a deep link", () => {
+    renderAt({ phase: "signed-out", afterSignOut: false }, DEEP_LINK);
     expect(screen.getByTestId("login-prompt")).toBeDefined();
     expect(screen.getByText("Sign In")).toBeDefined();
     expect(screen.getByText("Hospitality")).toBeDefined();
+    expect(screen.queryByTestId("showcase-landing")).toBeNull();
+  });
+
+  it("shows the showcase landing to a signed-out visitor at the app root", async () => {
+    renderAt({ phase: "signed-out", afterSignOut: false });
+    expect(await screen.findByTestId("showcase-landing")).toBeDefined();
+    expect(screen.queryByTestId("login-prompt")).toBeNull();
+  });
+
+  it("keeps the plain gate at the root after a sign-out round-trip", () => {
+    renderAt({ phase: "signed-out", afterSignOut: true });
+    expect(screen.getByTestId("login-prompt")).toBeDefined();
+    expect(screen.queryByTestId("showcase-landing")).toBeNull();
+  });
+
+  it("keeps the plain gate at the root on a standalone host, where the product is the brand", async () => {
+    const { currentHostConfig: actual } =
+      await vi.importActual<typeof HostBrand>("./lib/host-brand.js");
+    vi.mocked(currentHostConfig).mockImplementation(() => ({ ...actual(), standalone: true }));
+    try {
+      renderAt({ phase: "signed-out", afterSignOut: false });
+      expect(screen.getByTestId("login-prompt")).toBeDefined();
+      expect(screen.queryByTestId("showcase-landing")).toBeNull();
+    } finally {
+      vi.mocked(currentHostConfig).mockImplementation(actual);
+    }
+  });
+
+  it("gives the nav the landing's sky, and none on any other screen", async () => {
+    const { container } = renderAt({ phase: "signed-out", afterSignOut: false });
+    const navSky = container.querySelector("[data-nav-sky]");
+    expect(navSky).toContainElement(screen.getByTestId("global-nav"));
+    expect(navSky).not.toHaveAttribute("data-theme");
+
+    await screen.findByTestId("showcase-landing");
+    fireEvent.click(screen.getByRole("button", { name: "night falls" }));
+    expect(navSky).toHaveAttribute("data-theme", "dark");
   });
 
   it("renders the signed-out login gate after a sign-out round-trip", () => {
@@ -210,8 +270,8 @@ describe("App", () => {
       document.title = "Dashboard - Matt Butler Engineering";
     });
 
-    it("titles the unauthenticated landing 'Hospitality', not 'Dashboard'", () => {
-      renderAt({ phase: "signed-out", afterSignOut: false });
+    it("titles the unauthenticated gate 'Hospitality', not 'Dashboard'", () => {
+      renderAt({ phase: "signed-out", afterSignOut: false }, DEEP_LINK);
       expect(document.title).toBe("Hospitality - Matt Butler Engineering");
     });
 

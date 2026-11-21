@@ -53,13 +53,14 @@ export function applyExecuted(ledger, executed, now) {
     throw new Error(`no issue number for ${unnumbered.join(", ")} — was every create executed?`);
   }
   const updates = executed.actions.flatMap((a) => {
-    if (a.carrier === "seed" && a.action === "close") {
+    // A seed re-audited clean (issue null), or a record whose issue is already closed.
+    if (a.action === "close") {
       return [
         [
           a.key,
           {
-            issue: null,
-            carrier: "seed",
+            issue: a.issue ?? null,
+            carrier: a.carrier,
             severity: a.severity,
             state: "closed",
             state_reason: a.state_reason,

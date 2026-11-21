@@ -1,3 +1,7 @@
+/// <reference types="node" />
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { render } from "@testing-library/react";
 import { RialtoProvider, type RialtoProviderProps } from "../RialtoProvider";
 import { deriveReducedMotionOverrides, reducedMotionOverrides } from "../reduced-motion";
@@ -35,6 +39,23 @@ describe("deriveReducedMotionOverrides — the reduced-motion vibe adapter", () 
     expect(overrides["--rialto-duration-fast"]).toBe("0s");
     expect(overrides["--rialto-duration-standard"]).toBe("0s");
     expect(overrides["--rialto-duration-slow"]).toBe("0s");
+  });
+
+  it("collapses the long scene, cinematic and ambient durations too", () => {
+    const overrides = deriveReducedMotionOverrides({ ...baseDevice, reducedMotion: true });
+    expect(overrides["--rialto-duration-scene"]).toBe("0s");
+    expect(overrides["--rialto-duration-cinematic"]).toBe("0s");
+    expect(overrides["--rialto-duration-ambient"]).toBe("0s");
+  });
+
+  it("zeroes every duration token declared in tokens/shadows.css", () => {
+    const css = readFileSync(
+      join(dirname(fileURLToPath(import.meta.url)), "..", "..", "tokens", "shadows.css"),
+      "utf-8"
+    );
+    const declared = [...css.matchAll(/(--rialto-duration-[\w-]+)\s*:/g)].map((m) => m[1]);
+    expect(declared).toContain("--rialto-duration-ambient");
+    expect(Object.keys(reducedMotionOverrides).sort()).toEqual([...new Set(declared)].sort());
   });
 
   it("is a no-op (empty map) when reduced motion is not requested", () => {

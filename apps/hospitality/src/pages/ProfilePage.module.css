@@ -5,11 +5,7 @@
   align-items: center;
   gap: var(--rialto-space-xl);
   padding: var(--rialto-space-lg);
-  background: linear-gradient(
-    135deg,
-    var(--rialto-surface-recessed) 0%,
-    var(--rialto-surface) 100%
-  );
+  background: var(--rialto-surface-recessed);
   border-radius: var(--rialto-radius-soft);
 }
 

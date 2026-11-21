@@ -7,7 +7,7 @@ import { useGuestLookup } from "./useGuestLookup.js";
 const mockUseGuestSearch = vi.fn<(params: UseGuestSearchParams) => UseGuestsResult>();
 
 vi.mock("./useGuests.js", () => ({
-  useGuestSearch: (params: UseGuestSearchParams) => mockUseGuestSearch(params),
+  useGuestLookupSearch: (params: UseGuestSearchParams) => mockUseGuestSearch(params),
 }));
 
 function makeGuest(i: number): Guest {
@@ -43,7 +43,7 @@ const SEVEN_PAGINATION = {
 
 const idle: UseGuestsResult = { data: undefined, isLoading: false, error: null, refetch: vi.fn() };
 
-/** The params of every `useGuestSearch` call made with `enabled: true`. */
+/** The params of every `useGuestLookupSearch` call made with `enabled: true`. */
 function enabledCalls() {
   return mockUseGuestSearch.mock.calls.map(([params]) => params).filter((p) => p.enabled);
 }
@@ -167,5 +167,57 @@ describe("useGuestLookup", () => {
       vi.advanceTimersByTime(300);
     });
     expect(result.current.failed).toBe(true);
+  });
+
+  it("keeps the previous query's rows, marked stale, while a further keystroke is pending", () => {
+    const two = [makeGuest(1), makeGuest(2)];
+    mockUseGuestSearch.mockImplementation((params) =>
+      params.enabled && params.query === "al"
+        ? { ...idle, data: { data: two, pagination: SEVEN_PAGINATION } }
+        : idle
+    );
+    const { result, rerender } = renderHook(
+      ({ text }: { text: string }) => useGuestLookup({ venueId: "venue-1", text }),
+      { initialProps: { text: "al" } }
+    );
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    expect(result.current.stale).toBe(false);
+    rerender({ text: "ali" });
+    expect(result.current.query).toBe("al");
+    expect(result.current.stale).toBe(true);
+    expect(result.current.rows.map((g) => g.id)).toEqual(["gst_1", "gst_2"]);
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    expect(result.current.query).toBe("ali");
+    expect(result.current.stale).toBe(false);
+  });
+
+  it("stays stale after the pause while the new query still shows placeholder rows", () => {
+    mockUseGuestSearch.mockImplementation((params) =>
+      params.enabled ? { ...idle, isPlaceholderData: params.query === "ali" } : idle
+    );
+    const { result } = renderHook(() => useGuestLookup({ venueId: "venue-1", text: "ali" }));
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    expect(result.current.query).toBe("ali");
+    expect(result.current.stale).toBe(true);
+  });
+
+  it("drops the old answer once the text falls under the minimum, so it never resurfaces", () => {
+    const { result, rerender } = renderHook(
+      ({ text }: { text: string }) => useGuestLookup({ venueId: "venue-1", text }),
+      { initialProps: { text: "al" } }
+    );
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    rerender({ text: "" });
+    expect(result.current.query).toBe("");
+    rerender({ text: "bo" });
+    expect(result.current.query).toBe("");
   });
 });

@@ -69,7 +69,6 @@ const configEntries: Record<string, string> = {
   databaseUrl: TEST_DB_URL,
   otelEndpoint: "https://otlp.example.com",
   otelHeaders: "Authorization=Basic abc123",
-  aiGatewayApiKey: "gw-key-123",
   remediationWebhookSecret: "webhook-secret-123",
   e2eUserPassword: "test-password-123",
   e2eNonAdminUserPassword: "test-nonadmin-password-123",
@@ -391,16 +390,6 @@ describe("Configuration Validation", () => {
       expect(spec.domainNames[0].type).toBe("PRIMARY");
     });
 
-    it("all services have CORS_ORIGIN set to the domain", () => {
-      const spec = getAppSpec();
-
-      for (const service of spec.services) {
-        const corsOrigin = service.envs.find((e: { key: string }) => e.key === "CORS_ORIGIN");
-        expect(corsOrigin).toBeDefined();
-        expect(corsOrigin.value).toBe(`https://${TEST_DOMAIN}`);
-      }
-    });
-
     it("all services have Auth0 authority and audience configured", () => {
       const spec = getAppSpec();
 
@@ -677,6 +666,32 @@ describe("Configuration Validation", () => {
       );
 
       expect(cspReports?.dataset).toBe("csp_reports");
+    });
+
+    it("edge router has a ratelimit binding per rate-limiter rule, with unique namespace ids (#9209)", () => {
+      const edgeRouter = findResource("cloudflare:index/workersScript:WorkersScript", (name) =>
+        name.includes("edge-router")
+      );
+      const bindings = edgeRouter!.inputs.bindings as Array<{
+        name?: string;
+        type?: string;
+        namespaceId?: string;
+        simple?: { limit: number; period: number };
+      }>;
+      const limiters = bindings.filter((b) => b.type === "ratelimit");
+
+      expect(limiters.map((b) => b.name).sort()).toEqual([
+        "RATE_LIMIT_API",
+        "RATE_LIMIT_CSP_REPORT",
+        "RATE_LIMIT_FLAGS",
+        "RATE_LIMIT_HEALTH_SYSTEM",
+        "RATE_LIMIT_PUBLIC",
+      ]);
+      expect(new Set(limiters.map((b) => b.namespaceId)).size).toBe(limiters.length);
+      for (const b of limiters) {
+        expect(b.namespaceId).toMatch(/^[1-9][0-9]*$/);
+        expect([10, 60]).toContain(b.simple?.period);
+      }
     });
 
     it("root DNS record is proxied AAAA 100::", () => {
@@ -968,7 +983,7 @@ describe("apiService factory", () => {
     expect(service.healthCheck.failureThreshold).toBe(3);
   });
 
-  it("includes shared environment variables (NODE_ENV, PORT, CORS_ORIGIN, etc.)", () => {
+  it("includes shared environment variables (NODE_ENV, PORT, API_BASE_URL, etc.)", () => {
     const service = makeService({
       name: "users-api",
       port: 3001,
@@ -979,7 +994,6 @@ describe("apiService factory", () => {
 
     expect(envs.find((e) => e.key === "NODE_ENV")?.value).toBe("production");
     expect(envs.find((e) => e.key === "PORT")?.value).toBe("3001");
-    expect(envs.find((e) => e.key === "CORS_ORIGIN")?.value).toBe(`https://${TEST_DOMAIN}`);
     expect(envs.find((e) => e.key === "API_BASE_URL")?.value).toBe(
       `https://api.${TEST_DOMAIN}/api`
     );

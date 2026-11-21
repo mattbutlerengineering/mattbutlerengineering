@@ -22,6 +22,7 @@ import { venueScoped, type VenueSource } from "./venue-scope.js";
 import { publicRateLimitHook } from "../middleware/public-rate-limit.js";
 import { generateManageToken } from "./public-reservations.js";
 import { staffActor } from "../services/reservation-events.js";
+import { resolveGuestLink } from "../services/guest-link.js";
 
 // Session ID header name
 const SESSION_ID_HEADER = "x-session-id";
@@ -392,6 +393,17 @@ export const holdRoutes: FastifyPluginAsync = async (fastify) => {
           return reply
             .code(401)
             .send(createProblemDetails(401, "Unauthorized", `Missing ${SESSION_ID_HEADER} header`));
+        }
+
+        // A picked guest must belong to the hold's venue; unknown and foreign ids
+        // get the same answer, before anything is written.
+        if (request.body.guestId) {
+          const link = await resolveGuestLink({ venueId, guestId: request.body.guestId });
+          if (!link.ok) {
+            return reply
+              .code(400)
+              .send(createProblemDetails(400, "Bad Request", "Unknown guest for this venue"));
+          }
         }
 
         // `venueScoped` resolved the hold's venue and entered its context, so the

@@ -178,7 +178,9 @@ describe("resolveBase", () => {
   // One invocation has to cover two hosts: the DO origin and the apex the
   // shipped browser bundle actually calls. A probe therefore carries its own
   // origin — but an explicit --base must still win, or the unit tests below
-  // would fire at production instead of their local fixture.
+  // would fire at production instead of their local fixture. That override is
+  // for local fixtures only: post-deploy-check.yml must not pass --base, or the
+  // edge probe is sent to the DO origin (pinned in the workflow wiring tests).
   it("uses the probe's own origin when no --base was given", () => {
     expect(resolveBase({ origin: "https://mattbutlerengineering.com" }, null)).toBe(
       "https://mattbutlerengineering.com"
@@ -339,6 +341,19 @@ describe("post-deploy-check workflow wiring", () => {
     expect(stripComments(POST_DEPLOY_WORKFLOW)).toContain(
       "node scripts/check-api-surface-invariants.mjs"
     );
+  });
+
+  it("passes no --base, so each probe's own origin governs", () => {
+    // resolveBase() lets --base override every probe's pinned origin. In CI
+    // that sent public-venue-lookup:reachable-through-edge to the DO origin
+    // instead of the apex, so the gate measured the DO half twice and the
+    // Cloudflare edge never. Probes without an origin fall back to
+    // DEFAULT_BASE (the DO origin), which is what --base used to supply.
+    const code = stripComments(POST_DEPLOY_WORKFLOW);
+    const start = code.indexOf("node scripts/check-api-surface-invariants.mjs");
+    expect(start).toBeGreaterThanOrEqual(0);
+    const invocation = code.slice(start, code.indexOf("\n      - name:", start));
+    expect(invocation).not.toMatch(/--base\b/);
   });
 
   it("probes after every workflow that deploys to production", () => {

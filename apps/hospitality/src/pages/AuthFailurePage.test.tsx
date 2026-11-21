@@ -121,6 +121,42 @@ describe("AuthFailurePage", () => {
     expect(signIn).toHaveBeenCalledWith();
   });
 
+  describe.each(["signoutRedirect", "signoutPopup"])("a failed sign-out (%s)", (source) => {
+    const signOut = vi.fn();
+    // "Failed to fetch" would match the sign-in network category; sign-out copy must win.
+    const signOutError = Object.assign(new Error("Failed to fetch"), { source });
+
+    beforeEach(() => {
+      vi.mocked(useAuth).mockReturnValue({
+        signIn,
+        signOut,
+        activeNavigator: undefined,
+      } as unknown as ReturnType<typeof useAuth>);
+    });
+
+    it("describes the sign-out, not a sign-in", () => {
+      render(<AuthFailurePage error={signOutError} lane={0} />);
+
+      expect(
+        screen.getByRole("img", { name: "Your sign-out could not be completed" })
+      ).toHaveAttribute("data-state", "failed");
+      expect(screen.getByText("Sign-out hit a snag")).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          "We couldn't reach Identity to finish signing you out. Try again to complete it."
+        )
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/sign-in/i)).toBeNull();
+    });
+
+    it("retries the sign-out, never a sign-in", () => {
+      render(<AuthFailurePage error={signOutError} lane={0} />);
+      fireEvent.click(screen.getByRole("button", { name: "Try signing out again" }));
+      expect(signOut).toHaveBeenCalledTimes(1);
+      expect(signIn).not.toHaveBeenCalled();
+    });
+  });
+
   it("switches to a negotiating variant while a retry is in flight", () => {
     vi.mocked(useAuth).mockReturnValue({
       signIn,

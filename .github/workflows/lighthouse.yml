@@ -29,11 +29,11 @@ jobs:
           - { name: "rialto", pkg: "@mbe/rialto-web", dir: "rialto-web", base: "rialto" }
 
     steps:
-      - uses: actions/checkout@v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: pnpm/action-setup@v5
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5
 
-      - uses: actions/setup-node@v7.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
           cache: "pnpm"
@@ -61,7 +61,7 @@ jobs:
 
       - name: Run Lighthouse
         id: lh
-        uses: treosh/lighthouse-ci-action@v12
+        uses: treosh/lighthouse-ci-action@3e7e23fb74242897f95c0ba9cabad3d0227b9b18 # v12
         with:
           # `staticDistDir` is NOT a valid input for this action (it silently
           # produced "No URLs provided to collect" on every run). Feed the dir

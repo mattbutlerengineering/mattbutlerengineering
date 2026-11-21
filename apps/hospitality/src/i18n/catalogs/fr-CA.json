@@ -262,7 +262,13 @@
       "statusRetrying": "Démarrage d'une nouvelle connexion",
       "statusFailed": "L'échange n'a pas abouti",
       "retry": "Réessayer",
-      "technicalDetails": "Détails techniques"
+      "technicalDetails": "Détails techniques",
+      "signOut": {
+        "failedLabel": "Votre déconnexion n'a pas pu être terminée",
+        "title": "La déconnexion a rencontré un problème",
+        "body": "Nous n'avons pas pu joindre Identité pour terminer votre déconnexion. Réessayez pour la compléter.",
+        "retry": "Réessayer la déconnexion"
+      }
     },
     "error": {
       "accessDenied": {
@@ -345,7 +351,6 @@
     "searchPlaceholder": "Rechercher des pages et des actions...",
     "openSidebar": "Ouvrir la barre latérale",
     "closeSidebar": "Fermer la barre latérale",
-    "openPalette": "Ouvrir la palette de commandes",
     "search": "Rechercher",
     "ctrlKey": "Ctrl",
     "errorHeading": "Une erreur s'est produite",
@@ -369,7 +374,6 @@
       "tableCount_other": "{{count}} tables",
       "updated": "Mis à jour {{date}}",
       "clone": "Cloner",
-      "openAria": "Ouvrir le plan de salle : {{name}}",
       "cloneAria": "Cloner le plan de salle : {{name}}",
       "delete": "Supprimer",
       "deleteAria": "Supprimer le plan de salle : {{name}}",
@@ -778,7 +782,8 @@
       "upcoming": "À venir",
       "empty": "Aucune réservation",
       "unassigned": "Non attribuée",
-      "cardLabel": "{{guest}}, groupe de {{size}}, {{time}}, table {{table}}",
+      "cardLabel": "{{guest}} {{time}} · {{guests}} · {{table}} {{status}}",
+      "tableContext": "table {{table}}",
       "seated": "Installés"
     },
     "emptyNight": {
@@ -837,7 +842,7 @@
     },
     "cancel": {
       "title": "Annuler la réservation",
-      "intro": "Annulation de la réservation de <strong>{{name}}</strong>",
+      "intro": "Annulation de la réservation de <guest/>",
       "reasonLabel": "Motif",
       "reasons": {
         "guestCancelled": "Annulée par le client",
@@ -859,7 +864,7 @@
     },
     "noShowDialog": {
       "title": "Marquer comme absent",
-      "body": "Marquer <strong>{{name}}</strong> comme absent ne peut pas être annulé. Si un dépôt est au dossier, la politique de frais d'absence de l'établissement s'applique : il peut être perçu en partie ou en totalité, ou remboursé si aucun frais ne s'applique.",
+      "body": "Marquer <guest/> comme absent ne peut pas être annulé. Si un dépôt est au dossier, la politique de frais d'absence de l'établissement s'applique : il peut être perçu en partie ou en totalité, ou remboursé si aucun frais ne s'applique.",
       "failed": "La réservation n'a pas été marquée comme une absence.",
       "keep": "Garder la réservation",
       "confirm": "Marquer comme absent",
@@ -2326,7 +2331,7 @@
         "subjectDated": "{{name}} ({{span}})",
         "subjectRule": "« {{label}} » le {{date}}",
         "editNamed": "Modifier {{name}}",
-        "changeFor": "Changer l’horaire du {{date}}",
+        "changeFor": "Modifier l’horaire du {{date}}",
         "removeFor": "Retirer {{subject}}",
         "removeTitle": "Retirer {{subject}} ?",
         "removeDescriptionDated": "{{name}} cesse de s’appliquer à toutes les dates de cette période, pas seulement à celle-ci. Ces dates reviennent à votre semaine habituelle ou à un autre horaire qui les couvre. L’horaire reste dans l’onglet Horaires. Cela n’annule jamais de réservations.",
@@ -2650,9 +2655,6 @@
       "save_other": "Enregistrer {{count}} dates",
       "save_many": "Enregistrer {{count}} dates",
       "cancel": "Annuler",
-      "saveKeeping_one": "Enregistrer {{count}} date, horaire propre conservé pour {{kept}}",
-      "saveKeeping_other": "Enregistrer {{count}} dates, horaire propre conservé pour {{kept}}",
-      "saveKeeping_many": "Enregistrer {{count}} dates, horaire propre conservé pour {{kept}}",
       "savedOne": "{{date}} mis à jour",
       "savedMany_one": "{{count}} date mise à jour",
       "savedMany_other": "{{count}} dates mises à jour",
@@ -2689,6 +2691,26 @@
         "noChange": "Modifiez les heures pour enregistrer.",
         "noDates": "Ce que vous modifiez ne touche aucune date : il n’y a rien à enregistrer.",
         "keptOwn": "Chaque date garde ses propres modifications. Choisissez Les remplacer pour enregistrer."
+      },
+      "saveThisDate": "Enregistrer pour cette date",
+      "review_one": "Vérifier {{count}} date…",
+      "review_other": "Vérifier {{count}} dates…",
+      "review_many": "Vérifier {{count}} dates…",
+      "keepsOwn_one": "{{count}} conserve son horaire propre",
+      "keepsOwn_other": "{{count}} conservent leur horaire propre",
+      "keepsOwn_many": "{{count}} conservent leur horaire propre",
+      "confirm": {
+        "title": "Confirmer le changement sur plusieurs dates",
+        "back": "Retour",
+        "summary_one": "Cela modifie {{count}} date, jusqu’au {{end}}.",
+        "summary_other": "Cela modifie {{count}} dates, jusqu’au {{end}}.",
+        "summary_many": "Cela modifie {{count}} dates, jusqu’au {{end}}.",
+        "kept_one": "{{count}} date de cette portée conserve son horaire propre; {{saved}} sur {{total}} sont enregistrées.",
+        "kept_other": "{{count}} dates de cette portée conservent leur horaire propre; {{saved}} sur {{total}} sont enregistrées.",
+        "kept_many": "{{count}} dates de cette portée conservent leur horaire propre; {{saved}} sur {{total}} sont enregistrées.",
+        "replaced_one": "{{count}} date avec ses propres changements sera remplacée.",
+        "replaced_other": "{{count}} dates avec leurs propres changements seront remplacées.",
+        "replaced_many": "{{count}} dates avec leurs propres changements seront remplacées."
       }
     },
     "preview": {
@@ -4069,6 +4091,213 @@
       "minutes": "{{minutes}} min",
       "runAgain": "Recommencer",
       "weeknight": "Essayer un soir de semaine"
+    }
+  },
+  "showcase": {
+    "status": {
+      "shipped": "Offert aujourd'hui",
+      "concept": "Concept"
+    },
+    "hero": {
+      "eyebrow": "Pour les restaurants et les salles",
+      "start": "Commencer la soirée"
+    },
+    "scenes": {
+      "hero": {
+        "name": "Avant le service",
+        "heading": "Ce soir, c'est réglé.",
+        "body": "Suivez une soirée de service, du breffage de l'après-midi à la dernière table. Chaque scène montre ce que nous avons bâti pour des restaurants, ou ce que nous pouvons bâtir pour le vôtre."
+      },
+      "prep": {
+        "name": "Mise en place",
+        "heading": "Arrivez en connaissant déjà la salle.",
+        "body": "Le breffage vous attend avant le premier couvert. Qui vient, combien de fois ils sont venus, où ils aiment s'asseoir et ce qu'ils ne peuvent pas manger."
+      },
+      "doors": {
+        "name": "Ouverture",
+        "heading": "L'enseigne s'allume. Le carnet se remplit déjà.",
+        "body": "Les clients réservent sur votre propre page pendant que vous dressez la salle. Quand la soirée déborde, un seul geste arrête les nouvelles réservations."
+      },
+      "rush": {
+        "name": "Le coup de feu",
+        "heading": "Toute la salle sur un seul écran.",
+        "body": "Chaque table face à l'horloge. Placez des clients sans réservation, libérez une table ou repérez le groupe en retard, et tous les écrans se mettent à jour aussitôt."
+      },
+      "assistant": {
+        "name": "L'assistant",
+        "heading": "Dites ce qu'il vous faut. Il s'occupe du reste.",
+        "body": "La pluie commence et la terrasse doit fermer. Dites-le à l'assistant dans vos mots. Il vous montre ce qui va changer, attend votre accord, et vous pouvez annuler."
+      },
+      "guest": {
+        "name": "Le client",
+        "heading": "Les clients vous tiennent au courant sans téléphoner.",
+        "body": "Un lien dans la confirmation permet au client de modifier la réservation, d'inviter son groupe ou de vous dire qu'il sera en retard. À son arrivée, un carillon sonne à l'accueil."
+      },
+      "close": {
+        "name": "Fermeture",
+        "heading": "La dernière table part. La soirée fait ses comptes.",
+        "body": "Couverts, rotations de tables et absences, comptés dès la fin du service, avec les réservations que vous avez dû refuser."
+      },
+      "roadmap": {
+        "name": "Après la fermeture",
+        "heading": "Ce que nous bâtirions ensuite.",
+        "body": "Ce sont des idées, pas des fonctions. Chacune est conçue et attend le restaurant qui la voudra en premier."
+      },
+      "morning": {
+        "name": "Matin",
+        "heading": "Demain est déjà prêt.",
+        "body": "Racontez à Matt comment fonctionne votre restaurant. Il vous montrera une soirée comme celle-ci avec vos tables, vos heures et vos clients."
+      }
+    },
+    "claims": {
+      "briefing": {
+        "label": "Breffage avant le service",
+        "detail": "Les clients de ce soir par service, avec le nombre de visites, les préférences de table et les allergies."
+      },
+      "dressRehearsal": {
+        "label": "Répétition générale",
+        "detail": "Simulez le service de ce soir sur votre vrai plan de salle avant l'ouverture. Rien n'est enregistré."
+      },
+      "publicBooking": {
+        "label": "Votre propre page de réservation",
+        "detail": "Les clients choisissent une heure, réservent, l'ajoutent à leur calendrier et invitent leur groupe."
+      },
+      "pauseBooking": {
+        "label": "Suspendre les réservations en ligne",
+        "detail": "Arrêtez les nouvelles réservations pour ce soir, fermez plus tôt ou bloquez des tables. Tout peut être annulé."
+      },
+      "openSign": {
+        "label": "Une enseigne qui dit vrai",
+        "detail": "L'enseigne au néon de votre tableau de bord suit vos vraies heures, pour que l'équipe voie si vous êtes ouverts."
+      },
+      "liveTimeline": {
+        "label": "Chronologie des tables en direct",
+        "detail": "Les tables selon l'heure, mises à jour sur tous les écrans dès qu'un détail change."
+      },
+      "lateBadge": {
+        "label": "Retards signalés",
+        "detail": "Quand un client annonce son retard, la réservation est marquée avant que quelqu'un le demande."
+      },
+      "waitlist": {
+        "label": "Une liste d'attente qui se souvient",
+        "detail": "Ajoutez un groupe, envoyez un texto quand la table est prête, et les habitués sont reconnus."
+      },
+      "assistantActions": {
+        "label": "Une quarantaine d'actions en langage courant",
+        "detail": "Placer des clients sans réservation, bloquer des tables, marquer un plat épuisé, changer les heures, gérer la liste d'attente."
+      },
+      "confirmUndo": {
+        "label": "Vous gardez le contrôle",
+        "detail": "Tout ce qui modifie le carnet vous demande d'abord, et les changements de ce soir peuvent être annulés."
+      },
+      "tonightAutopilot": {
+        "label": "Pilote automatique de la soirée",
+        "detail": "Un assistant qui observe la salle et propose lui-même les changements de table et les messages aux clients."
+      },
+      "guestSignals": {
+        "label": "En retard, ou arrivés",
+        "detail": "Le soir même, les clients indiquent d'un geste qu'ils sont en retard ou arrivés. Une arrivée fait sonner l'accueil."
+      },
+      "invitation": {
+        "label": "L'invitation",
+        "detail": "La personne qui réserve partage un lien et le reste du groupe répond avec un prénom."
+      },
+      "manageLink": {
+        "label": "Modifier ou annuler",
+        "detail": "Les clients gèrent leur réservation à partir du lien, sans créer de compte."
+      },
+      "nightInNumbers": {
+        "label": "La soirée en chiffres",
+        "detail": "Un bilan de fermeture sur un seul écran, prêt avant de monter les chaises."
+      },
+      "lostDemandLedger": {
+        "label": "Registre de la demande perdue",
+        "detail": "Chaque réservation que vous n'avez pas pu prendre, pour voir ce qu'une salle pleine vous a coûté."
+      },
+      "guestPassport": {
+        "label": "Passeport du client",
+        "detail": "Vos meilleurs clients apportent leur bon dossier dans chaque restaurant indépendant qu'ils visitent."
+      },
+      "kitchenAwareBooking": {
+        "label": "Réservations au rythme de la cuisine",
+        "detail": "Prenez les réservations que la cuisine peut servir et connaissez la mise en place de demain avant l'ouverture."
+      },
+      "headlessVenue": {
+        "label": "Restaurant sans écran",
+        "detail": "Dirigez le restaurant à partir de l'assistant IA que vous utilisez déjà, directement dans votre carnet en direct."
+      },
+      "regularsClub": {
+        "label": "Club des habitués",
+        "detail": "Vendez votre propre accès prioritaire du vendredi soir au lieu de louer vos habitués à d'autres."
+      }
+    },
+    "prep": {
+      "boardLabel": "Breffage de ce soir : 84 couverts réservés, une allergie aux noix à la table 12, neuvième visite du groupe Okafor, pluie probable vers 20 h",
+      "board": {
+        "covers": "84 COUVERTS",
+        "allergy": "T12 SANS NOIX",
+        "regular": "OKAFOR 9E VISITE",
+        "rain": "PLUIE VERS 20 H"
+      }
+    },
+    "doors": {
+      "open": "Ouvert jusqu'à 23 h",
+      "closed": "Fermé. Ouverture à 17 h"
+    },
+    "rush": {
+      "chartLabel": "Tables de 18 h à 22 h",
+      "trackLabel": "Réservations, {{table}}",
+      "legendLabel": "États des réservations",
+      "table": "Table {{number}}",
+      "terrace": "Terrasse {{number}}",
+      "walkIn": "Sans réservation",
+      "lateBadge": "+15 min",
+      "bar": "{{party}} · {{covers}}",
+      "booking": "{{party}}, groupe de {{covers}}, {{time}}, {{state}}",
+      "states": {
+        "seated": "à table",
+        "confirmed": "confirmée",
+        "late": "en retard",
+        "finished": "terminée"
+      }
+    },
+    "assistant": {
+      "label": "Conversation avec l'assistant",
+      "operator": "La pluie arrive. Bloque la terrasse pour ce soir.",
+      "proposal": "Je vais bloquer les tables 1 à 4 de la terrasse de 20 h 15 jusqu'à la fermeture. Aucune réservation n'est touchée. Je continue?",
+      "confirm": "Confirmer",
+      "done": "C'est fait. La terrasse est bloquée jusqu'à la fermeture et les nouvelles réservations vont à l'intérieur.",
+      "undo": "Annuler",
+      "concept": "On annonce aussi de la pluie demain. Je déplace à l'intérieur les réservations de terrasse de demain et j'avise ces clients par texto?",
+      "disclaimer": "Ceci est une démonstration. Rien ici ne modifie un vrai restaurant."
+    },
+    "guest": {
+      "reservationLabel": "Votre réservation",
+      "reservation": "Table pour 4 ce soir à 20 h 45",
+      "late": "15 min de retard",
+      "here": "Nous sommes là",
+      "hostStand": "Accueil",
+      "waiting": "En attente du groupe Ito",
+      "runningLate": "Le groupe Ito a 15 minutes de retard",
+      "arrived": "Le groupe Ito est arrivé"
+    },
+    "close": {
+      "covers": "Couverts servis",
+      "turns": "Rotations de tables",
+      "noShows": "Absences"
+    },
+    "roadmap": {
+      "boardHeading": "A venir",
+      "board": {
+        "guestPassport": "Passeport",
+        "kitchenAwareBooking": "Rythme cuisine",
+        "headlessVenue": "Sans ecran",
+        "regularsClub": "Club habitues"
+      }
+    },
+    "morning": {
+      "email": "Parlez de votre restaurant à Matt",
+      "open": "Ouvrir votre restaurant"
     }
   }
 }

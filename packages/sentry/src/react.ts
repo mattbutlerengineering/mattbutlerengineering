@@ -2,6 +2,7 @@ import * as Sentry from "@sentry/react";
 import type { ErrorInfo } from "react";
 import { UNKNOWN_BUILD } from "./build-info.js";
 import { resolveConfig } from "./config.js";
+import { redactSignal } from "./redact.js";
 
 /**
  * Structural error type accepted by reportApiError.
@@ -67,6 +68,8 @@ export function initSentry(options: InitOptions): void {
     replaysSessionSampleRate: 0,
     replaysOnErrorSampleRate: 0,
     integrations: [],
+    // Same redaction policy as the Node init: credentials never leave the browser.
+    beforeSend: (event) => redactSignal(event) as Sentry.ErrorEvent,
   });
 
   Sentry.setTag("app", options.appName);
@@ -115,4 +118,18 @@ export function reportApiError(error: ReportableApiError | ReportableValidationE
   } else if (code === 401 || code === 403) {
     Sentry.captureMessage(error.message, "warning");
   }
+}
+
+/**
+ * Report an error a caller handles by degrading (returning a fallback) rather
+ * than surfacing it. The `degraded` tag names the feature, so a dead surface
+ * shows up as a Sentry issue instead of a silent fallback. Network failures
+ * and non-auth 4xx responses never reach `reportApiError` as exceptions, so a
+ * catch that falls back must report for itself.
+ */
+export function reportHandledError(error: unknown, feature: string): void {
+  Sentry.withScope((scope) => {
+    scope.setTag("degraded", feature);
+    Sentry.captureException(error);
+  });
 }

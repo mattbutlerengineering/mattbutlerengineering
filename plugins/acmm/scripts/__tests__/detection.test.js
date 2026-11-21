@@ -232,14 +232,57 @@ test("detectAll: returns detected set and meta map", () => {
 
 // ── active detection type tests ────────────────────────────
 
-test("isWorkflowActive: returns degraded when gh CLI is unavailable", () => {
-  // Use a temp dir that's not a git repo — gh will fail
-  const fx = fixture();
-  const result = isWorkflowActive(fx.root, "nonexistent.yml", 7);
+const GH_404_STDERR =
+  "HTTP 404: workflow .github/workflows/nightly-compliance.yml not found on the default branch (https://api.github.com/repos/mattbutlerengineering/mattbutlerengineering/actions/workflows/.github%2Fworkflows%2Fnightly-compliance.yml)\n";
+
+/** @param {Record<string, unknown>} props */
+function throwingExec(props) {
+  return () => {
+    throw Object.assign(new Error("Command failed: gh run list"), props);
+  };
+}
+
+test("isWorkflowActive: gh binary absent (ENOENT) reports gh unavailable", () => {
+  const result = isWorkflowActive("/x", "ci.yml", 7, {
+    execFileSyncFn: throwingExec({ code: "ENOENT", syscall: "spawnSync gh" }),
+  });
   assert.equal(result.active, null);
   assert.equal(result.degraded, true);
-  assert.ok(result.reason.includes("gh CLI unavailable"));
-  fx.cleanup();
+  assert.match(result.reason, /gh CLI not installed/);
+});
+
+test("isWorkflowActive: HTTP 404 is degraded and does not blame gh availability", () => {
+  const result = isWorkflowActive("/x", "nightly-compliance.yml", 7, {
+    execFileSyncFn: throwingExec({ status: 1, stderr: GH_404_STDERR }),
+  });
+  assert.equal(result.active, null);
+  assert.equal(result.degraded, true);
+  assert.match(result.reason, /not found on the default branch/);
+  assert.match(result.reason, /nightly-compliance\.yml/);
+  assert.doesNotMatch(result.reason, /unavailable/i);
+});
+
+test("isWorkflowActive: timeout (killed / ETIMEDOUT) reports timeout", () => {
+  const killed = isWorkflowActive("/x", "ci.yml", 7, {
+    execFileSyncFn: throwingExec({ killed: true, signal: "SIGTERM" }),
+  });
+  assert.equal(killed.degraded, true);
+  assert.match(killed.reason, /timed out/);
+  const code = isWorkflowActive("/x", "ci.yml", 7, {
+    execFileSyncFn: throwingExec({ code: "ETIMEDOUT" }),
+  });
+  assert.match(code.reason, /timed out/);
+});
+
+test("isWorkflowActive: other errors keep a generic reason with captured stderr", () => {
+  const stderr = "HTTP 401: Bad credentials (https://api.github.com/graphql)\n";
+  const result = isWorkflowActive("/x", "ci.yml", 7, {
+    execFileSyncFn: throwingExec({ status: 1, stderr }),
+  });
+  assert.equal(result.active, null);
+  assert.equal(result.degraded, true);
+  assert.match(result.reason, /gh run list failed/);
+  assert.ok(result.reason.includes("HTTP 401: Bad credentials"));
 });
 
 test("isWorkflowActive: queries only successful runs so skipped/failed noise can't crowd out the success", () => {
@@ -537,6 +580,55 @@ test("isWorkflowActive: anyBranch:true omits the --branch filter", () => {
   assert.ok(
     !capturedArgs.some((a) => a.startsWith("--branch=")),
     `expected no --branch filter, got: ${JSON.stringify(capturedArgs)}`
+  );
+  fx.cleanup();
+});
+
+// ── `--workflow` takes the workflow's FILE NAME, not its repo-relative path ──
+// Every `active` criterion stores a repo-relative path (e.g.
+// `.github/workflows/nightly-compliance.yml`), but GitHub's Actions API
+// resolves a workflow by file name or numeric id. Passing the path through
+// verbatim percent-encodes the slashes and the API answers, verbatim:
+//   HTTP 404: workflow .github/workflows/nightly-compliance.yml not found on
+//   the default branch (.../actions/workflows/.github%2Fworkflows%2Fnightly-compliance.yml)
+// which the catch-all below reports as "gh CLI unavailable or error" — so a
+// malformed argument was indistinguishable from a missing `gh`, and 9
+// criteria read `unverifiable` while the audit reported L3 instead of L5.
+// Every pre-existing test here passed a bare basename, so the gate was green
+// in tests and 404ing in production.
+
+test("isWorkflowActive: passes the workflow's basename to gh, not its repo-relative path", () => {
+  const fx = fixture();
+  let capturedArgs;
+  const mockExecFileSync = (_cmd, args) => {
+    capturedArgs = args;
+    return JSON.stringify([{ conclusion: "success", updatedAt: new Date().toISOString() }]);
+  };
+  isWorkflowActive(fx.root, ".github/workflows/nightly-compliance.yml", 7, {
+    execFileSyncFn: mockExecFileSync,
+  });
+  assert.ok(
+    capturedArgs.includes("--workflow=nightly-compliance.yml"),
+    `expected --workflow=<basename>, got: ${JSON.stringify(capturedArgs)}`
+  );
+  assert.ok(
+    !capturedArgs.some((a) => a.startsWith("--workflow=.github/")),
+    `the repo-relative path must not reach gh, got: ${JSON.stringify(capturedArgs)}`
+  );
+  fx.cleanup();
+});
+
+test("isWorkflowActive: a bare basename is passed through unchanged", () => {
+  const fx = fixture();
+  let capturedArgs;
+  const mockExecFileSync = (_cmd, args) => {
+    capturedArgs = args;
+    return JSON.stringify([{ conclusion: "success", updatedAt: new Date().toISOString() }]);
+  };
+  isWorkflowActive(fx.root, "ci.yml", 7, { execFileSyncFn: mockExecFileSync });
+  assert.ok(
+    capturedArgs.includes("--workflow=ci.yml"),
+    `expected --workflow=ci.yml, got: ${JSON.stringify(capturedArgs)}`
   );
   fx.cleanup();
 });
