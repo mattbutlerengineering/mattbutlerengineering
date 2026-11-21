@@ -57,6 +57,16 @@ describe("bubble shape", () => {
     expect(isGoldBubble(1)).toBe(false);
     expect(isGoldBubble(GOLD_EVERY)).toBe(true);
   });
+
+  // Issue #9343: gold is 5% of bubbles, the same surgical share as SilkFlow.
+  it("keeps gold to at most 5% of a full pool", () => {
+    let gold = 0;
+    for (let i = 0; i < BUBBLE_COUNT_MAX; i++) {
+      if (isGoldBubble(i)) gold++;
+    }
+    expect(gold).toBeGreaterThan(0);
+    expect(gold / BUBBLE_COUNT_MAX).toBeLessThanOrEqual(0.05);
+  });
 });
 
 describe("swayOffset", () => {

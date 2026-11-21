@@ -13,7 +13,7 @@ export const BUBBLE_COUNT_MAX = 140;
 const AREA_PER_BUBBLE = 5200;
 
 /** Every Nth bubble is stroked in the gold accent; the rest are ink. */
-export const GOLD_EVERY = 9;
+export const GOLD_EVERY = 20;
 
 /** Smallest and largest bubble radius in CSS pixels. */
 const RADIUS_MIN = 1.5;
