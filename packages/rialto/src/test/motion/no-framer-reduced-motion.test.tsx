@@ -17,6 +17,7 @@ import { render, renderHook } from "@testing-library/react";
 import { useReducedMotion } from "framer-motion";
 import { Avatar } from "../../components/Avatar/Avatar";
 import { DepartureBoard } from "../../components/DepartureBoard/DepartureBoard";
+import { Champagne } from "../../components/Champagne/Champagne";
 import { Contour } from "../../components/Contour/Contour";
 import { Ember } from "../../components/Ember/Ember";
 import { Guilloche } from "../../components/Guilloche/Guilloche";
@@ -34,6 +35,7 @@ stubMatchMedia([PREFERS_REDUCED_MOTION]);
 const RENDERS: ReadonlyArray<readonly [string, () => void]> = [
   ["Avatar", () => render(<Avatar src="/a.jpg" name="A" transition="splitflap" />)],
   ["DepartureBoard", () => render(<DepartureBoard phrases={["ONE", "TWO"]} />)],
+  ["Champagne", () => render(<Champagne />)],
   ["Contour", () => render(<Contour />)],
   ["Ember", () => render(<Ember />)],
   ["Guilloche", () => render(<Guilloche />)],

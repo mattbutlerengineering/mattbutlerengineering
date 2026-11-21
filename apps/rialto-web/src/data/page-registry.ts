@@ -172,6 +172,7 @@ const RAW_PAGE_ENTRIES: RawPageEntry[] = [
   { id: "guilloche", label: "Guilloche", category: "Data Display" },
   { id: "contour", label: "Contour", category: "Data Display" },
   { id: "ember", label: "Ember", category: "Data Display" },
+  { id: "champagne", label: "Champagne", category: "Data Display" },
   { id: "handshake", label: "Handshake", category: "Data Display" },
   { id: "neon-sign", label: "Neon Sign", category: "Data Display" },
   { id: "tape-chart", label: "Tape Chart", category: "Data Display" },

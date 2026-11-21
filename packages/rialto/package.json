@@ -90,6 +90,10 @@
       "types": "./dist/lib/components/Chalkboard/index.d.ts",
       "import": "./dist/lib/components/Chalkboard/index.js"
     },
+    "./Champagne": {
+      "types": "./dist/lib/components/Champagne/index.d.ts",
+      "import": "./dist/lib/components/Champagne/index.js"
+    },
     "./ChatPanel": {
       "types": "./dist/lib/components/ChatPanel/index.d.ts",
       "import": "./dist/lib/components/ChatPanel/index.js"
