@@ -197,7 +197,6 @@ const DATA_COMPONENTS = [
   "ChalkboardItem",
   "ChalkboardSection",
   "DataList",
-  "Ferrofluid",
   "Kbd",
   "Meter",
   "Shortcut",

@@ -45,7 +45,7 @@ notify route never writes `notifiedAt`, `expiresAt`, or `status: "notified"`
 (see the evidence check below), and the list she is looking at returns only
 `status: "waiting"` rows. In production, tapping Notify changes nothing on
 screen. The evaluator's complaint stands as stated: the instrument family
-(FlipDot, SplitFlap, Chalkboard, MasterOverride, Ferrofluid, WatchLoader,
+(FlipDot, SplitFlap, Chalkboard, MasterOverride, WatchLoader,
 Odometer, DepartureBoard, SilkFlow, Handshake) is generic-mechanical, and the
 hospitality pages that carry live state render it as flat `Badge`s.
 

@@ -110,7 +110,7 @@ released|confirmed`, `table:updated`, `table-status:changed`,
     "is open now" derivation exists anywhere in `apps/hospitality/src`,
     `packages/types`, or `services/reservations/src` (grep 2026-08-30).
   - Instrument family + dates (git): FlipDot 04-11, SplitFlap/Chalkboard/
-    MasterOverride 04-16, Ferrofluid/SplitScreenExit 04-17, WatchLoader
+    MasterOverride 04-16, SplitScreenExit 04-17, WatchLoader
     06-26, Odometer/DepartureBoard 07-05, SilkFlow 07-29, Handshake 08-30.
     Consumers today: `WatchLoader` → hospitality `LoadingPage`; `Odometer`
     - `Meter` → dashboard `StatRow`; `Handshake` → `LoginGate` /

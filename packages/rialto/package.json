@@ -170,10 +170,6 @@
       "types": "./dist/lib/components/ErrorBoundary/index.d.ts",
       "import": "./dist/lib/components/ErrorBoundary/index.js"
     },
-    "./Ferrofluid": {
-      "types": "./dist/lib/components/Ferrofluid/index.d.ts",
-      "import": "./dist/lib/components/Ferrofluid/index.js"
-    },
     "./FlipDot": {
       "types": "./dist/lib/components/FlipDot/index.d.ts",
       "import": "./dist/lib/components/FlipDot/index.js"
@@ -558,14 +554,6 @@
         "dist/lib/chunks/CommandPalette-*.js"
       ],
       "limit": "2.95 kB"
-    },
-    {
-      "name": "Ferrofluid (subpath)",
-      "path": [
-        "dist/lib/components/Ferrofluid/index.js",
-        "dist/lib/chunks/Ferrofluid-*.js"
-      ],
-      "limit": "1150 B"
     },
     {
       "name": "FlipDot (subpath)",
