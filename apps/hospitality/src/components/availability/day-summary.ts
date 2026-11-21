@@ -58,6 +58,8 @@ export interface DayPresentation {
   readonly onlineOff: boolean;
   /** The spoken details after the date: "Special hours, 2 services, closed 10:00 PM – 11:00 PM". */
   readonly accessibleDetails: string;
+  /** The spoken date the name opens with: "Friday, October 30". */
+  readonly fullDate: string;
   /** The button's accessible name: "Friday, October 30: …". */
   readonly accessibleName: string;
 }
@@ -154,6 +156,7 @@ export function presentDay(
     services,
     onlineOff,
     accessibleDetails,
+    fullDate,
     accessibleName: t("availability.calendar.cellName", {
       date: fullDate,
       details: accessibleDetails,
