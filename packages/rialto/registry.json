@@ -1282,6 +1282,20 @@
       "slots": []
     },
     {
+      "name": "Contour",
+      "description": "An ambient canvas backdrop: topographic isolines traced over a slowly\nevolving field, like the terroir map on a wine list or vineyard topography.\nHills swell and settle, so the contours keep reshaping. One level is stroked\nin the gold accent; the rest are faint text-primary. The pointer raises a\nlocal hill under the cursor.\n\nPurely decorative — always `aria-hidden` and never interactive. Colors come\nfrom live theme tokens and re-read on theme change, so it works in light and\ndark without configuration. Under `prefers-reduced-motion` it degrades to a\nstatic gradient poster and no animation loop is ever started.\n\nAn expressive element: use one per view, as the backdrop of a single hero or\nempty-state slot, never stacked with `SilkFlow`.\n\nSizes to its container; give that container `position: relative`.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [
+        {
+          "name": "className",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Additional class names for the root element."
+        }
+      ],
+      "slots": []
+    },
+    {
       "name": "DataList",
       "description": "A definition list of key-value pairs laid out horizontally or vertically.\nUse for spec sheets, metadata panels, or any structured label-value display.",
       "importPath": "@mattbutlerengineering/rialto",

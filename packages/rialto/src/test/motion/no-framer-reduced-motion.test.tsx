@@ -17,6 +17,7 @@ import { render, renderHook } from "@testing-library/react";
 import { useReducedMotion } from "framer-motion";
 import { Avatar } from "../../components/Avatar/Avatar";
 import { DepartureBoard } from "../../components/DepartureBoard/DepartureBoard";
+import { Contour } from "../../components/Contour/Contour";
 import { Guilloche } from "../../components/Guilloche/Guilloche";
 import { Handshake } from "../../components/Handshake/Handshake";
 import { NeonSign } from "../../components/NeonSign/NeonSign";
@@ -32,6 +33,7 @@ stubMatchMedia([PREFERS_REDUCED_MOTION]);
 const RENDERS: ReadonlyArray<readonly [string, () => void]> = [
   ["Avatar", () => render(<Avatar src="/a.jpg" name="A" transition="splitflap" />)],
   ["DepartureBoard", () => render(<DepartureBoard phrases={["ONE", "TWO"]} />)],
+  ["Contour", () => render(<Contour />)],
   ["Guilloche", () => render(<Guilloche />)],
   ["Handshake", () => render(<Handshake aria-label="x" stations={["A", "B"]} />)],
   ["NeonSign", () => render(<NeonSign state="open" aria-label="x" />)],

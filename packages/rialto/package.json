@@ -118,6 +118,10 @@
       "types": "./dist/lib/components/ContextMenu/index.d.ts",
       "import": "./dist/lib/components/ContextMenu/index.js"
     },
+    "./Contour": {
+      "types": "./dist/lib/components/Contour/index.d.ts",
+      "import": "./dist/lib/components/Contour/index.js"
+    },
     "./DataList": {
       "types": "./dist/lib/components/DataList/index.d.ts",
       "import": "./dist/lib/components/DataList/index.js"
