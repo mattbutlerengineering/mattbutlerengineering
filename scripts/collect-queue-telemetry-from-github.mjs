@@ -19,7 +19,7 @@
  * Pure core (`deriveTelemetryRows`) + a thin CLI. Node builtins and sibling
  * modules only (scripts/check-workflow-deps.mjs).
  *
- * Usage: node scripts/collect-queue-telemetry-from-github.mjs [--days 7] [--limit 100]
+ * Usage: node scripts/collect-queue-telemetry-from-github.mjs [--days 7] [--limit 500]
  */
 
 import { execFileSync } from "node:child_process";
@@ -123,7 +123,9 @@ function numArg(argv, name, fallback) {
 
 function main(argv) {
   const days = numArg(argv, "--days", 7);
-  const limit = numArg(argv, "--limit", 100);
+  // 500, not 100: the repo merges about 390 PRs in 7 days, so a 100 cap dropped
+  // every agent PR outside the newest ~2 days and it never got a row (#9308).
+  const limit = numArg(argv, "--limit", 500);
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
   const raw = execFileSync(

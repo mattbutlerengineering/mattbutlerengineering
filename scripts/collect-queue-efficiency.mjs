@@ -283,9 +283,12 @@ const REAL_VERDICTS = new Set(["pass", "flag"]);
 
 /**
  * Share of the window's PRs that carry a real `pass`/`flag` review verdict.
- * A PR whose row is an unmeasured null verdict (see
- * {@link isUnmeasuredVerdictRow}) is excluded from the denominator (the verdict is unknowable, not missing); a PR with
- * no row at all stays in it.
+ * Every window PR is in the denominator. A PR whose row is an unmeasured null
+ * verdict (see {@link isUnmeasuredVerdictRow}) counts as uncovered, the same
+ * as a PR with no row: excluding those rows made coverage depend on which PRs
+ * the daily backstop happened to reach, and read 10/40 while 67 of 84 merged
+ * agent PRs carried no review evidence anywhere (#9308). `unmeasured` and
+ * `share` still report how many of the uncovered PRs lack an in-session row.
  *
  * The denominator is `windowPrs.length` — the PRs that *should* have gone
  * through the review gate — not `windowRows.length`. A gate that stops
@@ -305,10 +308,9 @@ const REAL_VERDICTS = new Set(["pass", "flag"]);
 export function reviewCoverage(windowPrs, windowRows) {
   const reviewed = windowRows.filter((r) => REAL_VERDICTS.has(r.reviewer_verdict)).length;
   const unmeasured = windowRows.filter(isUnmeasuredVerdictRow).length;
-  const denominator = windowPrs.length - unmeasured;
-  const share =
-    windowPrs.length === 0 ? null : Math.round((unmeasured / windowPrs.length) * 1000) / 1000;
-  if (denominator <= 0) return { coverage: null, n: 0, unmeasured, share };
+  const denominator = windowPrs.length;
+  const share = denominator === 0 ? null : Math.round((unmeasured / denominator) * 1000) / 1000;
+  if (denominator === 0) return { coverage: null, n: 0, unmeasured, share };
   return {
     coverage: Math.round((reviewed / denominator) * 1000) / 1000,
     n: denominator,
