@@ -89,6 +89,17 @@ describe("App", () => {
     }
   );
 
+  it("leaves the nav on the visitor's theme unless a page lends it a sky", () => {
+    const { container } = render(
+      <MemoryRouter initialEntries={["/status"]}>
+        <App theme="light" onThemeToggle={vi.fn()} />
+      </MemoryRouter>
+    );
+    const navSky = container.querySelector("[data-nav-sky]");
+    expect(navSky).toContainElement(screen.getByTestId("global-nav"));
+    expect(navSky).not.toHaveAttribute("data-theme");
+  });
+
   it("gives the nav an Engineering menu and marks the current page", () => {
     render(
       <MemoryRouter initialEntries={["/shipped/some-story"]}>

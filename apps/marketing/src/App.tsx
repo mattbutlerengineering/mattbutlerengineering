@@ -1,8 +1,9 @@
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router";
 import { Footer, GlobalNav, Skeleton, Text } from "@mattbutlerengineering/rialto";
 import { engineeringMenu, siteCopyright, siteFooterColumns } from "@mbe/site-nav";
 import { useRouteMeta } from "./utils/route-meta";
+import { PageSkyContext, type PageSky } from "./utils/page-sky";
 import styles from "./App.module.css";
 
 const HomePage = lazy(() => import("./pages/HomePage").then((m) => ({ default: m.HomePage })));
@@ -57,6 +58,7 @@ function RouteFallback() {
 export function App({ theme, onThemeToggle }: AppProps) {
   useRouteMeta();
   const { pathname } = useLocation();
+  const [pageSky, setPageSky] = useState<PageSky>(null);
   useEffect(() => {
     const main = document.getElementById("main-content");
     if (main && !window.location.hash) {
@@ -77,39 +79,45 @@ export function App({ theme, onThemeToggle }: AppProps) {
       <a href="#main-content" className="skip-link">
         Skip to main content
       </a>
-      <GlobalNav
-        currentApp="marketing"
-        currentPath={pathname}
-        theme={theme}
-        onThemeToggle={onThemeToggle}
-        menu={engineeringMenu(pathname)}
-      />
+      {/* A page may lend the nav its own light (see utils/page-sky). `display:
+          contents` keeps the nav sticky against the layout, not this wrapper. */}
+      <div className={styles.navSky} data-nav-sky data-theme={pageSky ?? undefined}>
+        <GlobalNav
+          currentApp="marketing"
+          currentPath={pathname}
+          theme={theme}
+          onThemeToggle={onThemeToggle}
+          menu={engineeringMenu(pathname)}
+        />
+      </div>
       <main id="main-content" tabIndex={-1} className={styles.main}>
-        <Suspense fallback={<RouteFallback />}>
-          <Routes>
-            <Route
-              path="/"
-              element={
-                <Suspense fallback={<HomeRouteFallback />}>
-                  <HomePage />
-                </Suspense>
-              }
-            />
-            <Route path="/index.html" element={<Navigate to="/" replace />} />
-            <Route path="/status" element={<StatusPage />} />
-            <Route path="/weekly" element={<Navigate to="/" replace />} />
-            <Route path="/metrics" element={<MetricsPage />} />
-            <Route path="/acmm" element={<AcmmPage />} />
-            <Route path="/ai-health" element={<AiHealthPage />} />
-            <Route path="/shipped" element={<ShippedIndexPage />} />
-            <Route path="/shipped/:slug" element={<ShippedStoryPage />} />
-            <Route path="/venues" element={<VenuesPage />} />
-            {/* Fallback for edge router failure or local dev */}
-            <Route path="/rialto/*" element={<Navigate to="/rialto/" replace />} />
-            <Route path="/hospitality/*" element={<Navigate to="/hospitality/" replace />} />
-            <Route path="*" element={<NotFoundPage />} />
-          </Routes>
-        </Suspense>
+        <PageSkyContext value={setPageSky}>
+          <Suspense fallback={<RouteFallback />}>
+            <Routes>
+              <Route
+                path="/"
+                element={
+                  <Suspense fallback={<HomeRouteFallback />}>
+                    <HomePage />
+                  </Suspense>
+                }
+              />
+              <Route path="/index.html" element={<Navigate to="/" replace />} />
+              <Route path="/status" element={<StatusPage />} />
+              <Route path="/weekly" element={<Navigate to="/" replace />} />
+              <Route path="/metrics" element={<MetricsPage />} />
+              <Route path="/acmm" element={<AcmmPage />} />
+              <Route path="/ai-health" element={<AiHealthPage />} />
+              <Route path="/shipped" element={<ShippedIndexPage />} />
+              <Route path="/shipped/:slug" element={<ShippedStoryPage />} />
+              <Route path="/venues" element={<VenuesPage />} />
+              {/* Fallback for edge router failure or local dev */}
+              <Route path="/rialto/*" element={<Navigate to="/rialto/" replace />} />
+              <Route path="/hospitality/*" element={<Navigate to="/hospitality/" replace />} />
+              <Route path="*" element={<NotFoundPage />} />
+            </Routes>
+          </Suspense>
+        </PageSkyContext>
       </main>
       <Footer
         variant="rich"

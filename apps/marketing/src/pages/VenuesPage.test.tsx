@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router";
 import { RialtoProvider, ToastProvider } from "@mattbutlerengineering/rialto";
 import { VenuesPage } from "./VenuesPage.js";
 import { ROADMAP, SCENES } from "../data/service-night.js";
+import { PageSkyContext } from "../utils/page-sky.js";
 
 function renderVenuesPage() {
   return render(
@@ -152,6 +153,35 @@ describe("VenuesPage", () => {
 
       unmount();
       expect(observer.disconnect).toHaveBeenCalled();
+    });
+
+    it("hands its sky to the app shell, so the nav goes dark with the room, and hands it back on leaving", () => {
+      const observer = stubSceneObserver();
+      const setPageSky = vi.fn();
+      const { container, unmount } = render(
+        <PageSkyContext value={setPageSky}>
+          <RialtoProvider vibe="presenting">
+            <ToastProvider>
+              <MemoryRouter>
+                <VenuesPage />
+              </MemoryRouter>
+            </ToastProvider>
+          </RialtoProvider>
+        </PageSkyContext>
+      );
+      expect(setPageSky).toHaveBeenLastCalledWith("light");
+
+      const doors = container.querySelector('[data-scene="doors"]');
+      act(() =>
+        observer.callback?.(
+          [{ isIntersecting: true, target: doors } as IntersectionObserverEntry],
+          {} as IntersectionObserver
+        )
+      );
+      expect(setPageSky).toHaveBeenLastCalledWith("dark");
+
+      unmount();
+      expect(setPageSky).toHaveBeenLastCalledWith(null);
     });
   });
 });

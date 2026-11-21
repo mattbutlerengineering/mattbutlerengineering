@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import { sceneById, skyThemeFor } from "../data/service-night";
+import { usePageSky } from "../utils/page-sky";
 import { useActiveScene } from "../components/service-night/useActiveScene";
 import { TimeRail } from "../components/service-night/TimeRail";
 import { VenuesHero } from "../components/service-night/VenuesHero";
@@ -23,6 +24,8 @@ export function VenuesPage() {
   const nightRef = useRef<HTMLDivElement>(null);
   const activeScene = useActiveScene(nightRef);
   const sky = skyThemeFor(activeScene);
+  // The shared nav takes the same light, so it never sits as a pale bar over the night.
+  usePageSky(sky);
 
   return (
     <div ref={nightRef} className={styles.night} data-sky={sky} data-theme={sky}>
