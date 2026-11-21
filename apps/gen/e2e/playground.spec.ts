@@ -1,5 +1,6 @@
 import { test, expect } from "./fixtures.js";
 import { AxeBuilder } from "@axe-core/playwright";
+import { WCAG_A_AA_TAGS } from "./axe-tags.js";
 import { mockGenApi } from "./gen-api-mocks.js";
 
 test.describe("Playground", () => {
@@ -132,7 +133,7 @@ test.describe("Playground", () => {
     await authPage.emulateMedia({ reducedMotion: "reduce" });
     // The AppBar fades in via inline framer-motion styles the CSS media query can't reach.
     await expect(authPage.getByRole("banner")).toHaveCSS("opacity", "1");
-    const results = await new AxeBuilder({ page: authPage }).withTags(["wcag2aa"]).analyze();
+    const results = await new AxeBuilder({ page: authPage }).withTags(WCAG_A_AA_TAGS).analyze();
     const violations = results.violations.filter(
       (v) => v.impact === "critical" || v.impact === "serious"
     );
