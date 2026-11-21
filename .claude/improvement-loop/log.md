@@ -1156,3 +1156,40 @@ A clean fire: everything due was captured and judged, and nothing met the bar to
 **queueEfficiency:** composite 0.976 (baseline n/a) — healthy
 **Difficulty distribution:** size:s:42, size:m:10, size:xs:23, size:xl:6, size:l:3
 **Issues filed:** 1
+## 2026-11-21 — mbe-evening
+
+### Metrics
+
+| Metric                            | Value                                                                                          | Status |
+| --------------------------------- | ---------------------------------------------------------------------------------------------- | ------ |
+| Created (7d, audit+ci-fix)        | 28 (16 audit + 12 ci-fix)                                                                      | -      |
+| Closed (7d, audit+ci-fix)         | 40 (21 audit + 19 ci-fix)                                                                      | -      |
+| Closure Rate                      | 143%                                                                                           | Green  |
+| Time-to-Close                     | mean 100.5h / median 6.6h (p90 205h, max 1891h)                                                | Yellow |
+| Agent Success                     | 1/1 open has-pr, 0 agent-failed                                                                | Green  |
+| CI Pass (main, last 20 push runs) | 5 success / 15 cancelled (superseded by rapid subsequent pushes, no failures) / 0 failure      | Green  |
+| Queue (ready)                     | 0                                                                                              | Green  |
+| Stale (ready >7d)                 | 0                                                                                              | Green  |
+| Blocked (agent-failed)            | 0                                                                                              | Green  |
+| Skipped (agent-skip)              | 0                                                                                              | Green  |
+| Daily Spend (attributed)          | $0 today / $2 (7d, agent-core sessions)                                                        | Green  |
+| 7d Spend                          | $2 attributed + 1,971,948 tokens across 16 queue-worker sessions, cost unknown (not estimated) | n/a    |
+| Cost/Issue (attributed only)      | ~$0.05 ($2 / 40 closed)                                                                        | Green  |
+
+### Patterns
+
+- Mean time-to-close (100.5h) is entirely an outlier effect, not a slowdown: median is 6.6h (in line with yesterday's 14.4h), but a long tail of very old issues (max ~1891h / ~79d) closed today pulls the mean up. One day of data — not yet a 3+ day pattern, so no meta-improvement issue filed for it; worth a second look tomorrow if the mean stays elevated.
+- CI "cancelled" runs (15/20 sampled push runs on main) are not failures: every one is superseded by a newer push in the same concurrency group at this repo's merge velocity (~291 PRs merged in 7d). The newest commit (4d715464) and every completed (non-cancelled) run in the sample succeeded — main's CI Gate check-run is green at HEAD.
+- implement-queue this iteration: only 1 `ready` issue existed (#9236, sdlcSpeed staleness). Root-caused and fixed (PR #9301, reviewer score 8/pass, CI green) but the merge call itself was denied by the session's auto-mode classifier (`[Merge Without Review]`, #6125) — parked for a human merge, not a review or CI failure. Same denial blocked this run's own telemetry PR (#9303). Neither counts against Agent Success or the circuit breaker.
+- 28 of 29 open PRs already carry `needs-review` (correctly held for a human) — a substantial human-review backlog exists, but it predates this run and isn't new; not actionable by this routine.
+- Stateless issue #9238 ("Metrics collection is stale or empty") overlaps the just-fixed #9236 (same sdlcSpeed root cause) plus a second, distinct concern (queue-telemetry cost coverage unmeasured) — not promoted to `ready` this iteration pending #9301 merging, to avoid a duplicate fix.
+
+### Recommendations
+
+- No action needed: all metrics green except the mean time-to-close outlier, which is explained and self-resolving (one-time backlog sweep, not a trend).
+- Re-judge #9238 once PR #9301 merges — likely splits into "already resolved" (sdlcSpeed half) + a possible new scoped issue for queue-telemetry cost coverage, or a straight promote if sdlcSpeed is dropped from its body.
+- Two PRs (#9301, #9303) are reviewed/green and parked on the merge-classifier denial — flag for the Owner to merge by hand, or run a session where the classifier allows `gh pr merge`.
+
+### Skipped Issues
+
+0 skipped after max retries (agent-skip label: empty).
