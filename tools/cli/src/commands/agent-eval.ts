@@ -15,6 +15,7 @@ import {
   resolveSuitePath,
   checkCostRegression,
   suiteDidNotRun,
+  taskDidNotRun,
   suiteJudgeUnavailable,
   costBasisForAdapter,
   isWithinBudget,
@@ -401,6 +402,13 @@ async function verifyInWorktree(
   };
   const anyRequired = Object.values(required).some(Boolean);
   const worktreePath = session.worktreePath;
+
+  // A non-run is excluded from the aggregate (`nonRunCount`); an install plus
+  // turbo run on an untouched worktree would only buy a misleading row.
+  if (taskDidNotRun({ turns: session.numTurns, costUsd: session.costUsd })) {
+    console.error(`${task.id}: verification skipped — task did not run (0 turns, $0 cost)`);
+    return { testsPass: false, typecheckPass: false, lintPass: false };
+  }
 
   if (anyRequired && worktreePath === undefined) {
     const errors = session.errors.length > 0 ? session.errors.join("; ") : "none reported";

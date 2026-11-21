@@ -630,6 +630,35 @@ describe("agent eval command", () => {
       expect(mockRemoveWorktree).not.toHaveBeenCalled();
     });
 
+    it("(f) skips install and turbo for a task that did not run (0 turns, $0), scoring its checks false and saying why", async () => {
+      mockLoadSuite.mockResolvedValue([task]);
+      mockRunAgentSession.mockResolvedValue(
+        fakeSession({ status: "failed", numTurns: 0, costUsd: 0 })
+      );
+
+      const row = await runJson();
+
+      expect(mockExecFile).not.toHaveBeenCalled();
+      expect(row.deterministic.testsPass).toBe(false);
+      expect(row.deterministic.typecheckPass).toBe(false);
+      expect(errSpy.mock.calls.flat().join("\n")).toContain(
+        "t1: verification skipped — task did not run (0 turns, $0 cost)"
+      );
+    });
+
+    it("(f) still verifies a failed session that ran (turns > 0)", async () => {
+      mockLoadSuite.mockResolvedValue([task]);
+      mockRunAgentSession.mockResolvedValue(fakeSession({ status: "failed", numTurns: 5 }));
+
+      await agentEvalCommand.parseAsync([], { from: "user" });
+
+      expect(pnpmCalls().map(([, args]) => args)).toEqual([
+        ["install", "--frozen-lockfile"],
+        turbo("test"),
+        turbo("typecheck"),
+      ]);
+    });
+
     it("(e) removes the worktree of a succeeded session, swallowing a removal failure", async () => {
       mockLoadSuite.mockResolvedValue([task]);
       mockRunAgentSession.mockResolvedValue(fakeSession({ status: "succeeded" }));
