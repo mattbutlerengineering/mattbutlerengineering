@@ -168,7 +168,7 @@ unmigrated importers. Each will be migrated in the #6279 follow-up:
 
 - The nine remaining `useReducedMotion()` call sites. Each uses the flag as a
   behaviour gate (canvas/RAF loops, CSS classes, timers), not to pick a
-  transition config: `Avatar`, `DepartureBoard`, `Ferrofluid`, `Handshake`,
+  transition config: `Avatar`, `DepartureBoard`, `Handshake`,
   `NeonSign`, `SilkFlow`, `SplitFlap`, `WatchLoader`, and
   `hooks/useScrollReveal.ts`.
 - `hooks/useBoop.ts`'s import of the deprecated `boop` token constant. It needs

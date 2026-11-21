@@ -60,7 +60,6 @@ const BARREL_COMPONENT_NAMES: readonly BarrelExportName[] = [
   "DropdownMenu",
   "EmptyState",
   "ErrorBoundary",
-  "Ferrofluid",
   "FlipDot",
   "Footer",
   "Form",

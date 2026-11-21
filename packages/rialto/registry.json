@@ -1959,40 +1959,6 @@
       ]
     },
     {
-      "name": "Ferrofluid",
-      "description": "A decorative ferrofluid-style fluid animation. Several SVG circles drift\nthrough a container; an SVG `feGaussianBlur` + `feColorMatrix` filter fuses\nany overlapping circles into continuous blobs, producing the liquid\nsurface-tension effect of magnetic fluid.\n\nPurely decorative — always `aria-hidden`. If you need it to convey meaning,\nwrap it and add your own semantics in the parent.",
-      "importPath": "@mattbutlerengineering/rialto",
-      "props": [
-        {
-          "name": "color",
-          "type": "string | undefined",
-          "required": false,
-          "description": "Fill color for the blobs."
-        },
-        {
-          "name": "blobCount",
-          "type": "number | undefined",
-          "required": false,
-          "description": "How many blobs to render."
-        },
-        {
-          "name": "speed",
-          "type": "\"slow\" | \"medium\" | \"fast\" | undefined",
-          "required": false,
-          "description": "Drift speed preset."
-        },
-        {
-          "name": "blurAmount",
-          "type": "number | undefined",
-          "required": false,
-          "description": "Blur intensity. Higher = more liquid/merged."
-        }
-      ],
-      "slots": [
-        "children"
-      ]
-    },
-    {
       "name": "FlipDot",
       "importPath": "@mattbutlerengineering/rialto",
       "props": [
@@ -5263,7 +5229,7 @@
         },
         {
           "name": "speed",
-          "type": "\"slow\" | \"fast\" | \"normal\" | undefined",
+          "type": "\"slow\" | \"normal\" | \"fast\" | undefined",
           "required": false,
           "description": "Scales every animation duration proportionally."
         },

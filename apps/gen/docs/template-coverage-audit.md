@@ -157,7 +157,6 @@ overall as of this regeneration only because a third, batch-5 template
 | 31  | DropdownMenu     | No       | —                                                                                                         | 18                                   |
 | 32  | EmptyState       | **Yes**  | loading-empty-states                                                                                      | 76                                   |
 | 33  | ErrorBoundary    | No       | —                                                                                                         | 10                                   |
-| 34  | Ferrofluid       | No       | —                                                                                                         | 8                                    |
 | 35  | FlipDot          | No       | —                                                                                                         | 8                                    |
 | 36  | Footer           | **Yes**  | docs-wiki-page (site footer)                                                                              | 33                                   |
 | 37  | Form             | **Yes**  | registration-form, checkout-form, survey-form                                                             | 19                                   |
@@ -243,7 +242,6 @@ joins it as the one new component added to the catalog since that pass:
 | 7    | NeonSign        | 10          | Visual/decorative |
 | 8    | Sidebar         | 10          | Navigation/layout |
 | 9    | Navbar          | 9           | Navigation/layout |
-| 10   | Ferrofluid      | 8           | Visual/decorative |
 | 11   | FlipDot         | 8           | Visual/decorative |
 | 12   | ContextMenu     | 7           | Navigation/layout |
 | 13   | SilkFlow        | 7           | Visual/decorative |
@@ -272,11 +270,11 @@ Board" template (DepartureBoard — pairs naturally with the existing TapeChart/
 Chalkboard restaurant-reservations-board), a "Directory / File Browser" template
 (Tree).
 
-**Visual/decorative (5):** Letterboard, NeonSign, Ferrofluid, FlipDot, SilkFlow — the
+**Visual/decorative (4):** Letterboard, NeonSign, FlipDot, SilkFlow — the
 catalog's animated/novelty display components (siblings of the already-covered
 Odometer/SplitFlap/Chalkboard/TapeChart, and now Handshake). A "Brand Showcase" or
 "Storefront Sign" template could plausibly reach for several of these at once
-(NeonSign, FlipDot, Ferrofluid, SilkFlow); Letterboard reads as a vintage
+(NeonSign, FlipDot, SilkFlow); Letterboard reads as a vintage
 diner/marquee motif and could fit a "Retro Menu Board" or "Daily Specials" template.
 
 **Feedback/overlay (2):** WatchLoader, Toast — e.g. a "Background Job Status"
