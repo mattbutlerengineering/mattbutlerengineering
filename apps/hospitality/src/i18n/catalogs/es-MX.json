@@ -784,7 +784,8 @@
       "upcoming": "Próximas",
       "empty": "No hay reservaciones",
       "unassigned": "Sin asignar",
-      "cardLabel": "{{guest}}, grupo de {{size}}, {{time}}, mesa {{table}}",
+      "cardLabel": "{{guest}} {{time}} · {{guests}} · {{table}} {{status}}",
+      "tableContext": "mesa {{table}}",
       "seated": "Sentados"
     },
     "emptyNight": {

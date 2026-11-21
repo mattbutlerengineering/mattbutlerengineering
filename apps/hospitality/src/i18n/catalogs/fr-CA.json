@@ -784,7 +784,8 @@
       "upcoming": "À venir",
       "empty": "Aucune réservation",
       "unassigned": "Non attribuée",
-      "cardLabel": "{{guest}}, groupe de {{size}}, {{time}}, table {{table}}",
+      "cardLabel": "{{guest}} {{time}} · {{guests}} · {{table}} {{status}}",
+      "tableContext": "table {{table}}",
       "seated": "Installés"
     },
     "emptyNight": {
