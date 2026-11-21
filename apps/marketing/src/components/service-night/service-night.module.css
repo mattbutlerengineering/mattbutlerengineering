@@ -148,6 +148,9 @@
 
 .chart {
   --label-width: 5.5rem;
+  /* Defaults for the two values RushScene sets inline from the scene data. */
+  --slot-count: 16;
+  --now-slot: 6;
 
   position: relative;
   width: 100%;
