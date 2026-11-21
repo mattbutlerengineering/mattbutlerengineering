@@ -1,4 +1,10 @@
 import {
+  startAmbientCanvas,
+  type AmbientFrame,
+  type AmbientPointer,
+  type AmbientSize,
+} from "../_ambient/ambient-canvas";
+import {
   createValueNoise,
   FIELD_TIME_STEP,
   silkParticleCount,
@@ -15,8 +21,6 @@ const GOLD_EVERY_NTH = 20;
 const POINTER_RADIUS = 140;
 /** Peak push applied at the pointer, tapering linearly to zero at the radius. */
 const POINTER_PUSH = 2.4;
-/** Retina is worth paying for; 3x displays are not. */
-const MAX_DPR = 2;
 
 interface StrandStyle {
   readonly alpha: number;
@@ -58,19 +62,12 @@ interface Strand {
 /**
  * Starts the silk flow-field animation on `canvas` and returns its teardown.
  *
- * Everything the loop touches — frames, listeners, observers — is owned here, so
- * one call to the returned function fully releases the component.
+ * The generic loop plumbing (resize, playback, theme, pointer, teardown) lives
+ * in the shared ambient-canvas runtime; this file owns only the strand physics.
  */
 export function startSilkFlow(canvas: HTMLCanvasElement): () => void {
-  const ctx = canvas.getContext("2d");
-  return ctx ? runFlowField(canvas, ctx) : () => {};
-}
-
-function runFlowField(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D): () => void {
   const noise = createValueNoise();
-  const pointer = { x: Number.NEGATIVE_INFINITY, y: Number.NEGATIVE_INFINITY };
 
-  let palette = readPalette(canvas);
   let strands: Strand[] = [];
   let silkStrands: Strand[] = [];
   let goldStrands: Strand[] = [];
@@ -79,16 +76,10 @@ function runFlowField(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D):
   let time = 0;
   /** The first frame paints an opaque wash so trails fade in from the surface. */
   let washed = false;
-  let frameId = 0;
-  let onScreen = true;
 
-  function resize() {
-    const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
-    width = canvas.clientWidth;
-    height = canvas.clientHeight;
-    canvas.width = Math.round(width * dpr);
-    canvas.height = Math.round(height * dpr);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  function onResize(size: AmbientSize) {
+    width = size.width;
+    height = size.height;
     strands = Array.from({ length: silkParticleCount(width, height) }, () =>
       respawn({ x: 0, y: 0, px: 0, py: 0 })
     );
@@ -106,7 +97,7 @@ function runFlowField(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D):
     return strand;
   }
 
-  function advance(strand: Strand) {
+  function advance(strand: Strand, pointer: Readonly<AmbientPointer>) {
     const angle = silkStrandAngle(noise, strand.x, strand.y, time);
     let vx = Math.cos(angle) * SPEED;
     let vy = Math.sin(angle) * SPEED;
@@ -131,7 +122,12 @@ function runFlowField(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D):
   }
 
   /** Draws one batch of strands as a single path — one style change per frame. */
-  function strokeGroup(group: readonly Strand[], color: string, style: StrandStyle) {
+  function strokeGroup(
+    ctx: CanvasRenderingContext2D,
+    group: readonly Strand[],
+    color: string,
+    style: StrandStyle
+  ) {
     ctx.globalAlpha = style.alpha;
     ctx.lineWidth = style.width;
     ctx.strokeStyle = color;
@@ -145,76 +141,21 @@ function runFlowField(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D):
     ctx.stroke();
   }
 
-  function drawFrame() {
+  function onFrame({ ctx, palette, pointer }: AmbientFrame<Palette>) {
     ctx.globalAlpha = washed ? TRAIL_FADE_ALPHA : 1;
     ctx.fillStyle = palette.surface;
     ctx.fillRect(0, 0, width, height);
     washed = true;
 
     time += FIELD_TIME_STEP;
-    for (const strand of strands) advance(strand);
+    for (const strand of strands) advance(strand, pointer);
 
     ctx.lineCap = "round";
-    strokeGroup(silkStrands, palette.silk, palette.silkStyle);
-    strokeGroup(goldStrands, palette.accent, palette.goldStyle);
+    strokeGroup(ctx, silkStrands, palette.silk, palette.silkStyle);
+    strokeGroup(ctx, goldStrands, palette.accent, palette.goldStyle);
   }
 
-  function tick() {
-    frameId = requestAnimationFrame(tick);
-    drawFrame();
-  }
-
-  function play() {
-    if (!frameId) frameId = requestAnimationFrame(tick);
-  }
-
-  function pause() {
-    if (!frameId) return;
-    cancelAnimationFrame(frameId);
-    frameId = 0;
-  }
-
-  /** Frames are only worth spending while the canvas is both on screen and on top. */
-  function syncPlayback() {
-    if (onScreen && !document.hidden) play();
-    else pause();
-  }
-
-  function handlePointerMove(event: PointerEvent) {
-    const rect = canvas.getBoundingClientRect();
-    pointer.x = event.clientX - rect.left;
-    pointer.y = event.clientY - rect.top;
-  }
-
-  const intersection = new IntersectionObserver((entries) => {
-    onScreen = entries.some((entry) => entry.isIntersecting);
-    syncPlayback();
-  });
-  intersection.observe(canvas);
-
-  const themeChange = new MutationObserver(() => {
-    palette = readPalette(canvas);
-  });
-  themeChange.observe(document.documentElement, {
-    attributes: true,
-    attributeFilter: ["data-theme"],
-  });
-
-  window.addEventListener("pointermove", handlePointerMove, { passive: true });
-  window.addEventListener("resize", resize);
-  document.addEventListener("visibilitychange", syncPlayback);
-
-  resize();
-  play();
-
-  return () => {
-    pause();
-    intersection.disconnect();
-    themeChange.disconnect();
-    window.removeEventListener("pointermove", handlePointerMove);
-    window.removeEventListener("resize", resize);
-    document.removeEventListener("visibilitychange", syncPlayback);
-  };
+  return startAmbientCanvas(canvas, { readPalette, onResize, onFrame });
 }
 
 /**

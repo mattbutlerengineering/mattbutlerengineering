@@ -51,6 +51,18 @@ describe("findComponentDirs", () => {
 
     expect(findComponentDirs(dir)).toEqual(["Accordion"]);
   });
+
+  // `_`-prefixed folders hold shared internals (e.g. `_ambient`), not
+  // components. rialto's lib-entrypoints scan skips them for the same reason.
+  it("skips underscore-prefixed folders of shared internals", () => {
+    dir = makeFixture({
+      Accordion: ["Accordion.tsx", "Accordion.stories.tsx"],
+      _ambient: ["ambient-canvas.ts"],
+    });
+
+    expect(findComponentDirs(dir)).toEqual(["Accordion"]);
+    expect(findMissingStories(dir)).toEqual([]);
+  });
 });
 
 describe("findComponentsWithStories", () => {
