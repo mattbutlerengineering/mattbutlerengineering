@@ -195,6 +195,8 @@ else
 fi
 ```
 
+**Post the hook's output line as a PR comment before merging, on every reviewed PR** (`gh pr comment <N> --body "<line>"`, the line first). That comment is the only review evidence that outlives the session: `review_coverage` counts a merged agent PR as reviewed only from an in-session telemetry verdict or this line, which the daily telemetry reconciler parses from the PR's comments. A PR merged without either counts as unreviewed (#9308).
+
 ## reviewers
 
 **Reviewer sub-agent (non-low-risk PRs).** Build `ReviewInput` from the PR diff and dispatch:

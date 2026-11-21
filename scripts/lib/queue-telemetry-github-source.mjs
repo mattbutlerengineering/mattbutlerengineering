@@ -8,9 +8,18 @@
 
 import { execFileSync } from "node:child_process";
 
-// `Review gate (inline): **PASS 9/10** — ...` -- the verdict is the first
-// bold token after the "Review gate" label, so "tests PASS" never matches.
-const VERDICT_RE = /Review gate[^*\n]*\*\*\s*(PASS|FLAG)\b/gi;
+// Three published verdict formats, one alternative each (#9308):
+//   `Review gate (inline): **PASS 9/10** — ...` -- legacy; the verdict is the
+//     first bold token after the "Review gate" label, so "tests PASS" never
+//     matches.
+//   `reviewer-verdict: pass (score 8, threshold 7)` -- the `verdict` hook's
+//     output line (.claude/implement-queue.md § verdict).
+//   `reviewed-merge: <head sha> PASS 9/10` -- a cloud routine's verdict
+//     (scripts/reviewed-merge.mjs). `PASS fast-path` is a merge without a
+//     review, so it is deliberately not matched.
+// The last two must start a line, so prose quoting the format never matches.
+const VERDICT_RE =
+  /Review gate[^*\n]*\*\*\s*(PASS|FLAG)\b|^reviewer-verdict:\s*(pass|flag)\b|^reviewed-merge: [0-9a-f]{40} (PASS) \d{1,2}\/10/gim;
 
 /**
  * @param {string[]} commentBodies
@@ -20,7 +29,7 @@ export function parseReviewerVerdict(commentBodies) {
   let verdict = null;
   for (const body of commentBodies ?? []) {
     if (typeof body !== "string") continue;
-    for (const m of body.matchAll(VERDICT_RE)) verdict = m[1].toLowerCase();
+    for (const m of body.matchAll(VERDICT_RE)) verdict = (m[1] ?? m[2] ?? m[3]).toLowerCase();
   }
   return verdict;
 }

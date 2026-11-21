@@ -748,7 +748,10 @@ describe("collectQueueEfficiency — known-row cost and coverage (#6941)", () =>
     expect(real.sub_metrics.cost_coverage_n).toBe(0);
   });
 
-  it("excludes unknown_reasons.reviewer_verdict rows from the review denominator but keeps no-row PRs", () => {
+  // #9308: a PR with no review evidence is uncovered whether or not the backstop
+  // wrote it a row. Excluding stamped rows made coverage depend on which PRs the
+  // backstop happened to reach (10/40 measured, 17/84 with evidence).
+  it("counts unknown_reasons.reviewer_verdict rows and no-row PRs as uncovered (#9308)", () => {
     const result = run(prsN(3), [
       { pr_number: 10, reviewer_verdict: "pass" },
       {
@@ -757,9 +760,9 @@ describe("collectQueueEfficiency — known-row cost and coverage (#6941)", () =>
         unknown_reasons: { reviewer_verdict: "no-review-record" },
       },
     ]);
-    // PR 12 has no row at all: still uncovered (#5005). Denominator = 3 - 1 = 2.
-    expect(result.sub_metrics.review_coverage).toBe(0.5);
-    expect(result.sub_metrics.review_coverage_n).toBe(2);
+    // PR 11 is stamped unknown and PR 12 has no row at all: both uncovered.
+    expect(result.sub_metrics.review_coverage).toBeCloseTo(0.333, 3);
+    expect(result.sub_metrics.review_coverage_n).toBe(3);
   });
 
   // #8817: GitHub backfill rows land with reviewer_verdict null before the daily
@@ -769,7 +772,7 @@ describe("collectQueueEfficiency — known-row cost and coverage (#6941)", () =>
   const BACKFILL = { labels: [], model_tier: null, tool_uses: null, subagent_tokens: null };
   const IN_SESSION = { labels: ["size:s"], model_tier: "sonnet", tool_uses: 5 };
 
-  it("excludes unreconciled backfill rows and reports count and share (#8817)", () => {
+  it("keeps backfill rows in the denominator and reports their count and share (#8817, #9308)", () => {
     const result = run(prsN(4), [
       { pr_number: 10, reviewer_verdict: "pass", ...IN_SESSION },
       { pr_number: 11, reviewer_verdict: "skipped", ...IN_SESSION },
@@ -781,8 +784,8 @@ describe("collectQueueEfficiency — known-row cost and coverage (#6941)", () =>
         unknown_reasons: { reviewer_verdict: "x" },
       },
     ]);
-    expect(result.sub_metrics.review_coverage).toBe(0.5);
-    expect(result.sub_metrics.review_coverage_n).toBe(2);
+    expect(result.sub_metrics.review_coverage).toBe(0.25);
+    expect(result.sub_metrics.review_coverage_n).toBe(4);
     expect(result.sub_metrics.review_coverage_unmeasured_n).toBe(2);
     expect(result.sub_metrics.review_coverage_unmeasured_share).toBe(0.5);
   });
