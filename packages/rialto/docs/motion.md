@@ -33,10 +33,10 @@ If a surface is both frequent and a candidate for delight, the frequency wins.
 
 Rialto uses a productive and expressive split (as in Carbon), mapped onto the motion presets and the duration tokens.
 
-| Tier           | Where                                                                       | Tokens and presets (resolve through `useMotionPreset()`)                                                                                                           |
-| -------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Productive** | Staff tools: hospitality dashboard, floor, tables, forms, menus, data views | `precision` (150ms, `[0.2, 0, 0, 1]`), `--rialto-duration-fast\|standard\|slow`, `--rialto-ease-precision`. Opacity, colour and small (under 16px) transform only. |
-| **Expressive** | Marketing, guest-facing booking moments, celebrations, Gen UI streaming     | `spring`, `springGentle`, `springTilt`, `staggerReveal`, `boop`, and the signature instruments (FlipDot, NeonSign, SplitFlap, Handshake, SilkFlow, Guilloche).     |
+| Tier           | Where                                                                       | Tokens and presets (resolve through `useMotionPreset()`)                                                                                                                |
+| -------------- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Productive** | Staff tools: hospitality dashboard, floor, tables, forms, menus, data views | `precision` (150ms, `[0.2, 0, 0, 1]`), `--rialto-duration-fast\|standard\|slow`, `--rialto-ease-precision`. Opacity, colour and small (under 16px) transform only.      |
+| **Expressive** | Marketing, guest-facing booking moments, celebrations, Gen UI streaming     | `spring`, `springGentle`, `springTilt`, `staggerReveal`, `boop`, and the signature instruments (FlipDot, NeonSign, SplitFlap, Handshake, SilkFlow, Guilloche, Contour). |
 
 Staff-facing views are productive by default. Any view may use expressive motion, and several expressive elements may run together ([ADR-033](../../../docs/adr/ADR-033-expressive-motion-and-atmosphere-repo-wide.md)), within the [frequency budget](#2-frequency-budget) and the [restraint rules](#5-restraint-rules): a 100+/day action stays still however expressive the view around it is.
 
@@ -136,20 +136,20 @@ Delight is chosen, not sprinkled. These are the planned moments; adding another 
 
 Verdicts as of this policy. **Keep** means it already fits its tier. **Trim** means a follow-up issue changes it. No component is changed by the PR that introduced this page. "Loop" means the component runs motion with no end.
 
-| Component or group                                                                                  | Tier       | Verdict  | Note                                                                                                  |
-| --------------------------------------------------------------------------------------------------- | ---------- | -------- | ----------------------------------------------------------------------------------------------------- |
-| Dialog, Drawer, Popover, HoverCard, Banner, Alert, Collapsible, AppBar, Sidebar                     | Productive | Keep     | Occasional, fade and short travel, scale at or above 0.96.                                            |
-| DropdownMenu, ContextMenu, NavigationMenu, Tooltip, Select, Combobox, Autocomplete                  | Productive | Keep     | Tens per day; short fade with scale 0.95, close to the floor. Keep, never deepen.                     |
-| CommandPalette                                                                                      | Productive | **Trim** | Opens 100+ times a day; scales and slides on enter. Should be instant or opacity only.                |
-| Button, Toggle, Checkbox, Pagination, SegmentedControl, Tag: hover `boop`                           | Expressive | **Trim** | Hover scale 1.03 on tens-per-day controls. Keep press (0.975); make hover colour only.                |
-| Tabs, Slider, SegmentedControl indicator, Sidebar and Tree chevrons, Navbar toggle, Meter, Progress | Productive | Keep     | Indicator and state motion, precise and short.                                                        |
-| Toast (x 80, scale 0.95, spring)                                                                    | Productive | **Trim** | Travels 80px on a spring in staff tools. Use a `precision` fade and 8px lift, scale at or above 0.96. |
-| PinInput (scale 0.6), Tag (scale 0.8), Checkbox mark (scale 0)                                      | Productive | **Trim** | Violate the never-scale-from-0 floor (0.9). Start at 0.9 or above with opacity.                       |
-| Skeleton, Progress shimmer/trace, Button and Combobox spinners, StatusLED, WatchLoader              | Productive | Keep     | Status loops (loading, live) are allowed.                                                             |
-| NeonSign breathe, Handshake shuttle (`repeat: Infinity`)                                            | Expressive | **Trim** | Decorative loops: confirm they pause offscreen and, past 5s, on request (WCAG 2.2.2).                 |
-| Hero, staggerReveal, SilkFlow, Guilloche, SplitScreenExit, MasterOverride, ChatPanel, ImageUpload   | Expressive | Keep     | Rare or guest-facing.                                                                                 |
-| FlipDot, SplitFlap, DepartureBoard, Odometer, Avatar `splitflap` transition                         | Expressive | Keep     | Signature instruments; respect the 3-flashes rule.                                                    |
-| Card, Badge and other static components                                                             | None       | Keep     | No motion.                                                                                            |
+| Component or group                                                                                         | Tier       | Verdict  | Note                                                                                                  |
+| ---------------------------------------------------------------------------------------------------------- | ---------- | -------- | ----------------------------------------------------------------------------------------------------- |
+| Dialog, Drawer, Popover, HoverCard, Banner, Alert, Collapsible, AppBar, Sidebar                            | Productive | Keep     | Occasional, fade and short travel, scale at or above 0.96.                                            |
+| DropdownMenu, ContextMenu, NavigationMenu, Tooltip, Select, Combobox, Autocomplete                         | Productive | Keep     | Tens per day; short fade with scale 0.95, close to the floor. Keep, never deepen.                     |
+| CommandPalette                                                                                             | Productive | **Trim** | Opens 100+ times a day; scales and slides on enter. Should be instant or opacity only.                |
+| Button, Toggle, Checkbox, Pagination, SegmentedControl, Tag: hover `boop`                                  | Expressive | **Trim** | Hover scale 1.03 on tens-per-day controls. Keep press (0.975); make hover colour only.                |
+| Tabs, Slider, SegmentedControl indicator, Sidebar and Tree chevrons, Navbar toggle, Meter, Progress        | Productive | Keep     | Indicator and state motion, precise and short.                                                        |
+| Toast (x 80, scale 0.95, spring)                                                                           | Productive | **Trim** | Travels 80px on a spring in staff tools. Use a `precision` fade and 8px lift, scale at or above 0.96. |
+| PinInput (scale 0.6), Tag (scale 0.8), Checkbox mark (scale 0)                                             | Productive | **Trim** | Violate the never-scale-from-0 floor (0.9). Start at 0.9 or above with opacity.                       |
+| Skeleton, Progress shimmer/trace, Button and Combobox spinners, StatusLED, WatchLoader                     | Productive | Keep     | Status loops (loading, live) are allowed.                                                             |
+| NeonSign breathe, Handshake shuttle (`repeat: Infinity`)                                                   | Expressive | **Trim** | Decorative loops: confirm they pause offscreen and, past 5s, on request (WCAG 2.2.2).                 |
+| Hero, staggerReveal, SilkFlow, Guilloche, Contour, SplitScreenExit, MasterOverride, ChatPanel, ImageUpload | Expressive | Keep     | Rare or guest-facing.                                                                                 |
+| FlipDot, SplitFlap, DepartureBoard, Odometer, Avatar `splitflap` transition                                | Expressive | Keep     | Signature instruments; respect the 3-flashes rule.                                                    |
+| Card, Badge and other static components                                                                    | None       | Keep     | No motion.                                                                                            |
 
 Follow-ups for the **Trim** rows: CommandPalette #7810, hover boop #7811, scale floor and Toast entrance #7812, decorative loops #7813.
 
