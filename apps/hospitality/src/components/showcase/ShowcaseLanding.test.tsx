@@ -49,6 +49,7 @@ function centre(container: HTMLElement, callbacks: Callback[], sceneId: string) 
 
 describe("ShowcaseLanding", () => {
   let observers: ReturnType<typeof stubObservers>;
+  let noCanvas: { mockRestore: () => void };
 
   beforeEach(() => {
     signIn.mockReset();
@@ -57,10 +58,14 @@ describe("ShowcaseLanding", () => {
       activeNavigator: undefined,
     } as unknown as ReturnType<typeof useAuth>);
     observers = stubObservers();
+    // src/test/setup.ts stubs a text-measuring 2D context for axe. The hero's
+    // SilkFlow would try to paint on it, so it gets what real jsdom gives: none.
+    noCanvas = vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    noCanvas.mockRestore();
   });
 
   it("has one h1 and an h2 for every later scene, in clock order", () => {
