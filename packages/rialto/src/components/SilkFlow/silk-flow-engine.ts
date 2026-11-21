@@ -4,6 +4,8 @@ import {
   silkParticleCount,
   silkStrandAngle,
 } from "./silk-flow-field";
+import { startAmbientCanvas } from "../_ambient/ambient-canvas";
+import type { AmbientFrame } from "../_ambient/ambient-canvas";
 
 /** Screen-space travel per frame, in CSS pixels. */
 const SPEED = 1.4;
@@ -15,8 +17,6 @@ const GOLD_EVERY_NTH = 20;
 const POINTER_RADIUS = 140;
 /** Peak push applied at the pointer, tapering linearly to zero at the radius. */
 const POINTER_PUSH = 2.4;
-/** Retina is worth paying for; 3x displays are not. */
-const MAX_DPR = 2;
 
 interface StrandStyle {
   readonly alpha: number;
@@ -58,47 +58,21 @@ interface Strand {
 /**
  * Starts the silk flow-field animation on `canvas` and returns its teardown.
  *
- * Everything the loop touches — frames, listeners, observers — is owned here, so
- * one call to the returned function fully releases the component.
+ * The loop plumbing (resize, playback, theme, pointer, teardown) lives in the
+ * shared ambient runtime; this owns only the strand physics and drawing.
  */
 export function startSilkFlow(canvas: HTMLCanvasElement): () => void {
-  const ctx = canvas.getContext("2d");
-  return ctx ? runFlowField(canvas, ctx) : () => {};
-}
-
-function runFlowField(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D): () => void {
   const noise = createValueNoise();
-  const pointer = { x: Number.NEGATIVE_INFINITY, y: Number.NEGATIVE_INFINITY };
 
-  let palette = readPalette(canvas);
   let strands: Strand[] = [];
   let silkStrands: Strand[] = [];
   let goldStrands: Strand[] = [];
-  let width = 0;
-  let height = 0;
   let time = 0;
   /** The first frame paints an opaque wash so trails fade in from the surface. */
   let washed = false;
-  let frameId = 0;
-  let onScreen = true;
-
-  function resize() {
-    const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
-    width = canvas.clientWidth;
-    height = canvas.clientHeight;
-    canvas.width = Math.round(width * dpr);
-    canvas.height = Math.round(height * dpr);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    strands = Array.from({ length: silkParticleCount(width, height) }, () =>
-      respawn({ x: 0, y: 0, px: 0, py: 0 })
-    );
-    goldStrands = strands.filter((_, index) => index % GOLD_EVERY_NTH === 0);
-    silkStrands = strands.filter((_, index) => index % GOLD_EVERY_NTH !== 0);
-    washed = false;
-  }
 
   /** Moves a strand to a fresh random position, leaving no trailing segment. */
-  function respawn(strand: Strand): Strand {
+  function respawn(strand: Strand, width: number, height: number): Strand {
     strand.x = Math.random() * width;
     strand.y = Math.random() * height;
     strand.px = strand.x;
@@ -106,7 +80,7 @@ function runFlowField(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D):
     return strand;
   }
 
-  function advance(strand: Strand) {
+  function advance(strand: Strand, { width, height, pointer }: AmbientFrame<Palette>) {
     const angle = silkStrandAngle(noise, strand.x, strand.y, time);
     let vx = Math.cos(angle) * SPEED;
     let vy = Math.sin(angle) * SPEED;
@@ -127,11 +101,18 @@ function runFlowField(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D):
 
     // Respawning collapses the segment to a point, which `strokeGroup` skips —
     // that is what stops a trail being drawn across the jump.
-    if (strand.x < 0 || strand.x > width || strand.y < 0 || strand.y > height) respawn(strand);
+    if (strand.x < 0 || strand.x > width || strand.y < 0 || strand.y > height) {
+      respawn(strand, width, height);
+    }
   }
 
   /** Draws one batch of strands as a single path — one style change per frame. */
-  function strokeGroup(group: readonly Strand[], color: string, style: StrandStyle) {
+  function strokeGroup(
+    ctx: CanvasRenderingContext2D,
+    group: readonly Strand[],
+    color: string,
+    style: StrandStyle
+  ) {
     ctx.globalAlpha = style.alpha;
     ctx.lineWidth = style.width;
     ctx.strokeStyle = color;
@@ -145,76 +126,31 @@ function runFlowField(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D):
     ctx.stroke();
   }
 
-  function drawFrame() {
-    ctx.globalAlpha = washed ? TRAIL_FADE_ALPHA : 1;
-    ctx.fillStyle = palette.surface;
-    ctx.fillRect(0, 0, width, height);
-    washed = true;
+  return startAmbientCanvas(canvas, {
+    readPalette,
+    onResize({ width, height }) {
+      strands = Array.from({ length: silkParticleCount(width, height) }, () =>
+        respawn({ x: 0, y: 0, px: 0, py: 0 }, width, height)
+      );
+      goldStrands = strands.filter((_, index) => index % GOLD_EVERY_NTH === 0);
+      silkStrands = strands.filter((_, index) => index % GOLD_EVERY_NTH !== 0);
+      washed = false;
+    },
+    onFrame(frame) {
+      const { ctx, width, height, palette } = frame;
+      ctx.globalAlpha = washed ? TRAIL_FADE_ALPHA : 1;
+      ctx.fillStyle = palette.surface;
+      ctx.fillRect(0, 0, width, height);
+      washed = true;
 
-    time += FIELD_TIME_STEP;
-    for (const strand of strands) advance(strand);
+      time += FIELD_TIME_STEP;
+      for (const strand of strands) advance(strand, frame);
 
-    ctx.lineCap = "round";
-    strokeGroup(silkStrands, palette.silk, palette.silkStyle);
-    strokeGroup(goldStrands, palette.accent, palette.goldStyle);
-  }
-
-  function tick() {
-    frameId = requestAnimationFrame(tick);
-    drawFrame();
-  }
-
-  function play() {
-    if (!frameId) frameId = requestAnimationFrame(tick);
-  }
-
-  function pause() {
-    if (!frameId) return;
-    cancelAnimationFrame(frameId);
-    frameId = 0;
-  }
-
-  /** Frames are only worth spending while the canvas is both on screen and on top. */
-  function syncPlayback() {
-    if (onScreen && !document.hidden) play();
-    else pause();
-  }
-
-  function handlePointerMove(event: PointerEvent) {
-    const rect = canvas.getBoundingClientRect();
-    pointer.x = event.clientX - rect.left;
-    pointer.y = event.clientY - rect.top;
-  }
-
-  const intersection = new IntersectionObserver((entries) => {
-    onScreen = entries.some((entry) => entry.isIntersecting);
-    syncPlayback();
+      ctx.lineCap = "round";
+      strokeGroup(ctx, silkStrands, palette.silk, palette.silkStyle);
+      strokeGroup(ctx, goldStrands, palette.accent, palette.goldStyle);
+    },
   });
-  intersection.observe(canvas);
-
-  const themeChange = new MutationObserver(() => {
-    palette = readPalette(canvas);
-  });
-  themeChange.observe(document.documentElement, {
-    attributes: true,
-    attributeFilter: ["data-theme"],
-  });
-
-  window.addEventListener("pointermove", handlePointerMove, { passive: true });
-  window.addEventListener("resize", resize);
-  document.addEventListener("visibilitychange", syncPlayback);
-
-  resize();
-  play();
-
-  return () => {
-    pause();
-    intersection.disconnect();
-    themeChange.disconnect();
-    window.removeEventListener("pointermove", handlePointerMove);
-    window.removeEventListener("resize", resize);
-    document.removeEventListener("visibilitychange", syncPlayback);
-  };
 }
 
 /**
