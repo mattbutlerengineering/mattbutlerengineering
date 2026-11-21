@@ -166,6 +166,10 @@
       "types": "./dist/lib/components/DropdownMenu/index.d.ts",
       "import": "./dist/lib/components/DropdownMenu/index.js"
     },
+    "./Ember": {
+      "types": "./dist/lib/components/Ember/index.d.ts",
+      "import": "./dist/lib/components/Ember/index.js"
+    },
     "./EmptyState": {
       "types": "./dist/lib/components/EmptyState/index.d.ts",
       "import": "./dist/lib/components/EmptyState/index.js"

@@ -203,6 +203,7 @@ const DATA_COMPONENTS = [
   "SilkFlow",
   "Guilloche",
   "Contour",
+  "Ember",
   "SplitFlap",
   "Stat",
   "Table",
