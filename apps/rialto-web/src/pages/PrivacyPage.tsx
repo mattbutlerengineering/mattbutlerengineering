@@ -50,8 +50,8 @@ export function PrivacyPage() {
           stores no cookie, IP address or other identifier. Separately, each page you open tells our
           error tracker a visit started, so it can count how often pages fail. When a page does
           fail, an error report goes to the same tracker; it can include your browser, operating
-          system and IP address. Apart from the IP address an error report can carry, we collect no
-          personal information unless you give it to us.
+          system and IP address. Apart from the IP address that an error report or visit ping can
+          carry, we collect no personal information unless you give it to us.
         </p>
       </section>
 
@@ -97,7 +97,8 @@ export function PrivacyPage() {
         >
           Error reports and visit counts are processed by Sentry, and pages are served through
           Cloudflare. Fonts load from Google Fonts, so your browser sends Google your IP address,
-          browser details and the page you came from. Each is governed by its own privacy policy.
+          browser details and the page you came from. One demo page also loads a sample avatar from
+          pravatar.cc, which receives the same details. Each is governed by its own privacy policy.
         </p>
       </section>
 

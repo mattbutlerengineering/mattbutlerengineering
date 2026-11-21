@@ -41,4 +41,11 @@ describe("PrivacyPage", () => {
     expect(text).toMatch(/Google Fonts/);
     expect(text).toMatch(/Google Fonts[^.]*IP address/);
   });
+
+  it("names the demo avatar host and says the visit ping can carry the IP address too", () => {
+    render(<PrivacyPage />);
+    const text = (screen.getByRole("main").textContent ?? "").replace(/\s+/g, " ");
+    expect(text).toMatch(/pravatar\.cc/);
+    expect(text).toMatch(/Apart from the IP address that an error report or visit ping can carry/);
+  });
 });
