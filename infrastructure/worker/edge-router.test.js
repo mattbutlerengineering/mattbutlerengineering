@@ -854,14 +854,7 @@ describe("Edge Router", () => {
       const auditEnv = {
         ...env,
         AUDIT_TOKEN: "test-audit-secret",
-        HEALTH_STATE: {
-          ...createMockKv(),
-          get: vi.fn(async (key) => {
-            if (key.startsWith("ratelimit:")) return "999";
-            return null;
-          }),
-          put: vi.fn(),
-        },
+        RATE_LIMIT_HEALTH_SYSTEM: { limit: vi.fn(async () => ({ success: false })) },
       };
 
       // Without audit token, /health/system is rate-limited (limit=10)
@@ -882,14 +875,7 @@ describe("Edge Router", () => {
       const auditEnv = {
         ...env,
         AUDIT_TOKEN: "test-audit-secret",
-        HEALTH_STATE: {
-          ...createMockKv(),
-          get: vi.fn(async (key) => {
-            if (key.startsWith("ratelimit:")) return "999";
-            return null;
-          }),
-          put: vi.fn(),
-        },
+        RATE_LIMIT_HEALTH_SYSTEM: { limit: vi.fn(async () => ({ success: false })) },
       };
 
       const response = await edgeRouter.fetch(
@@ -904,14 +890,7 @@ describe("Edge Router", () => {
     it("does not bypass rate limiting when AUDIT_TOKEN is not configured", async () => {
       const noTokenEnv = {
         ...env,
-        HEALTH_STATE: {
-          ...createMockKv(),
-          get: vi.fn(async (key) => {
-            if (key.startsWith("ratelimit:")) return "999";
-            return null;
-          }),
-          put: vi.fn(),
-        },
+        RATE_LIMIT_HEALTH_SYSTEM: { limit: vi.fn(async () => ({ success: false })) },
       };
 
       const response = await edgeRouter.fetch(
@@ -1064,11 +1043,7 @@ describe("Edge Router", () => {
     it("is covered by the rate limiter", async () => {
       const limitedEnv = {
         ...env,
-        HEALTH_STATE: {
-          ...createMockKv(),
-          get: vi.fn(async (key) => (key.startsWith("ratelimit:") ? "999" : null)),
-          put: vi.fn(),
-        },
+        RATE_LIMIT_CSP_REPORT: { limit: vi.fn(async () => ({ success: false })) },
       };
       const response = await edgeRouter.fetch(reportRequest(), limitedEnv);
 

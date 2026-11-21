@@ -4,7 +4,7 @@
  * Run: npx vitest run infrastructure/worker/rate-limiter.test.js
  */
 
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   RATE_LIMITS,
   findRateLimit,
@@ -16,11 +16,17 @@ import topologyConfig from "./routes-config.json" with { type: "json" };
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
-function createMockKv(data = {}) {
-  return {
-    get: vi.fn(async (key) => data[key] || null),
-    put: vi.fn(async () => {}),
-  };
+// Built from the rule table so the paths cannot drift from it.
+const ruleFor = (binding) => RATE_LIMITS.find((r) => r.binding === binding);
+const API_PROBE = `${ruleFor("RATE_LIMIT_API").pattern}probe`;
+const FLAGS_PROBE = `${ruleFor("RATE_LIMIT_FLAGS").pattern}probe`;
+
+function createLimiter(success = true) {
+  return { limit: vi.fn(async () => ({ success })) };
+}
+
+function createEnv(success = true) {
+  return Object.fromEntries(RATE_LIMITS.map((r) => [r.binding, createLimiter(success)]));
 }
 
 // ── Tests ────────────────────────────────────────────────────────────
@@ -38,6 +44,18 @@ describe("Rate Limiter", () => {
       const flagsLimit = RATE_LIMITS.find((r) => r.pattern === "/api/flags/");
       const apiLimit = RATE_LIMITS.find((r) => r.pattern === "/api/");
       expect(flagsLimit.maxRequests).toBeLessThan(apiLimit.maxRequests);
+    });
+
+    it("gives every rule a distinct declared binding and namespace id", () => {
+      const bindings = RATE_LIMITS.map((r) => r.binding);
+      const ids = RATE_LIMITS.map((r) => r.namespaceId);
+      expect(new Set(bindings).size).toBe(RATE_LIMITS.length);
+      expect(new Set(ids).size).toBe(RATE_LIMITS.length);
+      for (const r of RATE_LIMITS) {
+        expect(r.binding).toMatch(/^[A-Z][A-Z0-9_]*$/);
+        expect(r.namespaceId).toMatch(/^[1-9][0-9]*$/);
+        expect([10, 60]).toContain(r.windowSeconds);
+      }
     });
 
     it("is frozen (immutable)", () => {
@@ -83,82 +101,79 @@ describe("Rate Limiter", () => {
   });
 
   describe("rateLimitKey", () => {
-    it("builds a key with pattern, IP, and minute bucket", () => {
-      const key = rateLimitKey("/api/", "1.2.3.4", 60_000);
-      expect(key).toBe("ratelimit:_api_:1.2.3.4:1");
+    it("builds a key from the pattern and IP", () => {
+      expect(rateLimitKey("/api/", "1.2.3.4")).toBe("_api_:1.2.3.4");
     });
 
-    it("sanitizes IP addresses with colons (IPv6)", () => {
-      const key = rateLimitKey("/api/", "::1", 0);
-      expect(key).toBe("ratelimit:_api_:::1:0");
-    });
-
-    it("uses same bucket for requests in the same minute", () => {
-      const key1 = rateLimitKey("/api/", "1.2.3.4", 30_000);
-      const key2 = rateLimitKey("/api/", "1.2.3.4", 59_999);
-      expect(key1).toBe(key2);
-    });
-
-    it("uses different bucket for requests in different minutes", () => {
-      const key1 = rateLimitKey("/api/", "1.2.3.4", 59_999);
-      const key2 = rateLimitKey("/api/", "1.2.3.4", 60_000);
-      expect(key1).not.toBe(key2);
+    it("keeps IPv6 colons and sanitizes other characters", () => {
+      expect(rateLimitKey("/api/", "::1")).toBe("_api_:::1");
+      expect(rateLimitKey("/api/", "a b")).toBe("_api_:a_b");
     });
   });
 
   describe("checkRateLimit", () => {
-    it("allows requests for non-rate-limited paths", async () => {
-      const kv = createMockKv();
-      const result = await checkRateLimit(kv, "/hospitality/", "1.2.3.4", Date.now());
-      expect(result.allowed).toBe(true);
-      expect(result.remaining).toBe(-1);
+    beforeEach(() => {
+      vi.spyOn(console, "warn").mockImplementation(() => {});
+    });
+    afterEach(() => {
+      vi.restoreAllMocks();
     });
 
-    it("allows first request and decrements remaining", async () => {
-      const kv = createMockKv();
-      const result = await checkRateLimit(kv, "/health/system", "1.2.3.4", Date.now());
-      expect(result.allowed).toBe(true);
-      expect(result.remaining).toBe(9); // 10 - 1
-      expect(result.limit).toBe(10);
+    it("allows requests for non-rate-limited paths without touching a binding", async () => {
+      const env = createEnv();
+      const result = await checkRateLimit(env, "/hospitality/", "1.2.3.4");
+      expect(result).toEqual({ allowed: true, remaining: -1, limit: -1 });
+      for (const limiter of Object.values(env)) expect(limiter.limit).not.toHaveBeenCalled();
     });
 
-    it("increments counter in KV", async () => {
-      const kv = createMockKv();
-      await checkRateLimit(kv, "/health/system", "1.2.3.4", Date.now());
-      expect(kv.put).toHaveBeenCalledWith(expect.any(String), "1", { expirationTtl: 60 });
+    it("allows when the binding says success, reporting the limit as best-effort remaining", async () => {
+      const result = await checkRateLimit(createEnv(true), "/health/system", "1.2.3.4");
+      expect(result).toEqual({ allowed: true, remaining: 10, limit: 10 });
     });
 
-    it("blocks requests that exceed the limit", async () => {
-      const now = Date.now();
-      const key = `ratelimit:_health_system:1.2.3.4:${Math.floor(now / 60_000)}`;
-      const kv = createMockKv({ [key]: "10" });
-      const result = await checkRateLimit(kv, "/health/system", "1.2.3.4", now);
-      expect(result.allowed).toBe(false);
-      expect(result.remaining).toBe(0);
+    it("calls only the matching rule's binding with the per-IP key", async () => {
+      const env = createEnv();
+      await checkRateLimit(env, "/health/system", "1.2.3.4");
+      expect(env.RATE_LIMIT_HEALTH_SYSTEM.limit).toHaveBeenCalledWith({
+        key: "_health_system:1.2.3.4",
+      });
+      expect(env.RATE_LIMIT_API.limit).not.toHaveBeenCalled();
     });
 
-    it("fails open on KV read error", async () => {
-      const kv = {
-        get: vi.fn(async () => {
-          throw new Error("KV down");
-        }),
-        put: vi.fn(async () => {}),
+    it("blocks when the binding says no", async () => {
+      const result = await checkRateLimit(createEnv(false), "/health/system", "1.2.3.4");
+      expect(result).toEqual({ allowed: false, remaining: 0, limit: 10 });
+    });
+
+    it("keys different IPs separately", async () => {
+      const env = createEnv();
+      await checkRateLimit(env, API_PROBE, "1.2.3.4");
+      await checkRateLimit(env, API_PROBE, "5.6.7.8");
+      const keys = env.RATE_LIMIT_API.limit.mock.calls.map((c) => c[0].key);
+      expect(new Set(keys).size).toBe(2);
+    });
+
+    it("fails open and warns once when the binding is missing", async () => {
+      const first = await checkRateLimit({}, "/csp-report", "1.2.3.4");
+      await checkRateLimit({}, "/csp-report", "1.2.3.4");
+      expect(first.allowed).toBe(true);
+      expect(console.warn).toHaveBeenCalledTimes(1);
+      expect(console.warn.mock.calls[0][0]).toContain("RATE_LIMIT_CSP_REPORT");
+    });
+
+    it("fails open and warns once when the binding throws", async () => {
+      const env = {
+        RATE_LIMIT_FLAGS: {
+          limit: vi.fn(async () => {
+            throw new Error("boom");
+          }),
+        },
       };
-      const result = await checkRateLimit(kv, "/health/system", "1.2.3.4", Date.now());
-      expect(result.allowed).toBe(true);
-    });
-
-    it("tracks per-IP separately", async () => {
-      const kv = createMockKv();
-      const now = Date.now();
-      const result1 = await checkRateLimit(kv, "/health/system", "1.2.3.4", now);
-      const result2 = await checkRateLimit(kv, "/health/system", "5.6.7.8", now);
-      expect(result1.allowed).toBe(true);
-      expect(result2.allowed).toBe(true);
-      // Different IPs should use different KV keys
-      const key1 = kv.put.mock.calls[0][0];
-      const key2 = kv.put.mock.calls[1][0];
-      expect(key1).not.toBe(key2);
+      const first = await checkRateLimit(env, FLAGS_PROBE, "1.2.3.4");
+      await checkRateLimit(env, FLAGS_PROBE, "1.2.3.4");
+      expect(first.allowed).toBe(true);
+      expect(console.warn).toHaveBeenCalledTimes(1);
+      expect(console.warn.mock.calls[0][0]).toContain("boom");
     });
   });
 
@@ -191,11 +206,11 @@ describe("Rate Limiter", () => {
 // sibling was bounded at 100/min -- and this is what stops it recurring.
 describe("originRoutes coverage", () => {
   it("gives every proxied origin prefix an edge rate limit", async () => {
-    const kv = createMockKv();
+    const env = createEnv();
     for (const prefix of topologyConfig.originRoutes) {
       // Probe a path below the prefix, which is the shape real traffic takes
       // and the shape the /api/ pattern already matches.
-      const result = await checkRateLimit(kv, `${prefix}/probe`, "1.2.3.4", Date.now());
+      const result = await checkRateLimit(env, `${prefix}/probe`, "1.2.3.4");
       expect(
         result.limit,
         `${prefix}/* is proxied to the origin with no edge bound`
