@@ -39,3 +39,4 @@
 {"ts":"2026-11-18T08:35:38Z","due":40,"audited":40,"unreachable":{"auth":25,"build":0},"unjudged":0,"dropped_tells":0,"git_depth":"full","rubric_version":1}
 {"ts":"2026-11-19T08:35:33Z","due":40,"audited":40,"unreachable":{"auth":25,"build":0},"unjudged":0,"dropped_tells":0,"git_depth":"full","rubric_version":1}
 {"ts":"2026-11-20T08:38:07Z","due":40,"audited":40,"unreachable":{"auth":25,"build":0},"unjudged":0,"dropped_tells":0,"git_depth":"full","rubric_version":1}
+{"ts":"2026-11-21T08:36:35Z","due":16,"audited":16,"unreachable":{"auth":25,"build":0},"unjudged":0,"dropped_tells":0,"git_depth":"full","rubric_version":1,"issue_drift":{"open_with_closed_issue":37,"unknown_state":0}}
