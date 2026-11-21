@@ -54,6 +54,31 @@ export function findRequiredProductionSecrets(configDir) {
 }
 
 /**
+ * Secrets `packages/service-bootstrap/src/validate-startup-config.ts` requires
+ * in production for every service. They are not under the reservations config
+ * dir, so `findRequiredProductionSecrets` never sees them.
+ */
+export const SERVICE_BOOTSTRAP_REQUIRED_SECRETS = ["SENTRY_DSN"];
+
+/**
+ * Per-service provisioning: the workflow holds one GitHub secret per service
+ * (`secrets.<name>_<SERVICE>`), each upserted into the app spec under the
+ * shared key `<name>` (`"key":"<name>","value":strenv(<name>_<SERVICE>)`).
+ * Returns null when the workflow has no per-service secrets for `name`.
+ */
+function isPerServiceMapped(name, workflowSource) {
+  const suffixes = new Set(
+    [...workflowSource.matchAll(new RegExp(`secrets\\.${name}_([A-Z0-9_]+)`, "g"))].map((m) => m[1])
+  );
+  if (suffixes.size === 0) return null;
+  return [...suffixes].every(
+    (suffix) =>
+      workflowSource.includes(`${name}_${suffix}: \${{ secrets.${name}_${suffix} }}`) &&
+      workflowSource.includes(`"key":"${name}","value":strenv(${name}_${suffix})`)
+  );
+}
+
+/**
  * True when `name` is provisioned in both deploy paths, mirroring the
  * MANAGE_TOKEN_SECRET pattern:
  *   - workflowSource: passed through from `secrets.<name>` and upserted into
@@ -67,6 +92,10 @@ export function findRequiredProductionSecrets(configDir) {
  * @returns {boolean}
  */
 export function isSecretProvisioned(name, workflowSource, pulumiSource) {
+  const perService = isPerServiceMapped(name, workflowSource);
+  if (perService !== null) {
+    return perService && new RegExp(`secretEnv\\("${name}"`).test(pulumiSource);
+  }
   const hasPassthrough = workflowSource.includes(`${name}: \${{ secrets.${name} }}`);
   const hasGuard = workflowSource.includes(`if [ -n "\${${name}}" ]`);
   const hasUpsert = workflowSource.includes(`"key":"${name}","value":strenv(${name})`);
@@ -94,7 +123,12 @@ if (isMain) {
   );
   const pulumiSource = readFileSync(join(DEFAULT_ROOT, "infrastructure/pulumi/index.ts"), "utf8");
 
-  const names = findRequiredProductionSecrets(configDir);
+  const names = [
+    ...new Set([
+      ...findRequiredProductionSecrets(configDir),
+      ...SERVICE_BOOTSTRAP_REQUIRED_SECRETS,
+    ]),
+  ];
   const findings = findUnprovisionedSecrets({ names, workflowSource, pulumiSource });
 
   process.exit(
