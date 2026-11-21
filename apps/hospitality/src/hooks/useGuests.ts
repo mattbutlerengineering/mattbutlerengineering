@@ -6,7 +6,12 @@ import type {
   UpdateGuestRequest,
 } from "@mbe/types";
 import type { FindOrCreateGuestRequest } from "@mbe/api-client";
-import { buildQueryKey, createQueryHook, type QueryHookResult } from "./create-query-hook.js";
+import {
+  buildQueryKey,
+  createQueryHook,
+  type CreateQueryHookOptions,
+  type QueryHookResult,
+} from "./create-query-hook.js";
 import { createMutationHook } from "./create-mutation-hook.js";
 
 export const GUESTS_QUERY_KEY = "guests" as const;
@@ -26,6 +31,8 @@ export interface UseGuestsResult {
   /** A page of guests plus the API's pagination meta (total, page count). */
   data: PaginatedResponse<Guest> | undefined;
   isLoading: boolean;
+  /** `data` is the previous query's rows, kept while the current one loads (lookup only). */
+  isPlaceholderData?: boolean;
   error: Error | null;
   refetch: () => void;
 }
@@ -56,17 +63,35 @@ export interface UseGuestSearchParams {
   enabled?: boolean;
 }
 
-const useGuestSearchQuery = createQueryHook<PaginatedResponse<Guest>, UseGuestSearchParams>({
-  key: GUESTS_QUERY_KEY,
+const guestSearchOptions: Pick<
+  CreateQueryHookOptions<PaginatedResponse<Guest>, UseGuestSearchParams>,
+  "fetcher" | "getEnabled"
+> = {
   fetcher: async (params, api) => {
     if (!params?.venueId || !params.query) return EMPTY_PAGE;
     return api.guests.search({ venueId: params.venueId, query: params.query });
   },
   getEnabled: (params) => !!params?.venueId && !!params?.query,
+};
+
+const useGuestSearchQuery = createQueryHook<PaginatedResponse<Guest>, UseGuestSearchParams>({
+  key: GUESTS_QUERY_KEY,
+  ...guestSearchOptions,
 });
 
 export function useGuestSearch(params: UseGuestSearchParams): UseGuestsResult {
   return useGuestSearchQuery(params);
+}
+
+/** Same search and cache key as `useGuestSearch`, but keeps the previous rows while the next query loads (typeahead only). */
+const useGuestLookupSearchQuery = createQueryHook<PaginatedResponse<Guest>, UseGuestSearchParams>({
+  key: GUESTS_QUERY_KEY,
+  ...guestSearchOptions,
+  keepPreviousData: true,
+});
+
+export function useGuestLookupSearch(params: UseGuestSearchParams): UseGuestsResult {
+  return useGuestLookupSearchQuery(params);
 }
 
 /* ── useGuestSegments ────────────────────────────────── */
@@ -170,8 +195,6 @@ export const useUpdateGuest = createMutationHook<{ guestId: string; data: Update
 
 export const useAddStaffNote = createMutationHook<{ guestId: string; text: string }>({
   invalidateKeys: GUESTS_QUERY_KEY,
+  // The `guests` prefix already covers the `[guests, { id }]` detail entry; no per-guest key needed.
   mutationFn: (api, { guestId, text }) => api.guests.addNote(guestId, text),
-  onSuccess: (queryClient, _data, variables) => {
-    queryClient.invalidateQueries({ queryKey: [GUESTS_QUERY_KEY, { id: variables.guestId }] });
-  },
 });

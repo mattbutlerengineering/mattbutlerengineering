@@ -364,14 +364,12 @@ function DashboardLayoutInner() {
             headerSlot={<VenueSwitcher onNavigate={navigate} />}
             footerSlot={<LocalePicker variant="sidebar" />}
           />
-          <Button
-            type="button"
-            className={styles.commandHint}
-            onClick={() => setPaletteOpen(true)}
-            aria-label={t("layout.openPalette")}
-          >
-            <Kbd>{navigator.platform?.includes("Mac") ? "\u2318" : t("layout.ctrlKey")}</Kbd>
-            <Kbd>{SEARCH_KEY}</Kbd>
+          <Button type="button" className={styles.commandHint} onClick={() => setPaletteOpen(true)}>
+            {/* No aria-label: the name is the visible "<modifier> K Search" (WCAG 2.5.3). The
+                trailing spaces keep the words apart in the name; a trailing space in an
+                inline-flex keycap collapses, so nothing shifts visually. */}
+            <Kbd>{navigator.platform?.includes("Mac") ? "\u2318 " : `${t("layout.ctrlKey")} `}</Kbd>
+            <Kbd>{`${SEARCH_KEY} `}</Kbd>
             <Text className={styles.commandHintLabel}>{t("layout.search")}</Text>
           </Button>
         </div>

@@ -14,10 +14,10 @@ The fix is almost always a rialto token: see `packages/rialto/CLAUDE.md`
 
 ## Agent-built tells — what a generated page looks like
 
-- [ ] `agent-built/unrequested-dark-theme` — no permanent dark canvas; use the
-      `--rialto-surface*` tokens, which follow the theme.
-- [ ] `agent-built/gradient-background` — no decorative gradients; flat
-      surfaces, and `--rialto-accent` only for focus, selection, primary actions.
+- [ ] `agent-built/unrequested-dark-theme` — no accidental dark canvas; a
+      deliberate dark scene is fine on theme tokens with contrast kept.
+- [ ] `agent-built/gradient-background` — gradients, glow and atmosphere only
+      from rialto tokens (accent as light: the glow/ambient tokens); no raw hex.
 - [ ] `agent-built/icon-card-grid` — no grid of icon-in-a-circle cards; show the
       real product (a number, a screenshot, a working component).
 - [ ] `agent-built/inter-headline` — headlines in `--rialto-font-display` at the
@@ -54,7 +54,7 @@ tells (a still image can't show them); avoid them and flag them in review.
 
 - [ ] Animation on a 100+/day action (command palette, shortcuts, typing, tab
       switch) — make it instant or an opacity-only fade.
-- [ ] Two expressive animations in one view — one expressive element at a time.
-- [ ] Infinite loop in task UI — only status loops (loading, live, LED).
+- [ ] Ambient loop beside a field someone is filling in, a loop over 5s with no
+      pause (offscreen: paused), or a flash over 3/s (WCAG 2.2.2, 2.3.1).
 - [ ] Scale from below 0.9 — start at 0.9+ with opacity; press scale 0.97-0.98.
 - [ ] Hand-built reduced-motion fallback — resolve through `useMotionPreset()`.

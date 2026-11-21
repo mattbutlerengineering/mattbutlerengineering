@@ -176,7 +176,7 @@ export default {
     // ── Rate limiting (bypassed for verified audit requests) ─────────
     if (!auditVerified) {
       const clientIp = request.headers.get("CF-Connecting-IP") ?? "unknown";
-      const rateCheck = await checkRateLimit(env.HEALTH_STATE, url.pathname, clientIp, Date.now());
+      const rateCheck = await checkRateLimit(env, url.pathname, clientIp);
       if (!rateCheck.allowed) {
         return rateLimitResponse();
       }

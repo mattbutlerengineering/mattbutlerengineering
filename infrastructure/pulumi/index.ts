@@ -30,7 +30,6 @@ const cloudflareZoneId = config.require("cloudflareZoneId");
 const cloudflareAccountId = config.require("cloudflareAccountId");
 
 const databaseUrl = config.requireSecret("databaseUrl");
-const aiGatewayApiKey = config.getSecret("aiGatewayApiKey");
 const manageTokenSecret = config.getSecret("manageTokenSecret");
 const unsubscribeTokenSecret = config.getSecret("unsubscribeTokenSecret");
 
@@ -105,7 +104,6 @@ function sharedEnvs(port: number): digitalocean.types.input.AppSpecServiceEnv[] 
   return [
     extraEnv("NODE_ENV", "production"),
     extraEnv("PORT", String(port)),
-    extraEnv("CORS_ORIGIN", `https://${domain}`),
     extraEnv("API_BASE_URL", `https://api.${domain}/api`),
     extraEnv("AUTH_AUTHORITY", AUTH_AUTHORITY),
     extraEnv("AUTH_AUDIENCE", `https://api.${domain}`),
@@ -261,7 +259,6 @@ const apiApp = new digitalocean.App(
           port: 3003,
           dockerfile: "services/agent/Dockerfile",
           extraEnvs: [
-            ...(aiGatewayApiKey ? [secretEnv("AI_GATEWAY_API_KEY", aiGatewayApiKey)] : []),
             ...(remediationWebhookSecret
               ? [secretEnv("REMEDIATION_WEBHOOK_SECRET", remediationWebhookSecret)]
               : []),
@@ -350,6 +347,42 @@ const workerScript = new cloudflare.WorkersScript("mattbutlerengineering-edge-ro
     // CSP violation reports from POST /csp-report (worker/csp-report.js, #8895).
     // A separate dataset so edge_requests stays one row per request.
     { name: "CSP_REPORTS", dataset: "csp_reports", type: "analytics_engine" },
+    // Rate Limiting bindings, one per RATE_LIMITS rule in ../worker/rate-limiter.js
+    // (limit/period are fixed per binding; period must be 10 or 60). Replaces the
+    // KV write per request that exhausted the free-tier quota (#9209). namespaceId
+    // is a unique positive integer per limiter across the Cloudflare account.
+    // scripts/check-rate-limit-bindings.mjs keeps these, wrangler.toml and
+    // RATE_LIMITS in sync.
+    {
+      name: "RATE_LIMIT_FLAGS",
+      namespaceId: "1001",
+      type: "ratelimit",
+      simple: { limit: 5, period: 60 },
+    },
+    {
+      name: "RATE_LIMIT_HEALTH_SYSTEM",
+      namespaceId: "1002",
+      type: "ratelimit",
+      simple: { limit: 10, period: 60 },
+    },
+    {
+      name: "RATE_LIMIT_API",
+      namespaceId: "1003",
+      type: "ratelimit",
+      simple: { limit: 100, period: 60 },
+    },
+    {
+      name: "RATE_LIMIT_PUBLIC",
+      namespaceId: "1004",
+      type: "ratelimit",
+      simple: { limit: 100, period: 60 },
+    },
+    {
+      name: "RATE_LIMIT_CSP_REPORT",
+      namespaceId: "1005",
+      type: "ratelimit",
+      simple: { limit: 60, period: 60 },
+    },
   ],
 });
 

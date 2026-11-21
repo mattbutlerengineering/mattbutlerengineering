@@ -1,5 +1,15 @@
 # @mattbutlerengineering/rialto
 
+## 0.10.24
+
+### Patch Changes
+
+- [#9310](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9310) [`1eac0cc`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/1eac0ccea3b8905ca223ec192326f358a2a19155) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add three longer duration tokens for expressive motion: `--rialto-duration-scene` (0.6s), `--rialto-duration-cinematic` (1.2s) and `--rialto-duration-ambient` (8s). The reduced-motion adapter collapses all three to `0s` along with the existing duration tokens.
+
+- [#9287](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9287) [`212c069`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/212c06970a7c0132e3f7826606a2bde3ee40460c) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - TapeChart dates and numbers now follow `RialtoLocaleProvider`'s locale when no `locale` prop is passed, matching the ADR-028 resolution order (prop, provider, navigator, en-US).
+
+- [#9304](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9304) [`c6ee9b7`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/c6ee9b7ee93915a4192deefb6def809e20fbd8da) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - TapeChart list and mobile-stack rows: the accessible name now starts with the visible text in visible order (guest or block reason, room, nights, source, status, price) with the date range after it, and the visible parts are separated by spaces so adjacent text no longer runs together (WCAG 2.5.3 Label in Name).
+
 ## 0.10.23
 
 ### Patch Changes

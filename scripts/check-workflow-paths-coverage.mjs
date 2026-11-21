@@ -100,6 +100,13 @@ export const ALLOWLIST = {
       guardedBy: "scripts/__tests__/require-deploy-secrets.test.mjs",
     },
   },
+  "preview-deploy.yml": {
+    "scripts/preview-comment.mjs": {
+      reason:
+        "comment-upsert helper. Adding it to the paths filter would not exercise it: detect-changes gates the deploy and comment steps on app filters, so a script-only PR starts the workflow and skips both. Seeded in docs/backlog.md (session:2026-08-28); re-checked 2026-11-20",
+      guardedBy: "scripts/__tests__/preview-deploy-sticky-comment.test.mjs",
+    },
+  },
   "deploy-static.yml": {
     "scripts/collect-repo-stats.mjs": {
       reason:
@@ -119,27 +126,6 @@ export const ALLOWLIST = {
       reason:
         "post-build deploy gate, same reasoning as require-deploy-secrets.mjs above: adding it to the filter would make editing a script trigger a production deploy of all three static apps. Recorded in docs/fixes/static-sourcemaps-confirm/defect.md (maintenance:static-sourcemaps-confirm)",
       guardedBy: "scripts/__tests__/verify-sentry-sourcemaps.test.mjs",
-    },
-  },
-  "instruction-regression.yml": {
-    "plugins/acmm/scripts/evals/index.js": {
-      reason:
-        "the eval harness itself is outside the filter; a harness change runs no eval — seeded in docs/backlog.md (session:2026-08-28)",
-      guardedBy: "scripts/__tests__/instruction-regression-evals.test.mjs",
-    },
-  },
-  "preview-deploy.yml": {
-    "scripts/preview-comment.mjs": {
-      reason:
-        "comment-upsert helper; a change to it deploys no preview — accepted, seeded in docs/backlog.md (session:2026-08-28)",
-      guardedBy: "scripts/__tests__/preview-deploy-sticky-comment.test.mjs",
-    },
-  },
-  "rialto-web-e2e.yml": {
-    "scripts/publish-visual-diffs.mjs": {
-      reason:
-        "diff publisher (contents: write); a change to it runs no visual job — seeded in docs/backlog.md (session:2026-08-28)",
-      guardedBy: "scripts/__tests__/publish-visual-diffs.test.mjs",
     },
   },
 };

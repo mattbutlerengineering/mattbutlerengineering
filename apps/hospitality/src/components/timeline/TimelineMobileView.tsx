@@ -60,18 +60,28 @@ function ReservationCard({
   const guest = reservation.guestName || t("timeline.guest");
   const tableLabel = table?.tableNumber || table?.name || t("timeline.mobile.unassigned");
   const timeLabel = `${fmt.formatTime(reservation.startTime)} – ${fmt.formatTime(reservation.endTime)}`;
+  const guestsLabel = t("timeline.guests", { count: reservation.partySize });
+  const statusLabel = t(RESERVATION_STATUS_KEYS[reservation.status]);
+  // WCAG 2.5.3: the name is the visible words in on-screen order (see `cardLabel`). The literal
+  // `{" "}` text nodes between siblings keep axe from gluing them ("Doe7"); in flex containers
+  // whitespace-only text is not rendered, so layout is unchanged.
+  // The visible table text is a bare "1"; say what it is, after the visible run, once assigned.
+  const tableContext = table ? t("timeline.mobile.tableContext", { table: tableLabel }) : null;
   const spokenLabel = t("timeline.mobile.cardLabel", {
     guest,
-    size: reservation.partySize,
     time: timeLabel,
+    guests: guestsLabel,
     table: tableLabel,
+    status: statusLabel,
   });
 
   return (
     <Button
       className={`${styles.card} ${isSelected ? styles.cardSelected : ""}`}
       onClick={() => onClick(reservation)}
-      aria-label={seated ? `${spokenLabel}, ${t("timeline.block.seatedWord")}` : spokenLabel}
+      aria-label={[spokenLabel, tableContext, seated ? t("timeline.block.seatedWord") : null]
+        .filter(Boolean)
+        .join(", ")}
       type="button"
       // `useFocusAfter`'s target after seat / cancel / walk-in on phone (B3.2, #5271) — without
       // this, the card that success unmounted (dialog/drawer) has nowhere to hand focus back to.
@@ -81,30 +91,28 @@ function ReservationCard({
         <Stack gap="2xs" className={styles.cardMain}>
           <Text variant="label" className={styles.guestName} data-truncate title={guest}>
             {guest}
-          </Text>
+          </Text>{" "}
           <Stack direction="row" gap="xs" align="center" wrap>
             <Text variant="caption" className={styles.cardMeta}>
               {timeLabel}
-            </Text>
+            </Text>{" "}
             <Text variant="caption" className={styles.cardMetaDot}>
               ·
-            </Text>
+            </Text>{" "}
             <Text variant="caption" className={styles.cardMeta}>
-              {t("timeline.guests", { count: reservation.partySize })}
-            </Text>
+              {guestsLabel}
+            </Text>{" "}
             <Text variant="caption" className={styles.cardMetaDot}>
               ·
-            </Text>
+            </Text>{" "}
             <Text variant="caption" className={styles.cardMeta}>
               {tableLabel}
             </Text>
           </Stack>
-        </Stack>
+        </Stack>{" "}
         <Stack direction="row" gap="xs" align="center">
           {seated && <StatusLED variant="success" size="xs" label={t("timeline.mobile.seated")} />}
-          <Tag variant={statusVariant(reservation.status)}>
-            {t(RESERVATION_STATUS_KEYS[reservation.status])}
-          </Tag>
+          <Tag variant={statusVariant(reservation.status)}>{statusLabel}</Tag>
         </Stack>
       </Stack>
     </Button>

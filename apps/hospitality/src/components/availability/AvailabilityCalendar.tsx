@@ -127,8 +127,14 @@ function Cell(props: CellProps) {
         aria-current={isToday ? "date" : undefined}
         aria-label={[
           ...(visibleText ? [visibleText] : []),
-          view.accessibleName,
-          ...(holiday && !visibleText ? [holiday] : []),
+          // A week cell shows "26 Thanksgiving" then its details, so its name carries the
+          // holiday right after the date, before the details (WCAG 2.5.3), not at the end.
+          holiday && !visibleText
+            ? t("availability.calendar.cellName", {
+                date: `${view.fullDate} ${holiday}`,
+                details: view.accessibleDetails,
+              })
+            : view.accessibleName,
           ...(isDraft ? [t("availability.calendar.draftName")] : []),
         ].join(", ")}
         {...handlers}

@@ -18,7 +18,7 @@ import {
   VenueTeamSchema,
   toPublicVenueProfile,
 } from "@mbe/types/schemas";
-import { atLocal, localDay } from "./local-day.js";
+import { localDay, onLocalDay } from "./local-day.js";
 import { createProblemDetails } from "@mbe/types";
 
 const FIXTURES_DIR = join(import.meta.dirname, "fixtures");
@@ -803,26 +803,14 @@ export async function mockApi(page: Page): Promise<SseMock> {
   // (`reservationLayout.ts` `start.getHours()`, window 11:00–23:00) — so an 18:00Z block landed
   // at left = −120 px in PST and −1200 px at UTC+5, off the grid in both. It failed as a pass:
   // a negatively positioned block still has a bounding box, so `toBeVisible()` stayed green.
-  // Reading each fixture time as the *intended local wall clock* keeps both halves in one zone.
-  function localizeFixtureTime(iso: unknown, day: string): string {
-    return atLocal(String(iso).slice(11, 23), day); // "18:00:00.000" — the fixture's wall clock
-  }
-
+  // Reading each fixture time as the *intended local wall clock* keeps both halves in one zone
+  // (`onLocalDay` in `./local-day.ts`, shared with the specs that build their own list bodies).
   function todayReservations(): string {
-    const today = localDay();
     const fixture = JSON.parse(loadFixture("reservations-list")) as {
-      data: Array<Record<string, unknown>>;
+      data: Array<Record<string, unknown> & { startTime: unknown; endTime: unknown }>;
       pagination: unknown;
     };
-    return JSON.stringify({
-      ...fixture,
-      data: fixture.data.map((r) => ({
-        ...r,
-        date: today,
-        startTime: localizeFixtureTime(r.startTime, today),
-        endTime: localizeFixtureTime(r.endTime, today),
-      })),
-    });
+    return JSON.stringify({ ...fixture, data: onLocalDay(fixture.data) });
   }
 
   // Embed the store's view of a reservation's table once a PATCH has touched it (#5023).

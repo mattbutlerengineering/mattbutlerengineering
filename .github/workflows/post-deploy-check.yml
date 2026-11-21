@@ -203,13 +203,14 @@ jobs:
 
       # No dependency install: the probe and file-issue-cli are Node builtins
       # all the way down.
+      # No --base: it would override every probe's pinned `origin` and send the
+      # edge probe to the DO origin, so the Cloudflare gate would never be
+      # measured. Probes without an origin default to the DO origin.
       - name: Probe deployed API surface
         id: probe
         run: |
           set -o pipefail
-          node scripts/check-api-surface-invariants.mjs \
-            --base https://api.mattbutlerengineering.com \
-            2>&1 | tee /tmp/api-surface.log
+          node scripts/check-api-surface-invariants.mjs 2>&1 | tee /tmp/api-surface.log
 
       - name: Summarize
         if: always()

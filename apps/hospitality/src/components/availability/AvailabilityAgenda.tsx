@@ -77,10 +77,11 @@ export function AvailabilityAgenda(props: AvailabilityAgendaProps) {
           month: "short",
           day: "numeric",
         });
-        // Starts with the date as the row shows it, so what is heard matches what is seen.
+        // Starts with the date and holiday exactly as the row shows them (WCAG 2.5.3), so what
+        // is heard matches what is seen; the calendar grid names its cells the same way.
         const name = t("availability.calendar.cellName", {
-          date: shownDate,
-          details: holiday ? `${view.accessibleDetails}, ${holiday}` : view.accessibleDetails,
+          date: holiday ? `${shownDate} ${holiday}` : shownDate,
+          details: view.accessibleDetails,
         });
         return (
           <li key={date} className={styles.item}>
@@ -108,7 +109,7 @@ export function AvailabilityAgenda(props: AvailabilityAgendaProps) {
               )}
               <span className={styles.date} aria-hidden="true">
                 {shownDate}
-                {holiday && <span className={styles.holiday}>{holiday}</span>}
+                {holiday && <span className={styles.holiday}> {holiday}</span>}
               </span>{" "}
               {isLoading || !summary ? (
                 !props.loadFailed && <Skeleton variant="text" width="100%" height={16} />

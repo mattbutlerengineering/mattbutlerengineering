@@ -129,7 +129,7 @@ describe("marketing route metadata", () => {
 
   it("finds the router config routes", () => {
     expect(routePaths()).toEqual(
-      expect.arrayContaining(["/", "/status", "/metrics", "/ai-health", "/shipped"])
+      expect.arrayContaining(["/", "/status", "/metrics", "/ai-health", "/shipped", "/venues"])
     );
   });
 

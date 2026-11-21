@@ -7,6 +7,7 @@ import {
   findRequiredProductionSecrets,
   isSecretProvisioned,
   findUnprovisionedSecrets,
+  SERVICE_BOOTSTRAP_REQUIRED_SECRETS,
 } from "../check-deploy-secret-provisioning.mjs";
 import { REPO_AUDIT_CHECKS } from "../run-repo-audit.mjs";
 
@@ -20,9 +21,9 @@ const PROVISIONED_WORKFLOW_SNIPPET = `
           MANAGE_TOKEN_SECRET: \${{ secrets.MANAGE_TOKEN_SECRET }}
         run: |
           if [ -n "\${MANAGE_TOKEN_SECRET}" ]; then
-            yq -i "(.services[] | select(.name == \\"reservations-api\\").envs) |=
-              (map(select(.key != \\"MANAGE_TOKEN_SECRET\\")) +
-              [{\\"key\\":\\"MANAGE_TOKEN_SECRET\\",\\"value\\":\\"\${MANAGE_TOKEN_SECRET}\\",\\"type\\":\\"SECRET\\"}])" /tmp/spec.yaml
+            yq -i '(.services[] | select(.name == "reservations-api").envs) |=
+              (map(select(.key != "MANAGE_TOKEN_SECRET")) +
+              [{"key":"MANAGE_TOKEN_SECRET","value":strenv(MANAGE_TOKEN_SECRET),"type":"SECRET"}])' /tmp/spec.yaml
           fi
 `;
 
@@ -184,6 +185,35 @@ describe("isSecretProvisioned", () => {
     expect(isSecretProvisioned("MANAGE_TOKEN_SECRET", unguarded, PROVISIONED_PULUMI_SNIPPET)).toBe(
       false
     );
+  });
+
+  it("returns false when the upsert shell-interpolates the value instead of using strenv()", () => {
+    const interpolated = PROVISIONED_WORKFLOW_SNIPPET.replace(
+      "strenv(MANAGE_TOKEN_SECRET)",
+      '"${MANAGE_TOKEN_SECRET}"'
+    );
+    expect(
+      isSecretProvisioned("MANAGE_TOKEN_SECRET", interpolated, PROVISIONED_PULUMI_SNIPPET)
+    ).toBe(false);
+  });
+});
+
+describe("isSecretProvisioned: per-service secrets mapped to one app-spec key (SENTRY_DSN)", () => {
+  const realWorkflow = readFileSync(join(ROOT, ".github/workflows/deploy-services.yml"), "utf8");
+  const realPulumi = readFileSync(join(ROOT, "infrastructure/pulumi/index.ts"), "utf8");
+
+  it("is true on the real workflow text", () => {
+    expect(isSecretProvisioned("SENTRY_DSN", realWorkflow, realPulumi)).toBe(true);
+  });
+
+  it("is false when one service's mapping to SENTRY_DSN is missing", () => {
+    const broken = realWorkflow.replace('"value":strenv(SENTRY_DSN_AGENT_API)', '"value":""');
+    expect(broken).not.toBe(realWorkflow);
+    expect(isSecretProvisioned("SENTRY_DSN", broken, realPulumi)).toBe(false);
+  });
+
+  it("is checked for the real repo via the service-bootstrap-required list", () => {
+    expect(SERVICE_BOOTSTRAP_REQUIRED_SECRETS).toContain("SENTRY_DSN");
   });
 });
 

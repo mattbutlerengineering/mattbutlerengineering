@@ -15,6 +15,7 @@ import {
   resolveSuitePath,
   checkCostRegression,
   suiteDidNotRun,
+  taskDidNotRun,
   suiteJudgeUnavailable,
   costBasisForAdapter,
   isWithinBudget,
@@ -402,6 +403,13 @@ async function verifyInWorktree(
   const anyRequired = Object.values(required).some(Boolean);
   const worktreePath = session.worktreePath;
 
+  // A non-run is excluded from the aggregate (`nonRunCount`); an install plus
+  // turbo run on an untouched worktree would only buy a misleading row.
+  if (taskDidNotRun({ turns: session.numTurns, costUsd: session.costUsd })) {
+    console.error(`${task.id}: verification skipped — task did not run (0 turns, $0 cost)`);
+    return { testsPass: false, typecheckPass: false, lintPass: false };
+  }
+
   if (anyRequired && worktreePath === undefined) {
     const errors = session.errors.length > 0 ? session.errors.join("; ") : "none reported";
     console.error(
@@ -484,8 +492,17 @@ async function releaseWorktree(
   try {
     // Bounded at 60 s by agent-core's own git timeout.
     await removeWorktree(repoPath, worktreePath);
-  } catch {
-    // Best-effort: a leftover worktree is litter, not a scoring error.
+  } catch (err) {
+    // Best-effort: a leftover worktree is litter, not a scoring error — but
+    // say so, or leftover `.agent-worktrees/agent-*` dirs pile up untraced.
+    // execFile errors embed multi-line git output; keep it to one stderr line.
+    const reason = (err instanceof Error ? err.message : String(err))
+      .trim()
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l !== "")
+      .join(" | ");
+    console.error(`${taskId}: worktree removal failed at ${worktreePath} — ${reason}`);
   }
 }
 

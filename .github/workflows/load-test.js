@@ -17,7 +17,9 @@ const MARKETING_URL = __ENV.MARKETING_URL || "https://mattbutlerengineering.com"
 // input. Falls back to running every scenario when unset/unknown.
 //
 // The edge Worker rate-limits every /api/* path to 100 req/60s per IP,
-// shared across ALL of them — see infrastructure/worker/rate-limiter.js.
+// shared across ALL of them — see infrastructure/worker/rate-limiter.js
+// (Workers Rate Limiting binding RATE_LIMIT_API; counts are kept per
+// Cloudflare location, so the budget is approximate, not exact).
 // One iteration below makes 2 requests into that shared bucket (users
 // health, reservations health); marketing is a separate host and
 // untouched by this limiter.

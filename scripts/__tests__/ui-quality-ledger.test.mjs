@@ -502,6 +502,17 @@ describe("ledger.mjs record", () => {
     });
   });
 
+  it("stamps the findings plan's issue drift on the runs row", () => {
+    judged({ marketing: { "/": "judged" } });
+    writeFileSync(
+      join(root, ".ui-quality", "findings.plan.json"),
+      JSON.stringify({ issue_drift: { open_with_closed_issue: 4, unknown_state: 0 } })
+    );
+    runAudit(["record"]);
+    const runs = parseLedger(readFileSync(join(root, "metrics", "ui-quality-runs.jsonl"), "utf8"));
+    expect(runs[0].issue_drift).toEqual({ open_with_closed_issue: 4, unknown_state: 0 });
+  });
+
   it("exits 2 without a due.json to record against", () => {
     const fresh = mkdtempSync(join(tmpdir(), "ui-quality-nodue-"));
     mkdirSync(join(fresh, "metrics"));

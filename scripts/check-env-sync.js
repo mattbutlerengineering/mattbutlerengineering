@@ -81,6 +81,40 @@ export function collectEnvVars(packageDir) {
   return vars;
 }
 
+// Env reads made through a helper never name `process.env`, so the literal scan
+// above cannot see them. Rule (deliberately narrow, text-based):
+//   - `env.NAME` / `env["NAME"]` on an identifier literally called `env`
+//   - in a file that indexes `env[...]`, any `const X_KEY|X_ENV = "UPPER_SNAKE"`
+//     names a var (covers `env[DISABLED_KEY]` and keys passed to helpers).
+// Over-matches non-env objects (e.g. Cloudflare Worker bindings on `env`), so
+// results are advisory "unguarded" reads, never hard failures.
+const HELPER_DOT_RE = /(?<![\w.])env\.([A-Z][A-Z0-9_]*)\b/g;
+const HELPER_BRACKET_RE = /(?<![\w.])env\[\s*["']([A-Z][A-Z0-9_]*)["']\s*\]/g;
+const ENV_INDEX_RE = /(?<![\w.])env\[/;
+const ENV_NAME_CONST_RE = /\bconst\s+\w*_(?:KEY|ENV)\s*=\s*["']([A-Z][A-Z0-9_]*)["']/g;
+
+// Cloudflare Worker `env` is a bindings/secrets object, not process env vars.
+const WORKER_PATH_RE = /[\\/]infrastructure[\\/]worker[\\/]/;
+
+export function collectHelperEnvVars(packageDir) {
+  const vars = new Set();
+  const files = walkFiles(packageDir, {
+    match: (name) => SOURCE_EXT_RE.test(name) && !TEST_FILE_RE.test(name),
+  });
+
+  for (const file of files) {
+    if (WORKER_PATH_RE.test(file)) continue;
+    const content = readFileSync(file, "utf-8");
+    const patterns = ENV_INDEX_RE.test(content)
+      ? [HELPER_DOT_RE, HELPER_BRACKET_RE, ENV_NAME_CONST_RE]
+      : [HELPER_DOT_RE, HELPER_BRACKET_RE];
+    for (const re of patterns) {
+      for (const m of content.matchAll(re)) vars.add(m[1]);
+    }
+  }
+  return vars;
+}
+
 export function parseEnvExample(filePath) {
   if (!existsSync(filePath)) return new Set();
   const content = readFileSync(filePath, "utf-8");
@@ -201,7 +235,19 @@ export function findEnvSyncFindings(root = DEFAULT_ROOT) {
       .filter((v) => !exampleVars.has(v))
       .sort();
 
-    return { packageRelativePath, missing };
+    // Helper-parameter reads are advisory, so known gaps don't turn CI red.
+    const helperDirs = isServicePackage(packageDir, root)
+      ? [packageDir, ...resolveDependencyClosure(packageDir, workspacePackages)]
+      : [packageDir];
+    const helperVars = new Set(helperDirs.flatMap((dir) => [...collectHelperEnvVars(dir)]));
+    const unguarded = [...helperVars]
+      .filter((v) => !codeVars.has(v))
+      .filter((v) => !PLATFORM_VARS.has(v))
+      .filter((v) => !BUILD_TIME_VARS.has(v))
+      .filter((v) => !exampleVars.has(v))
+      .sort();
+
+    return { packageRelativePath, missing, unguarded };
   });
 }
 
@@ -221,6 +267,14 @@ if (isMain) {
         console.log(`     - ${v}`);
       }
     }
+  }
+
+  for (const { packageRelativePath, unguarded } of results) {
+    if (unguarded.length === 0) continue;
+    console.log(
+      `  ⚠️  ${packageRelativePath}: read via an \`env\` helper, absent from .env.example (advisory):`
+    );
+    for (const v of unguarded) console.log(`     - ${v}`);
   }
 
   console.log("");

@@ -3,6 +3,10 @@ import { renderHook, act, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createElement, type ReactNode } from "react";
 import { createMutationHook } from "./create-mutation-hook.js";
+import { buildQueryKey } from "./create-query-hook.js";
+
+/** Key-builder shape a real hook exports (cf. guestSegmentsQueryKey): `[key, params]`. */
+const entitySegmentsQueryKey = (venueId: string) => buildQueryKey("entitySegments", { venueId });
 
 /* ── Mocks ───────────────────────────────────────────── */
 
@@ -253,7 +257,7 @@ describe("createMutationHook — multi-key and onSuccess callback", () => {
       invalidateKeys: "entities",
       mutationFn: (_api, variables: { id: string; venueId: string }) => mockApiMethod(variables),
       onSuccess: (queryClient, _data, variables) => {
-        queryClient.invalidateQueries({ queryKey: ["entitySegments", variables.venueId] });
+        queryClient.invalidateQueries({ queryKey: entitySegmentsQueryKey(variables.venueId) });
       },
     });
 
@@ -268,6 +272,8 @@ describe("createMutationHook — multi-key and onSuccess callback", () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["entities"] });
-    expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ["entitySegments", "venue-1"] });
+    expect(invalidateSpy).toHaveBeenCalledWith({
+      queryKey: ["entitySegments", { venueId: "venue-1" }],
+    });
   });
 });

@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { forwardRef } from "react";
 import type { ChangeEvent, FocusEvent, ReactNode } from "react";
 import { MemoryRouter, Routes, Route } from "react-router";
-import { SignIn } from "./SignIn";
+import { SignIn, SIGN_IN_PHASES } from "./SignIn";
 import { MFA_CODE_LENGTH, MFA_REJECT_CODE } from "./auth-validation";
 
 const toastSpy = vi.hoisted(() => vi.fn());
@@ -650,3 +650,12 @@ describe("SignIn — invalid submit focus", () => {
     expect(screen.getByText(/valid email/i)).toBeInTheDocument();
   });
 });
+
+describe.each(Object.entries(SIGN_IN_PHASES).filter(([, phase]) => phase.status !== ""))(
+  "SIGN_IN_PHASES.%s",
+  (_phaseName, phase) => {
+    it("gives the image label a distinct sentence from the status line", () => {
+      expect(phase.ariaLabel).not.toBe(phase.status);
+    });
+  }
+);

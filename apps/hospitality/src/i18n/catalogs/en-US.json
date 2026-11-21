@@ -255,7 +255,13 @@
       "statusRetrying": "Starting a fresh sign-in",
       "statusFailed": "The exchange didn't go through",
       "retry": "Try again",
-      "technicalDetails": "Technical details"
+      "technicalDetails": "Technical details",
+      "signOut": {
+        "failedLabel": "Your sign-out could not be completed",
+        "title": "Sign-out hit a snag",
+        "body": "We couldn't reach Identity to finish signing you out. Try again to complete it.",
+        "retry": "Try signing out again"
+      }
     },
     "error": {
       "accessDenied": {
@@ -338,7 +344,6 @@
     "searchPlaceholder": "Search pages and actions...",
     "openSidebar": "Open sidebar",
     "closeSidebar": "Close sidebar",
-    "openPalette": "Open command palette",
     "search": "Search",
     "ctrlKey": "Ctrl",
     "errorHeading": "Something went wrong",
@@ -361,7 +366,6 @@
       "tableCount_other": "{{count}} tables",
       "updated": "Updated {{date}}",
       "clone": "Clone",
-      "openAria": "Open floor plan: {{name}}",
       "cloneAria": "Clone floor plan: {{name}}",
       "delete": "Delete",
       "deleteAria": "Delete floor plan: {{name}}",
@@ -759,7 +763,8 @@
       "upcoming": "Upcoming",
       "empty": "No reservations",
       "unassigned": "Unassigned",
-      "cardLabel": "{{guest}}, party of {{size}}, {{time}}, table {{table}}",
+      "cardLabel": "{{guest}} {{time}} · {{guests}} · {{table}} {{status}}",
+      "tableContext": "table {{table}}",
       "seated": "Seated"
     },
     "emptyNight": {
@@ -818,7 +823,7 @@
     },
     "cancel": {
       "title": "Cancel Reservation",
-      "intro": "Cancelling reservation for <strong>{{name}}</strong>",
+      "intro": "Cancelling reservation for <guest/>",
       "reasonLabel": "Reason",
       "reasons": {
         "guestCancelled": "Guest Cancelled",
@@ -840,7 +845,7 @@
     },
     "noShowDialog": {
       "title": "Mark No-Show",
-      "body": "Marking <strong>{{name}}</strong> as a no-show cannot be undone. If a deposit is on file, the venue's no-show fee policy applies — this may capture some or all of it, or refund it if no fee applies.",
+      "body": "Marking <guest/> as a no-show cannot be undone. If a deposit is on file, the venue's no-show fee policy applies — this may capture some or all of it, or refund it if no fee applies.",
       "failed": "Reservation not marked as no-show.",
       "keep": "Keep Reservation",
       "confirm": "Mark No-Show",
@@ -2277,7 +2282,7 @@
         "subjectDated": "{{name}} ({{span}})",
         "subjectRule": "“{{label}}” on {{date}}",
         "editNamed": "Edit {{name}}",
-        "changeFor": "Change the schedule for {{date}}",
+        "changeFor": "Edit the schedule for {{date}}",
         "removeFor": "Remove {{subject}}",
         "removeTitle": "Remove {{subject}}?",
         "removeDescriptionDated": "{{name}} stops applying on every date of this period, not just this one. Those dates go back to your regular week, or to another schedule that covers them. The schedule stays on the Schedules tab. Bookings are never cancelled by this.",

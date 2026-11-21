@@ -238,8 +238,10 @@ export function FloorPlansPage() {
                   onClick={() => navigate(`/floor-plans/${floorPlan.id}`)}
                   className={styles.cardOpenButton}
                   type="button"
-                  aria-label={t("floorPlan.list.openAria", { name: floorPlan.name })}
                 >
+                  {/* No aria-label: the name is the visible card text (WCAG 2.5.3). The literal
+                      spaces below keep its words apart in that name; every parent is flex or
+                      block-of-blocks, so whitespace-only text renders nothing. */}
                   {/* Placeholder for floor plan preview */}
                   <div className={styles.cardPreview}>
                     <svg
@@ -270,11 +272,14 @@ export function FloorPlansPage() {
                         {floorPlan.name}
                       </Text>
                       {floorPlan.isActive && (
-                        <Badge variant="success" size="sm">
-                          {t("floorPlan.list.active")}
-                        </Badge>
+                        <>
+                          {" "}
+                          <Badge variant="success" size="sm">
+                            {t("floorPlan.list.active")}
+                          </Badge>
+                        </>
                       )}
-                    </div>
+                    </div>{" "}
                     <div className={styles.cardDetails}>
                       <Text
                         variant="caption"
@@ -284,7 +289,7 @@ export function FloorPlansPage() {
                         title={tableCountLabel(floorPlan)}
                       >
                         {tableCountLabel(floorPlan)}
-                      </Text>
+                      </Text>{" "}
                       <Text
                         variant="caption"
                         color="secondary"

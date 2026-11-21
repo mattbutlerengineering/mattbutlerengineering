@@ -262,7 +262,13 @@
       "statusRetrying": "Démarrage d'une nouvelle connexion",
       "statusFailed": "L'échange n'a pas abouti",
       "retry": "Réessayer",
-      "technicalDetails": "Détails techniques"
+      "technicalDetails": "Détails techniques",
+      "signOut": {
+        "failedLabel": "Votre déconnexion n'a pas pu être terminée",
+        "title": "La déconnexion a rencontré un problème",
+        "body": "Nous n'avons pas pu joindre Identité pour terminer votre déconnexion. Réessayez pour la compléter.",
+        "retry": "Réessayer la déconnexion"
+      }
     },
     "error": {
       "accessDenied": {
@@ -345,7 +351,6 @@
     "searchPlaceholder": "Rechercher des pages et des actions...",
     "openSidebar": "Ouvrir la barre latérale",
     "closeSidebar": "Fermer la barre latérale",
-    "openPalette": "Ouvrir la palette de commandes",
     "search": "Rechercher",
     "ctrlKey": "Ctrl",
     "errorHeading": "Une erreur s'est produite",
@@ -369,7 +374,6 @@
       "tableCount_other": "{{count}} tables",
       "updated": "Mis à jour {{date}}",
       "clone": "Cloner",
-      "openAria": "Ouvrir le plan de salle : {{name}}",
       "cloneAria": "Cloner le plan de salle : {{name}}",
       "delete": "Supprimer",
       "deleteAria": "Supprimer le plan de salle : {{name}}",
@@ -778,7 +782,8 @@
       "upcoming": "À venir",
       "empty": "Aucune réservation",
       "unassigned": "Non attribuée",
-      "cardLabel": "{{guest}}, groupe de {{size}}, {{time}}, table {{table}}",
+      "cardLabel": "{{guest}} {{time}} · {{guests}} · {{table}} {{status}}",
+      "tableContext": "table {{table}}",
       "seated": "Installés"
     },
     "emptyNight": {
@@ -837,7 +842,7 @@
     },
     "cancel": {
       "title": "Annuler la réservation",
-      "intro": "Annulation de la réservation de <strong>{{name}}</strong>",
+      "intro": "Annulation de la réservation de <guest/>",
       "reasonLabel": "Motif",
       "reasons": {
         "guestCancelled": "Annulée par le client",
@@ -859,7 +864,7 @@
     },
     "noShowDialog": {
       "title": "Marquer comme absent",
-      "body": "Marquer <strong>{{name}}</strong> comme absent ne peut pas être annulé. Si un dépôt est au dossier, la politique de frais d'absence de l'établissement s'applique : il peut être perçu en partie ou en totalité, ou remboursé si aucun frais ne s'applique.",
+      "body": "Marquer <guest/> comme absent ne peut pas être annulé. Si un dépôt est au dossier, la politique de frais d'absence de l'établissement s'applique : il peut être perçu en partie ou en totalité, ou remboursé si aucun frais ne s'applique.",
       "failed": "La réservation n'a pas été marquée comme une absence.",
       "keep": "Garder la réservation",
       "confirm": "Marquer comme absent",
@@ -2326,7 +2331,7 @@
         "subjectDated": "{{name}} ({{span}})",
         "subjectRule": "« {{label}} » le {{date}}",
         "editNamed": "Modifier {{name}}",
-        "changeFor": "Changer l’horaire du {{date}}",
+        "changeFor": "Modifier l’horaire du {{date}}",
         "removeFor": "Retirer {{subject}}",
         "removeTitle": "Retirer {{subject}} ?",
         "removeDescriptionDated": "{{name}} cesse de s’appliquer à toutes les dates de cette période, pas seulement à celle-ci. Ces dates reviennent à votre semaine habituelle ou à un autre horaire qui les couvre. L’horaire reste dans l’onglet Horaires. Cela n’annule jamais de réservations.",

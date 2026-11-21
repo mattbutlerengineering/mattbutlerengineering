@@ -1,9 +1,10 @@
-import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
+import { describe, it, expect, vi, onTestFinished } from "vitest";
+import { render, screen, fireEvent, waitFor, act, within } from "@testing-library/react";
 import { I18nextProvider } from "react-i18next";
 import { esMX as rialtoESMX } from "@mattbutlerengineering/rialto/locales/es-MX";
 import { createLocaleRuntime, type RuntimeDeps } from "../../i18n/runtime.js";
-import type { LocaleTag } from "../../i18n/locales.js";
+import { SUPPORTED_LOCALES, type LocaleTag } from "../../i18n/locales.js";
+import { MACHINE_TRANSLATION_TAGS } from "./machine-translation-tags.js";
 import esMX from "../../i18n/catalogs/es-MX.json";
 import { LocalePicker, type LocalePickerProps } from "./LocalePicker.js";
 
@@ -178,6 +179,25 @@ describe("LocalePicker", () => {
     );
   });
 
+  it("marks each menu item's endonym and machine-translation tag with its own lang", () => {
+    const { runtime } = makeRuntime();
+    renderPicker(runtime);
+    openMenu();
+    const items = screen.getAllByRole("menuitem");
+    expect(items).toHaveLength(SUPPORTED_LOCALES.length);
+    SUPPORTED_LOCALES.forEach((l, i) => {
+      const item = items[i]!;
+      expect(
+        within(item).getByText(l.endonym, { selector: "[lang]" }),
+        `endonym lang for ${l.tag}`
+      ).toHaveAttribute("lang", l.tag);
+      const mt = MACHINE_TRANSLATION_TAGS[l.tag];
+      if (mt) {
+        expect(within(item).getByText(mt, { selector: "[lang]" })).toHaveAttribute("lang", l.tag);
+      }
+    });
+  });
+
   it("on rejection keeps the value, shows Retry, and Retry succeeds", async () => {
     let fail = true;
     const { runtime } = makeRuntime({
@@ -222,5 +242,32 @@ describe("LocalePicker", () => {
 
     await act(() => runtime.changeLocale("es-MX"));
     expect(await screen.findByText("Las traducciones son automáticas.")).toBeInTheDocument();
+  });
+
+  it("settings variant: each option and the selected trigger label carry their own lang", () => {
+    const { runtime } = makeRuntime();
+    renderPicker(runtime, { variant: "settings" });
+    const combobox = screen.getByRole("combobox", { name: "Language" });
+    expect(within(combobox).getByText("English (US)", { selector: "[lang]" })).toHaveAttribute(
+      "lang",
+      "en-US"
+    );
+    // jsdom has no scrollIntoView; Select calls it on the active option when it opens.
+    const originalScrollIntoView = Element.prototype.scrollIntoView;
+    onTestFinished(() => {
+      Element.prototype.scrollIntoView = originalScrollIntoView;
+    });
+    Element.prototype.scrollIntoView = vi.fn();
+    fireEvent.click(combobox);
+    const options = screen.getAllByRole("option");
+    expect(options).toHaveLength(SUPPORTED_LOCALES.length);
+    SUPPORTED_LOCALES.forEach((l, i) => {
+      const label = within(options[i]!).getByText(l.endonym, { selector: "[lang]" });
+      expect(label, `option lang for ${l.tag}`).toHaveAttribute("lang", l.tag);
+      // A plain span: rialto Text would bring its own type scale (and a <p> by
+      // default), changing the Select's typography from the old string label.
+      expect(label.tagName, `option label element for ${l.tag}`).toBe("SPAN");
+      expect(label.className, `option label class for ${l.tag}`).toBe("");
+    });
   });
 });
