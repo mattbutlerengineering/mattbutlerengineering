@@ -1151,6 +1151,12 @@ A clean fire: everything due was captured and judged, and nothing met the bar to
 **Skill proposals:** 0 (Friday, but all 3 `.claude/session-logs/*.json` entries had empty `session_id`/`branch` — just git-diff snapshots from today, not enough distinct sessions to mine a repeated-workflow pattern)
 **Threshold notes:** auto-tuner applied 1 adjustment (acmm: 1.783 → 1.812, headroom). 30-day verification log: 115/124 entries are confidence=skip (93% — same no-egress/no-Lighthouse-inventory gap noted previously); of the 9 determinable entries, 8 verified / 1 failed (88.9% effectiveness) — above the 50% threshold but thin (n=9). `verifications.jsonl` has no wontfix/invalid field, so the skill's literal false-positive-rate formula isn't computable from it directly; as a proxy, the 90d AI-issue-feedback file's (rejected+wontfix)/total across all categories is 91/200 = 45.5%, above the 30% loosen-threshold note line — worth a human look at whether categories like `ci-fix` (63% not-accepted incl. wontfix) and `feature` (58%) are too liberal, though wontfix often reflects stale/superseded issues rather than bad detection.
 
+## 2026-11-21
+
+**queueEfficiency:** composite 0.976 (baseline n/a) — healthy
+**Difficulty distribution:** size:s:42, size:m:10, size:xs:23, size:xl:6, size:l:3
+**Issues filed:** 1
+
 ## 2026-11-21 — mbe-evening
 
 ### Metrics
