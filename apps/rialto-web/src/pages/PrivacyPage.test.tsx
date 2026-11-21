@@ -34,4 +34,11 @@ describe("PrivacyPage", () => {
     expect(text).not.toMatch(/do not collect personally identifiable information/i);
     expect(text).toMatch(/Apart from the IP address an error report can carry/);
   });
+
+  it("discloses that Google Fonts receives the visitor's IP address", () => {
+    render(<PrivacyPage />);
+    const text = (screen.getByRole("main").textContent ?? "").replace(/\s+/g, " ");
+    expect(text).toMatch(/Google Fonts/);
+    expect(text).toMatch(/Google Fonts[^.]*IP address/);
+  });
 });

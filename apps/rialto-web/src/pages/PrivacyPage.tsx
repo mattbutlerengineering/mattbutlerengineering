@@ -95,8 +95,9 @@ export function PrivacyPage() {
             color: "var(--rialto-text-secondary)",
           }}
         >
-          Error reports are processed by Sentry, and pages are served through Cloudflare. Each is
-          governed by its own privacy policy.
+          Error reports and visit counts are processed by Sentry, and pages are served through
+          Cloudflare. Fonts load from Google Fonts, so your browser sends Google your IP address,
+          browser details and the page you came from. Each is governed by its own privacy policy.
         </p>
       </section>
 
