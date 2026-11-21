@@ -843,7 +843,7 @@
     },
     "cancel": {
       "title": "Cancelar reservación",
-      "intro": "Cancelando la reservación de <strong>{{name}}</strong>",
+      "intro": "Cancelando la reservación de <guest/>",
       "reasonLabel": "Motivo",
       "reasons": {
         "guestCancelled": "Canceló el invitado",
@@ -865,7 +865,7 @@
     },
     "noShowDialog": {
       "title": "Marcar inasistencia",
-      "body": "Marcar a <strong>{{name}}</strong> como inasistencia no se puede deshacer. Si hay un depósito registrado, se aplica la política de cargos por inasistencia del local: puede cobrarse una parte o la totalidad, o reembolsarse si no corresponde ningún cargo.",
+      "body": "Marcar a <guest/> como inasistencia no se puede deshacer. Si hay un depósito registrado, se aplica la política de cargos por inasistencia del local: puede cobrarse una parte o la totalidad, o reembolsarse si no corresponde ningún cargo.",
       "failed": "No se marcó la reservación como inasistencia.",
       "keep": "Conservar reservación",
       "confirm": "Marcar inasistencia",

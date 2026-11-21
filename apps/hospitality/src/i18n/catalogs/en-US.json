@@ -824,7 +824,7 @@
     },
     "cancel": {
       "title": "Cancel Reservation",
-      "intro": "Cancelling reservation for <strong>{{name}}</strong>",
+      "intro": "Cancelling reservation for <guest/>",
       "reasonLabel": "Reason",
       "reasons": {
         "guestCancelled": "Guest Cancelled",
@@ -846,7 +846,7 @@
     },
     "noShowDialog": {
       "title": "Mark No-Show",
-      "body": "Marking <strong>{{name}}</strong> as a no-show cannot be undone. If a deposit is on file, the venue's no-show fee policy applies — this may capture some or all of it, or refund it if no fee applies.",
+      "body": "Marking <guest/> as a no-show cannot be undone. If a deposit is on file, the venue's no-show fee policy applies — this may capture some or all of it, or refund it if no fee applies.",
       "failed": "Reservation not marked as no-show.",
       "keep": "Keep Reservation",
       "confirm": "Mark No-Show",
