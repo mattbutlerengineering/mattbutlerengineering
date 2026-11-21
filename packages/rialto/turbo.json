@@ -1,0 +1,10 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "extends": ["//"],
+  "//": "build: root inputs (inherited via $TURBO_EXTENDS$) plus scripts/, because `build` runs `tsx scripts/generate-all.ts` after vite and the root list hashes only src/** and config. Without it a generator-only edit replays a cached build with stale generated artifacts. Pinned by scripts/__tests__/turbo-task-inputs.test.mjs.",
+  "tasks": {
+    "build": {
+      "inputs": ["$TURBO_EXTENDS$", "scripts/**", "!scripts/**/*.test.ts"]
+    }
+  }
+}

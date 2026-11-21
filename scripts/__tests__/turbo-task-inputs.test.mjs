@@ -220,6 +220,42 @@ describe("app typecheck hashes see e2e/, root-level tests, and allowJs imports",
   });
 });
 
+/** `<pkg>#build`'s dry-run hash (nothing executes, nothing caches). */
+function buildHash(pkg) {
+  const env = { ...process.env, TURBO_TELEMETRY_DISABLED: "1" };
+  delete env.TURBO_TOKEN;
+  delete env.TURBO_TEAM;
+  const stdout = execFileSync(TURBO_BIN, ["run", "build", `--filter=${pkg}`, "--dry-run=json"], {
+    cwd: ROOT,
+    encoding: "utf8",
+    env,
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  const task = JSON.parse(stdout).tasks.find((t) => t.taskId === `${pkg}#build`);
+  if (!task) throw new Error(`dry-run has no task ${pkg}#build`);
+  return task.hash;
+}
+
+/**
+ * `@mattbutlerengineering/rialto`'s build runs `tsx scripts/generate-all.ts` after vite, but the
+ * root build inputs are `src/**` plus config, so a generator-only edit replayed
+ * a cached build with stale generated artifacts (docs/backlog.md seed, from
+ * maintenance:test-typecheck-coverage). packages/rialto/turbo.json adds scripts/.
+ */
+describe("rialto build hash sees its generator scripts", () => {
+  it(
+    "@mattbutlerengineering/rialto#build responds to scripts/generate-all.ts",
+    { timeout: 120_000 },
+    () => {
+      const file = join(ROOT, "packages/rialto/scripts/generate-all.ts");
+      const before = buildHash("@mattbutlerengineering/rialto");
+      const mutated = withAppendedProbe(file, () => buildHash("@mattbutlerengineering/rialto"));
+      expect(mutated).not.toBe(before);
+      expect(buildHash("@mattbutlerengineering/rialto")).toBe(before);
+    }
+  );
+});
+
 /**
  * A Package Configuration's `inputs` REPLACES the root array unless it opts in
  * with `$TURBO_EXTENDS$`. The overrides above (hospitality, rialto-web,

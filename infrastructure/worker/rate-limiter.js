@@ -1,20 +1,52 @@
 /**
- * In-Worker rate limiter using KV.
+ * In-Worker rate limiter backed by Cloudflare's Workers Rate Limiting binding
+ * (`type: "ratelimit"`).
  *
- * Tracks request counts per IP per route bucket in KV with TTL.
- * Uses a sliding window approximation with 1-minute buckets.
+ * The previous implementation did one Workers KV `put` per counted request.
+ * Workers KV's free tier allows 1000 writes/day per ACCOUNT, so ordinary
+ * traffic (or anyone who wanted to) exhausted it (error 10048, #9209), which
+ * also broke every other KV writer and silently turned the limiter off. The
+ * Rate Limiting binding keeps its counters at the edge, with no KV writes.
+ *
+ * Constraints of the binding that shape this file:
+ * - limit and period are fixed per binding (in wrangler.toml / Pulumi), so
+ *   every rule owns a binding. `maxRequests` / `windowSeconds` below MUST
+ *   equal that binding's `simple` config; scripts/check-rate-limit-bindings.mjs
+ *   enforces it across wrangler.toml, pulumi/index.ts and this table.
+ * - period must be 10 or 60 seconds.
+ * - namespaceId is a unique positive-integer string per limiter in the whole
+ *   Cloudflare account. Pick ids that no other Worker uses.
+ * - `limit()` returns only `{ success }`; there is no remaining count.
  *
  * Immutable pattern: all functions return new objects, never mutate.
  */
 
 /**
  * Rate limit configuration per route pattern.
- * Each entry: { pattern, maxRequests, windowSeconds }
+ * Each entry: { pattern, binding, namespaceId, maxRequests, windowSeconds }
  */
 const RATE_LIMITS = Object.freeze([
-  { pattern: "/api/flags/", maxRequests: 5, windowSeconds: 60 },
-  { pattern: "/health/system", maxRequests: 10, windowSeconds: 60 },
-  { pattern: "/api/", maxRequests: 100, windowSeconds: 60 },
+  {
+    pattern: "/api/flags/",
+    binding: "RATE_LIMIT_FLAGS",
+    namespaceId: "1001",
+    maxRequests: 5,
+    windowSeconds: 60,
+  },
+  {
+    pattern: "/health/system",
+    binding: "RATE_LIMIT_HEALTH_SYSTEM",
+    namespaceId: "1002",
+    maxRequests: 10,
+    windowSeconds: 60,
+  },
+  {
+    pattern: "/api/",
+    binding: "RATE_LIMIT_API",
+    namespaceId: "1003",
+    maxRequests: 100,
+    windowSeconds: 60,
+  },
   // Same bound as its /api/ sibling, deliberately — /public/ is the
   // unauthenticated guest surface (booking widget, guest self-service), so it
   // is the one that most needs edge shedding.
@@ -26,10 +58,22 @@ const RATE_LIMITS = Object.freeze([
   // /public/v1/venues/x -> {allowed:true, limit:-1}. rate-limiter.test.js
   // asserts every originRoutes prefix has an entry here, so the next prefix
   // added cannot repeat that.
-  { pattern: "/public/", maxRequests: 100, windowSeconds: 60 },
+  {
+    pattern: "/public/",
+    binding: "RATE_LIMIT_PUBLIC",
+    namespaceId: "1004",
+    maxRequests: 100,
+    windowSeconds: 60,
+  },
   // Unauthenticated, browser-fed CSP report sink (#8895). Real pages send a
   // handful per load (the Reporting API batches); this bounds a flood.
-  { pattern: "/csp-report", maxRequests: 60, windowSeconds: 60 },
+  {
+    pattern: "/csp-report",
+    binding: "RATE_LIMIT_CSP_REPORT",
+    namespaceId: "1005",
+    maxRequests: 60,
+    windowSeconds: 60,
+  },
 ]);
 
 /**
@@ -41,64 +85,62 @@ function findRateLimit(pathname) {
 }
 
 /**
- * Build a KV key for rate limiting.
- * Format: ratelimit:<bucket>:<ip>:<minuteBucket>
+ * Build the per-IP key passed to a rule's binding. Format: <pattern>:<ip>.
+ * The binding already isolates rules from each other; the pattern stays in the
+ * key so a key is self-describing.
  */
-function rateLimitKey(pattern, ip, nowMs) {
-  const minuteBucket = Math.floor(nowMs / 60_000);
+function rateLimitKey(pattern, ip) {
   const sanitizedIp = ip.replace(/[^a-zA-Z0-9.:]/g, "_");
   const sanitizedPattern = pattern.replace(/\//g, "_");
-  return `ratelimit:${sanitizedPattern}:${sanitizedIp}:${minuteBucket}`;
+  return `${sanitizedPattern}:${sanitizedIp}`;
+}
+
+// Fail-open reasons already reported by this isolate. A broken binding fails
+// every request, so reporting each one would be log noise; one line per
+// binding+reason per isolate is enough to be seen. Module-level on purpose.
+const reportedFailures = new Set();
+
+function reportFailOpen(rule, reason) {
+  const id = `${rule.binding}:${reason}`;
+  if (reportedFailures.has(id)) return;
+  reportedFailures.add(id);
+  console.warn(`Rate limiter failing open for ${rule.pattern}: ${rule.binding} ${reason}`);
 }
 
 /**
- * Check and increment the rate limit counter for a request.
+ * Check and count a request against the matching rule's rate limit binding.
  *
  * Returns { allowed: boolean, remaining: number, limit: number }
  *
- * If no rate limit rule matches the path, returns allowed: true
- * with remaining: -1 (unlimited).
+ * - No rule matches: allowed, remaining -1, limit -1 (unlimited).
+ * - `remaining` is best effort: the binding reports no count, so an allowed
+ *   request returns the rule's limit (an upper bound, not a measurement) and
+ *   a blocked one returns 0. Nothing may present it to clients as exact.
+ * - A missing or throwing binding fails open (allowed), reported once per
+ *   isolate via console.warn.
+ *
+ * @param env Worker env holding the rule bindings (RATE_LIMITS[].binding)
  */
-async function checkRateLimit(kv, pathname, ip, nowMs) {
+async function checkRateLimit(env, pathname, ip) {
   const rule = findRateLimit(pathname);
   if (!rule) {
     return { allowed: true, remaining: -1, limit: -1 };
   }
 
-  const key = rateLimitKey(rule.pattern, ip, nowMs);
+  const allowed = { allowed: true, remaining: rule.maxRequests, limit: rule.maxRequests };
+  const limiter = env?.[rule.binding];
+  if (!limiter || typeof limiter.limit !== "function") {
+    reportFailOpen(rule, "binding missing");
+    return allowed;
+  }
 
-  let count;
   try {
-    const stored = await kv.get(key, "text");
-    count = stored ? parseInt(stored, 10) : 0;
-  } catch {
-    // KV read failure — fail open (allow the request)
-    return { allowed: true, remaining: rule.maxRequests, limit: rule.maxRequests };
+    const { success } = await limiter.limit({ key: rateLimitKey(rule.pattern, ip) });
+    return success ? allowed : { allowed: false, remaining: 0, limit: rule.maxRequests };
+  } catch (error) {
+    reportFailOpen(rule, `threw: ${error?.message ?? "unknown error"}`);
+    return allowed;
   }
-
-  if (count >= rule.maxRequests) {
-    return {
-      allowed: false,
-      remaining: 0,
-      limit: rule.maxRequests,
-    };
-  }
-
-  // Increment counter with TTL
-  const newCount = count + 1;
-  try {
-    await kv.put(key, String(newCount), {
-      expirationTtl: rule.windowSeconds,
-    });
-  } catch {
-    // KV write failure — already allowed, just continue
-  }
-
-  return {
-    allowed: true,
-    remaining: rule.maxRequests - newCount,
-    limit: rule.maxRequests,
-  };
 }
 
 /**
