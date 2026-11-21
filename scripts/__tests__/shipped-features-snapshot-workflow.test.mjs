@@ -3,7 +3,7 @@
  * (#6904, feature shipped-stories).
  *
  * The marketing site never calls GitHub at runtime; the snapshot it renders is
- * regenerated weekly by this workflow and lands through the automation-PR path
+ * regenerated daily by this workflow and lands through the automation-PR path
  * (a bare push to protected `main` is rejected with GH006). Mirrors
  * metrics-collectors-workflow.test.mjs.
  */
@@ -25,15 +25,16 @@ const job = getJob(wf, "snapshot");
 const GATE = "steps.create-pr.outputs.pull-request-number";
 
 describe("shipped-features-snapshot triggers", () => {
-  it("runs on a weekly schedule", () => {
+  it("runs on a daily schedule so a closed tracker reaches /shipped within a day", () => {
     expect(WORKFLOW).toMatch(/schedule:/);
     const crons = [...WORKFLOW.matchAll(/cron: "([^"]+)"/g)].map((m) => m[1]);
     expect(crons).toHaveLength(1);
-    // minute hour dom month dow — weekly means a fixed day of week
+    // minute hour dom month dow — daily means every day (a weekly cron left
+    // #8696, closed Mon-Fri, waiting up to 7 days; #9346)
     const [minute, hour, dom, month, dow] = crons[0].split(" ");
     expect(dom).toBe("*");
     expect(month).toBe("*");
-    expect(dow).toMatch(/^[0-6]$/);
+    expect(dow).toBe("*");
     // off-minute and off-hour, away from the on-the-hour fleet
     expect(minute).not.toBe("0");
     expect(minute).not.toBe("30");
