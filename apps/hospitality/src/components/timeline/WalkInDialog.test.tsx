@@ -24,6 +24,7 @@ const idleLookup: UseGuestLookupResult = {
   isLoading: false,
   failed: false,
   query: "",
+  stale: false,
 };
 
 /** The E2E fixture guest (`guests-list.json` gst_e2e_001): Alice, 12 visits, known phone. */

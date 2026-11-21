@@ -115,14 +115,23 @@ jobs:
       # branch protection needs Administration:read, which GITHUB_TOKEN cannot
       # hold, so the row says `mainStrictSource: "unavailable"` — the retro must
       # re-measure with an admin token (scripts/main-strictness.mjs).
+      #
+      # #9236: the PR this job opens below (`automation/metrics-collectors`)
+      # can still be open the next day, when this job checks out a fresh
+      # `main` and force-pushes a new diff off it — silently dropping
+      # Monday's uncommitted sdlcSpeed row before it ever merges. `--check-due`
+      # reads the fresh checkout (main's real state, never the ephemeral PR
+      # branch) and is also due once the latest merged row is a full window
+      # old, so a dropped Monday write gets collected again the very next day
+      # instead of waiting a full week.
       - name: Collect SDLC speed sensor row
         continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -o pipefail
-          if [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ] && [ "$(date -u +%u)" != "1" ]; then
-            echo "Not Monday and not a manual dispatch; skipping the weekly sdlcSpeed row."
+          if [ "$GITHUB_EVENT_NAME" != "workflow_dispatch" ] && [ "$(node scripts/collect-sdlc-speed.mjs --check-due --days 7)" != "true" ]; then
+            echo "Not due yet (not Monday, and the recorded sdlcSpeed row is still fresh); skipping."
             exit 0
           fi
           node scripts/collect-sdlc-speed.mjs --days 7 --record | tee -a "$GITHUB_STEP_SUMMARY"

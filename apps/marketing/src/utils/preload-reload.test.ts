@@ -1,0 +1,27 @@
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { installPreloadErrorReload } from "./preload-reload";
+
+describe("installPreloadErrorReload", () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+  });
+
+  it("reloads once on vite:preloadError and prevents the default throw", () => {
+    const reload = vi.fn();
+    const target = new EventTarget();
+    installPreloadErrorReload(target, reload);
+    const ev = new Event("vite:preloadError", { cancelable: true });
+    target.dispatchEvent(ev);
+    expect(reload).toHaveBeenCalledTimes(1);
+    expect(ev.defaultPrevented).toBe(true);
+  });
+
+  it("does not reload again in a loop when the reload already happened", () => {
+    const reload = vi.fn();
+    const target = new EventTarget();
+    installPreloadErrorReload(target, reload);
+    target.dispatchEvent(new Event("vite:preloadError", { cancelable: true }));
+    target.dispatchEvent(new Event("vite:preloadError", { cancelable: true }));
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+});

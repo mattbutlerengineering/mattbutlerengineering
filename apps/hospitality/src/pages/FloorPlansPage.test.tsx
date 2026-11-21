@@ -265,7 +265,7 @@ describe("FloorPlansPage", () => {
       expect(screen.getByText("Main Dining")).toBeDefined();
     });
 
-    const cardButton = screen.getByLabelText("Open floor plan: Main Dining");
+    const cardButton = screen.getByRole("button", { name: /^Main Dining\b/ });
     fireEvent.click(cardButton);
 
     expect(mockNavigate).toHaveBeenCalledWith("/floor-plans/fp-1");

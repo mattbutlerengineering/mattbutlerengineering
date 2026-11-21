@@ -6,6 +6,7 @@
  * No auth required, but we still use the api client for consistency.
  */
 import { useQuery } from "@tanstack/react-query";
+import { reportHandledError } from "@mbe/sentry/react";
 import { useApiClient } from "./useApiClient.js";
 import type { CancellationPolicy } from "@mbe/cancellation-policy";
 
@@ -34,7 +35,8 @@ export function useVenuePolicy(slug: string | undefined): {
           lateCancellationFeePercent: deposit.lateCancellationFeePercent,
           noShowFeePercent: deposit.noShowFeePercent,
         };
-      } catch {
+      } catch (error) {
+        reportHandledError(error, "venue-policy");
         return null;
       }
     },

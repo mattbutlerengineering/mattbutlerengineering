@@ -1056,3 +1056,72 @@ describe("findings.mjs plan/record — seeds close when their route is re-audite
     ).toEqual([]);
   });
 });
+
+describe("findings.mjs plan/record — records reconcile against their issue's real state", () => {
+  const NOW = ["--now", "2026-11-20T07:40:00Z"];
+  const DRIFTED = finding("rialto-web", "visual-test", "accessibility/axe-critical", "P1");
+  const key = (f) => findingKey(f, 1);
+  const planPass = (findings, states) => plan([findings], states, ["--calibration-status", "pass"]);
+  const recordExecuted = (p) =>
+    run(["record", "--executed", writeJson("in/executed.json", p), ...NOW]);
+
+  it("closes an open record whose issue is closed, keeping its issue, carrier and last_seen", () => {
+    writeJson(LEDGER, { [key(DRIFTED)]: record(6025, { severity: "P1" }) });
+    const { code, plan: p } = planPass([], { 6025: "closed" });
+    expect(code).toBe(0);
+    expect(byAction(p, "close")).toEqual([
+      {
+        key: key(DRIFTED),
+        action: "close",
+        issue: 6025,
+        carrier: "issue",
+        severity: "P1",
+        state: "closed",
+        state_reason: "issue_closed",
+      },
+    ]);
+    expect(p.issue_drift).toEqual({ open_with_closed_issue: 1, unknown_state: 0 });
+    expect(recordExecuted(p).code).toBe(0);
+    expect(readLedger()[key(DRIFTED)]).toEqual({
+      issue: 6025,
+      carrier: "issue",
+      state: "closed",
+      closed_at: "2026-11-20",
+      state_reason: "issue_closed",
+      severity: "P1",
+      first_seen: "2026-10-01",
+      last_seen: "2026-10-01",
+      escalated_at: null,
+    });
+  });
+
+  it("keeps an aggregate member's carrier when it closes", () => {
+    writeJson(LEDGER, { [key(DRIFTED)]: record(700, { carrier: "aggregate:700" }) });
+    const p = planPass([], { 700: "closed" }).plan;
+    recordExecuted(p);
+    expect(readLedger()[key(DRIFTED)]).toMatchObject({ carrier: "aggregate:700", state: "closed" });
+  });
+
+  it("fails closed on an unknown state: the record stays open and the gap is reported", () => {
+    writeJson(LEDGER, { [key(DRIFTED)]: record(6025) });
+    const { plan: p, err } = planPass([], {});
+    expect(byAction(p, "close")).toEqual([]);
+    expect(p.issue_drift).toEqual({ open_with_closed_issue: 0, unknown_state: 1 });
+    expect(err).toContain("#6025 has no state");
+  });
+
+  it("leaves an open issue's record open and does not count it", () => {
+    writeJson(LEDGER, { [key(DRIFTED)]: record(6025) });
+    const p = planPass([], { 6025: "open" }).plan;
+    expect(byAction(p, "close")).toEqual([]);
+    expect(p.issue_drift).toEqual({ open_with_closed_issue: 0, unknown_state: 0 });
+  });
+
+  it("reopens (never closes) a drifted record whose finding recurs this fire", () => {
+    writeJson(LEDGER, { [key(DRIFTED)]: record(6025, { severity: "P1" }) });
+    const p = planPass([DRIFTED], { 6025: "closed" }).plan;
+    expect(byAction(p, "close")).toEqual([]);
+    expect(byAction(p, "reopen")).toMatchObject([{ key: key(DRIFTED), issue: 6025 }]);
+    expect(p.issue_drift.open_with_closed_issue).toBe(1);
+  });
+});

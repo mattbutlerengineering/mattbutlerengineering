@@ -58,6 +58,8 @@ export const RUNS_METRIC = "ui-quality-runs";
 /** The gitignored per-fire work dir and the files in it this module reads or writes. */
 const PLAN_FILE = "plan.json";
 const DUE_FILE = "due.json";
+/** `findings.mjs plan`'s output (its PLAN_FILE); read only for `issue_drift`. */
+const FINDINGS_PLAN_FILE = "findings.plan.json";
 const FIXTURES_FILE = "scripts/ui-quality/route-fixtures.json";
 
 export const IDENTITY_COLUMNS = ["route", "app", "kind", "auth", "source_files"];
@@ -310,9 +312,17 @@ function record(ctx) {
     rubricVersion,
   });
   writeFileSync(ctx.ledgerPath, renderLedger(rows));
+  // Present only when this fire's `findings.mjs plan` ran (step 6 can be skipped).
+  const issueDrift = readJsonIfPresent(join(work, FINDINGS_PLAN_FILE))?.issue_drift;
   append(
     RUNS_METRIC,
-    { ts: now, ...counts, git_depth: dueFile.git_depth, rubric_version: rubricVersion },
+    {
+      ts: now,
+      ...counts,
+      git_depth: dueFile.git_depth,
+      rubric_version: rubricVersion,
+      ...(issueDrift === undefined ? {} : { issue_drift: issueDrift }),
+    },
     { root: ctx.root }
   );
   ctx.stderr(`ledger.mjs record: ${JSON.stringify(counts)}\n`);

@@ -218,6 +218,54 @@ describe("runSession", () => {
     expect(result.errors).toContain("No result message received from agent");
   });
 
+  describe("failed result after the query phase has spent money", () => {
+    const turn = (turnIndex: number, costUsd: number) => ({
+      turnIndex,
+      startedAt: "2026-01-01T00:00:00.000Z",
+      inputTokens: 100 * turnIndex,
+      outputTokens: 10 * turnIndex,
+      thinkingTokens: 0,
+      costUsd,
+      modelId: "claude-sonnet-5",
+    });
+
+    /** Query phase resolves, then the signal aborts so the next boundary throws. */
+    function abortAfterQuery(result: HardenedQueryResult): AbortSignal {
+      const controller = new AbortController();
+      vi.mocked(deps.queryRunner.runHardenedQuery).mockImplementation(async () => {
+        controller.abort();
+        return result;
+      });
+      return controller.signal;
+    }
+
+    it("reports the result message's cost, turns and tokens instead of zeros", async () => {
+      const signal = abortAfterQuery(
+        hardenedResult({ resultMessage: createMockResultMessage() as never })
+      );
+
+      const result = await runSession(BASE_CONFIG, undefined, deps, signal);
+
+      expect(result.status).toBe("failed");
+      expect(result.errors).toContain("Session aborted");
+      expect(result.costUsd).toBe(0.25);
+      expect(result.numTurns).toBe(5);
+      expect(result.tokenUsage).toEqual({ inputTokens: 10000, outputTokens: 2000 });
+      expect(result.sessionId).toBe("session-123");
+    });
+
+    it("falls back to turns and tokens (cost stays 0, as event-mapper emits) when no result message arrived", async () => {
+      const signal = abortAfterQuery(hardenedResult({ rawTurnMetrics: [turn(1, 0), turn(2, 0)] }));
+
+      const result = await runSession(BASE_CONFIG, undefined, deps, signal);
+
+      expect(result.status).toBe("failed");
+      expect(result.costUsd).toBe(0);
+      expect(result.numTurns).toBe(2);
+      expect(result.tokenUsage).toEqual({ inputTokens: 300, outputTokens: 30 });
+    });
+  });
+
   it("handles errors and returns failed result", async () => {
     vi.mocked(deps.queryRunner.runHardenedQuery).mockRejectedValue(
       new Error("SDK connection failed")
@@ -226,6 +274,8 @@ describe("runSession", () => {
     const result = await runSession(BASE_CONFIG, undefined, deps);
 
     expect(result.status).toBe("failed");
+    expect(result.costUsd).toBe(0);
+    expect(result.numTurns).toBe(0);
     expect(result.errors).toContain("SDK connection failed");
   });
 

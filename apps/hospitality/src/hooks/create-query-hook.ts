@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useApiClient } from "./useApiClient.js";
 
 /* ── Types ───────────────────────────────────────────── */
@@ -7,6 +7,8 @@ export interface QueryHookResult<TData> {
   data: TData | undefined;
   isLoading: boolean;
   error: Error | null;
+  /** True while `data` is the previous key's, kept by `keepPreviousData` until this key lands. */
+  isPlaceholderData?: boolean;
   /** Resolves when the refetch settles; `error` is null on success (so a Retry handler can speak). */
   refetch: () => Promise<{ error: Error | null }>;
 }
@@ -26,6 +28,8 @@ export interface CreateQueryHookOptions<TData, TParams = undefined, TResult = TD
    * Use this to coalesce undefined → null, or extract a nested field.
    */
   select?: (data: TData | undefined) => TResult;
+  /** Keep the previous key's data on screen while a new key loads (TanStack `keepPreviousData`). */
+  keepPreviousData?: boolean;
 }
 
 /**
@@ -40,7 +44,7 @@ export interface CreateQueryHookOptions<TData, TParams = undefined, TResult = TD
 export function createQueryHook<TData, TParams = undefined, TResult = TData>(
   options: CreateQueryHookOptions<TData, TParams, TResult>
 ): (params?: (TParams & { enabled?: boolean }) | undefined) => QueryHookResult<TResult> {
-  const { key, fetcher, getEnabled, select } = options;
+  const { key, fetcher, getEnabled, select, keepPreviousData: keepPrevious } = options;
 
   return function useQueryHook(
     params?: (TParams & { enabled?: boolean }) | undefined
@@ -54,6 +58,7 @@ export function createQueryHook<TData, TParams = undefined, TResult = TData>(
       queryKey: buildQueryKey(key, params),
       queryFn: () => fetcher(queryParams as TParams | undefined, api),
       enabled,
+      ...(keepPrevious ? { placeholderData: keepPreviousData } : {}),
     });
 
     const data = select !== undefined ? select(query.data) : (query.data as unknown as TResult);
@@ -62,6 +67,7 @@ export function createQueryHook<TData, TParams = undefined, TResult = TData>(
       data,
       isLoading: query.isLoading,
       error: query.error ?? null,
+      isPlaceholderData: query.isPlaceholderData,
       refetch: query.refetch,
     };
   };

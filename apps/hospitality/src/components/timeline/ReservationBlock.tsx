@@ -68,14 +68,28 @@ function ReservationBlockComponent({
     .join(" · ");
   const lateLabel = useGuestSignalBadgeLabel(guestSignalBadge ?? NO_BADGE);
   const overrideReason = reservation.overrideReason?.trim() || null;
-  const spokenLabel = [
+  // WCAG 2.5.3: the name opens with the on-screen words, in on-screen order, so a voice command
+  // that says what it sees ("Jane Doe 4 · 7:30 PM") matches; extra spoken context follows.
+  const rsvpText = reservation.inviteRsvp
+    ? t("inviteRsvpChip.text", {
+        in: reservation.inviteRsvp.in,
+        total: reservation.inviteRsvp.partySize,
+      })
+    : null;
+  const visibleRun = [
     guestName,
+    `${reservation.partySize} · ${startTime}${visitText !== null ? ` · ${visitText}` : ""}`,
+    rsvpText,
+    overrideReason ? t("timeline.block.overrideTag") : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const spokenLabel = [
+    visibleRun,
     t("timeline.partyOf", { count: reservation.partySize }),
-    startTime,
     t(RESERVATION_STATUS_KEYS[reservation.status]).toLocaleLowerCase(fmt.locale),
     isSeated ? t("timeline.block.seatedWord") : null,
     guestSignalBadge ? lateLabel : null,
-    visitText,
     overrideReason ? t("timeline.block.overrideLabel", { reason: overrideReason }) : null,
   ]
     .filter(Boolean)
@@ -107,12 +121,12 @@ function ReservationBlockComponent({
           <div className={styles.guestName} data-truncate>
             {isSeated && <StatusLED variant="success" size="xs" className={styles.seatedLed} />}
             <span>{guestName}</span>
-          </div>
+          </div>{" "}
           <div className={styles.details} data-truncate>
             {reservation.partySize} · {startTime}
             {visitText !== null && ` · ${visitText}`}
-          </div>
-          <InviteRsvpChip rsvp={reservation.inviteRsvp} className={styles.inviteRsvp} />
+          </div>{" "}
+          <InviteRsvpChip rsvp={reservation.inviteRsvp} className={styles.inviteRsvp} />{" "}
           {overrideReason !== null && (
             <div className={styles.overrideTag} data-truncate title={overrideReason}>
               {t("timeline.block.overrideTag")}

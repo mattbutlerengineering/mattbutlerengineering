@@ -1,0 +1,397 @@
+/* "One night of service" (/venues). Every colour, space, radius, shadow and
+   timing is a Rialto token; the page's day and night are the light and dark
+   token sets, switched by `data-theme` on `.night`. */
+
+.night {
+  position: relative;
+  background: var(--rialto-surface);
+  color: var(--rialto-text-primary);
+  transition:
+    background-color var(--rialto-duration-slow) var(--rialto-ease-smooth),
+    color var(--rialto-duration-slow) var(--rialto-ease-smooth);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── Time rail: the pinned page clock ─────────── */
+
+.railAnchor {
+  position: sticky;
+  /* Clears the sticky GlobalNav (4rem tall) with room to breathe. */
+  top: calc(4rem + var(--rialto-space-md));
+  z-index: 2;
+  height: 0;
+  pointer-events: none;
+}
+
+.rail {
+  position: absolute;
+  top: 0;
+  inset-inline-end: var(--rialto-space-lg);
+  display: flex;
+  align-items: baseline;
+  gap: var(--rialto-space-sm);
+  padding-block: var(--rialto-space-xs);
+  padding-inline: var(--rialto-space-md);
+  border-radius: var(--rialto-radius-round);
+  background: var(--rialto-surface-elevated);
+  box-shadow: var(--rialto-shadow-md);
+}
+
+.railTime {
+  font-family: var(--rialto-font-mono);
+  font-size: var(--rialto-text-lg);
+  font-variant-numeric: tabular-nums;
+  color: var(--rialto-text-primary);
+}
+
+.railName {
+  font-size: var(--rialto-text-xs);
+  letter-spacing: var(--rialto-tracking-wide);
+  text-transform: uppercase;
+  color: var(--rialto-text-secondary);
+}
+
+/* ── Scene: copy on one side, stage on the other ── */
+
+.scene {
+  display: flex;
+  align-items: center;
+  min-height: 100svh;
+  padding-block: var(--rialto-space-4xl);
+  padding-inline: var(--rialto-space-lg);
+}
+
+.sceneInner {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  align-items: center;
+  gap: var(--rialto-space-3xl);
+  width: 100%;
+  max-width: 1080px;
+  margin-inline: auto;
+}
+
+/* Alternate sides so the eye travels down the page instead of down one edge. */
+.scene:nth-of-type(even) .copy {
+  order: 2;
+}
+
+.copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-md);
+  min-width: 0;
+}
+
+.stage {
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+}
+
+/* ── Claims: what is live, what is a concept ──── */
+
+.claims {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-md);
+  margin: 0;
+  margin-block-start: var(--rialto-space-sm);
+  padding: 0;
+  list-style: none;
+}
+
+.claim {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-2xs);
+}
+
+.claimHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--rialto-space-sm);
+}
+
+.claimLabel {
+  font-weight: var(--rialto-weight-medium);
+}
+
+/* ── Prep: the briefing board ─────────────────── */
+
+.board {
+  width: 100%;
+}
+
+/* ── Doors: the sign ──────────────────────────── */
+
+/* The sign is the whole scene, so it runs larger than NeonSign's `lg`. Two
+   classes outrank the component's own size class, whatever the load order. */
+.stage .sign {
+  --neon-tube: var(--rialto-text-4xl);
+  --neon-caption: var(--rialto-text-base);
+}
+
+/* ── Rush: tables against the clock ───────────── */
+
+.chart {
+  --label-width: 5.5rem;
+  /* Defaults for the two values RushScene sets inline from the scene data. */
+  --slot-count: 16;
+  --now-slot: 6;
+
+  position: relative;
+  width: 100%;
+  padding: var(--rialto-space-lg);
+  border-radius: var(--rialto-radius-soft);
+  background: var(--rialto-surface-elevated);
+  box-shadow: var(--rialto-shadow-lg);
+}
+
+.chartHours {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-inline-start: calc(var(--label-width) + var(--rialto-space-sm));
+  margin-block-end: var(--rialto-space-sm);
+  font-family: var(--rialto-font-mono);
+  font-size: var(--rialto-text-xs);
+  color: var(--rialto-text-secondary);
+}
+
+.chartRows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-sm);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chartRow {
+  display: grid;
+  grid-template-columns: var(--label-width) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--rialto-space-sm);
+}
+
+.chartLabel {
+  white-space: nowrap;
+}
+
+.chartTrack {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--slot-count), minmax(0, 1fr));
+  gap: var(--rialto-space-2xs);
+  min-height: 2.5rem;
+  margin: 0;
+  padding: var(--rialto-space-2xs);
+  list-style: none;
+  border-radius: var(--rialto-radius-default);
+  background: var(--rialto-surface-recessed);
+}
+
+/* The "now" line at 19:30, drawn on every track. */
+.chartTrack::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: calc(var(--now-slot) / var(--slot-count) * 100%);
+  width: 2px;
+  background: var(--rialto-accent);
+}
+
+.bar {
+  /* Above the track's "now" line, so the line never strikes through a name. */
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-xs);
+  min-width: 0;
+  padding-inline: var(--rialto-space-xs);
+  border-radius: var(--rialto-radius-sharp);
+  border-inline-start: 3px solid var(--rialto-border-strong);
+  background: var(--rialto-surface);
+  box-shadow: var(--rialto-shadow-xs);
+}
+
+.bar[data-state="seated"] {
+  border-inline-start-color: var(--rialto-success);
+}
+
+.bar[data-state="late"] {
+  border-inline-start-color: var(--rialto-warning);
+}
+
+.bar[data-state="finished"] {
+  box-shadow: none;
+}
+
+.barName {
+  overflow: hidden;
+  font-size: var(--rialto-text-xs);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--rialto-text-primary);
+}
+
+.bar[data-state="finished"] .barName {
+  color: var(--rialto-text-secondary);
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-md);
+  margin: 0;
+  margin-block-start: var(--rialto-space-md);
+  padding: 0;
+  list-style: none;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-xs);
+}
+
+/* ── Assistant: the conversation ──────────────── */
+
+.chat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-md);
+  width: 100%;
+  max-width: 28rem;
+}
+
+.bubble {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--rialto-space-sm);
+  max-width: 90%;
+  margin: 0;
+  padding: var(--rialto-space-md);
+  border-radius: var(--rialto-radius-soft);
+}
+
+.bubbleOperator {
+  composes: bubble;
+  align-self: flex-end;
+  background: var(--rialto-surface-recessed);
+  color: var(--rialto-text-primary);
+}
+
+.bubbleAssistant {
+  composes: bubble;
+  background: var(--rialto-surface-elevated);
+  box-shadow: var(--rialto-shadow-lg), var(--rialto-shadow-ambient);
+}
+
+.bubbleConcept {
+  composes: bubble;
+  border: 1px dashed var(--rialto-border-strong);
+}
+
+/* ── Guest: the phone and the host stand ──────── */
+
+.guestStage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-lg);
+  width: 100%;
+  max-width: 22rem;
+}
+
+.phone {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-md);
+  padding: var(--rialto-space-lg);
+  border-radius: var(--rialto-radius-soft);
+  background: var(--rialto-surface-elevated);
+  box-shadow: var(--rialto-shadow-lg);
+}
+
+.hostStand {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-sm);
+  padding: var(--rialto-space-md);
+  border-radius: var(--rialto-radius-default);
+  background: var(--rialto-surface-recessed);
+}
+
+/* ── Close: the night's totals ────────────────── */
+
+.totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-xl);
+}
+
+.total {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--rialto-space-xs);
+}
+
+@media (max-width: 860px) {
+  .scene {
+    min-height: 0;
+    padding-block: var(--rialto-space-3xl);
+    padding-inline: var(--rialto-space-md);
+  }
+
+  .sceneInner {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--rialto-space-xl);
+  }
+
+  .scene:nth-of-type(even) .copy {
+    order: 0;
+  }
+
+  .stage {
+    justify-content: flex-start;
+  }
+
+  /* No room for a pinned clock beside the copy; each scene prints its own time. */
+  .railAnchor {
+    display: none;
+  }
+
+  .stage .sign {
+    --neon-tube: var(--rialto-text-3xl);
+  }
+
+  .chart {
+    --label-width: 4.25rem;
+
+    padding: var(--rialto-space-md);
+  }
+}
+
+/* Rialto <Text> brings its own size and colour; these hand both back to the
+   surrounding eyebrow, clock and chart-axis styles. */
+.eyebrowName,
+.chartHour {
+  font-size: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+}

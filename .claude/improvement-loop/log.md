@@ -1,21 +1,3 @@
-## 2026-11-03 — mbe-learning-loop
-
-**Sensors:** 16/17 available
-**Regressions:** 0 detected, 0 issues created
-**Verifications:** 5 checked (48h window), 0 verified, 0 failed (reopened), 5 skipped (no CI runs or Lighthouse inventory to verify against)
-**Skill proposals:** 0 (not Friday — session-log analysis skipped)
-**Threshold notes:**
-
-- Threshold auto-tuner (run inside `verify-fixes.mjs`) applied 1 adjustment: `acmm` headroom 1.44 → 1.47.
-- 30-day false-positive check over the sensor-label-map categories this loop files into (`ci-fix`, `acmm`, `audit`, `sentry`) — excluding `feature`/`meta-improvement`/`agent-failed`/`dependencies`, which other routines create: 19 wontfix+rejected / 50 total ≈ **38%**, over the 30% loosen-threshold line, driven almost entirely by `ci-fix` (17/29 wontfix, 59%). Per the skill's own rule this flags for threshold loosening on the `ci-fix` sensor specifically — worth a follow-up look at why so many filed `ci-fix` issues are closed `wontfix` rather than fixed.
-- Fix-effectiveness rate over the same 30-day window, counting only conclusive (non-`skip`) verification attempts: 6/10 ≈ 60%, at/above the 50% floor — no note. The window is dominated by `skip` outcomes (90/100) because CI-run and Lighthouse-inventory lookups are frequently unavailable to this cloud session (no egress, GraphQL blocked); that's a measurement-coverage gap, not evidence of fix failure.
-
-**Environment notes:**
-
-- This cloud checkout started with **zero `node_modules` and no built workspace `dist/`s** (same recurring cold-start noted in ~15+ prior entries, e.g. earlier in this file at the 2026-11-03 implement-queue entry above) — required a full `pnpm install --frozen-lockfile` + `pnpm bootstrap:worktree` before `sensor-report.mjs` (which imports `@mbe/gh-client`) would resolve.
-- `gh`'s GraphQL-backed calls (`gh repo view --json nameWithOwner`, PR queries inside `sensor-report.mjs`'s `queueEfficiency` sensor and `collect-ai-issue-feedback.mjs`) hit the documented CCR 403 and fell back to REST/per-PR paths; sensor report still completed (16/17 sensors, exit 0).
-- Sentry MCP returned "Authorization Expired" (stored token rejected) — Step 1b (Sentry triage) skipped per the skill's own optional-step allowance.
-
 ## 2026-11-04
 
 **queueEfficiency:** composite 0.847 (baseline n/a) — healthy
@@ -1168,3 +1150,47 @@ A clean fire: everything due was captured and judged, and nothing met the bar to
 **AI issue feedback:** 8 categories updated (90d window). agent-failed 100% rejected (n=1, noise, budget halved to 1); acmm 33% rejected (n=3); ci-fix 17%, audit 16%, feature 4%, sentry/meta-improvement/dependencies 0% — none newly crossed the 40% halving line this run beyond agent-failed.
 **Skill proposals:** 0 (Friday, but all 3 `.claude/session-logs/*.json` entries had empty `session_id`/`branch` — just git-diff snapshots from today, not enough distinct sessions to mine a repeated-workflow pattern)
 **Threshold notes:** auto-tuner applied 1 adjustment (acmm: 1.783 → 1.812, headroom). 30-day verification log: 115/124 entries are confidence=skip (93% — same no-egress/no-Lighthouse-inventory gap noted previously); of the 9 determinable entries, 8 verified / 1 failed (88.9% effectiveness) — above the 50% threshold but thin (n=9). `verifications.jsonl` has no wontfix/invalid field, so the skill's literal false-positive-rate formula isn't computable from it directly; as a proxy, the 90d AI-issue-feedback file's (rejected+wontfix)/total across all categories is 91/200 = 45.5%, above the 30% loosen-threshold note line — worth a human look at whether categories like `ci-fix` (63% not-accepted incl. wontfix) and `feature` (58%) are too liberal, though wontfix often reflects stale/superseded issues rather than bad detection.
+
+## 2026-11-21
+
+**queueEfficiency:** composite 0.976 (baseline n/a) — healthy
+**Difficulty distribution:** size:s:42, size:m:10, size:xs:23, size:xl:6, size:l:3
+**Issues filed:** 1
+
+## 2026-11-21 — mbe-evening
+
+### Metrics
+
+| Metric                            | Value                                                                                          | Status |
+| --------------------------------- | ---------------------------------------------------------------------------------------------- | ------ |
+| Created (7d, audit+ci-fix)        | 28 (16 audit + 12 ci-fix)                                                                      | -      |
+| Closed (7d, audit+ci-fix)         | 40 (21 audit + 19 ci-fix)                                                                      | -      |
+| Closure Rate                      | 143%                                                                                           | Green  |
+| Time-to-Close                     | mean 100.5h / median 6.6h (p90 205h, max 1891h)                                                | Yellow |
+| Agent Success                     | 1/1 open has-pr, 0 agent-failed                                                                | Green  |
+| CI Pass (main, last 20 push runs) | 5 success / 15 cancelled (superseded by rapid subsequent pushes, no failures) / 0 failure      | Green  |
+| Queue (ready)                     | 0                                                                                              | Green  |
+| Stale (ready >7d)                 | 0                                                                                              | Green  |
+| Blocked (agent-failed)            | 0                                                                                              | Green  |
+| Skipped (agent-skip)              | 0                                                                                              | Green  |
+| Daily Spend (attributed)          | $0 today / $2 (7d, agent-core sessions)                                                        | Green  |
+| 7d Spend                          | $2 attributed + 1,971,948 tokens across 16 queue-worker sessions, cost unknown (not estimated) | n/a    |
+| Cost/Issue (attributed only)      | ~$0.05 ($2 / 40 closed)                                                                        | Green  |
+
+### Patterns
+
+- Mean time-to-close (100.5h) is entirely an outlier effect, not a slowdown: median is 6.6h (in line with yesterday's 14.4h), but a long tail of very old issues (max ~1891h / ~79d) closed today pulls the mean up. One day of data — not yet a 3+ day pattern, so no meta-improvement issue filed for it; worth a second look tomorrow if the mean stays elevated.
+- CI "cancelled" runs (15/20 sampled push runs on main) are not failures: every one is superseded by a newer push in the same concurrency group at this repo's merge velocity (~291 PRs merged in 7d). The newest commit (4d715464) and every completed (non-cancelled) run in the sample succeeded — main's CI Gate check-run is green at HEAD.
+- implement-queue this iteration: only 1 `ready` issue existed (#9236, sdlcSpeed staleness). Root-caused and fixed (PR #9301, reviewer score 8/pass, CI green) but the merge call itself was denied by the session's auto-mode classifier (`[Merge Without Review]`, #6125) — parked for a human merge, not a review or CI failure. Same denial blocked this run's own telemetry PR (#9303). Neither counts against Agent Success or the circuit breaker.
+- 28 of 29 open PRs already carry `needs-review` (correctly held for a human) — a substantial human-review backlog exists, but it predates this run and isn't new; not actionable by this routine.
+- Stateless issue #9238 ("Metrics collection is stale or empty") overlaps the just-fixed #9236 (same sdlcSpeed root cause) plus a second, distinct concern (queue-telemetry cost coverage unmeasured) — not promoted to `ready` this iteration pending #9301 merging, to avoid a duplicate fix.
+
+### Recommendations
+
+- No action needed: all metrics green except the mean time-to-close outlier, which is explained and self-resolving (one-time backlog sweep, not a trend).
+- Re-judge #9238 once PR #9301 merges — likely splits into "already resolved" (sdlcSpeed half) + a possible new scoped issue for queue-telemetry cost coverage, or a straight promote if sdlcSpeed is dropped from its body.
+- Two PRs (#9301, #9303) are reviewed/green and parked on the merge-classifier denial — flag for the Owner to merge by hand, or run a session where the classifier allows `gh pr merge`.
+
+### Skipped Issues
+
+0 skipped after max retries (agent-skip label: empty).

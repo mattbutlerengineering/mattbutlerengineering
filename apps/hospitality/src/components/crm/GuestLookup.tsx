@@ -89,7 +89,9 @@ export function GuestLookup({
 
   // The picked guest's own name is not a search: the surface wrote it, not the Host.
   const lookup = useGuestLookup({ venueId, text: picked && query === picked.name ? "" : query });
-  const { rows, hasMore, isLoading, failed } = lookup;
+  const { rows, hasMore, failed } = lookup;
+  // Old rows kept during the pause or fetch must not be announced or judged as the answer.
+  const isLoading = lookup.isLoading || lookup.stale;
   const last = rows.length - 1;
 
   const items = rows.map((guest) => ({ value: guest.id, label: guest.name }));

@@ -57,6 +57,9 @@
 }
 
 .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-sm);
   margin-block-start: auto;
   padding-block-start: var(--rialto-space-xs);
 }
