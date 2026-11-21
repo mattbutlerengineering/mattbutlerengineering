@@ -242,7 +242,7 @@ export const BRIEFING_LINES: readonly string[] = [
   "84 COVERS BOOKED",
   "T12 NUT ALLERGY",
   "OKAFOR 9TH VISIT",
-  "TERRACE FULL 8PM",
+  "RAIN LIKELY 8PM",
 ];
 
 export type BookingState = "seated" | "confirmed" | "late" | "finished";
