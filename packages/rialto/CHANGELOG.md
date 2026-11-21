@@ -1,5 +1,11 @@
 # @mattbutlerengineering/rialto
 
+## 0.10.25
+
+### Patch Changes
+
+- [#9327](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9327) [`dda89b4`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/dda89b48db932cf66c0ff773edf4ec8e342d75e6) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - CommandPalette and Drawer overlay transitions now resolve through `useMotionPreset()` instead of a hand-built reduced-motion fallback.
+
 ## 0.10.24
 
 ### Patch Changes
