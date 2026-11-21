@@ -509,9 +509,11 @@
 
 /* Children wait below their resting place until `data-revealed` flips, then
    settle in turn. Every timing is a rialto duration token, so reduced motion
-   (which zeroes those tokens) lands the content in one frame. */
-[data-reveal] > *,
-[data-reveal] .chartRow {
+   (which zeroes those tokens) lands the content in one frame. Attribute
+   selectors stay global in a CSS module, so `:where(.night)` keeps these rules
+   inside the landing without raising their specificity. */
+:where(.night) [data-reveal] > *,
+:where(.night) [data-reveal] .chartRow {
   opacity: 0;
   transform: translateY(var(--rialto-space-md));
   transition:
@@ -519,33 +521,33 @@
     transform var(--rialto-duration-slow) var(--rialto-ease-smooth);
 }
 
-[data-reveal="rush-chart"] > * {
+:where(.night) [data-reveal="rush-chart"] > * {
   opacity: 1;
   transform: none;
 }
 
-[data-revealed="true"] > *,
-[data-revealed="true"] .chartRow {
+:where(.night) [data-revealed="true"] > *,
+:where(.night) [data-revealed="true"] .chartRow {
   opacity: 1;
   transform: none;
 }
 
-[data-revealed="true"] > :nth-child(2),
-[data-revealed="true"] .chartRow:nth-child(2) {
+:where(.night) [data-revealed="true"] > :nth-child(2),
+:where(.night) [data-revealed="true"] .chartRow:nth-child(2) {
   transition-delay: var(--rialto-duration-fast);
 }
 
-[data-revealed="true"] > :nth-child(3),
-[data-revealed="true"] .chartRow:nth-child(3) {
+:where(.night) [data-revealed="true"] > :nth-child(3),
+:where(.night) [data-revealed="true"] .chartRow:nth-child(3) {
   transition-delay: var(--rialto-duration-standard);
 }
 
-[data-revealed="true"] > :nth-child(4),
-[data-revealed="true"] .chartRow:nth-child(4) {
+:where(.night) [data-revealed="true"] > :nth-child(4),
+:where(.night) [data-revealed="true"] .chartRow:nth-child(4) {
   transition-delay: var(--rialto-duration-slow);
 }
 
-[data-revealed="true"] > :nth-child(n + 5),
-[data-revealed="true"] .chartRow:nth-child(n + 5) {
+:where(.night) [data-revealed="true"] > :nth-child(n + 5),
+:where(.night) [data-revealed="true"] .chartRow:nth-child(n + 5) {
   transition-delay: calc(var(--rialto-duration-slow) + var(--rialto-duration-fast));
 }
