@@ -166,7 +166,7 @@ Batch 1 migrated 38 components and hooks. This ADR sanctions the following as
 a bounded transition, the same way the original Consequences sanctioned
 unmigrated importers. Each will be migrated in the #6279 follow-up:
 
-- The nine remaining `useReducedMotion()` call sites. Each uses the flag as a
+- The eight remaining `useReducedMotion()` call sites. Each uses the flag as a
   behaviour gate (canvas/RAF loops, CSS classes, timers), not to pick a
   transition config: `Avatar`, `DepartureBoard`, `Handshake`,
   `NeonSign`, `SilkFlow`, `SplitFlap`, `WatchLoader`, and
