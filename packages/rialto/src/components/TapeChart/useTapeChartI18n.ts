@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 import { parseISODate } from "./dateMath";
 
 export interface TapeChartFormatters {
@@ -29,8 +30,10 @@ export function useTapeChartI18n(
   timeZone?: string,
   defaultCurrency?: string
 ): TapeChartFormatters {
+  const { locale: providerLocale } = useRialtoLocale();
+  // ADR-028 order: explicit prop, provider, navigator, en-US.
   const effectiveLocale =
-    locale ?? (typeof navigator !== "undefined" ? navigator.language : "en-US");
+    locale ?? providerLocale ?? (typeof navigator !== "undefined" ? navigator.language : "en-US");
 
   return useMemo(() => {
     // A YYYY-MM-DD value is a calendar day, parsed at UTC midnight. Formatting
