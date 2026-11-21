@@ -759,7 +759,7 @@
       "upcoming": "Upcoming",
       "empty": "No reservations",
       "unassigned": "Unassigned",
-      "cardLabel": "{{guest}}, party of {{size}}, {{time}}, table {{table}}",
+      "cardLabel": "{{guest}} {{time}} · {{guests}} · {{table}} {{status}}",
       "seated": "Seated"
     },
     "emptyNight": {

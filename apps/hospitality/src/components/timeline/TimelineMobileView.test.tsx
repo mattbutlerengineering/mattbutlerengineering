@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, within } from "@testing-library/react";
+import { axe } from "vitest-axe";
 import { TimelineMobileView, type TimelineMobileViewProps } from "./TimelineMobileView.js";
 import type { Reservation, Table } from "@mbe/types";
 
@@ -73,7 +74,7 @@ function renderView(overrides: Partial<TimelineMobileViewProps> = {}) {
 
 /** A reservation card is a button whose name starts with the guest's name. */
 const card = (guestName: string) =>
-  screen.queryByRole("button", { name: new RegExp(`^${guestName}, `) });
+  screen.queryByRole("button", { name: new RegExp(`^${guestName} \\d`) });
 
 /* ── Tests ──────────────────────────────────────────── */
 
@@ -92,6 +93,48 @@ describe("TimelineMobileView", () => {
       expect(card("Bob")).toBeInTheDocument();
       expect(card("Cara")).toBeNull();
       expect(card("Dan")).toBeNull();
+    });
+  });
+
+  describe("label in name (WCAG 2.5.3)", () => {
+    const AXE = {
+      rules: {
+        "color-contrast": { enabled: false },
+        "label-content-name-mismatch": { enabled: true },
+      },
+    };
+
+    it("starts the card's name with its visible words, in order, and passes axe", async () => {
+      const { container } = render(
+        <main>
+          <TimelineMobileView
+            reservations={[
+              makeReservation({ guestName: "Jane Doe", partySize: 4, tableId: "t12" }),
+            ]}
+            tables={[makeTable({ id: "t12", tableNumber: "T12" })]}
+            onReservationClick={vi.fn()}
+          />
+        </main>
+      );
+      expect(card("Jane Doe")).toHaveAccessibleName(
+        /^Jane Doe \d{1,2}:\d{2} [AP]M – \d{1,2}:\d{2} [AP]M · 4 guests · T12 Confirmed$/
+      );
+      expect((await axe(container, AXE)).violations).toEqual([]);
+    });
+
+    it("keeps ', seated' after the visible run and still passes axe", async () => {
+      const { container } = render(
+        <main>
+          <TimelineMobileView
+            reservations={[makeReservation({ guestName: "Jane Doe", partySize: 4 })]}
+            tables={[makeTable()]}
+            onReservationClick={vi.fn()}
+            seatedIds={new Set(["r1"])}
+          />
+        </main>
+      );
+      expect(card("Jane Doe")).toHaveAccessibleName(/ Confirmed, seated$/);
+      expect((await axe(container, AXE)).violations).toEqual([]);
     });
   });
 

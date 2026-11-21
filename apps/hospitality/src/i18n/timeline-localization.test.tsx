@@ -206,7 +206,7 @@ describe("home and timeline in es-MX", () => {
     render(<ReservationBlock reservation={RESERVATION} style={{ left: 0, width: 100 }} isSeated />);
     const block = screen.getByTestId("reservation-block-r1");
     expect(block.getAttribute("aria-label")).toMatch(
-      /^Jane Doe, grupo de 4, .*, confirmed|^Jane Doe, grupo de 4/
+      /^Jane Doe 4 · .* · 2\.ª visita, grupo de 4, confirmada/
     );
     expect(block.getAttribute("aria-label")).toContain("2.ª visita");
     expect(block.getAttribute("aria-label")).toContain("sentados");
@@ -248,8 +248,9 @@ describe("home and timeline in es-MX", () => {
       />
     );
     const card = screen.getByTestId("reservation-block-r1");
-    expect(card.getAttribute("aria-label")).toContain("grupo de 4");
-    expect(card.getAttribute("aria-label")).toContain("mesa 1");
+    expect(card.getAttribute("aria-label")).toMatch(
+      /^Jane Doe .* · 4 invitados · 1 Confirmada, sentados$/
+    );
     expect(within(card).getByText("Confirmada")).toBeInTheDocument();
   });
 
