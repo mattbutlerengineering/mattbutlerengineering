@@ -18,6 +18,7 @@ import { useReducedMotion } from "framer-motion";
 import { Avatar } from "../../components/Avatar/Avatar";
 import { DepartureBoard } from "../../components/DepartureBoard/DepartureBoard";
 import { Contour } from "../../components/Contour/Contour";
+import { Ember } from "../../components/Ember/Ember";
 import { Guilloche } from "../../components/Guilloche/Guilloche";
 import { Handshake } from "../../components/Handshake/Handshake";
 import { NeonSign } from "../../components/NeonSign/NeonSign";
@@ -34,6 +35,7 @@ const RENDERS: ReadonlyArray<readonly [string, () => void]> = [
   ["Avatar", () => render(<Avatar src="/a.jpg" name="A" transition="splitflap" />)],
   ["DepartureBoard", () => render(<DepartureBoard phrases={["ONE", "TWO"]} />)],
   ["Contour", () => render(<Contour />)],
+  ["Ember", () => render(<Ember />)],
   ["Guilloche", () => render(<Guilloche />)],
   ["Handshake", () => render(<Handshake aria-label="x" stations={["A", "B"]} />)],
   ["NeonSign", () => render(<NeonSign state="open" aria-label="x" />)],

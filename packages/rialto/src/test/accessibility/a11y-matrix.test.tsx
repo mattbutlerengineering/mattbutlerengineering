@@ -59,6 +59,7 @@ const BARREL_COMPONENT_NAMES: readonly BarrelExportName[] = [
   "Divider",
   "Drawer",
   "DropdownMenu",
+  "Ember",
   "EmptyState",
   "ErrorBoundary",
   "FlipDot",

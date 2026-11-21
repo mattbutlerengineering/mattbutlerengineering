@@ -52,6 +52,7 @@ import { DisabledTooltip } from "../../components/DisabledTooltip/DisabledToolti
 import { Divider } from "../../components/Divider/Divider";
 import { Drawer } from "../../components/Drawer/Drawer";
 import { DropdownMenu } from "../../components/DropdownMenu/DropdownMenu";
+import { Ember } from "../../components/Ember/Ember";
 import { EmptyState } from "../../components/EmptyState/EmptyState";
 import { ErrorBoundary } from "../../components/ErrorBoundary/ErrorBoundary";
 import { FlipDot } from "../../components/FlipDot/FlipDot";
@@ -158,6 +159,7 @@ export type BarrelExportName =
   | "Divider"
   | "Drawer"
   | "DropdownMenu"
+  | "Ember"
   | "EmptyState"
   | "ErrorBoundary"
   | "FlipDot"
@@ -477,6 +479,10 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
         ]}
       />
     ),
+  },
+
+  Ember: {
+    element: <Ember />,
   },
 
   EmptyState: {

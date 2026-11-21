@@ -145,6 +145,10 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://mattbutlerengineering.com/rialto/components/ember</loc>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://mattbutlerengineering.com/rialto/components/empty-state</loc>
     <priority>0.6</priority>
   </url>
