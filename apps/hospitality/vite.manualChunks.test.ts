@@ -47,4 +47,24 @@ describe("manualChunks", () => {
     );
     expect(manualChunks("/repo/packages/rialto/dist/index.js")).toBe("rialto-vendor");
   });
+
+  // Rialto builds one chunk per component under dist/lib/chunks/<Name>-<hash>.js.
+  const rialtoChunk = (name: string) => `/repo/packages/rialto/dist/lib/chunks/${name}-VkCe_x4b.js`;
+
+  it("keeps the eager rialto-vendor chunk for components staff screens use", () => {
+    expect(manualChunks(rialtoChunk("Button"))).toBe("rialto-vendor");
+    expect(manualChunks(rialtoChunk("NeonSign"))).toBe("rialto-vendor");
+    expect(manualChunks("/repo/packages/rialto/dist/lib/rialto.js")).toBe("rialto-vendor");
+  });
+
+  it.each(["Hero", "SilkFlow", "Letterboard"])(
+    "leaves %s out of rialto-vendor: only the signed-out landing uses it, so it loads with that lazy chunk",
+    (name) => {
+      expect(manualChunks(rialtoChunk(name))).toBeUndefined();
+    }
+  );
+
+  it("does not mistake a component whose name merely starts the same way", () => {
+    expect(manualChunks(rialtoChunk("HeroBanner"))).toBe("rialto-vendor");
+  });
 });

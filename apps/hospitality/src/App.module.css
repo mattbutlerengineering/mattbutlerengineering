@@ -27,6 +27,24 @@
   overflow-y: auto;
 }
 
+/* The showcase landing scrolls with the document: an `overflow` here would
+   become the scroll container and break the sticky nav and page clock. */
+.landingLayout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.landingContainer {
+  flex: 1;
+  outline: none;
+}
+
+/* Carries the landing's `data-theme` to the nav without boxing it in. */
+.navSky {
+  display: contents;
+}
+
 /* ── Login container ─────────────────────────── */
 
 .loginContainer {
