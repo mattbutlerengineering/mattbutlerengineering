@@ -33,14 +33,17 @@ export const COMPONENTS_DIR = "packages/rialto/src/components";
 export const STORY_FILE_RE = /\.stories\.tsx$/;
 
 /**
- * Component directories: the direct children of `componentsDir`.
+ * Component directories: the direct children of `componentsDir`. A folder
+ * whose name starts with `_` (such as `_ambient`) holds shared internals, not
+ * a component, so it needs no story. rialto's lib-entrypoints scan skips
+ * these folders for the same reason.
  *
  * @param {string} componentsDir - Absolute path to the components directory.
  * @returns {string[]} Directory names, sorted.
  */
 export function findComponentDirs(componentsDir) {
   return readdirSync(componentsDir, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory())
+    .filter((entry) => entry.isDirectory() && !entry.name.startsWith("_"))
     .map((entry) => entry.name)
     .sort();
 }
