@@ -53,7 +53,6 @@ vi.mock("../pages/data/DepartureBoardPage.js", () => ({ DepartureBoardPage: () =
 vi.mock("../pages/data/OdometerPage.js", () => ({ OdometerPage: () => null }));
 vi.mock("../pages/data/ChalkboardPage.js", () => ({ ChalkboardPage: () => null }));
 vi.mock("../pages/data/LetterboardPage.js", () => ({ LetterboardPage: () => null }));
-vi.mock("../pages/data/FerrofluidPage.js", () => ({ FerrofluidPage: () => null }));
 vi.mock("../pages/data/SilkFlowPage.js", () => ({ SilkFlowPage: () => null }));
 vi.mock("../pages/data/HandshakePage.js", () => ({ HandshakePage: () => null }));
 vi.mock("../pages/data/NeonSignPage.js", () => ({ NeonSignPage: () => null }));

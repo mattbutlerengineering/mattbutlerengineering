@@ -30,7 +30,7 @@ Confirmed via `git diff` of `packages/framer-motion/package.json`, `packages/mot
 ## Relevance to this repo's usage
 
 - **`@emotion/is-prop-valid` removal:** Not applicable. `grep -rn "styled-components|@emotion" apps/marketing/src apps/rialto-web/src packages/rialto/src` returns zero matches — this repo does not use CSS-in-JS styling libraries with `motion.*` components anywhere. No mitigation needed.
-- **SVG hardware-acceleration fix:** Directly relevant — `packages/rialto` has 8 components animating SVG elements via `motion.svg`/`motion.circle`/`motion.g` (`Collapsible`, `Ferrofluid`, `Navbar`, `NavigationMenu`, `Select`, `Sidebar`, `Tree`, `WatchLoader`). This is a fix that benefits us (or is a no-op if the 12.43.0 regression window was never hit in practice), not a regression risk.
+- **SVG hardware-acceleration fix:** Directly relevant — `packages/rialto` had 7 components animating SVG elements via `motion.svg`/`motion.circle`/`motion.g` (`Collapsible`, `Navbar`, `NavigationMenu`, `Select`, `Sidebar`, `Tree`, `WatchLoader`). This is a fix that benefits us (or is a no-op if the 12.43.0 regression window was never hit in practice), not a regression risk.
 - **`AnimatePresence` propagate-empty fix:** `AnimatePresence` is used across ~15 rialto components (`Toast`, `Dialog`, `Drawer`, `CommandPalette`, etc.) but none use the `propagate` prop with an empty-children edge case in this codebase — reviewed usage sites, none pass `propagate` on a conditionally-empty subtree.
 - **`Reorder` (13.1.0):** Not used anywhere in the repo (`grep -rln "Reorder"` on all three consumers returns zero matches).
 
@@ -58,7 +58,7 @@ No new lint/type/test errors were introduced by the bump; every warning above is
 
 ### Visual regression — inconclusive locally, by design
 
-Per the repo's known gotcha, rialto-web visual baselines are rendered on Linux CI runners; macOS font-metric/glyph-advance differences can produce spurious diffs that a Linux run wouldn't show (and vice versa isn't ruled out either). **All 46 specs passed locally with zero pixel diffs** against the currently-committed (CI-generated) baselines — a positive data point, since a real behavioral change (e.g. from the SVG hardware-acceleration fix touching `Ferrofluid`/`WatchLoader`/`Navbar`/etc.) would be the kind of thing this suite is built to catch. But per the stated gotcha this is **not treated as authoritative** — the PR's CI run (Linux) is the decisive signal. This doc's go recommendation does not depend on the local visual result; it should be confirmed by CI on the PR before merge.
+Per the repo's known gotcha, rialto-web visual baselines are rendered on Linux CI runners; macOS font-metric/glyph-advance differences can produce spurious diffs that a Linux run wouldn't show (and vice versa isn't ruled out either). **All 46 specs passed locally with zero pixel diffs** against the currently-committed (CI-generated) baselines — a positive data point, since a real behavioral change (e.g. from the SVG hardware-acceleration fix touching `WatchLoader`/`Navbar`/etc.) would be the kind of thing this suite is built to catch. But per the stated gotcha this is **not treated as authoritative** — the PR's CI run (Linux) is the decisive signal. This doc's go recommendation does not depend on the local visual result; it should be confirmed by CI on the PR before merge.
 
 ## The `packages/rialto` peer dependency
 

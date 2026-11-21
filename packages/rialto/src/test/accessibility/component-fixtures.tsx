@@ -53,7 +53,6 @@ import { Drawer } from "../../components/Drawer/Drawer";
 import { DropdownMenu } from "../../components/DropdownMenu/DropdownMenu";
 import { EmptyState } from "../../components/EmptyState/EmptyState";
 import { ErrorBoundary } from "../../components/ErrorBoundary/ErrorBoundary";
-import { Ferrofluid } from "../../components/Ferrofluid/Ferrofluid";
 import { FlipDot } from "../../components/FlipDot/FlipDot";
 import { Footer } from "../../components/Footer/Footer";
 import { Form } from "../../components/Form/Form";
@@ -158,7 +157,6 @@ export type BarrelExportName =
   | "DropdownMenu"
   | "EmptyState"
   | "ErrorBoundary"
-  | "Ferrofluid"
   | "FlipDot"
   | "Footer"
   | "Form"
@@ -483,10 +481,6 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
 
   ErrorBoundary: {
     element: <ErrorBoundary>Child content</ErrorBoundary>,
-  },
-
-  Ferrofluid: {
-    element: <Ferrofluid blobCount={3} />,
   },
 
   FlipDot: {
