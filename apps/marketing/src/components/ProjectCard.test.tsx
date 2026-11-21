@@ -25,26 +25,6 @@ describe("ProjectCard", () => {
     expect(screen.getByText("Test Project")).toBeInTheDocument();
   });
 
-  it("links to the project's story on this site, in the same tab, when it has one", () => {
-    render(
-      <ProjectCard
-        project={{
-          ...BASE_PROJECT,
-          href: "/app/",
-          story: { label: "See a night of service", href: "/venues" },
-        }}
-      />
-    );
-    const story = screen.getByRole("link", { name: "See a night of service" });
-    expect(story).toHaveAttribute("href", "/venues");
-    expect(story).not.toHaveAttribute("target");
-  });
-
-  it("renders no story link for a project without one", () => {
-    render(<ProjectCard project={{ ...BASE_PROJECT, href: "/app/" }} />);
-    expect(screen.getAllByRole("link")).toHaveLength(1);
-  });
-
   it("renders the project description", () => {
     render(<ProjectCard project={BASE_PROJECT} />);
     expect(screen.getByText("A test project description.")).toBeInTheDocument();

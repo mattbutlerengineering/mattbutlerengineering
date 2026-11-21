@@ -11,7 +11,6 @@ Page inventory, key components and the E2E spec inventory, moved out of [CLAUDE.
 | MetricsPage      | `/metrics`       | ACMM quality metrics dashboard                           |
 | ShippedIndexPage | `/shipped`       | Index of every feature the factory shipped, newest first |
 | ShippedStoryPage | `/shipped/:slug` | One shipped feature: proposal → children → PR verdicts   |
-| VenuesPage       | `/venues`        | "One night of service": the hospitality showcase         |
 | NotFoundPage     | `*`              | 404 with suggested links                                 |
 
 ## Key Components

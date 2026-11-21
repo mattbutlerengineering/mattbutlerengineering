@@ -27,7 +27,6 @@ const LANDING_STYLESHEETS = [
   "components/HeroSection.module.css",
   "components/ProjectCard.module.css",
   "components/factory/FactorySection.module.css",
-  "components/service-night/service-night.module.css",
 ] as const;
 
 /** `transition: …;` / `animation: …;` declarations, value only. */

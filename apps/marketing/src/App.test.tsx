@@ -75,7 +75,7 @@ describe("App", () => {
     expect(fallback).toHaveAttribute("data-height", "90vh");
   });
 
-  it.each(["/acmm", "/metrics", "/ai-health", "/venues"])(
+  it.each(["/acmm", "/metrics", "/ai-health"])(
     "shows a loading state in the main area while %s lazy-loads, never a blank area (#8640)",
     (path) => {
       render(
@@ -88,17 +88,6 @@ describe("App", () => {
       expect(status.closest("main")).not.toBeNull();
     }
   );
-
-  it("leaves the nav on the visitor's theme unless a page lends it a sky", () => {
-    const { container } = render(
-      <MemoryRouter initialEntries={["/status"]}>
-        <App theme="light" onThemeToggle={vi.fn()} />
-      </MemoryRouter>
-    );
-    const navSky = container.querySelector("[data-nav-sky]");
-    expect(navSky).toContainElement(screen.getByTestId("global-nav"));
-    expect(navSky).not.toHaveAttribute("data-theme");
-  });
 
   it("gives the nav an Engineering menu and marks the current page", () => {
     render(

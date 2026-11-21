@@ -23,24 +23,17 @@ export function ProjectCard({ project }: ProjectCardProps) {
             {project.description}
           </Text>
 
-          {(project.href || project.story) && (
+          {project.href && (
             <div className={styles.actions}>
-              {project.href && (
-                <a
-                  href={project.href}
-                  className={styles.buttonLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={`View live: ${project.title} (opens in new tab)`}
-                >
-                  View live: {project.title}
-                </a>
-              )}
-              {project.story && (
-                <a href={project.story.href} className={styles.buttonLink}>
-                  {project.story.label}
-                </a>
-              )}
+              <a
+                href={project.href}
+                className={styles.buttonLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`View live: ${project.title} (opens in new tab)`}
+              >
+                View live: {project.title}
+              </a>
             </div>
           )}
         </Stack>
