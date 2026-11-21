@@ -31,14 +31,14 @@ If a surface is both frequent and a candidate for delight, the frequency wins.
 
 ## 3. Two tiers
 
-Rialto uses a productive and expressive split (as in Carbon), mapped onto tokens that already exist. There are no new tokens for it.
+Rialto uses a productive and expressive split (as in Carbon), mapped onto the motion presets and the duration tokens.
 
 | Tier           | Where                                                                       | Tokens and presets (resolve through `useMotionPreset()`)                                                                                                           |
 | -------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Productive** | Staff tools: hospitality dashboard, floor, tables, forms, menus, data views | `precision` (150ms, `[0.2, 0, 0, 1]`), `--rialto-duration-fast\|standard\|slow`, `--rialto-ease-precision`. Opacity, colour and small (under 16px) transform only. |
 | **Expressive** | Marketing, guest-facing booking moments, celebrations, Gen UI streaming     | `spring`, `springGentle`, `springTilt`, `staggerReveal`, `boop`, and the signature instruments (FlipDot, NeonSign, Ferrofluid, SplitFlap, Handshake, SilkFlow).    |
 
-Staff-facing views are productive by default. A productive view may borrow one expressive moment (for example a success flourish) under the [one expressive element](#5-restraint-rules) rule.
+Staff-facing views are productive by default. Any view may use expressive motion, and several expressive elements may run together ([ADR-033](../../../docs/adr/ADR-033-expressive-motion-and-atmosphere-repo-wide.md)), within the [frequency budget](#2-frequency-budget) and the [restraint rules](#5-restraint-rules): a 100+/day action stays still however expressive the view around it is.
 
 ## 4. Duration and easing
 
@@ -48,7 +48,10 @@ Staff-facing views are productive by default. A productive view may borrow one e
 | Standard state change | `--rialto-duration-standard` 150ms                                                             |
 | Deliberate (panel)    | `--rialto-duration-slow` 200ms                                                                 |
 | Expressive            | A spring (`spring`, `springGentle`). Springs set their own settle time; do not add a duration. |
-| Ceiling               | UI transitions top out near 300ms. Nothing blocks input while it runs.                         |
+| Scene (CSS)           | `--rialto-duration-scene` 600ms: an expressive entrance, one panel of a staged sequence.       |
+| Cinematic (CSS)       | `--rialto-duration-cinematic` 1.2s: a hero reveal, a rare signature moment.                    |
+| Ambient loop (CSS)    | `--rialto-duration-ambient` 8s: one cycle of a slow glow, drift or breathe.                    |
+| Ceiling               | Productive UI transitions top out near 300ms. Nothing blocks input while any animation runs.   |
 | Exits                 | 50 to 100ms shorter than the matching entrance, and never blocking.                            |
 | Distance and size     | Duration grows with distance travelled and element size; keep travel under 16px in productive. |
 
@@ -58,26 +61,40 @@ Easing:
 - **Exiting** elements may use `--rialto-ease-smooth` or simply fade, shorter than the entrance.
 - Springs are for the expressive tier only.
 
-### Decision: no new tokens
+### Decision: three expressive duration tokens, no new easing tokens
 
-The issue asked whether to add an expressive duration step (300 to 400ms) and enter/exit easing tokens (compare Material 3 emphasized-decelerate and emphasized-accelerate). **Decision: not now. No tokens are added, so no ADR.**
+The first version of this page declined an expressive duration step: expressive motion was spring-driven, so a duration token would have had no consumer. It said to revisit when a CSS-driven (non-framer) expressive entrance needed a duration, and to write an ADR then.
 
-- Expressive motion is spring-driven. A spring has no authored duration, so a 300 to 400ms token would be unused by the tier it is meant for.
-- `--rialto-ease-precision` already decelerates sharply and covers enter; exits are covered by a shorter duration plus `--rialto-ease-smooth` or a fade.
-- Every added token is a surface the vibe adapter and reduced-motion adapter must also collapse. A new token needs a component that cannot be built without it.
+**That ADR is now written: [ADR-033](../../../docs/adr/ADR-033-expressive-motion-and-atmosphere-repo-wide.md). The tokens exist** in `src/tokens/shadows.css`:
 
-Revisit when a CSS-driven (non-framer) expressive entrance needs a duration, and write an ADR then. The audit below lists the components that would be the first consumers.
+| Token                         | Value | For                                              |
+| ----------------------------- | ----- | ------------------------------------------------ |
+| `--rialto-duration-scene`     | 0.6s  | An expressive entrance, one panel of a sequence. |
+| `--rialto-duration-cinematic` | 1.2s  | A hero reveal, a rare signature moment.          |
+| `--rialto-duration-ambient`   | 8s    | One cycle of an ambient loop.                    |
+
+- CSS timing still comes from tokens only. A literal duration is invisible to the vibe and reduced-motion adapters.
+- The reduced-motion adapter collapses all three to `0s` with the existing tokens; a test in `src/providers/__tests__/reduced-motion.test.tsx` compares its keys with the declared tokens.
+- They are not for feedback. Hover, press and state changes keep `fast`, `standard` and `slow`, and the [frequency budget](#2-frequency-budget) still decides whether anything moves at all.
+- Easing is unchanged: `--rialto-ease-precision` covers entrances, and exits use a shorter duration plus `--rialto-ease-smooth` or a fade. No easing tokens are added.
 
 ## 5. Restraint rules
 
-- **One expressive element per view at a time.** A second one waits or does not animate.
-- **No looping motion in task UI** except status (live, LED, loading). Decorative loops pause when offscreen or after a bounded number of cycles.
-- **Never scale from 0.** Start at 0.9 or above, together with opacity. Press feedback is subtle: scale 0.97 to 0.98.
+Changed by [ADR-033](../../../docs/adr/ADR-033-expressive-motion-and-atmosphere-repo-wide.md): the "one expressive element per view" cap is removed, and looping motion is no longer limited to status.
+
+- **Several expressive animations may run together.** The [purpose test](#1-the-purpose-test) still applies to each one.
+- **Ambient loops are allowed anywhere except beside a field someone is filling in.** A loop that runs longer than 5 seconds needs a way to pause it, and decorative loops pause when offscreen (WCAG 2.2.2). Nothing flashes more than three times a second (WCAG 2.3.1).
+- **100+/day actions do not travel or scale**: shortcuts, typing, tab and filter switches (see [§ 2](#2-frequency-budget)).
+- **Never scale from below 0.9.** Start at 0.9 or above, together with opacity. Press feedback is subtle: scale 0.97 to 0.98.
 - **Animate only `transform` and `opacity`.** Layout changes go through framer's `layout` prop.
 - **No parallax and no auto-scroll** in staff tools.
 - **Stagger at most about 6 items**, then reveal the rest as one batch.
 - **Disabled elements have no motion.**
 - **Nothing blocks input** while it animates.
+- **Timing comes from tokens** (or a spring preset), and reduced motion resolves through `useMotionPreset()` and the duration tokens, never a hand-built fallback.
+- **A heavy effect gets its own lazy chunk** with a measured bundle budget.
+
+Atmosphere follows the same decision: gradients, glow and a deliberate dark scene are allowed when every colour is a rialto token and contrast holds (zero axe violations). The gold accent may be used as light through `--rialto-accent-glow`, `--rialto-shadow-ambient` and `--rialto-shadow-luminous`.
 
 ## 6. Signature moments
 
@@ -108,8 +125,10 @@ Delight is chosen, not sprinkled. These are the planned moments; adding another 
 | Open the command palette instantly, or with an opacity fade. | Slide and scale the command palette on every Cmd+K.                |
 | Fade and lift a toast 8px with `precision`.                  | Spring a toast in from 80px away on every table update.            |
 | Give a hover a colour change within 100ms.                   | Boop-scale every button on hover in a dense staff table.           |
-| Spend one `staggerReveal` on the booking-confirmed screen.   | Stagger forty rows, or animate three instruments in one view.      |
-| Run a spinner or LED breathe for loading and live status.    | Loop a decorative glow beside a form someone is filling in.        |
+| Run a `staggerReveal` and an instrument together on a scene. | Stagger forty rows, or flash anything more than 3 times a second.  |
+| Loop an ambient glow behind a hero, paused when offscreen.   | Loop a decorative glow beside a form someone is filling in.        |
+| Give a loop longer than 5 seconds a pause control.           | Run an 8s ambient loop with no way to stop it.                     |
+| Time a CSS scene with `--rialto-duration-scene`.             | Hardcode `0.6s`, which reduced motion cannot collapse.             |
 | Enter a dialog from `scale: 0.97` with opacity.              | Enter a chip from `scale: 0`.                                      |
 | Resolve configs with `useMotionPreset()`.                    | Hand-build `shouldReduceMotion ? { duration: 0 } : ...` fallbacks. |
 
@@ -127,9 +146,9 @@ Verdicts as of this policy. **Keep** means it already fits its tier. **Trim** me
 | Toast (x 80, scale 0.95, spring)                                                                    | Productive | **Trim** | Travels 80px on a spring in staff tools. Use a `precision` fade and 8px lift, scale at or above 0.96. |
 | PinInput (scale 0.6), Tag (scale 0.8), Checkbox mark (scale 0)                                      | Productive | **Trim** | Violate the never-scale-from-0 floor (0.9). Start at 0.9 or above with opacity.                       |
 | Skeleton, Progress shimmer/trace, Button and Combobox spinners, StatusLED, WatchLoader              | Productive | Keep     | Status loops (loading, live) are allowed.                                                             |
-| NeonSign breathe, Handshake shuttle, Ferrofluid (`repeat: Infinity`)                                | Expressive | **Trim** | Decorative loops: confirm they pause offscreen or after N cycles (WCAG 2.2.2); keep one per view.     |
-| Hero, staggerReveal, SilkFlow, SplitScreenExit, MasterOverride, ChatPanel, ImageUpload              | Expressive | Keep     | Rare or guest-facing; one expressive element per view.                                                |
-| FlipDot, SplitFlap, DepartureBoard, Odometer, Avatar `splitflap` transition                         | Expressive | Keep     | Signature instruments; respect the 3-flashes rule and the one-per-view rule.                          |
+| NeonSign breathe, Handshake shuttle, Ferrofluid (`repeat: Infinity`)                                | Expressive | **Trim** | Decorative loops: confirm they pause offscreen and, past 5s, on request (WCAG 2.2.2).                 |
+| Hero, staggerReveal, SilkFlow, SplitScreenExit, MasterOverride, ChatPanel, ImageUpload              | Expressive | Keep     | Rare or guest-facing.                                                                                 |
+| FlipDot, SplitFlap, DepartureBoard, Odometer, Avatar `splitflap` transition                         | Expressive | Keep     | Signature instruments; respect the 3-flashes rule.                                                    |
 | Card, Badge and other static components                                                             | None       | Keep     | No motion.                                                                                            |
 
 Follow-ups for the **Trim** rows: CommandPalette #7810, hover boop #7811, scale floor and Toast entrance #7812, decorative loops #7813.

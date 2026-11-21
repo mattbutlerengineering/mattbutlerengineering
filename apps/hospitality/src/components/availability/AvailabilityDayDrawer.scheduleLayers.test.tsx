@@ -303,9 +303,17 @@ describe("AvailabilityDayDrawer: dated-schedule layers (#7981)", () => {
       });
     });
 
+    it("starts the Edit button's name with its visible text (WCAG 2.5.3)", () => {
+      renderDrawer({ rules: [USE_SUMMER], dated: false });
+      // Strict name, not axe: in jsdom axe's `label-content-name-mismatch` reports `incomplete`.
+      const change = screen.getByRole("button", { name: /^Edit the schedule/ });
+      expect(change).toHaveTextContent(/^Edit$/);
+      expect(change).toHaveAccessibleName("Edit the schedule for Fri, Oct 30");
+    });
+
     it("changes the schedule through the Use schedule dialog, on this date", () => {
       renderDrawer({ rules: [USE_SUMMER], dated: false });
-      fireEvent.click(screen.getByRole("button", { name: "Change the schedule for Fri, Oct 30" }));
+      fireEvent.click(screen.getByRole("button", { name: "Edit the schedule for Fri, Oct 30" }));
       expect(
         screen.getByRole("dialog", { name: "Use a schedule on Friday, Oct 30" })
       ).toBeInTheDocument();
@@ -313,7 +321,7 @@ describe("AvailabilityDayDrawer: dated-schedule layers (#7981)", () => {
 
     it("will not change the schedule under an all-day closure, and says why", () => {
       renderDrawer({ rules: [USE_SUMMER, VENUE_CLOSURE], dated: false });
-      const change = screen.getByRole("button", { name: "Change the schedule for Fri, Oct 30" });
+      const change = screen.getByRole("button", { name: "Edit the schedule for Fri, Oct 30" });
       expect(change).toHaveAttribute("aria-disabled", "true");
       expect(change).toHaveAccessibleDescription(/closed all day/i);
       fireEvent.click(change);
@@ -323,7 +331,7 @@ describe("AvailabilityDayDrawer: dated-schedule layers (#7981)", () => {
     it("names the whole rule and offers no Edit when it covers many dates", () => {
       const range: DateRule = { ...USE_SUMMER, endsOn: "2026-11-15" };
       renderDrawer({ rules: [range], dated: false });
-      expect(screen.queryByRole("button", { name: /Change the schedule/ })).toBeNull();
+      expect(screen.queryByRole("button", { name: /Edit the schedule/ })).toBeNull();
       fireEvent.click(screen.getByRole("button", { name: /Remove Use Summer hours/ }));
       expect(screen.getByRole("alertdialog")).toHaveTextContent(/every date it covers/i);
     });

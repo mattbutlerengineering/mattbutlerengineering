@@ -1,6 +1,7 @@
 import { test, expect } from "./fixtures.js";
 import { AxeBuilder } from "@axe-core/playwright";
 import type { Page } from "@playwright/test";
+import { WCAG_A_AA_TAGS } from "./axe-tags.js";
 
 /** Unknown spec ids answer 404, as the real API does — the suite never reaches a backend. */
 async function mockSpecNotFound(page: Page): Promise<void> {
@@ -41,7 +42,7 @@ test.describe("Shared Spec", () => {
     await expect(page.getByRole("heading", { name: "Spec not found" })).toBeVisible({
       timeout: 10_000,
     });
-    const results = await new AxeBuilder({ page }).withTags(["wcag2aa"]).analyze();
+    const results = await new AxeBuilder({ page }).withTags(WCAG_A_AA_TAGS).analyze();
     const violations = results.violations.filter(
       (v) => v.impact === "critical" || v.impact === "serious"
     );

@@ -30,9 +30,14 @@ import { PLACEHOLDER } from "./types.js";
 
 let report: RouteContractReport;
 
+// Booting the three Fastify apps takes ~5 s locally but passed 30 s under CI's
+// cold, fully parallel Test job three times on 2026-11-20 (runs 44808626672,
+// 44822611226, 44826551189; each green on rerun). The budget is for that load.
+const BOOT_BUDGET_MS = 120_000;
+
 beforeAll(async () => {
   report = await buildRouteContractReport();
-});
+}, BOOT_BUDGET_MS);
 
 describe("route contract", () => {
   it("measured something — the verdict below cannot pass vacuously", () => {

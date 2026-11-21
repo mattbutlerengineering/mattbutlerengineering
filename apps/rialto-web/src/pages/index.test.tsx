@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import type { KeyboardEvent, ReactNode } from "react";
 import { OverviewPage } from "./OverviewPage.js";
+import { NAV_SECTIONS } from "../data/nav-sections.js";
 import { DemoLayout, FloatingControls } from "../layouts/DemoLayout.js";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
@@ -159,7 +160,10 @@ describe("OverviewPage — Hero, headings, and manifest-driven stats", () => {
 
   it("retains keyboard-accessible category cards", () => {
     renderOverview();
-    const cards = screen.getAllByRole("button", { name: /browse .* components/i });
+    // Each card is named by its visible content, which starts with the category label.
+    const cards = NAV_SECTIONS.map((section) =>
+      screen.getByRole("button", { name: new RegExp(`^${section.label} \\d+ `) })
+    );
     expect(cards.length).toBeGreaterThan(0);
     for (const card of cards) {
       expect(card).toHaveAttribute("tabindex", "0");

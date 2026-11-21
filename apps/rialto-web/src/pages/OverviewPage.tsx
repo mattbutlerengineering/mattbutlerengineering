@@ -109,7 +109,8 @@ export function OverviewPage() {
                 style={{ cursor: "pointer" }}
                 role="button"
                 tabIndex={0}
-                aria-label={`Browse ${section.label} components`}
+                // No aria-label: the name is the visible content (WCAG 2.5.3). The
+                // literal spaces keep adjacent words from gluing in the name.
                 onKeyDown={(e) => {
                   if ((e.key === "Enter" || e.key === " ") && firstItem) {
                     e.preventDefault();
@@ -121,23 +122,23 @@ export function OverviewPage() {
                   <div className={styles.categoryCardHeader}>
                     <Text variant="label" color="primary">
                       {section.label}
-                    </Text>
-                    <Text as="span" className={styles.categoryCount} aria-hidden="true">
-                      {section.items.length}
+                    </Text>{" "}
+                    <Text as="span" className={styles.categoryCount}>
+                      {section.items.length}{" "}
                     </Text>
                   </div>
                   <ul className={styles.componentList}>
                     {section.items.slice(0, 4).map((item) => (
                       <li key={item.id} className={styles.componentListItem}>
                         <Text variant="detail" color="secondary">
-                          {item.label}
+                          {item.label}{" "}
                         </Text>
                       </li>
                     ))}
                     {section.items.length > 4 && (
                       <li className={styles.componentListItem}>
                         <Text variant="detail" color="tertiary">
-                          +{section.items.length - 4} more
+                          +{section.items.length - 4} more{" "}
                         </Text>
                       </li>
                     )}

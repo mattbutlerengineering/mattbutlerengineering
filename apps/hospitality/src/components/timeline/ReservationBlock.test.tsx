@@ -302,6 +302,38 @@ describe("ReservationBlock", () => {
     });
   });
 
+  describe("label in name (WCAG 2.5.3)", () => {
+    it("starts the accessible name with the visible words", () => {
+      render(
+        <main>
+          <ReservationBlock reservation={makeReservation()} style={defaultStyle} />
+        </main>
+      );
+      expect(screen.getByRole("button")).toHaveAccessibleName(
+        /^Jane Doe 4 · \d{1,2}:\d{2} [AP]M, party of 4, confirmed$/
+      );
+    });
+
+    it("keeps the visit ordinal, RSVP chip and Override tag in on-screen order", () => {
+      render(
+        <main>
+          <ReservationBlock
+            reservation={makeReservation({
+              partySize: 4,
+              guest: { visitCount: 3, communicationPreference: null },
+              inviteRsvp: { in: 3, partySize: 4 },
+              overrideReason: "Regulars, kitchen agreed",
+            })}
+            style={defaultStyle}
+          />
+        </main>
+      );
+      expect(screen.getByRole("button")).toHaveAccessibleName(
+        /^Jane Doe 4 · \d{1,2}:\d{2} [AP]M · 3rd visit 3 of 4 in Override, party of 4, confirmed, .*Override: Regulars, kitchen agreed$/
+      );
+    });
+  });
+
   describe("guest signal badge", () => {
     const badge = { minutes: 15, eta: "2026-05-14T18:15:00.000Z", held: true };
 

@@ -76,6 +76,15 @@
 .duration-slow .dot {
   animation-duration: var(--rialto-duration-slow);
 }
+.duration-scene .dot {
+  animation-duration: var(--rialto-duration-scene);
+}
+.duration-cinematic .dot {
+  animation-duration: var(--rialto-duration-cinematic);
+}
+.duration-ambient .dot {
+  animation-duration: var(--rialto-duration-ambient);
+}
 
 /* ── Easing tokens — curve legible over a comfortable fixed duration ── */
 

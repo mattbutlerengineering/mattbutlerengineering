@@ -1,5 +1,6 @@
 import type { Page } from "@playwright/test";
 import { AxeBuilder } from "@axe-core/playwright";
+import { WCAG_A_AA_TAGS } from "./axe-tags.js";
 import { test, expect } from "./fixtures.js";
 import { mockGenApi } from "./gen-api-mocks.js";
 import type { FlatElementLine } from "./gen-api-mocks.js";
@@ -87,7 +88,7 @@ test.describe("Point and refine", () => {
     const axe = await new AxeBuilder({ page })
       .include('[role="group"][aria-label="Select component"]')
       .include('aside[aria-label="Selected component"]')
-      .withTags(["wcag2aa"])
+      .withTags(WCAG_A_AA_TAGS)
       .disableRules(["color-contrast"])
       .analyze();
     expect(axe.violations.filter((v) => v.impact === "critical" || v.impact === "serious")).toEqual(

@@ -47,6 +47,7 @@ import {
 } from "../services/confirm-hold.js";
 import { planEffects, type CancelDoor, type HoldDoor, type TransitionFact } from "./plan.js";
 import type { DepositService } from "../services/deposit.js";
+import { captureHandledError } from "@mbe/sentry/node";
 import { runEffects, type EffectLogger } from "./run.js";
 import type { CancelInitiator, EffectPorts } from "./ports.js";
 import type { ReservationEventActor } from "../services/reservation-events.js";
@@ -145,7 +146,10 @@ export function createReservationTransitions(
       logger.error({ err, venueId, fact: fact.kind }, "Venue effect policy lookup failed");
       return;
     }
-    await runEffects(planEffects(fact, venuePolicy, now()), ports, logger);
+    await runEffects(planEffects(fact, venuePolicy, now()), ports, logger, {
+      transition: fact.kind,
+      report: (err, context) => captureHandledError(err, { ...context }),
+    });
   }
 
   return {

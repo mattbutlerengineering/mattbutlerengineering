@@ -6,6 +6,8 @@ export interface Project {
   /** The technologies actually used to build it, rendered inline on the card. */
   stack: readonly string[];
   href?: string; // undefined = no live link
+  /** A page on this site that tells the project's story, linked beside the live link. */
+  story?: { readonly label: string; readonly href: string };
 }
 
 /**
@@ -36,6 +38,7 @@ export const PROJECTS: Project[] = [
     // tagline — the app is fully auth-gated, so this is the only context a
     // visitor from this card can carry through to the login screen.
     href: "/hospitality/?ref=marketing",
+    story: { label: "See a night of service", href: "/venues" },
   },
   {
     title: "Gen Playground",
