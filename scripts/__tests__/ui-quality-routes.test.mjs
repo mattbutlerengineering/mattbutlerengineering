@@ -197,8 +197,8 @@ describe("rialto-web adapter", () => {
   const registryRows = rows.filter((r) => /^(components|examples)\/|^dashboard$/.test(r.route));
 
   it("yields every PAGE_REGISTRY path plus the 18 routeTree leaves (123 today)", () => {
-    expect(registryRows).toHaveLength(105);
-    expect(rows).toHaveLength(105 + 18);
+    expect(registryRows).toHaveLength(106);
+    expect(rows).toHaveLength(106 + 18);
     expect(new Set(rows.map((r) => r.route)).size).toBe(rows.length);
   });
 

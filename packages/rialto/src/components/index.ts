@@ -97,6 +97,7 @@ export * from "./Chalkboard";
 export * from "./Letterboard";
 export * from "./SplitScreenExit";
 export * from "./SilkFlow";
+export * from "./Guilloche";
 export * from "./WatchLoader";
 export * from "./Handshake";
 export * from "./NeonSign";
