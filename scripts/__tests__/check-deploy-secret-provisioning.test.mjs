@@ -207,10 +207,7 @@ describe("isSecretProvisioned: per-service secrets mapped to one app-spec key (S
   });
 
   it("is false when one service's mapping to SENTRY_DSN is missing", () => {
-    const broken = realWorkflow.replace(
-      '\\"value\\":\\"${SENTRY_DSN_AGENT_API}\\"',
-      '\\"value\\":\\"\\"'
-    );
+    const broken = realWorkflow.replace('"value":strenv(SENTRY_DSN_AGENT_API)', '"value":""');
     expect(broken).not.toBe(realWorkflow);
     expect(isSecretProvisioned("SENTRY_DSN", broken, realPulumi)).toBe(false);
   });
