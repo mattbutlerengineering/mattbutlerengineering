@@ -41,6 +41,7 @@ Build-time env vars (set in CI and `.env`):
 ## Key Components
 
 - `DashboardLayout` — Shell with sidebar nav (`GlobalNav` from Rialto)
+- `showcase/` — The signed-out landing at the app root ("One night of service"): nine scenes driven by `service-night.ts`, every string from the `showcase.*` catalog keys. Lazy-loaded from `App.tsx`, with its own size-limit entry; `vite.manualChunks.ts` keeps `Hero`, `SilkFlow` and `Letterboard` out of the eager `rialto-vendor` chunk
 - `venue-onboarding/` — 6-step wizard: WelcomeStep → LocationTimeStep → QuickSetupHoursStep → SettingsStep → FloorPlanStep → LaunchStep
 - `booking-widget/` — Embeddable reservation widget components
 - `floor-plan/` — Interactive drag-and-drop floor plan editor
