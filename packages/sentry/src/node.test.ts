@@ -16,7 +16,7 @@ vi.mock("@sentry/node", () => ({
   captureMessage: mockCaptureMessage,
 }));
 
-import { captureRequestError, initSentry } from "./node.js";
+import { captureHandledError, captureRequestError, initSentry } from "./node.js";
 
 // Helper to build a fake Fastify instance for plugin testing
 function buildFakeFastify() {
@@ -553,5 +553,19 @@ describe("sentryFastifyPlugin", () => {
 
       expect(mockCaptureMessage).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe("captureHandledError", () => {
+  it("captures the error with every context entry as a tag", () => {
+    const fakeScope = { setTag: vi.fn() };
+    mockWithScope.mockImplementation((fn: (scope: typeof fakeScope) => void) => fn(fakeScope));
+    const error = new Error("smtp down");
+
+    captureHandledError(error, { transition: "modified", port: "messaging" });
+
+    expect(fakeScope.setTag).toHaveBeenCalledWith("transition", "modified");
+    expect(fakeScope.setTag).toHaveBeenCalledWith("port", "messaging");
+    expect(mockCaptureException).toHaveBeenCalledWith(error);
   });
 });

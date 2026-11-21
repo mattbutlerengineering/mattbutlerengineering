@@ -137,6 +137,61 @@ describe("runEffects — executor", () => {
     expect(logger.error).toHaveBeenCalledTimes(1);
   });
 
+  it("a background failure is reported with the transition name and effect kind", async () => {
+    const { ports, logger, messaging } = setup();
+    const report = vi.fn();
+    messaging.failNext("booking-modified");
+    await runEffects([modified("background", "log")], ports, logger, {
+      transition: "modified",
+      report,
+    });
+    await flush();
+    expect(report).toHaveBeenCalledTimes(1);
+    expect(report).toHaveBeenCalledWith(expect.any(Error), {
+      transition: "modified",
+      port: "messaging",
+      kind: "booking-modified",
+    });
+  });
+
+  it("a background job failure is reported with its job type, not only the op", async () => {
+    const { ports, logger } = setup();
+    const report = vi.fn();
+    ports.jobs = {
+      schedule: async () => {
+        throw new Error("redis down");
+      },
+      cancel: async () => false,
+    };
+    await runEffects([schedule("background", "log")], ports, logger, {
+      transition: "created",
+      report,
+    });
+    await flush();
+    expect(report).toHaveBeenCalledWith(expect.any(Error), {
+      transition: "created",
+      port: "jobs",
+      kind: "schedule:booking-reminder",
+    });
+  });
+
+  it("a throwing reporter cannot reject the detached chain or stop it", async () => {
+    const { ports, logger, messaging, jobs } = setup();
+    messaging.failNext("booking-modified");
+    const report = vi.fn(() => {
+      throw new Error("reporter broke");
+    });
+    await runEffects(
+      [modified("background", "log"), schedule("background", "propagate")],
+      ports,
+      logger,
+      { transition: "modified", report }
+    );
+    await flush();
+    expect(report).toHaveBeenCalledTimes(1);
+    expect(jobs.jobs.size).toBe(1);
+  });
+
   it("replace-if-present schedules only when cancel removed an existing job", async () => {
     const { ports, logger, jobs } = setup();
     await runEffects([replace], ports, logger);

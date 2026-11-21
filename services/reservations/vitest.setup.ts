@@ -5,6 +5,7 @@ import type * as FastifyModule from "fastify";
 vi.mock("@mbe/sentry/node", () => ({
   sentryFastifyPlugin: vi.fn(),
   captureRequestError: vi.fn(),
+  captureHandledError: vi.fn(),
 }));
 
 // Compile each route schema once per worker instead of once per buildApp()
