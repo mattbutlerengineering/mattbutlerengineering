@@ -1156,6 +1156,7 @@ A clean fire: everything due was captured and judged, and nothing met the bar to
 **queueEfficiency:** composite 0.976 (baseline n/a) — healthy
 **Difficulty distribution:** size:s:42, size:m:10, size:xs:23, size:xl:6, size:l:3
 **Issues filed:** 1
+
 ## 2026-11-21 — mbe-evening
 
 ### Metrics
