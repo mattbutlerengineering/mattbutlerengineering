@@ -262,7 +262,13 @@
       "statusRetrying": "Démarrage d'une nouvelle connexion",
       "statusFailed": "L'échange n'a pas abouti",
       "retry": "Réessayer",
-      "technicalDetails": "Détails techniques"
+      "technicalDetails": "Détails techniques",
+      "signOut": {
+        "failedLabel": "Votre déconnexion n'a pas pu être terminée",
+        "title": "La déconnexion a rencontré un problème",
+        "body": "Nous n'avons pas pu joindre Identité pour terminer votre déconnexion. Réessayez pour la compléter.",
+        "retry": "Réessayer la déconnexion"
+      }
     },
     "error": {
       "accessDenied": {
