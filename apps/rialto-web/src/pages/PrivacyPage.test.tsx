@@ -32,7 +32,7 @@ describe("PrivacyPage", () => {
     const text = (screen.getByRole("main").textContent ?? "").replace(/\s+/g, " ");
     expect(text).toMatch(/each page you open tells our error tracker a visit started/i);
     expect(text).not.toMatch(/do not collect personally identifiable information/i);
-    expect(text).toMatch(/Apart from the IP address an error report can carry/);
+    expect(text).toMatch(/Apart from the IP address that an error report or visit ping can carry/);
   });
 
   it("discloses that Google Fonts receives the visitor's IP address", () => {
