@@ -1,5 +1,19 @@
 # @mattbutlerengineering/rialto
 
+## 1.0.0
+
+### Major Changes
+
+- [#9345](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9345) [`99c406a`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/99c406a1a32ef26f303a9b927671bdd659a4d98b) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Remove the `Ferrofluid` component. The `Ferrofluid` root export and the `@mattbutlerengineering/rialto/Ferrofluid` subpath no longer exist.
+
+### Minor Changes
+
+- [#9353](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9353) [`6c0d990`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/6c0d990129c4ccc4459dfafb0f3d69de71f04cc9) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add `Guilloche`, an ambient canvas backdrop of layered hypotrochoid rings drawn as an engraved rosette (menu, gift card and check-presenter style), built on the shared ambient-canvas runtime. One ring is gold; the pointer shifts the phase of nearby rings; reduced motion renders a static poster.
+
+### Patch Changes
+
+- [#9350](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9350) [`170ce2e`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/170ce2e3cbdd5b8667b146cc57b953c3661be3fa) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Extract the generic canvas loop plumbing (DPR-capped resize, rAF playback sync, theme palette re-read, pointer tracking, single teardown) from SilkFlow into an internal shared `_ambient/ambient-canvas` module. SilkFlow behavior is unchanged.
+
 ## 0.10.25
 
 ### Patch Changes
