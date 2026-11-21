@@ -1,4 +1,4 @@
-import { addDays, weekdayIndexOf } from "@mbe/availability";
+import { SCOPE_HORIZON_DAYS, addDays, weekdayIndexOf } from "@mbe/availability";
 import type {
   AvailabilityConfig,
   AvailabilityConfigChanges,
@@ -12,7 +12,6 @@ import {
   type KeptHours,
   type QuickSetupDraft,
 } from "./quick-setup-draft.js";
-import { SCOPE_HORIZON_DAYS } from "./scope-dates.js";
 
 /**
  * The Schedules tab's row operations (ux.md F3, F-UW): new, duplicate, edit, delete, and the

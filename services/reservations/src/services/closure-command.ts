@@ -1,5 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { projectLegacyOperatingHours, stillClosedAfterReopen } from "@mbe/availability";
+import {
+  currentServiceDate,
+  projectLegacyOperatingHours,
+  stillClosedAfterReopen,
+} from "@mbe/availability";
 import type {
   AvailabilityChangeOutcome,
   AvailabilityChangeSummary,
@@ -41,7 +45,6 @@ import { applyTransitions } from "./closure-apply.js";
 import {
   checkDecisions,
   countActions,
-  currentServiceDate,
   isHostEmergencyClose,
   isEmergencyTonightClose,
   moveTarget,

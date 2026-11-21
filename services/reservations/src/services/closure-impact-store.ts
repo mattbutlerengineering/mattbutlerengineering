@@ -1,8 +1,8 @@
-import { addDays, expandSectionRules, validateConfig } from "@mbe/availability";
+import { SCOPE_HORIZON_DAYS, addDays, expandSectionRules, validateConfig } from "@mbe/availability";
 import type { ClosureAlongside, ClosureImpact, DateRule } from "@mbe/types";
 import type { PrismaClient } from "../generated/prisma/index.js";
 import { setVenueContext } from "../middleware/venue-context.js";
-import { referenceIssues, SCOPE_CONFLICT_HORIZON_DAYS } from "./availability-config-plan.js";
+import { referenceIssues } from "./availability-config-plan.js";
 import { loadConfigState, stillToServeWhere, type ConfigState } from "./availability-config.js";
 import { civilDateIn } from "./availability-migration.js";
 import { isPlainClosure } from "./closure-alongside.js";
@@ -49,8 +49,8 @@ function scanRange(rule: DateRule, today: string): { from: string; to: string } 
   const from = rule.startsOn > earliest ? rule.startsOn : earliest;
   // The year is counted from the first date that can hold a booking, so a series that began long
   // ago (an "All dates" edit keeps its start) is not "too long".
-  if (rule.endsOn && rule.endsOn > addDays(from, SCOPE_CONFLICT_HORIZON_DAYS)) return null;
-  return { from, to: rule.endsOn ?? addDays(from, SCOPE_CONFLICT_HORIZON_DAYS) };
+  if (rule.endsOn && rule.endsOn > addDays(from, SCOPE_HORIZON_DAYS)) return null;
+  return { from, to: rule.endsOn ?? addDays(from, SCOPE_HORIZON_DAYS) };
 }
 
 /**

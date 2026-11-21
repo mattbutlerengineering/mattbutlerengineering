@@ -26,19 +26,10 @@ const config: AvailabilityConfig = {
 
 const TZ = "America/Los_Angeles";
 
+// The rule itself is pinned in packages/availability; this checks the adapter wiring.
 describe("currentServiceDate", () => {
-  it("is the calendar date while a service is open", () => {
-    // Thu 2026-10-22 20:00 PDT
-    expect(currentServiceDate(config, TZ, new Date("2026-10-23T03:00:00Z"))).toBe("2026-10-22");
-  });
-
-  it("stays on the previous day at 00:30 while service runs past midnight", () => {
+  it("hands the config and venue zone to the engine", () => {
     // Fri 2026-10-23 00:30 PDT is still Thursday's service
     expect(currentServiceDate(config, TZ, new Date("2026-10-23T07:30:00Z"))).toBe("2026-10-22");
-  });
-
-  it("is the calendar date before the first service opens", () => {
-    // Fri 2026-10-23 10:00 PDT
-    expect(currentServiceDate(config, TZ, new Date("2026-10-23T17:00:00Z"))).toBe("2026-10-23");
   });
 });

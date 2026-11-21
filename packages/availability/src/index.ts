@@ -2,6 +2,8 @@ export { collapseDayNamedSchedules, weekdayRangeLabel } from "./day-named-schedu
 export { addDays, weekdayIndexOf, weekdayOf } from "./civil-date.js";
 export { ARCHIVED_ON_REMOVE, applyChanges, applyDraft } from "./apply-draft.js";
 export { activeRules } from "./date-rules.js";
+export { SCOPE_HORIZON_DAYS, coversDate, isHoursRule } from "./scope-reach.js";
+export { currentServiceDate } from "./current-service-date.js";
 export { expandSectionRules } from "./expand-section-rules.js";
 export { alreadyClosed, stillClosedAfterReopen } from "./closure-overlap.js";
 export { firstOccurrenceOnOrAfter, type OccurrenceRule } from "./first-occurrence.js";
