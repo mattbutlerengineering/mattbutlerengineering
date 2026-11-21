@@ -59,6 +59,7 @@ import { Form } from "../../components/Form/Form";
 import { FormField } from "../../components/FormField/FormField";
 import { GlobalNav } from "../../components/GlobalNav/GlobalNav";
 import { GuestCards } from "../../components/GuestCards/GuestCards";
+import { Guilloche } from "../../components/Guilloche/Guilloche";
 import { Handshake } from "../../components/Handshake/Handshake";
 import { Heading } from "../../components/Heading/Heading";
 import { Hero } from "../../components/Hero/Hero";
@@ -163,6 +164,7 @@ export type BarrelExportName =
   | "FormField"
   | "GlobalNav"
   | "GuestCards"
+  | "Guilloche"
   | "Handshake"
   | "Heading"
   | "Hero"
@@ -538,6 +540,10 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
         ]}
       />
     ),
+  },
+
+  Guilloche: {
+    element: <Guilloche />,
   },
 
   Handshake: {
