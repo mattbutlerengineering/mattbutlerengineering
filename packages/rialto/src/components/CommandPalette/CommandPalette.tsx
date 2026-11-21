@@ -105,7 +105,6 @@ export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
     ref
   ) {
     const motionPreset = useMotionPreset();
-    const shouldReduceMotion = motionPreset.reduced;
     const { messages } = useRialtoLocale();
     const placeholder = placeholderProp ?? messages.searchCommandsPlaceholder;
     const [query, setQuery] = useState("");
@@ -287,7 +286,7 @@ export const CommandPalette = forwardRef<HTMLDivElement, CommandPaletteProps>(
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: shouldReduceMotion ? 0 : 0.15 }}
+            transition={motionPreset.precision}
             onClick={() => onOpenChange(false)}
             onKeyDown={handleKeyDown}
           >
