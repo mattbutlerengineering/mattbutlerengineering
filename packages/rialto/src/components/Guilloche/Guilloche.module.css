@@ -1,0 +1,27 @@
+.root {
+  position: relative;
+  inline-size: 100%;
+  block-size: 100%;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.canvas,
+.poster {
+  position: absolute;
+  inset: 0;
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+}
+
+/* Reduced-motion stand-in: concentric engraved rings, held still. */
+.poster {
+  background: repeating-radial-gradient(
+    circle at center,
+    var(--rialto-surface) 0,
+    var(--rialto-surface) 14px,
+    var(--rialto-surface-elevated) 15px,
+    var(--rialto-surface) 16px
+  );
+}

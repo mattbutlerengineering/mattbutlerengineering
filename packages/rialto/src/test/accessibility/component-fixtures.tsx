@@ -87,6 +87,7 @@ import { SegmentedControl } from "../../components/SegmentedControl/SegmentedCon
 import { Select } from "../../components/Select/Select";
 import { Sidebar } from "../../components/Sidebar/Sidebar";
 import { SilkFlow } from "../../components/SilkFlow/SilkFlow";
+import { Guilloche } from "../../components/Guilloche/Guilloche";
 import { Skeleton } from "../../components/Skeleton/Skeleton";
 import { Slider } from "../../components/Slider/Slider";
 import { SplitFlap } from "../../components/SplitFlap/SplitFlap";
@@ -191,6 +192,7 @@ export type BarrelExportName =
   | "Select"
   | "Sidebar"
   | "SilkFlow"
+  | "Guilloche"
   | "Skeleton"
   | "Slider"
   | "Spinner"
@@ -760,6 +762,10 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
 
   SilkFlow: {
     element: <SilkFlow />,
+  },
+
+  Guilloche: {
+    element: <Guilloche />,
   },
 
   Slider: {

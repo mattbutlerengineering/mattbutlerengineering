@@ -20,6 +20,7 @@ import { DepartureBoard } from "../../components/DepartureBoard/DepartureBoard";
 import { Handshake } from "../../components/Handshake/Handshake";
 import { NeonSign } from "../../components/NeonSign/NeonSign";
 import { SilkFlow } from "../../components/SilkFlow/SilkFlow";
+import { Guilloche } from "../../components/Guilloche/Guilloche";
 import { SplitFlap } from "../../components/SplitFlap/SplitFlap";
 import { WatchLoader } from "../../components/WatchLoader/WatchLoader";
 import { useBoop } from "../../hooks/useBoop";
@@ -34,6 +35,7 @@ const RENDERS: ReadonlyArray<readonly [string, () => void]> = [
   ["Handshake", () => render(<Handshake aria-label="x" stations={["A", "B"]} />)],
   ["NeonSign", () => render(<NeonSign state="open" aria-label="x" />)],
   ["SilkFlow", () => render(<SilkFlow />)],
+  ["Guilloche", () => render(<Guilloche />)],
   ["SplitFlap", () => render(<SplitFlap value="AB" aria-label="x" />)],
   ["WatchLoader", () => render(<WatchLoader aria-label="x" />)],
   ["useBoop", () => renderHook(() => useBoop())],
