@@ -252,29 +252,35 @@ jobs:
           # Fetch current spec
           doctl apps spec get "$APP_ID" > /tmp/spec.yaml
 
+          # Every value below reaches yq through strenv(NAME) inside a
+          # single-quoted expression, never as ${NAME} spliced into the
+          # expression string: a value containing a quote, backslash or other
+          # yq syntax must land as a value, not break or rewrite the
+          # expression. Pinned by scripts/__tests__/deploy-services-yq-strenv.test.mjs.
+
           # Upsert DEPLOY_SHA, DEPLOY_PR_NUMBER, DEPLOY_AUTHOR into each service's envs
           for SVC in users-api reservations-api agent-api; do
-            yq -i "(.services[] | select(.name == \"$SVC\").envs) |=
-              (map(select(.key != \"DEPLOY_SHA\" and .key != \"DEPLOY_PR_NUMBER\" and .key != \"DEPLOY_AUTHOR\")) +
-              [{\"key\":\"DEPLOY_SHA\",\"value\":\"${DEPLOY_SHA}\"},
-               {\"key\":\"DEPLOY_PR_NUMBER\",\"value\":\"${DEPLOY_PR_NUMBER}\"},
-               {\"key\":\"DEPLOY_AUTHOR\",\"value\":\"${DEPLOY_AUTHOR}\"}])" /tmp/spec.yaml
+            SVC="$SVC" yq -i '(.services[] | select(.name == strenv(SVC)).envs) |=
+              (map(select(.key != "DEPLOY_SHA" and .key != "DEPLOY_PR_NUMBER" and .key != "DEPLOY_AUTHOR")) +
+              [{"key":"DEPLOY_SHA","value":strenv(DEPLOY_SHA)},
+               {"key":"DEPLOY_PR_NUMBER","value":strenv(DEPLOY_PR_NUMBER)},
+               {"key":"DEPLOY_AUTHOR","value":strenv(DEPLOY_AUTHOR)}])' /tmp/spec.yaml
           done
 
           # Upsert MANAGE_TOKEN_SECRET into reservations-api — required for startup in production.
           # This bridges the gap while ignoreChanges: ["spec"] prevents Pulumi from pushing env changes.
           if [ -n "${MANAGE_TOKEN_SECRET}" ]; then
-            yq -i "(.services[] | select(.name == \"reservations-api\").envs) |=
-              (map(select(.key != \"MANAGE_TOKEN_SECRET\")) +
-              [{\"key\":\"MANAGE_TOKEN_SECRET\",\"value\":\"${MANAGE_TOKEN_SECRET}\",\"type\":\"SECRET\"}])" /tmp/spec.yaml
+            yq -i '(.services[] | select(.name == "reservations-api").envs) |=
+              (map(select(.key != "MANAGE_TOKEN_SECRET")) +
+              [{"key":"MANAGE_TOKEN_SECRET","value":strenv(MANAGE_TOKEN_SECRET),"type":"SECRET"}])' /tmp/spec.yaml
           fi
 
           # Upsert UNSUBSCRIBE_TOKEN_SECRET into reservations-api — required for startup in production.
           # This bridges the gap while ignoreChanges: ["spec"] prevents Pulumi from pushing env changes.
           if [ -n "${UNSUBSCRIBE_TOKEN_SECRET}" ]; then
-            yq -i "(.services[] | select(.name == \"reservations-api\").envs) |=
-              (map(select(.key != \"UNSUBSCRIBE_TOKEN_SECRET\")) +
-              [{\"key\":\"UNSUBSCRIBE_TOKEN_SECRET\",\"value\":\"${UNSUBSCRIBE_TOKEN_SECRET}\",\"type\":\"SECRET\"}])" /tmp/spec.yaml
+            yq -i '(.services[] | select(.name == "reservations-api").envs) |=
+              (map(select(.key != "UNSUBSCRIBE_TOKEN_SECRET")) +
+              [{"key":"UNSUBSCRIBE_TOKEN_SECRET","value":strenv(UNSUBSCRIBE_TOKEN_SECRET),"type":"SECRET"}])' /tmp/spec.yaml
           fi
 
           # Upsert each service's OWN DSN — unconditional by design. The
@@ -282,15 +288,15 @@ jobs:
           # missing, so there is nothing left here to skip on, and a conditional
           # would only rebuild the blackout one layer down. One project per
           # service, so these must not be collapsed back into a shared loop.
-          yq -i "(.services[] | select(.name == \"users-api\").envs) |=
-              (map(select(.key != \"SENTRY_DSN\")) +
-              [{\"key\":\"SENTRY_DSN\",\"value\":\"${SENTRY_DSN_USERS_API}\",\"type\":\"SECRET\"}])" /tmp/spec.yaml
-          yq -i "(.services[] | select(.name == \"reservations-api\").envs) |=
-              (map(select(.key != \"SENTRY_DSN\")) +
-              [{\"key\":\"SENTRY_DSN\",\"value\":\"${SENTRY_DSN_RESERVATIONS_API}\",\"type\":\"SECRET\"}])" /tmp/spec.yaml
-          yq -i "(.services[] | select(.name == \"agent-api\").envs) |=
-              (map(select(.key != \"SENTRY_DSN\")) +
-              [{\"key\":\"SENTRY_DSN\",\"value\":\"${SENTRY_DSN_AGENT_API}\",\"type\":\"SECRET\"}])" /tmp/spec.yaml
+          yq -i '(.services[] | select(.name == "users-api").envs) |=
+              (map(select(.key != "SENTRY_DSN")) +
+              [{"key":"SENTRY_DSN","value":strenv(SENTRY_DSN_USERS_API),"type":"SECRET"}])' /tmp/spec.yaml
+          yq -i '(.services[] | select(.name == "reservations-api").envs) |=
+              (map(select(.key != "SENTRY_DSN")) +
+              [{"key":"SENTRY_DSN","value":strenv(SENTRY_DSN_RESERVATIONS_API),"type":"SECRET"}])' /tmp/spec.yaml
+          yq -i '(.services[] | select(.name == "agent-api").envs) |=
+              (map(select(.key != "SENTRY_DSN")) +
+              [{"key":"SENTRY_DSN","value":strenv(SENTRY_DSN_AGENT_API),"type":"SECRET"}])' /tmp/spec.yaml
 
           echo "Updating app spec with deploy metadata"
           doctl apps update "$APP_ID" --spec /tmp/spec.yaml
