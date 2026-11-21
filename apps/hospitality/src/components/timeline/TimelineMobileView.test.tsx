@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, within } from "@testing-library/react";
-import { axe } from "vitest-axe";
 import { TimelineMobileView, type TimelineMobileViewProps } from "./TimelineMobileView.js";
 import type { Reservation, Table } from "@mbe/types";
 
@@ -96,16 +95,11 @@ describe("TimelineMobileView", () => {
     });
   });
 
+  // The name regexes are the guard: axe's label-content-name-mismatch cannot run in jsdom
+  // (no canvas getContext), so it lands in `incomplete` and never reports a violation.
   describe("label in name (WCAG 2.5.3)", () => {
-    const AXE = {
-      rules: {
-        "color-contrast": { enabled: false },
-        "label-content-name-mismatch": { enabled: true },
-      },
-    };
-
-    it("starts the card's name with its visible words, in order, and passes axe", async () => {
-      const { container } = render(
+    it("starts the card's name with its visible words, in order, then the table context", () => {
+      render(
         <main>
           <TimelineMobileView
             reservations={[
@@ -117,24 +111,33 @@ describe("TimelineMobileView", () => {
         </main>
       );
       expect(card("Jane Doe")).toHaveAccessibleName(
-        /^Jane Doe \d{1,2}:\d{2} [AP]M – \d{1,2}:\d{2} [AP]M · 4 guests · T12 Confirmed$/
+        /^Jane Doe \d{1,2}:\d{2} [AP]M – \d{1,2}:\d{2} [AP]M · 4 guests · T12 Confirmed, table T12$/
       );
-      expect((await axe(container, AXE)).violations).toEqual([]);
     });
 
-    it("keeps ', seated' after the visible run and still passes axe", async () => {
-      const { container } = render(
-        <main>
-          <TimelineMobileView
-            reservations={[makeReservation({ guestName: "Jane Doe", partySize: 4 })]}
-            tables={[makeTable()]}
-            onReservationClick={vi.fn()}
-            seatedIds={new Set(["r1"])}
-          />
-        </main>
+    it("omits the table suffix when no table is assigned", () => {
+      render(
+        <TimelineMobileView
+          reservations={[makeReservation({ guestName: "Jane Doe", tableId: "gone" })]}
+          tables={[]}
+          onReservationClick={vi.fn()}
+        />
       );
-      expect(card("Jane Doe")).toHaveAccessibleName(/ Confirmed, seated$/);
-      expect((await axe(container, AXE)).violations).toEqual([]);
+      const name = card("Jane Doe");
+      expect(name).toHaveAccessibleName(/ · Unassigned Confirmed$/);
+      expect(name).not.toHaveAccessibleName(/table/);
+    });
+
+    it("keeps ', seated' after the table context", () => {
+      render(
+        <TimelineMobileView
+          reservations={[makeReservation({ guestName: "Jane Doe", partySize: 4 })]}
+          tables={[makeTable()]}
+          onReservationClick={vi.fn()}
+          seatedIds={new Set(["r1"])}
+        />
+      );
+      expect(card("Jane Doe")).toHaveAccessibleName(/ Confirmed, table Table 1, seated$/);
     });
   });
 

@@ -65,6 +65,8 @@ function ReservationCard({
   // WCAG 2.5.3: the name is the visible words in on-screen order (see `cardLabel`). The literal
   // `{" "}` text nodes between siblings keep axe from gluing them ("Doe7"); in flex containers
   // whitespace-only text is not rendered, so layout is unchanged.
+  // The visible table text is a bare "1"; say what it is, after the visible run, once assigned.
+  const tableContext = table ? t("timeline.mobile.tableContext", { table: tableLabel }) : null;
   const spokenLabel = t("timeline.mobile.cardLabel", {
     guest,
     time: timeLabel,
@@ -77,7 +79,9 @@ function ReservationCard({
     <Button
       className={`${styles.card} ${isSelected ? styles.cardSelected : ""}`}
       onClick={() => onClick(reservation)}
-      aria-label={seated ? `${spokenLabel}, ${t("timeline.block.seatedWord")}` : spokenLabel}
+      aria-label={[spokenLabel, tableContext, seated ? t("timeline.block.seatedWord") : null]
+        .filter(Boolean)
+        .join(", ")}
       type="button"
       // `useFocusAfter`'s target after seat / cancel / walk-in on phone (B3.2, #5271) — without
       // this, the card that success unmounted (dialog/drawer) has nowhere to hand focus back to.

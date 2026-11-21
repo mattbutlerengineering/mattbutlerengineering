@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { useState } from "react";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { axe } from "vitest-axe";
 import { ReservationBlock } from "./ReservationBlock.js";
 import type { Reservation } from "@mbe/types";
 
@@ -304,15 +303,8 @@ describe("ReservationBlock", () => {
   });
 
   describe("label in name (WCAG 2.5.3)", () => {
-    const AXE = {
-      rules: {
-        "color-contrast": { enabled: false },
-        "label-content-name-mismatch": { enabled: true },
-      },
-    };
-
-    it("starts the accessible name with the visible words and passes axe", async () => {
-      const { container } = render(
+    it("starts the accessible name with the visible words", () => {
+      render(
         <main>
           <ReservationBlock reservation={makeReservation()} style={defaultStyle} />
         </main>
@@ -320,11 +312,10 @@ describe("ReservationBlock", () => {
       expect(screen.getByRole("button")).toHaveAccessibleName(
         /^Jane Doe 4 · \d{1,2}:\d{2} [AP]M, party of 4, confirmed$/
       );
-      expect((await axe(container, AXE)).violations).toEqual([]);
     });
 
-    it("keeps the visit ordinal, RSVP chip and Override tag in on-screen order", async () => {
-      const { container } = render(
+    it("keeps the visit ordinal, RSVP chip and Override tag in on-screen order", () => {
+      render(
         <main>
           <ReservationBlock
             reservation={makeReservation({
@@ -340,7 +331,6 @@ describe("ReservationBlock", () => {
       expect(screen.getByRole("button")).toHaveAccessibleName(
         /^Jane Doe 4 · \d{1,2}:\d{2} [AP]M · 3rd visit 3 of 4 in Override, party of 4, confirmed, .*Override: Regulars, kitchen agreed$/
       );
-      expect((await axe(container, AXE)).violations).toEqual([]);
     });
   });
 

@@ -249,7 +249,7 @@ describe("home and timeline in es-MX", () => {
     );
     const card = screen.getByTestId("reservation-block-r1");
     expect(card.getAttribute("aria-label")).toMatch(
-      /^Jane Doe .* · 4 invitados · 1 Confirmada, sentados$/
+      /^Jane Doe .* · 4 invitados · 1 Confirmada, mesa 1, sentados$/
     );
     expect(within(card).getByText("Confirmada")).toBeInTheDocument();
   });

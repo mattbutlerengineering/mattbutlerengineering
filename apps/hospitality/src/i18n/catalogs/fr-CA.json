@@ -779,6 +779,7 @@
       "empty": "Aucune réservation",
       "unassigned": "Non attribuée",
       "cardLabel": "{{guest}} {{time}} · {{guests}} · {{table}} {{status}}",
+      "tableContext": "table {{table}}",
       "seated": "Installés"
     },
     "emptyNight": {
