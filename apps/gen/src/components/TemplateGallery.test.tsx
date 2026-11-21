@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { TemplateGallery } from "./TemplateGallery.js";
+import { TemplateGallery, TEMPLATES } from "./TemplateGallery.js";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Badge: ({
@@ -136,7 +136,7 @@ describe("TemplateGallery", () => {
     const onSelect = vi.fn();
     const onClose = vi.fn();
     render(<TemplateGallery {...defaultProps} onSelect={onSelect} onClose={onClose} />);
-    fireEvent.click(screen.getByRole("button", { name: /use Analytics Dashboard template/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^Analytics Dashboard /i }));
     expect(onSelect).toHaveBeenCalledWith(
       "Dashboard with KPI cards in Cards, an Odometer for the headline stat, a BarChart of monthly revenue for the last 6 months, Badges showing week-over-week change, and a recent activity DataTable"
     );
@@ -202,8 +202,20 @@ describe("TemplateGallery", () => {
     // Derive from the rendered grid rather than a literal: the invariant is that
     // the sidebar count matches the cards on screen, and a hardcoded number goes
     // stale the moment a template is added.
-    const cards = screen.getAllByRole("button", { name: /^Use .+ template$/ });
+    const cards = document.querySelectorAll(".card");
     expect(allButton.textContent).toBe(`All${cards.length}`);
+  });
+
+  it("names each template card by its visible content (WCAG 2.5.3 Label in Name)", () => {
+    render(<TemplateGallery {...defaultProps} />);
+    const template = TEMPLATES[0];
+    if (!template) throw new Error("expected at least one template");
+    const expected = `${template.title} ${template.description} ${template.category}`;
+    // A string `name` is an exact match against the computed accessible name.
+    const card = screen.getByRole("button", { name: expected });
+    // Words must not glue: axe joins text nodes with no separator.
+    expect(card.textContent?.replace(/\s+/g, " ").trim()).toBe(expected);
+    expect(card.getAttribute("aria-label")).toBeNull();
   });
 
   it("includes a Secure Verification template that elicits PinInput usage", () => {
@@ -212,7 +224,7 @@ describe("TemplateGallery", () => {
     const searchInput = screen.getByRole("textbox", { name: /search templates/i });
     fireEvent.change(searchInput, { target: { value: "verification" } });
 
-    const card = screen.getByRole("button", { name: /use secure verification template/i });
+    const card = screen.getByRole("button", { name: /^Secure Verification /i });
     expect(card).toBeDefined();
     expect(card.textContent).toContain("Forms");
 
@@ -226,7 +238,7 @@ describe("TemplateGallery", () => {
     const searchInput = screen.getByRole("textbox", { name: /search templates/i });
     fireEvent.change(searchInput, { target: { value: "app shell" } });
 
-    const card = screen.getByRole("button", { name: /use app shell template/i });
+    const card = screen.getByRole("button", { name: /^App Shell /i });
     expect(card).toBeDefined();
     expect(card.textContent).toContain("Marketing");
 
@@ -241,7 +253,7 @@ describe("TemplateGallery", () => {
     const searchInput = screen.getByRole("textbox", { name: /search templates/i });
     fireEvent.change(searchInput, { target: { value: "record detail" } });
 
-    const card = screen.getByRole("button", { name: /use record detail panel template/i });
+    const card = screen.getByRole("button", { name: /^Record Detail Panel /i });
     expect(card).toBeDefined();
     expect(card.textContent).toContain("Data Display");
 
@@ -256,7 +268,7 @@ describe("TemplateGallery", () => {
     fireEvent.change(searchInput, { target: { value: "integration" } });
 
     const card = screen.getByRole("button", {
-      name: /use integration handshake template/i,
+      name: /^Integration Handshake /i,
     });
     expect(card).toBeDefined();
     expect(card.textContent).toContain("Feedback");
@@ -271,7 +283,7 @@ describe("TemplateGallery", () => {
     const searchInput = screen.getByRole("textbox", { name: /search templates/i });
     fireEvent.change(searchInput, { target: { value: "modal form" } });
 
-    const card = screen.getByRole("button", { name: /use modal form dialog template/i });
+    const card = screen.getByRole("button", { name: /^Modal Form Dialog /i });
     expect(card).toBeDefined();
     expect(card.textContent).toContain("Forms");
 
@@ -289,7 +301,7 @@ describe("TemplateGallery", () => {
     const searchInput = screen.getByRole("textbox", { name: /search templates/i });
     fireEvent.change(searchInput, { target: { value: "row actions" } });
 
-    const card = screen.getByRole("button", { name: /use row actions menu template/i });
+    const card = screen.getByRole("button", { name: /^Row Actions Menu /i });
     expect(card).toBeDefined();
     expect(card.textContent).toContain("Data Display");
 
@@ -303,7 +315,7 @@ describe("TemplateGallery", () => {
     const searchInput = screen.getByRole("textbox", { name: /search templates/i });
     fireEvent.change(searchInput, { target: { value: "departures board" } });
 
-    const card = screen.getByRole("button", { name: /use live departures board template/i });
+    const card = screen.getByRole("button", { name: /^Live Departures Board /i });
     expect(card).toBeDefined();
     expect(card.textContent).toContain("Data Display");
 
@@ -317,7 +329,7 @@ describe("TemplateGallery", () => {
     const searchInput = screen.getByRole("textbox", { name: /search templates/i });
     fireEvent.change(searchInput, { target: { value: "activity log panel" } });
 
-    const card = screen.getByRole("button", { name: /use activity log panel template/i });
+    const card = screen.getByRole("button", { name: /^Activity Log Panel /i });
     expect(card).toBeDefined();
     expect(card.textContent).toContain("Data Display");
 
