@@ -30,7 +30,6 @@ const cloudflareZoneId = config.require("cloudflareZoneId");
 const cloudflareAccountId = config.require("cloudflareAccountId");
 
 const databaseUrl = config.requireSecret("databaseUrl");
-const aiGatewayApiKey = config.getSecret("aiGatewayApiKey");
 const manageTokenSecret = config.getSecret("manageTokenSecret");
 const unsubscribeTokenSecret = config.getSecret("unsubscribeTokenSecret");
 
@@ -105,7 +104,6 @@ function sharedEnvs(port: number): digitalocean.types.input.AppSpecServiceEnv[] 
   return [
     extraEnv("NODE_ENV", "production"),
     extraEnv("PORT", String(port)),
-    extraEnv("CORS_ORIGIN", `https://${domain}`),
     extraEnv("API_BASE_URL", `https://api.${domain}/api`),
     extraEnv("AUTH_AUTHORITY", AUTH_AUTHORITY),
     extraEnv("AUTH_AUDIENCE", `https://api.${domain}`),
@@ -261,7 +259,6 @@ const apiApp = new digitalocean.App(
           port: 3003,
           dockerfile: "services/agent/Dockerfile",
           extraEnvs: [
-            ...(aiGatewayApiKey ? [secretEnv("AI_GATEWAY_API_KEY", aiGatewayApiKey)] : []),
             ...(remediationWebhookSecret
               ? [secretEnv("REMEDIATION_WEBHOOK_SECRET", remediationWebhookSecret)]
               : []),
