@@ -159,4 +159,60 @@ describe("check-env-sync", () => {
       expect(widgets.missing).not.toContain("SHARED_SECRET");
     });
   });
+
+  describe("helper-parameter env reads", () => {
+    function write(file, content) {
+      fs.mkdirSync(path.dirname(path.join(tmpDir, file)), { recursive: true });
+      fs.writeFileSync(path.join(tmpDir, file), content);
+    }
+
+    test("collectHelperEnvVars sees env.NAME, env['NAME'] and constants indexed through env", async () => {
+      write(
+        "src/helper.ts",
+        [
+          'const DISABLED_KEY = "SDK_DISABLED";',
+          'const OTHER_ENV = "OTHER_FLAG";',
+          'const NOT_A_VAR = "lowercase value";',
+          'export function a(env) { return env.DOT_VAR && env["BRACKET_VAR"] && env[DISABLED_KEY]; }',
+          "export const b = (env, k) => env[k] ?? OTHER_ENV;",
+          "",
+        ].join("\n")
+      );
+      const { collectHelperEnvVars } = await import("../check-env-sync.js");
+      const vars = collectHelperEnvVars(tmpDir);
+      expect([...vars].sort()).toEqual(["BRACKET_VAR", "DOT_VAR", "OTHER_FLAG", "SDK_DISABLED"]);
+    });
+
+    test("collectHelperEnvVars ignores constants in files that never index an env", async () => {
+      write("src/plain.ts", 'const SOME_KEY = "NOT_ENV";\n');
+      const { collectHelperEnvVars } = await import("../check-env-sync.js");
+      expect(collectHelperEnvVars(tmpDir).size).toBe(0);
+    });
+
+    test("findEnvSyncFindings reports an undocumented helper read as unguarded, not missing", async () => {
+      write("svc/.env.example", "PRESENT=1\n");
+      write(
+        "svc/src/index.ts",
+        'const HELPER_KEY = "HELPER_VAR"; export const f = (env) => env[HELPER_KEY];\n'
+      );
+      const { findEnvSyncFindings } = await import("../check-env-sync.js");
+      const r = findEnvSyncFindings(tmpDir).find((x) => x.packageRelativePath === "svc");
+      expect(r.unguarded).toEqual(["HELPER_VAR"]);
+      expect(r.missing).toEqual([]);
+    });
+
+    test("collectHelperEnvVars skips Cloudflare Worker env bindings", async () => {
+      write("infrastructure/worker/router.js", "export const f = (env) => env.HEALTH_STATE;\n");
+      const { collectHelperEnvVars } = await import("../check-env-sync.js");
+      expect(collectHelperEnvVars(tmpDir).size).toBe(0);
+    });
+
+    test("a documented helper read is not unguarded", async () => {
+      write("svc/.env.example", "HELPER_VAR=1\n");
+      write("svc/src/index.ts", "export const f = (env) => env.HELPER_VAR;\n");
+      const { findEnvSyncFindings } = await import("../check-env-sync.js");
+      const r = findEnvSyncFindings(tmpDir).find((x) => x.packageRelativePath === "svc");
+      expect(r.unguarded).toEqual([]);
+    });
+  });
 });
