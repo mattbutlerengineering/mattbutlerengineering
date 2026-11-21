@@ -24,4 +24,14 @@ describe("PrivacyPage", () => {
     expect(text).toMatch(/request log/i);
     expect(text).toMatch(/Sentry/);
   });
+
+  // The browser SDK keeps its default session tracking (`integrations: []` in
+  // @mbe/sentry/react), so every page load reports a visit, not only failures.
+  it("says every visit reaches the error tracker, and does not claim no personal data is collected", () => {
+    render(<PrivacyPage />);
+    const text = (screen.getByRole("main").textContent ?? "").replace(/\s+/g, " ");
+    expect(text).toMatch(/each page you open tells our error tracker a visit started/i);
+    expect(text).not.toMatch(/do not collect personally identifiable information/i);
+    expect(text).toMatch(/Apart from the IP address an error report can carry/);
+  });
 });

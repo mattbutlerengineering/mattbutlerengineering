@@ -47,9 +47,11 @@ export function PrivacyPage() {
         >
           This site sets no analytics cookies. Our edge server keeps a cookie-free request log: the
           route, method, country, page path, response status and response time of each request. It
-          stores no cookie, IP address or other identifier. When a page fails, an error report goes
-          to our error tracker; it can include your browser, operating system and IP address. We do
-          not collect personally identifiable information unless you voluntarily provide it.
+          stores no cookie, IP address or other identifier. Separately, each page you open tells our
+          error tracker a visit started, so it can count how often pages fail. When a page does
+          fail, an error report goes to the same tracker; it can include your browser, operating
+          system and IP address. Apart from the IP address an error report can carry, we collect no
+          personal information unless you give it to us.
         </p>
       </section>
 
