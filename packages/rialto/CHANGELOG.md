@@ -1,5 +1,17 @@
 # @mattbutlerengineering/rialto
 
+## 1.1.0
+
+### Minor Changes
+
+- [#9363](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9363) [`4eeb66b`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/4eeb66b573d559a1ec1b45d4d4d02a0014cf8f17) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add `Champagne`, an ambient canvas backdrop of fine bubbles rising and wobbling through a glass of champagne, built on the shared ambient-canvas runtime. A few bubbles are gold; the pointer nudges nearby bubbles aside; reduced motion renders a static poster. The frame loop works over a fixed pool of typed arrays, so it allocates nothing per bubble.
+
+- [#9359](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9359) [`5466916`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/5466916f6eebccd768b913da0330432e89c72e02) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add `Contour`, an ambient canvas backdrop of topographic isolines (marching squares over an evolving value-noise field), like the terroir map on a wine list, built on the shared ambient-canvas runtime. One level is gold; the pointer raises a local hill; reduced motion renders a static poster.
+
+### Patch Changes
+
+- [#9361](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9361) [`1af797d`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/1af797dec84e94c426dec0849cd98ba014c3700f) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add `Ember`, an ambient canvas backdrop of candlelit sparks rising with flicker and fading with height, built on the shared ambient-canvas runtime. The hottest 5% of sparks are gold; the pointer acts as a draft that bends nearby sparks; reduced motion renders a static poster.
+
 ## 1.0.0
 
 ### Major Changes
