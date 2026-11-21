@@ -262,10 +262,12 @@ describe("LocalePicker", () => {
     const options = screen.getAllByRole("option");
     expect(options).toHaveLength(SUPPORTED_LOCALES.length);
     SUPPORTED_LOCALES.forEach((l, i) => {
-      expect(
-        within(options[i]!).getByText(l.endonym, { selector: "[lang]" }),
-        `option lang for ${l.tag}`
-      ).toHaveAttribute("lang", l.tag);
+      const label = within(options[i]!).getByText(l.endonym, { selector: "[lang]" });
+      expect(label, `option lang for ${l.tag}`).toHaveAttribute("lang", l.tag);
+      // A plain span: rialto Text would bring its own type scale (and a <p> by
+      // default), changing the Select's typography from the old string label.
+      expect(label.tagName, `option label element for ${l.tag}`).toBe("SPAN");
+      expect(label.className, `option label class for ${l.tag}`).toBe("");
     });
   });
 });

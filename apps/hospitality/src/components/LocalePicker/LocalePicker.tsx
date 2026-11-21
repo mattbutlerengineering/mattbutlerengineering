@@ -65,7 +65,8 @@ export function LocalePicker({
               value: l.tag,
               // Plain span, not rialto Text: the label must inherit the Select's
               // own typography exactly as the old string label did.
-              label: <Text lang={l.tag}>{l.endonym}</Text>,
+              // eslint-disable-next-line mbe-local/prefer-rialto-components -- Text adds its own type-scale class; and without the disable, `eslint --fix` rewrites this span to Text
+              label: <span lang={l.tag}>{l.endonym}</span>,
               textValue: l.endonym,
             }))}
             value={current}
