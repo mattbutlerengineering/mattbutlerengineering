@@ -98,8 +98,7 @@ export function CancelReservationDialog({
             <Text variant="body" color="secondary">
               <Trans
                 i18nKey="timeline.cancel.intro"
-                values={{ name: displayName }}
-                components={{ strong: <strong /> }}
+                components={{ guest: <strong>{displayName}</strong> }}
               />
             </Text>
           </div>

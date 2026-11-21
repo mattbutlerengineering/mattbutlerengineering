@@ -168,6 +168,19 @@ export function captureRequestError(
   (reply as unknown as Record<string, unknown>).__sentryErrorCaptured = true;
 }
 
+/**
+ * Reports an error the caller handled (logged and carried on) rather than
+ * returned as a 5xx, such as a detached background effect. Each context entry
+ * becomes a tag, so keep values low-cardinality. A no-op in effect when Sentry
+ * was never initialised (no SENTRY_DSN).
+ */
+export function captureHandledError(error: unknown, context: Record<string, string>): void {
+  Sentry.withScope((scope) => {
+    for (const [key, value] of Object.entries(context)) scope.setTag(key, value);
+    Sentry.captureException(error);
+  });
+}
+
 export const sentryFastifyPlugin = fp(
   async function sentryPlugin(fastify: FastifyInstance) {
     const config = resolveConfig(process.env.SENTRY_DSN);

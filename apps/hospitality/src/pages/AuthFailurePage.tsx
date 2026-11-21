@@ -5,6 +5,14 @@ import { Button, Handshake, Stack, Text } from "@mattbutlerengineering/rialto";
 import { describeAuthError } from "../lib/describe-auth-error.js";
 import styles from "./AuthFailurePage.module.css";
 
+/** The interactive sign-out navigators react-oidc-context names as an error `source`. */
+const SIGN_OUT_SOURCES: ReadonlySet<string> = new Set(["signoutRedirect", "signoutPopup"]);
+
+function isSignOutFailure(error: Error): boolean {
+  const source = (error as Error & { source?: unknown }).source;
+  return typeof source === "string" && SIGN_OUT_SOURCES.has(source);
+}
+
 /**
  * Renders a failed code exchange in place, on the same machined stage as
  * `LoginGate` / `SessionExpiredGate`, instead of today's plain text error
@@ -20,12 +28,25 @@ import styles from "./AuthFailurePage.module.css";
  * While the retry redirect is in flight (`activeNavigator === "signinRedirect"`)
  * the Handshake and status line switch to a negotiating variant; the title
  * and body stay put so nothing jumps.
+ *
+ * `App` routes every interactive auth error here, including a failed
+ * sign-out. react-oidc-context tags each error with the `source` navigator,
+ * so a sign-out failure gets sign-out copy and retries `signOut()` instead of
+ * telling the operator their sign-in failed.
  */
 export function AuthFailurePage({ error, lane }: { error: Error; lane: 0 | 1 }): JSX.Element {
   const { t } = useTranslation();
-  const { signIn, activeNavigator } = useAuth();
+  const { signIn, signOut, activeNavigator } = useAuth();
   const inFlight = activeNavigator === "signinRedirect";
-  const described = describeAuthError(error, t);
+  const signOutFailed = isSignOutFailure(error);
+  const described = signOutFailed
+    ? {
+        title: t("auth.failure.signOut.title"),
+        body: t("auth.failure.signOut.body"),
+        canRetry: true,
+      }
+    : describeAuthError(error, t);
+  const retry = signOutFailed ? () => signOut() : () => signIn();
   /** The parties to an OIDC sign-in, in the order the credential travels. */
   const stations = [
     t("auth.stations.browser"),
@@ -52,7 +73,11 @@ export function AuthFailurePage({ error, lane }: { error: Error; lane: 0 | 1 }):
           ) : (
             <Handshake
               className={styles.handshake}
-              aria-label={t("auth.failure.failedLabel")}
+              aria-label={
+                signOutFailed
+                  ? t("auth.failure.signOut.failedLabel")
+                  : t("auth.failure.failedLabel")
+              }
               stations={stations}
               state="failed"
               lane={lane}
@@ -79,11 +104,11 @@ export function AuthFailurePage({ error, lane }: { error: Error; lane: 0 | 1 }):
             <Button
               variant="primary"
               size="lg"
-              onClick={() => signIn()}
+              onClick={retry}
               isLoading={inFlight}
               loadingText={t("auth.login.busy")}
             >
-              {t("auth.failure.retry")}
+              {signOutFailed ? t("auth.failure.signOut.retry") : t("auth.failure.retry")}
             </Button>
           )}
 

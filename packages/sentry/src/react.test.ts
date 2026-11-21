@@ -25,7 +25,7 @@ vi.mock("@sentry/react", () => ({
   addBreadcrumb: mockAddBreadcrumb,
 }));
 
-import { initSentry, handleErrorBoundary, reportApiError } from "./react.js";
+import { initSentry, handleErrorBoundary, reportApiError, reportHandledError } from "./react.js";
 
 describe("initSentry (react)", () => {
   const savedEnv: Record<string, string | undefined> = {};
@@ -106,6 +106,26 @@ describe("initSentry (react)", () => {
   it("passes empty integrations array", () => {
     initSentry({ appName: "my-app", dsn: "https://key@sentry.io/456" });
     expect(mockSentryInit.mock.calls[0]?.[0].integrations).toEqual([]);
+  });
+
+  it("redacts credentials from events before they leave the browser", () => {
+    initSentry({ appName: "my-app", dsn: "https://key@sentry.io/456" });
+
+    const beforeSend = mockSentryInit.mock.calls[0]?.[0]?.beforeSend;
+    expect(beforeSend).toBeTypeOf("function");
+
+    const event = {
+      request: {
+        url: "https://hospitality.example.com/reservations?venueId=v_123",
+        headers: { authorization: "Bearer abc.def.ghi", "x-request-id": "req_1" },
+      },
+    };
+
+    const sent = beforeSend(event) as typeof event;
+
+    expect(sent.request.headers.authorization).toBe("[redacted]");
+    expect(sent.request.headers["x-request-id"]).toBe("req_1");
+    expect(sent.request.url).toBe("https://hospitality.example.com/reservations?venueId=v_123");
   });
 
   it("calls Sentry.setTag with app name after init", () => {
@@ -388,5 +408,22 @@ describe("reportApiError", () => {
         issues: error.error.issues,
       });
     });
+  });
+});
+
+describe("reportHandledError", () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("captures the error tagged with the feature that degraded", () => {
+    const fakeScope = { setTag: vi.fn() };
+    mockWithScope.mockImplementation((fn: (scope: typeof fakeScope) => void) => fn(fakeScope));
+    const error = new TypeError("Failed to fetch");
+
+    reportHandledError(error, "venue-policy");
+
+    expect(fakeScope.setTag).toHaveBeenCalledWith("degraded", "venue-policy");
+    expect(mockCaptureException).toHaveBeenCalledWith(error);
   });
 });

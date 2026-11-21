@@ -21,9 +21,9 @@ const PROVISIONED_WORKFLOW_SNIPPET = `
           MANAGE_TOKEN_SECRET: \${{ secrets.MANAGE_TOKEN_SECRET }}
         run: |
           if [ -n "\${MANAGE_TOKEN_SECRET}" ]; then
-            yq -i "(.services[] | select(.name == \\"reservations-api\\").envs) |=
-              (map(select(.key != \\"MANAGE_TOKEN_SECRET\\")) +
-              [{\\"key\\":\\"MANAGE_TOKEN_SECRET\\",\\"value\\":\\"\${MANAGE_TOKEN_SECRET}\\",\\"type\\":\\"SECRET\\"}])" /tmp/spec.yaml
+            yq -i '(.services[] | select(.name == "reservations-api").envs) |=
+              (map(select(.key != "MANAGE_TOKEN_SECRET")) +
+              [{"key":"MANAGE_TOKEN_SECRET","value":strenv(MANAGE_TOKEN_SECRET),"type":"SECRET"}])' /tmp/spec.yaml
           fi
 `;
 
@@ -185,6 +185,16 @@ describe("isSecretProvisioned", () => {
     expect(isSecretProvisioned("MANAGE_TOKEN_SECRET", unguarded, PROVISIONED_PULUMI_SNIPPET)).toBe(
       false
     );
+  });
+
+  it("returns false when the upsert shell-interpolates the value instead of using strenv()", () => {
+    const interpolated = PROVISIONED_WORKFLOW_SNIPPET.replace(
+      "strenv(MANAGE_TOKEN_SECRET)",
+      '"${MANAGE_TOKEN_SECRET}"'
+    );
+    expect(
+      isSecretProvisioned("MANAGE_TOKEN_SECRET", interpolated, PROVISIONED_PULUMI_SNIPPET)
+    ).toBe(false);
   });
 });
 

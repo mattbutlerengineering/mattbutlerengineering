@@ -9,8 +9,8 @@ Design philosophy, token inventories (surface/text/border/semantic colors, spaci
 ### Colors
 
 - **Never hardcode colors.** Always use `var(--rialto-*)` tokens.
-- Gold accent: `--rialto-accent` — ONLY for focus rings, active/selected states, primary action fills
-- Never use gold for decorative purposes, backgrounds, or text color (except on gold-filled buttons)
+- Gold accent: `--rialto-accent` as a fill — ONLY for focus rings, active/selected states, primary action fills. As light it may also be used through `--rialto-accent-glow`, `--rialto-shadow-ambient` and `--rialto-shadow-luminous` ([ADR-033](../../docs/adr/ADR-033-expressive-motion-and-atmosphere-repo-wide.md))
+- Gradients, glow and atmosphere are allowed when built from rialto tokens; never gold as a flat background or text color (except on gold-filled buttons)
 - Never hardcode semantic colors — always use the tokens (replaces old `#c49a2a` pattern)
 
 ### Typography
@@ -52,7 +52,7 @@ Design philosophy, token inventories (surface/text/border/semantic colors, spaci
 
 ### When to animate
 
-Decide _whether_ before _which curve_. Policy (purpose test, frequency budget, productive vs expressive tier, restraint rules, signature moments) lives in [docs/motion.md](./docs/motion.md). Short form: no motion or an opacity-only fade on 100+/day paths, at most `--rialto-duration-fast` opacity/colour on hover, one expressive element per view, never scale from below 0.9.
+Decide _whether_ before _which curve_. Policy (purpose test, frequency budget, productive vs expressive tier, restraint rules, signature moments) lives in [docs/motion.md](./docs/motion.md). Short form: no motion or an opacity-only fade on 100+/day paths, at most `--rialto-duration-fast` opacity/colour on hover, never scale from below 0.9, animate only `transform` and `opacity`. Several expressive animations may run together, and ambient loops are allowed except beside a field someone is filling in; a loop over 5s needs a pause and pauses offscreen, nothing flashes over 3 times a second. CSS timing comes from the duration tokens only (`fast|standard|slow`, plus `scene` 0.6s, `cinematic` 1.2s, `ambient` 8s).
 
 ### When to use precision easing
 

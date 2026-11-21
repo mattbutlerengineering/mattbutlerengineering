@@ -2,7 +2,6 @@ import { EventEmitter } from "events";
 import type {
   Reservation,
   Table,
-  ReservationHold,
   FloorPlan,
   LapsingGuest,
   TableStatusDelta,
@@ -63,39 +62,12 @@ export class ReservationEventEmitter extends EventEmitter {
     });
   }
 
-  emitReservationUpdated(reservation: Reservation): void {
-    this.emitChange({
-      type: "reservation:updated",
-      venueId: reservation.venueId ?? "",
-      timestamp: new Date().toISOString(),
-      data: reservation,
-    });
-  }
-
   emitReservationCancelled(reservation: Reservation): void {
     this.emitChange({
       type: "reservation:cancelled",
       venueId: reservation.venueId ?? "",
       timestamp: new Date().toISOString(),
       data: reservation,
-    });
-  }
-
-  emitHoldCreated(hold: ReservationHold): void {
-    this.emitChange({
-      type: "hold:created",
-      venueId: hold.venueId,
-      timestamp: new Date().toISOString(),
-      data: hold,
-    });
-  }
-
-  emitHoldReleased(hold: ReservationHold): void {
-    this.emitChange({
-      type: "hold:released",
-      venueId: hold.venueId,
-      timestamp: new Date().toISOString(),
-      data: hold,
     });
   }
 

@@ -79,6 +79,7 @@ import type { Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { mockApi } from "./api-mocks.js";
+import { onLocalDay } from "./local-day.js";
 
 const FIXTURES_DIR = join(import.meta.dirname, "fixtures");
 const VENUE_ID = "ven_e2e_001";
@@ -104,17 +105,14 @@ function loadFixture<T>(name: string): T {
  * reconnect phase can prove *fresh* data rendered, not merely "not the
  * cache-fallback error state". */
 function todayReservationsBody(guestNameOverride?: string): string {
-  const today = new Date().toISOString().slice(0, 10);
   const fixture = loadFixture<{ data: ReservationRecord[]; pagination: unknown }>(
     "reservations-list"
   );
+  // The local day, like the app and `reservationsCacheKey()` below — a UTC slice is tomorrow after 16:00 Pacific.
   return JSON.stringify({
     ...fixture,
-    data: fixture.data.map((r) => ({
+    data: onLocalDay(fixture.data).map((r) => ({
       ...r,
-      date: today,
-      startTime: r.startTime.replace(/^\d{4}-\d{2}-\d{2}/, today),
-      endTime: r.endTime.replace(/^\d{4}-\d{2}-\d{2}/, today),
       ...(r.id === "res_e2e_001" && guestNameOverride ? { guestName: guestNameOverride } : {}),
     })),
   });

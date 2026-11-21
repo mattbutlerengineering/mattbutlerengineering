@@ -253,6 +253,8 @@ describe.skipIf(!DATABASE_URL)("closure notice refund promise (real Postgres)", 
 
       const payments = createInMemoryPayments();
       payments.respond("retrievePaymentIntent", (id) => ({ id, status: "succeeded" }));
+      // No closure refund exists at Stripe yet; the amounts below are the whole of its state.
+      payments.respond("findDepositRefund", () => null);
       payments.respond("getChargeAmounts", () => ({
         capturedCents: stripe!.capturedCents,
         refundedCents: stripe!.refundedCents,

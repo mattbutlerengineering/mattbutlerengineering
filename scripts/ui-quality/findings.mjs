@@ -30,7 +30,11 @@
  *         A seed (carrier `seed`) on a route this fire audited — due.json's
  *         rows that were captured and judged, as `ledger.mjs record` reads
  *         them — whose tell no finding names becomes a `close` action; a seed
- *         on any other route is never touched.
+ *         on any other route is never touched. An open record whose issue
+ *         --issue-states says is `closed` (and that no other action names)
+ *         becomes a `close` action, `state_reason: "issue_closed"`; a record
+ *         whose issue has no state stays open and is reported. The plan's
+ *         `issue_drift` counts both, for `ledger.mjs record`'s runs row.
  *   record  --executed <json> [--now <iso>] — the executed plan (every create
  *           given its issue number, optional `fix_pr: { key, pr }`, optional
  *           `escalated: [issue]` from p1-age.mjs --escalate) written

@@ -113,8 +113,12 @@ step on anything but a clean pass.
    Otherwise follow `.claude/implement-queue.md` § merge-command:
 
    ```bash
-   gh pr merge <N> --auto --squash --delete-branch
+   gh pr merge <N> --auto --squash --delete-branch --match-head-commit <headRefOid>
    ```
+
+   `<headRefOid>` is the literal SHA step 1 read, the head step 4 reviewed.
+   If GitHub refuses because the head moved, stop and report
+   `stopped at merge — head moved after review`; never drop the flag.
 
    Issue it as the whole Bash call, nothing else on the line: `Bash(gh pr *)` in
    `.claude/settings.json` approves the plain form before the auto-mode

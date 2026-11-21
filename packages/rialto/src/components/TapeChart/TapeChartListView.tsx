@@ -5,6 +5,7 @@ import type { TapeChartReservation, TapeChartRoom } from "./types";
 import type { TapeChartFormatters } from "./useTapeChartI18n";
 import type { ResolvedStrings } from "./defaultStrings";
 import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
+import { buildRowAriaLabel } from "./rowAriaLabel";
 
 export interface TapeChartListViewProps {
   reservations: TapeChartReservation[];
@@ -91,6 +92,7 @@ export function TapeChartListView(props: TapeChartListViewProps) {
     const status = strings.statusLabels[r.status] ?? r.status;
     const price =
       r.ratePerNight != null ? formatters.currency(r.ratePerNight * nights, r.currency) : null;
+    const title = r.guestName ?? r.blockedReason ?? status;
     return (
       <div
         key={r.id}
@@ -98,20 +100,21 @@ export function TapeChartListView(props: TapeChartListViewProps) {
         tabIndex={0}
         className={styles.listRow}
         data-selected={selectedReservationId === r.id ? "true" : undefined}
-        aria-label={`${r.guestName ?? messages.reservation}, ${room}, ${messages.dateSpan(formatters.dayLong(r.start), formatters.dayLong(r.end))}, ${strings.nightsLabel(nights)}, ${status}${price ? `, ${price}` : ""}`}
+        aria-label={buildRowAriaLabel(
+          [title, room, strings.nightsLabel(nights), r.source, status, price],
+          messages.dateSpan(formatters.dayLong(r.start), formatters.dayLong(r.end))
+        )}
         aria-pressed={selectedReservationId === r.id}
         onClick={() => onReservationSelect(r)}
         onKeyDown={(e) => onKey(e, r)}
       >
         <div className={styles.listRowGuest}>
-          <span className={styles.listRowGuestName}>
-            {r.guestName ?? r.blockedReason ?? status}
-          </span>
+          <span className={styles.listRowGuestName}>{title}</span>{" "}
           <span className={styles.listRowMeta}>
             {room} · {strings.nightsLabel(nights)}
             {r.source ? ` · ${r.source}` : ""}
           </span>
-        </div>
+        </div>{" "}
         <span />
         <span className={styles.listRowStatus}>
           {status}

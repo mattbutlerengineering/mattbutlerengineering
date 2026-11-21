@@ -70,7 +70,9 @@ export interface HoldSlim {
 // --- Pure rule functions ---
 
 export function estimateDuration(partySize: number, venueSettings?: VenueSettings | null): number {
-  const rules = venueSettings?.durationRules ?? DEFAULT_DURATION_RULES;
+  // An empty array is treated as unset: reduce() below needs at least one rule.
+  const configured = venueSettings?.durationRules;
+  const rules = configured && configured.length > 0 ? configured : DEFAULT_DURATION_RULES;
   const rule = rules.find((r) => partySize >= r.minPartySize && partySize <= r.maxPartySize);
 
   if (rule) return rule.durationMinutes;

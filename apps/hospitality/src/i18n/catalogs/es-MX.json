@@ -262,7 +262,13 @@
       "statusRetrying": "Iniciando una sesión nueva",
       "statusFailed": "El intercambio no se completó",
       "retry": "Intentar de nuevo",
-      "technicalDetails": "Detalles técnicos"
+      "technicalDetails": "Detalles técnicos",
+      "signOut": {
+        "failedLabel": "No se pudo completar tu cierre de sesión",
+        "title": "El cierre de sesión tuvo un problema",
+        "body": "No pudimos conectar con Identidad para terminar de cerrar tu sesión. Inténtalo de nuevo para completarlo.",
+        "retry": "Intentar cerrar sesión de nuevo"
+      }
     },
     "error": {
       "accessDenied": {
@@ -345,7 +351,6 @@
     "searchPlaceholder": "Buscar páginas y acciones...",
     "openSidebar": "Abrir barra lateral",
     "closeSidebar": "Cerrar barra lateral",
-    "openPalette": "Abrir paleta de comandos",
     "search": "Buscar",
     "ctrlKey": "Ctrl",
     "errorHeading": "Algo salió mal",
@@ -369,7 +374,6 @@
       "tableCount_other": "{{count}} mesas",
       "updated": "Actualizado {{date}}",
       "clone": "Clonar",
-      "openAria": "Abrir plano de sala: {{name}}",
       "cloneAria": "Clonar plano de sala: {{name}}",
       "delete": "Eliminar",
       "deleteAria": "Eliminar plano de sala: {{name}}",
@@ -778,7 +782,8 @@
       "upcoming": "Próximas",
       "empty": "No hay reservaciones",
       "unassigned": "Sin asignar",
-      "cardLabel": "{{guest}}, grupo de {{size}}, {{time}}, mesa {{table}}",
+      "cardLabel": "{{guest}} {{time}} · {{guests}} · {{table}} {{status}}",
+      "tableContext": "mesa {{table}}",
       "seated": "Sentados"
     },
     "emptyNight": {
@@ -837,7 +842,7 @@
     },
     "cancel": {
       "title": "Cancelar reservación",
-      "intro": "Cancelando la reservación de <strong>{{name}}</strong>",
+      "intro": "Cancelando la reservación de <guest/>",
       "reasonLabel": "Motivo",
       "reasons": {
         "guestCancelled": "Canceló el invitado",
@@ -859,7 +864,7 @@
     },
     "noShowDialog": {
       "title": "Marcar inasistencia",
-      "body": "Marcar a <strong>{{name}}</strong> como inasistencia no se puede deshacer. Si hay un depósito registrado, se aplica la política de cargos por inasistencia del local: puede cobrarse una parte o la totalidad, o reembolsarse si no corresponde ningún cargo.",
+      "body": "Marcar a <guest/> como inasistencia no se puede deshacer. Si hay un depósito registrado, se aplica la política de cargos por inasistencia del local: puede cobrarse una parte o la totalidad, o reembolsarse si no corresponde ningún cargo.",
       "failed": "No se marcó la reservación como inasistencia.",
       "keep": "Conservar reservación",
       "confirm": "Marcar inasistencia",
@@ -2326,7 +2331,7 @@
         "subjectDated": "{{name}} ({{span}})",
         "subjectRule": "«{{label}}» el {{date}}",
         "editNamed": "Editar {{name}}",
-        "changeFor": "Cambiar el horario del {{date}}",
+        "changeFor": "Editar el horario del {{date}}",
         "removeFor": "Quitar {{subject}}",
         "removeTitle": "¿Quitar {{subject}}?",
         "removeDescriptionDated": "{{name}} deja de aplicarse en todas las fechas de este periodo, no solo en esta. Esas fechas vuelven a su semana habitual o a otro horario que las cubra. El horario sigue en la pestaña Horarios. Esto nunca cancela reservaciones.",

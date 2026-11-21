@@ -135,3 +135,16 @@ describe("validateStartupConfig — SENTRY_DSN", () => {
     expect(() => validateStartupConfig({})).not.toThrow();
   });
 });
+
+describe("validateStartupConfig with several problems", () => {
+  it("reports every failure in one error, not just the first", () => {
+    let message = "";
+    try {
+      validateStartupConfig({ NODE_ENV: "production", AUTH_AUTHORITY: "dev-tenant.us.auth0.com" });
+    } catch (err) {
+      message = (err as Error).message;
+    }
+    expect(message).toMatch(/SENTRY_DSN/);
+    expect(message).toMatch(/AUTH_AUTHORITY/);
+  });
+});

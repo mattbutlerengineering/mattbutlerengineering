@@ -649,6 +649,19 @@ describe("AvailabilityCalendar quiet month cells and legend (PRD 8)", () => {
     };
     const offline = { online: false, phone: true, waitlist: true };
 
+    it("week view names a holiday cell with the holiday right after its date", () => {
+      const { container } = renderCalendar({
+        anchor: "2026-11-26",
+        today: "2026-11-20",
+        days: [day("2026-11-26", { label: "Regular week", scheduleId: "reg" })],
+      });
+      const cell = container.querySelector('button[data-date="2026-11-26"]');
+      // Visible text reads "26 Thanksgiving Regular week …"; the name must carry
+      // "26 Thanksgiving" together, before the details, not with the holiday at the end.
+      expect(cell?.textContent).toMatch(/^26 Thanksgiving Regular week/);
+      expect(cell).toHaveAccessibleName(/^Thursday, November 26 Thanksgiving: Regular week/);
+    });
+
     it("takes no booking chip on a regular-closed day: the muted Closed text alone", async () => {
       const { container } = month({
         anchor: "2026-11-15",

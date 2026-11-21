@@ -32,6 +32,7 @@ const idleLookup: UseGuestLookupResult = {
   isLoading: false,
   failed: false,
   query: "",
+  stale: false,
 };
 
 // Mock scrollIntoView for JSDOM (rialto Select uses it)
