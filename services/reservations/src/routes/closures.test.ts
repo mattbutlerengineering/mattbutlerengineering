@@ -215,6 +215,31 @@ describe("closure routes", () => {
       expect(commandSvc.create).not.toHaveBeenCalled();
     });
 
+    it("409s with the current version and every change since the draft", async () => {
+      const change = {
+        id: "chg-9",
+        actorId: "auth0|ana",
+        at: "2026-11-01T12:00:00.000Z",
+        kind: "closure",
+        summary: "Closure extended",
+      };
+      commandSvc.create.mockResolvedValueOnce({
+        kind: "version_conflict",
+        winningChange: change,
+        currentVersion: 7,
+        changesSince: { total: 1, changes: [change] },
+      });
+
+      const res = await post();
+
+      expect(res.statusCode).toBe(409);
+      expect(res.json()).toMatchObject({
+        code: "version-conflict",
+        currentVersion: 7,
+        changesSince: { total: 1, changes: [change] },
+      });
+    });
+
     it.each([
       [{ kind: "forbidden" }, 403, undefined],
       [{ kind: "not_found" }, 404, undefined],

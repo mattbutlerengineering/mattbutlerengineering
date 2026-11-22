@@ -11,6 +11,7 @@ import type {
   ClosureAction,
   ClosureImpact,
   ClosureResult,
+  ConflictChangesSince,
   ClosuresResult,
   CreateClosureBody,
   CreateClosuresBody,
@@ -153,7 +154,12 @@ export type CreateClosureOutcome =
   | { kind: "not_found" }
   | { kind: "forbidden" }
   | { kind: "too_long" }
-  | { kind: "version_conflict"; winningChange: AvailabilityChangeSummary | null }
+  | {
+      kind: "version_conflict";
+      winningChange: AvailabilityChangeSummary | null;
+      currentVersion?: number;
+      changesSince?: ConflictChangesSince;
+    }
   | { kind: "key_reused" }
   | { kind: "closure_exists" }
   | { kind: "invalid"; issues: RefusalIssue[] }

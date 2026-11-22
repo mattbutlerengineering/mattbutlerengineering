@@ -72,6 +72,10 @@ export function sendRefusal(reply: FastifyReply, outcome: Refusal) {
         problem(409, "Availability changed since you loaded it.", {
           code: "version-conflict",
           winningChange: outcome.winningChange,
+          ...(outcome.currentVersion !== undefined
+            ? { currentVersion: outcome.currentVersion }
+            : {}),
+          ...(outcome.changesSince ? { changesSince: outcome.changesSince } : {}),
         })
       );
     case "closure_exists":
