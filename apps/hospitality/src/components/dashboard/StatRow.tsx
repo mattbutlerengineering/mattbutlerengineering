@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { Meter, Odometer, Text } from "@mattbutlerengineering/rialto";
+import { Meter, Text } from "@mattbutlerengineering/rialto";
 import type { DashboardStats } from "../../hooks/useDashboardStatsQuery.js";
 import styles from "./StatRow.module.css";
 
@@ -15,8 +15,8 @@ interface CountMetric {
 }
 
 /* Cancellation rate is a percentage — a bounded 0-100 metric, so it reads on a
-   Meter bar rather than a rolling counter. Counts have no ceiling and
-   roll on Odometers. */
+   Meter bar rather than a plain figure. Counts have no ceiling and
+   read as numbers. */
 const CANCELLATION_MIN = 0;
 const CANCELLATION_MAX = 100;
 
@@ -24,9 +24,8 @@ const CANCELLATION_MAX = 100;
 
 /**
  * The dashboard instrument row: unbounded counts (reservations, covers,
- * upcoming) roll on {@link Odometer}s, while the bounded cancellation-rate
- * percentage reads on a {@link Meter} bar. Both instruments expose their
- * value as accessible text and honour `prefers-reduced-motion` internally.
+ * upcoming) read as plain figures, while the bounded cancellation-rate
+ * percentage reads on a {@link Meter} bar.
  */
 export function StatRow({ stats }: StatRowProps) {
   const { t } = useTranslation();
@@ -41,8 +40,10 @@ export function StatRow({ stats }: StatRowProps) {
   return (
     <div className={styles.statsRow}>
       {counts.map((metric) => (
-        <div key={metric.label} className={styles.tile}>
-          <Odometer className={styles.odometer} value={metric.value} aria-label={metric.label} />
+        <div key={metric.label} role="group" aria-label={metric.label} className={styles.tile}>
+          <Text variant="display" className={styles.figure}>
+            {metric.value}
+          </Text>
           <Text className={styles.label}>{metric.label}</Text>
         </div>
       ))}

@@ -165,7 +165,6 @@ const RAW_PAGE_ENTRIES: RawPageEntry[] = [
   { id: "flip-dot", label: "Flip Dot", category: "Data Display" },
   { id: "split-flap", label: "Split Flap", category: "Data Display" },
   { id: "departure-board", label: "Departure Board", category: "Data Display" },
-  { id: "odometer", label: "Odometer", category: "Data Display" },
   { id: "chalkboard", label: "Chalkboard", category: "Data Display" },
   { id: "letterboard", label: "Letterboard", category: "Data Display" },
   { id: "silk-flow", label: "Silk Flow", category: "Data Display" },

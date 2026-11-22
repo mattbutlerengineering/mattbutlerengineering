@@ -12,18 +12,18 @@ test.describe("CF-2: Dashboard morning load", () => {
   test("stats widgets render with mocked data", async ({ mockedPage }) => {
     await mockedPage.goto("dashboard");
 
-    // Dashboard stat row was redesigned in #3212: the three count tiles roll
-    // on rialto Odometers — StatRow puts aria-label={label} on the Odometer
-    // wrapper, and the value announces through its sole accessible surface,
-    // an inner role="status" live region. Bind each value to its label
-    // through the wrapper so strict mode never collides on equal values.
-    await expect(mockedPage.getByLabel("Today's Reservations").getByRole("status")).toHaveText("3");
-    await expect(mockedPage.getByLabel("Expected Covers").getByRole("status")).toHaveText("12");
+    // Each count tile is a named group (StatRow sets role="group" with the
+    // label as its name), so each value binds to its label and strict mode
+    // never collides on equal values.
+    await expect(mockedPage.getByRole("group", { name: "Today's Reservations" })).toContainText(
+      "3"
+    );
+    await expect(mockedPage.getByRole("group", { name: "Expected Covers" })).toContainText("12");
     // The 2-hour-window count depends on the wall clock (mocks re-date the
     // fixture reservations to *today*, so how many fall inside the window
     // varies with run time — run 29116937129 saw 1 where 29116315283 saw 2).
     // Assert a numeric render, not an exact value.
-    await expect(mockedPage.getByLabel("Upcoming (2 hrs)").getByRole("status")).toHaveText(/^\d+$/);
+    await expect(mockedPage.getByRole("group", { name: "Upcoming (2 hrs)" })).toContainText(/\d+/);
     // The bounded cancellation-rate percentage reads on a named Meter.
     await expect(mockedPage.getByRole("meter", { name: "Cancellation Rate" })).toBeVisible();
     await mockedPage.screenshot({ path: "e2e/screenshots/dashboard-stats.png", fullPage: true });

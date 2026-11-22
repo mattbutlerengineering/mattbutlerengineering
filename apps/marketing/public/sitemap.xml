@@ -233,10 +233,6 @@
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://mattbutlerengineering.com/rialto/components/odometer</loc>
-    <priority>0.6</priority>
-  </url>
-  <url>
     <loc>https://mattbutlerengineering.com/rialto/components/page-header</loc>
     <priority>0.6</priority>
   </url>

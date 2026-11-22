@@ -133,17 +133,6 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       data-value={value === null ? "null" : String(value)}
     />
   ),
-  Odometer: ({
-    value,
-    "aria-label": ariaLabel,
-  }: {
-    value?: number | string;
-    "aria-label"?: string;
-  }) => (
-    <span data-testid="odometer" aria-label={ariaLabel}>
-      {String(value)}
-    </span>
-  ),
   StatusLED: ({ variant, pulse, label }: { variant?: string; pulse?: boolean; label?: string }) => (
     <span data-testid={`status-led-${variant}`} data-pulse={String(Boolean(pulse))}>
       {label}
@@ -626,10 +615,9 @@ describe("ProfilePage", () => {
       renderPage();
 
       await waitFor(() => {
-        expect(screen.getAllByTestId("odometer").length).toBe(2);
+        expect(screen.getByRole("timer")).toBeDefined();
       });
-      const [minutes] = screen.getAllByTestId("odometer");
-      expect(minutes?.textContent).toBe("10");
+      expect(screen.getByRole("timer").textContent).toMatch(/^10:\d{2}$/);
 
       const led = screen.getByTestId("status-led-success");
       expect(led.getAttribute("data-pulse")).toBe("true");
@@ -663,8 +651,7 @@ describe("ProfilePage", () => {
       });
       expect(screen.getByTestId("status-led-danger").getAttribute("data-pulse")).toBe("false");
 
-      const odometers = screen.getAllByTestId("odometer");
-      expect(odometers.map((o) => o.textContent)).toEqual(["0", "0"]);
+      expect(screen.getByRole("timer").textContent).toBe("00:00");
     });
 
     it("renders an indeterminate meter when the issue-time claim is missing", async () => {
@@ -686,7 +673,7 @@ describe("ProfilePage", () => {
       await waitFor(() => {
         expect(screen.getByText("No active session token to read.")).toBeDefined();
       });
-      expect(screen.queryAllByTestId("odometer")).toHaveLength(0);
+      expect(screen.queryByRole("timer")).toBeNull();
       expect(screen.queryAllByTestId("meter")).toHaveLength(0);
       expect(container.textContent).not.toContain("NaN");
     });

@@ -78,7 +78,6 @@ import { Navbar } from "../../components/Navbar/Navbar";
 import { NavigationMenu } from "../../components/NavigationMenu/NavigationMenu";
 import { NeonSign } from "../../components/NeonSign/NeonSign";
 import { NumberInput } from "../../components/NumberInput/NumberInput";
-import { Odometer } from "../../components/Odometer/Odometer";
 import { PageHeader } from "../../components/PageHeader/PageHeader";
 import { Pagination } from "../../components/Pagination/Pagination";
 import { PinInput } from "../../components/PinInput/PinInput";
@@ -185,7 +184,6 @@ export type BarrelExportName =
   | "NavigationMenu"
   | "NeonSign"
   | "NumberInput"
-  | "Odometer"
   | "PageHeader"
   | "Pagination"
   | "PinInput"
@@ -681,10 +679,6 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
 
   NumberInput: {
     element: <NumberInput label="Quantity" value={1} onChange={noop} min={1} max={10} />,
-  },
-
-  Odometer: {
-    element: <Odometer value={1234} locale="en-US" />,
   },
 
   PageHeader: {
