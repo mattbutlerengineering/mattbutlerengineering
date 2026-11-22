@@ -350,6 +350,10 @@
       "types": "./dist/lib/components/StatusLED/index.d.ts",
       "import": "./dist/lib/components/StatusLED/index.js"
     },
+    "./Steam": {
+      "types": "./dist/lib/components/Steam/index.d.ts",
+      "import": "./dist/lib/components/Steam/index.js"
+    },
     "./Steps": {
       "types": "./dist/lib/components/Steps/index.d.ts",
       "import": "./dist/lib/components/Steps/index.js"
