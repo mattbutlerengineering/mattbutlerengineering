@@ -1,43 +1,3 @@
-## 2026-11-05 — mbe-evening (progress-tracker)
-
-### Metrics (7d; `audit`+`ci-fix` labels, REST `since=` as an updated-at proxy — a floor estimate, not exact `created_at` filtering)
-
-| Metric                 | Value                                                                                                                  | Status                       |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
-| Created (7d)           | 27 (8 audit + 19 ci-fix)                                                                                               | -                            |
-| Closed (7d)            | 26 (8 audit + 18 ci-fix)                                                                                               | -                            |
-| Closure Rate           | 26/27 ≈ 96.3%                                                                                                          | 🟢 Green (>80%)              |
-| Time-to-Close          | mean 72.0h                                                                                                             | 🔴 Red (>72h) — but see note |
-| Agent Success          | has-pr/(has-pr+failed) = 2/3 ≈ 66.7%                                                                                   | 🟡 Yellow (40-70%)           |
-| CI Pass                | 8/8 non-skipped runs on main (last 20) = 100%                                                                          | 🟢 Green (>95%)              |
-| Queue (ready)          | 6                                                                                                                      | 🟡 Yellow (5-10)             |
-| Stale (ready>7d)       | 0                                                                                                                      | 🟢 Green                     |
-| Blocked (agent-failed) | 1 (#8199)                                                                                                              | — not 0, see Patterns        |
-| Skipped (agent-skip)   | 1 (#8202)                                                                                                              | — not 0, see Patterns        |
-| Daily Spend            | unknown — 0 attributed `recordSpend` sessions today                                                                    | n/a (never report as $0)     |
-| 7d Spend               | unknown — 0 attributed `recordSpend` sessions this window; 8 queue-worker sessions, 1,214,488 tokens, cost unconverted | n/a                          |
-| Cost/Issue             | unknown (same cause)                                                                                                   | n/a                          |
-
-**Time-to-close note:** the 72.0h mean is a single outlier (#4670, closed after 1517h ≈ 63 days — a very old stale issue finally closed this window) dragging up an otherwise-healthy distribution; the median of the same 26 closures is ≈17h and 24/26 closed under 40h. Read the mean as misleading here, not as a real slowdown.
-
-### Patterns
-
-- **Dependency-chain stall on the `shipped-features-freshness` decompose chain:** #8203 ("[Feature] shipped-features-freshness [2/3]") carries `ready` but its body names `Depends on: #8202`, and #8202 ("...[1/3]: diagnose...") is labelled `agent-skip`, not closed — so #8203 can never become claimable through the normal dependency check (which only looks for the dependency being _closed_, not _abandoned_). This run correctly dropped #8203 from the claimable batch per Phase 1's dependency rule, but the chain itself is stuck: #8202 was skipped (2 agent attempts exhausted) rather than resolved, so #8203 sits in `ready` indefinitely with no path forward except a human re-diagnosing #8202 or closing the chain. Single observation this run — flagging for a human look rather than filing a `[Meta]` issue, since 3+ day consistency hasn't been confirmed from this session alone.
-- **Queue composition is bug/audit-heavy, not feature-heavy:** of the 6 `ready` issues, 2 are Sentry-sourced hospitality 500/502 bugs (#8282, #8281 — siblings of this run's #8280, same `apps/hospitality` zone, deferred this batch by the zone-spread selector since main is `strict`), 1 is the blocked #8203 above, and 3 are `needs-human`-labelled rialto-web a11y features awaiting a human judgment call on vague/subjective acceptance criteria — none of the three a11y issues were ever claimable by this skill.
-- **CI is fully green** on main (8/8 non-skipped runs in the sample), consistent with the green-main policy holding.
-- **Agent Success at 66.7% (Yellow)** is a single-run snapshot (2 open `has-pr` / 1 open `agent-failed`) and shouldn't be read as a trend without more data points; this run's own batch (3/3 issues produced a PR, 0 failures) was 100%.
-
-### Recommendations
-
-- A human should decide #8202/#8203's fate: either re-attempt the diagnosis (perhaps with a different model tier or more context) or close both and let `/decompose` re-propose `shipped-features-freshness` cleanly, so `ready` doesn't carry a permanently-stuck issue.
-- No threshold or automation changes recommended this run — all signals are within normal range or explained by a known outlier/sampling artifact.
-
-### Skipped Issues
-
-1 skipped after max retries:
-
-- #8202 [Feature] shipped-features-freshness [1/3]: diagnose why the live collector reports zero features
-
 ## 2026-11-05
 
 **queueEfficiency:** composite 0.843 (baseline n/a) — healthy
@@ -1186,3 +1146,12 @@ A clean fire: everything due was captured and judged, and nothing met the bar to
 **AI issue feedback:** budgets refreshed — ci-fix 16% rejected, audit 17%, sentry 0%, acmm 33%, meta-improvement 0%, agent-failed 100% (n=1), feature 4%, dependencies 0%; all budgets stayed at default 3 (agent-failed at 1), no category crossed the >40% halving line
 **Skill proposals:** 0 (not Friday — skipped Step 4 session-log analysis)
 **Threshold notes:** auto-tuner applied 1 adjustment (acmm 1.812 → 1.832, headroom). 30-day fix-effectiveness (non-skip verifications): 8/9 verified (~89%), well above the 50% floor. Overall false-positive rate across categories ~11%, below the 30% loosen-trigger — no threshold changes recommended this run.
+
+## 2026-11-22
+
+**queueEfficiency:** composite 0.959 (baseline n/a) — 1 regression(s) detected
+**Difficulty distribution:** size:xl:9, size:xs:26, size:l:5, size:s:46, size:m:10
+**Issues filed:** 0
+**Regressions:**
+
+- review_coverage_trend: 0.146 (was 0.367, Δ-0.221) [high] — duplicate of already-open #9308, no new issue filed; async eval not triggered (Step 5 only fires on a fresh filing)
