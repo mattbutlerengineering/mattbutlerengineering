@@ -170,6 +170,10 @@
       "types": "./dist/lib/components/DropdownMenu/index.d.ts",
       "import": "./dist/lib/components/DropdownMenu/index.js"
     },
+    "./DustMotes": {
+      "types": "./dist/lib/components/DustMotes/index.d.ts",
+      "import": "./dist/lib/components/DustMotes/index.js"
+    },
     "./Ember": {
       "types": "./dist/lib/components/Ember/index.d.ts",
       "import": "./dist/lib/components/Ember/index.js"
