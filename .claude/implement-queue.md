@@ -25,6 +25,11 @@ with this file as the profile. Local sessions run `/idea-to-prod:implement-queue
 covers `fix(security):` titles and Dependabot-sourced `ci-fix`. A red main is not
 a `ci-fix` tier question: `preflight` makes fixing it the whole iteration. Other
 `ci-fix` issues are monitor-filed chores and sort after features (#8741).
+Within Features, a hospitality guest- or venue-facing issue (label
+`area:hospitality`, `ux` or `accessibility`, or files under `apps/hospitality/**`)
+sorts before rialto, gen, marketing and metrics features, because hospitality
+exists so venues give guests exceptional experiences ([PRODUCT.md](../PRODUCT.md),
+"The decision filter").
 
 ## preflight
 
