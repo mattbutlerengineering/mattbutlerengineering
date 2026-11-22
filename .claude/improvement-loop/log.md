@@ -1147,6 +1147,15 @@ A clean fire: everything due was captured and judged, and nothing met the bar to
 **Skill proposals:** 0 (not Friday — skipped Step 4 session-log analysis)
 **Threshold notes:** auto-tuner applied 1 adjustment (acmm 1.812 → 1.832, headroom). 30-day fix-effectiveness (non-skip verifications): 8/9 verified (~89%), well above the 50% floor. Overall false-positive rate across categories ~11%, below the 30% loosen-trigger — no threshold changes recommended this run.
 
+## 2026-11-22
+
+**queueEfficiency:** composite 0.959 (baseline n/a) — 1 regression(s) detected
+**Difficulty distribution:** size:xl:9, size:xs:26, size:l:5, size:s:46, size:m:10
+**Issues filed:** 0
+**Regressions:**
+
+- review_coverage_trend: 0.146 (was 0.367, Δ-0.221) [high] — duplicate of already-open #9308, no new issue filed; async eval not triggered (Step 5 only fires on a fresh filing)
+
 ## 2026-11-22 — mbe-evening
 
 ### Metrics
