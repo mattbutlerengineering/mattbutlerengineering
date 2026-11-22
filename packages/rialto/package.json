@@ -186,6 +186,10 @@
       "types": "./dist/lib/components/ErrorBoundary/index.d.ts",
       "import": "./dist/lib/components/ErrorBoundary/index.js"
     },
+    "./Fireflies": {
+      "types": "./dist/lib/components/Fireflies/index.d.ts",
+      "import": "./dist/lib/components/Fireflies/index.js"
+    },
     "./FlipDot": {
       "types": "./dist/lib/components/FlipDot/index.d.ts",
       "import": "./dist/lib/components/FlipDot/index.js"
