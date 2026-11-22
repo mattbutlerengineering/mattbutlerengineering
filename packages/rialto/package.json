@@ -1,6 +1,6 @@
 {
   "name": "@mattbutlerengineering/rialto",
-  "version": "0.10.24",
+  "version": "2.0.0",
   "type": "module",
   "main": "./dist/lib/rialto.js",
   "module": "./dist/lib/rialto.js",
@@ -90,6 +90,10 @@
       "types": "./dist/lib/components/Chalkboard/index.d.ts",
       "import": "./dist/lib/components/Chalkboard/index.js"
     },
+    "./Champagne": {
+      "types": "./dist/lib/components/Champagne/index.d.ts",
+      "import": "./dist/lib/components/Champagne/index.js"
+    },
     "./ChatPanel": {
       "types": "./dist/lib/components/ChatPanel/index.d.ts",
       "import": "./dist/lib/components/ChatPanel/index.js"
@@ -117,6 +121,10 @@
     "./ContextMenu": {
       "types": "./dist/lib/components/ContextMenu/index.d.ts",
       "import": "./dist/lib/components/ContextMenu/index.js"
+    },
+    "./Contour": {
+      "types": "./dist/lib/components/Contour/index.d.ts",
+      "import": "./dist/lib/components/Contour/index.js"
     },
     "./DataList": {
       "types": "./dist/lib/components/DataList/index.d.ts",
@@ -162,6 +170,10 @@
       "types": "./dist/lib/components/DropdownMenu/index.d.ts",
       "import": "./dist/lib/components/DropdownMenu/index.js"
     },
+    "./Ember": {
+      "types": "./dist/lib/components/Ember/index.d.ts",
+      "import": "./dist/lib/components/Ember/index.js"
+    },
     "./EmptyState": {
       "types": "./dist/lib/components/EmptyState/index.d.ts",
       "import": "./dist/lib/components/EmptyState/index.js"
@@ -169,10 +181,6 @@
     "./ErrorBoundary": {
       "types": "./dist/lib/components/ErrorBoundary/index.d.ts",
       "import": "./dist/lib/components/ErrorBoundary/index.js"
-    },
-    "./Ferrofluid": {
-      "types": "./dist/lib/components/Ferrofluid/index.d.ts",
-      "import": "./dist/lib/components/Ferrofluid/index.js"
     },
     "./FlipDot": {
       "types": "./dist/lib/components/FlipDot/index.d.ts",
@@ -558,14 +566,6 @@
         "dist/lib/chunks/CommandPalette-*.js"
       ],
       "limit": "2.95 kB"
-    },
-    {
-      "name": "Ferrofluid (subpath)",
-      "path": [
-        "dist/lib/components/Ferrofluid/index.js",
-        "dist/lib/chunks/Ferrofluid-*.js"
-      ],
-      "limit": "1150 B"
     },
     {
       "name": "FlipDot (subpath)",

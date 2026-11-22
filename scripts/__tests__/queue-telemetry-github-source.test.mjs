@@ -30,6 +30,37 @@ describe("parseReviewerVerdict", () => {
     expect(parseReviewerVerdict([FLAG, "noise", PASS_6669])).toBe("pass");
     expect(parseReviewerVerdict([PASS_6669, FLAG])).toBe("flag");
   });
+
+  // #9308: the formats the pipeline really posts. Bodies captured verbatim from
+  // merged PRs #8917 (verdict hook, pass), #8861 (verdict hook, flag) and #9162
+  // (reviewed-merge.yml). Nothing has posted the "Review gate" form since #6670.
+  const HOOK_PASS_8917 =
+    "reviewer-verdict: pass (score 8, threshold 7)\n\nImplement-queue gate for #8915: CI Gate green, no hold labels, no gate-path files (6 files, count matches `changed_files`), no specialist matched (`fast-path-decision.mjs`: full review).";
+  const HOOK_FLAG_8861 =
+    "reviewer-verdict: flag (score 5) at 53629c434, single issue resolved in 2fb4316eb\n\nThe one issue: `scripts/__tests__/ui-quality-routes.test.mjs:111` pinned `book/:venueSlug` source_files to two entries.";
+  const REVIEWED_MERGE_9162 =
+    "reviewed-merge: 2e463385ce2131ddc28415cc7137214b7231a1f9 PASS 9/10\n\nReviewer verdict: memoization correct (GuestRow/MobileGuestCard memo'd, boolean isSelected, stable handler; GuestsPage passes stable setState).";
+
+  it("parses the verdict hook's `reviewer-verdict:` line (#9308)", () => {
+    expect(parseReviewerVerdict([HOOK_PASS_8917])).toBe("pass");
+    expect(parseReviewerVerdict([HOOK_FLAG_8861])).toBe("flag");
+  });
+  it("parses a scored `reviewed-merge:` verdict as pass (#9308)", () => {
+    expect(parseReviewerVerdict([REVIEWED_MERGE_9162])).toBe("pass");
+  });
+  it("does not count a fast-path merge, a hook error or a quoted format as a review (#9308)", () => {
+    expect(
+      parseReviewerVerdict([
+        "reviewed-merge: 2e463385ce2131ddc28415cc7137214b7231a1f9 PASS fast-path",
+        "reviewer-verdict: error (wrong argument count)",
+        "Post the line `reviewer-verdict: pass (score 8, threshold 7)` before merging.",
+      ])
+    ).toBeNull();
+  });
+  it("last verdict wins across formats (#9308)", () => {
+    expect(parseReviewerVerdict([HOOK_FLAG_8861, REVIEWED_MERGE_9162])).toBe("pass");
+    expect(parseReviewerVerdict([HOOK_PASS_8917, FLAG])).toBe("flag");
+  });
 });
 
 describe("ciGateFirstPass", () => {

@@ -40,6 +40,8 @@ import { Combobox } from "../../components/Combobox/Combobox";
 import { CommandPalette } from "../../components/CommandPalette/CommandPalette";
 import { ConfirmDialog } from "../../components/ConfirmDialog/ConfirmDialog";
 import { ContextMenu } from "../../components/ContextMenu/ContextMenu";
+import { Champagne } from "../../components/Champagne/Champagne";
+import { Contour } from "../../components/Contour/Contour";
 import { DataList } from "../../components/DataList/DataList";
 import { DataTable } from "../../components/DataTable/DataTable";
 import { DatePicker } from "../../components/DatePicker/DatePicker";
@@ -51,9 +53,9 @@ import { DisabledTooltip } from "../../components/DisabledTooltip/DisabledToolti
 import { Divider } from "../../components/Divider/Divider";
 import { Drawer } from "../../components/Drawer/Drawer";
 import { DropdownMenu } from "../../components/DropdownMenu/DropdownMenu";
+import { Ember } from "../../components/Ember/Ember";
 import { EmptyState } from "../../components/EmptyState/EmptyState";
 import { ErrorBoundary } from "../../components/ErrorBoundary/ErrorBoundary";
-import { Ferrofluid } from "../../components/Ferrofluid/Ferrofluid";
 import { FlipDot } from "../../components/FlipDot/FlipDot";
 import { Footer } from "../../components/Footer/Footer";
 import { Form } from "../../components/Form/Form";
@@ -145,6 +147,8 @@ export type BarrelExportName =
   | "CommandPalette"
   | "ConfirmDialog"
   | "ContextMenu"
+  | "Champagne"
+  | "Contour"
   | "DataList"
   | "DataTable"
   | "DatePicker"
@@ -156,9 +160,9 @@ export type BarrelExportName =
   | "Divider"
   | "Drawer"
   | "DropdownMenu"
+  | "Ember"
   | "EmptyState"
   | "ErrorBoundary"
-  | "Ferrofluid"
   | "FlipDot"
   | "Footer"
   | "Form"
@@ -477,16 +481,16 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
     ),
   },
 
+  Ember: {
+    element: <Ember />,
+  },
+
   EmptyState: {
     element: <EmptyState heading="No results" />,
   },
 
   ErrorBoundary: {
     element: <ErrorBoundary>Child content</ErrorBoundary>,
-  },
-
-  Ferrofluid: {
-    element: <Ferrofluid blobCount={3} />,
   },
 
   FlipDot: {
@@ -544,6 +548,14 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
         ]}
       />
     ),
+  },
+
+  Contour: {
+    element: <Contour />,
+  },
+
+  Champagne: {
+    element: <Champagne />,
   },
 
   Handshake: {

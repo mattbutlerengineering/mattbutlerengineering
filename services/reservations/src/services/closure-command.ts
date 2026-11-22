@@ -1,5 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { projectLegacyOperatingHours, stillClosedAfterReopen } from "@mbe/availability";
+import {
+  currentServiceDate,
+  projectLegacyOperatingHours,
+  stillClosedAfterReopen,
+} from "@mbe/availability";
 import type {
   AvailabilityChangeOutcome,
   AvailabilityChangeSummary,
@@ -7,6 +11,7 @@ import type {
   ClosureAction,
   ClosureImpact,
   ClosureResult,
+  ConflictChangesSince,
   ClosuresResult,
   CreateClosureBody,
   CreateClosuresBody,
@@ -41,7 +46,6 @@ import { applyTransitions } from "./closure-apply.js";
 import {
   checkDecisions,
   countActions,
-  currentServiceDate,
   isHostEmergencyClose,
   isEmergencyTonightClose,
   moveTarget,
@@ -150,7 +154,12 @@ export type CreateClosureOutcome =
   | { kind: "not_found" }
   | { kind: "forbidden" }
   | { kind: "too_long" }
-  | { kind: "version_conflict"; winningChange: AvailabilityChangeSummary | null }
+  | {
+      kind: "version_conflict";
+      winningChange: AvailabilityChangeSummary | null;
+      currentVersion?: number;
+      changesSince?: ConflictChangesSince;
+    }
   | { kind: "key_reused" }
   | { kind: "closure_exists" }
   | { kind: "invalid"; issues: RefusalIssue[] }

@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import {
   MINUTES_PER_DAY,
+  currentServiceDate,
   projectLegacyOperatingHours,
   resolveDay,
   serviceDayInstant,
@@ -43,7 +44,6 @@ import {
   type ClosurePostCommit,
   type CreateClosureOutcome,
 } from "./closure-command.js";
-import { currentServiceDate } from "./closure-command-plan.js";
 import { prisma } from "./database.js";
 import { loadSectionIndex } from "./section-index.js";
 

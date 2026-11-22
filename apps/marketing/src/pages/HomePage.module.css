@@ -108,6 +108,12 @@
   color: var(--rialto-text-primary);
 }
 
+/* Until the strip is revealed the real figure holds its place unseen: the
+   layout is reserved, and no stand-in number is ever painted (#9358). */
+.metricValue[data-pending="true"] {
+  visibility: hidden;
+}
+
 .contactLink {
   color: var(--rialto-text-secondary);
   text-decoration: none;

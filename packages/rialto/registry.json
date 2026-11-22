@@ -1,5 +1,5 @@
 {
-  "version": "0.10.24",
+  "version": "2.0.0",
   "components": [
     {
       "name": "Accordion",
@@ -747,6 +747,20 @@
       ]
     },
     {
+      "name": "Champagne",
+      "description": "An ambient canvas backdrop: fine bubbles rising through a glass of\nchampagne, each wobbling a little as it climbs. Bigger bubbles rise faster\nand a few are stroked in the gold accent; the rest are faint text-primary.\nThe pointer nudges nearby bubbles aside as it passes.\n\nPurely decorative — always `aria-hidden` and never interactive. Colors come\nfrom live theme tokens and re-read on theme change, so it works in light and\ndark without configuration. Under `prefers-reduced-motion` it degrades to a\nstatic gradient poster and no animation loop is ever started.\n\nAn expressive element: use one per view, as the backdrop of a single hero or\nempty-state slot, never stacked with `SilkFlow`.\n\nSizes to its container; give that container `position: relative`.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [
+        {
+          "name": "className",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Additional class names for the root element."
+        }
+      ],
+      "slots": []
+    },
+    {
       "name": "CharsetName",
       "importPath": "@mattbutlerengineering/rialto",
       "props": [],
@@ -1279,6 +1293,20 @@
       "description": "A non-interactive section heading rendered above a group of context menu items.",
       "importPath": "@mattbutlerengineering/rialto",
       "props": [],
+      "slots": []
+    },
+    {
+      "name": "Contour",
+      "description": "An ambient canvas backdrop: topographic isolines traced over a slowly\nevolving field, like the terroir map on a wine list or vineyard topography.\nHills swell and settle, so the contours keep reshaping. One level is stroked\nin the gold accent; the rest are faint text-primary. The pointer raises a\nlocal hill under the cursor.\n\nPurely decorative — always `aria-hidden` and never interactive. Colors come\nfrom live theme tokens and re-read on theme change, so it works in light and\ndark without configuration. Under `prefers-reduced-motion` it degrades to a\nstatic gradient poster and no animation loop is ever started.\n\nAn expressive element: use one per view, as the backdrop of a single hero or\nempty-state slot, never stacked with `SilkFlow`.\n\nSizes to its container; give that container `position: relative`.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [
+        {
+          "name": "className",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Additional class names for the root element."
+        }
+      ],
       "slots": []
     },
     {
@@ -1869,6 +1897,20 @@
       "slots": []
     },
     {
+      "name": "Ember",
+      "description": "An ambient canvas backdrop: candlelit sparks rising from the hearth of a\nwood-fired kitchen. Each spark flickers and fades with height; only the\nhottest 5% burn gold (the accent), the rest are faint text-primary. The\npointer acts as a draft that bends the sparks near it.\n\nPurely decorative — always `aria-hidden` and never interactive. Colors come\nfrom live theme tokens and re-read on theme change, so it works in light and\ndark without configuration. Under `prefers-reduced-motion` it degrades to a\nstatic gradient poster and no animation loop is ever started.\n\nAn expressive element: use one per view, as the backdrop of a single hero or\nempty-state slot, never stacked with `SilkFlow`.\n\nSizes to its container; give that container `position: relative`.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [
+        {
+          "name": "className",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Additional class names for the root element."
+        }
+      ],
+      "slots": []
+    },
+    {
       "name": "EmptyState",
       "description": "Props for the EmptyState component, a centered placeholder shown when a list, table,\nor content area has no items to display.\n\nIf no `icon` is provided a default open-box illustration is rendered automatically.",
       "importPath": "@mattbutlerengineering/rialto",
@@ -1952,40 +1994,6 @@
           "type": "HeadingLevel | undefined",
           "required": false,
           "description": "Semantic heading level for the default fallback title."
-        }
-      ],
-      "slots": [
-        "children"
-      ]
-    },
-    {
-      "name": "Ferrofluid",
-      "description": "A decorative ferrofluid-style fluid animation. Several SVG circles drift\nthrough a container; an SVG `feGaussianBlur` + `feColorMatrix` filter fuses\nany overlapping circles into continuous blobs, producing the liquid\nsurface-tension effect of magnetic fluid.\n\nPurely decorative — always `aria-hidden`. If you need it to convey meaning,\nwrap it and add your own semantics in the parent.",
-      "importPath": "@mattbutlerengineering/rialto",
-      "props": [
-        {
-          "name": "color",
-          "type": "string | undefined",
-          "required": false,
-          "description": "Fill color for the blobs."
-        },
-        {
-          "name": "blobCount",
-          "type": "number | undefined",
-          "required": false,
-          "description": "How many blobs to render."
-        },
-        {
-          "name": "speed",
-          "type": "\"slow\" | \"medium\" | \"fast\" | undefined",
-          "required": false,
-          "description": "Drift speed preset."
-        },
-        {
-          "name": "blurAmount",
-          "type": "number | undefined",
-          "required": false,
-          "description": "Blur intensity. Higher = more liquid/merged."
         }
       ],
       "slots": [
@@ -5263,7 +5271,7 @@
         },
         {
           "name": "speed",
-          "type": "\"slow\" | \"fast\" | \"normal\" | undefined",
+          "type": "\"slow\" | \"normal\" | \"fast\" | undefined",
           "required": false,
           "description": "Scales every animation duration proportionally."
         },

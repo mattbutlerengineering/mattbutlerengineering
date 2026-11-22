@@ -5,10 +5,9 @@ import {
   createProblemDetails,
   type AvailabilityConfigProblem,
 } from "@mbe/types";
-import { addDays } from "@mbe/availability";
+import { SCOPE_HORIZON_DAYS, addDays } from "@mbe/availability";
 import { requireAuth } from "@mbe/auth/fastify";
 import { registerEndpoint } from "@mbe/service-bootstrap";
-import { SCOPE_CONFLICT_HORIZON_DAYS } from "../services/availability-config-plan.js";
 import { actorNameOf } from "../services/actor-name.js";
 import { CLOSURE_FORBIDDEN, closureCaller } from "./closure-caller.js";
 import type { PreviewOutcome, SaveOutcome } from "../services/availability-config.js";
@@ -225,7 +224,7 @@ export const availabilityConfigRoutes: FastifyPluginAsync = async (fastify) => {
               createProblemDetails(
                 400,
                 "Bad Request",
-                `A closure's dates can span at most ${SCOPE_CONFLICT_HORIZON_DAYS} days; use "until I reopen" for an open end.`
+                `A closure's dates can span at most ${SCOPE_HORIZON_DAYS} days; use "until I reopen" for an open end.`
               )
             );
         case "invalid":

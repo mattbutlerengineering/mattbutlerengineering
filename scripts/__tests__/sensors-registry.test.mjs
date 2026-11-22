@@ -820,10 +820,34 @@ describe("sensors-registry", () => {
       vi.spyOn(console, "warn").mockImplementation(() => {});
       const sensor = SENSORS.find((s) => s.id === "e2eStability");
 
-      expect(sensor.collect({ root: process.cwd(), ghClient })).toEqual({
+      expect(
+        sensor.collect({ root: process.cwd(), ghClient, fetchCommitPaths: () => null })
+      ).toEqual({
         available: false,
         reason: "no_resolvable_runs",
       });
+    });
+
+    it("e2eStability classifies runs whose head SHA is not in the checkout via the GitHub API fallback (#9356)", () => {
+      const ghClient = {
+        workflow: {
+          runs: vi.fn().mockReturnValue([
+            {
+              conclusion: "failure",
+              createdAt: "2026-10-01T00:00:00Z",
+              headBranch: "fix/backend",
+              headSha: "0000000000000000000000000000000000000000",
+            },
+          ]),
+        },
+      };
+      const fetchCommitPaths = vi.fn().mockReturnValue(["services/users/src/index.ts"]);
+      const sensor = SENSORS.find((s) => s.id === "e2eStability");
+
+      const result = sensor.collect({ root: process.cwd(), ghClient, fetchCommitPaths });
+
+      expect(fetchCommitPaths).toHaveBeenCalledWith("0000000000000000000000000000000000000000");
+      expect(result).toMatchObject({ available: true, consecutive_failures: 1 });
     });
 
     it("lighthouse sensor names the missing committed summary", () => {
@@ -1510,6 +1534,21 @@ describe("sensors-registry", () => {
       } finally {
         stderrSpy.mockRestore();
       }
+    });
+
+    it("resolveRunChangedPaths falls back to the supplied fetcher when the SHA is not local (#9356)", () => {
+      const repoRoot = resolve(__dirname, "..", "..");
+      const fallback = vi.fn().mockReturnValue(["a.ts"]);
+      const sha = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef";
+      expect(resolveRunChangedPaths(sha, repoRoot, fallback)).toEqual(["a.ts"]);
+      expect(fallback).toHaveBeenCalledWith(sha);
+    });
+
+    it("resolveRunChangedPaths does not call the fallback for a local commit", () => {
+      const repoRoot = resolve(__dirname, "..", "..");
+      const fallback = vi.fn();
+      resolveRunChangedPaths("HEAD", repoRoot, fallback);
+      expect(fallback).not.toHaveBeenCalled();
     });
 
     it("resolveRunChangedPaths returns an array for a resolvable commit (HEAD)", () => {

@@ -17,7 +17,9 @@ import { render, renderHook } from "@testing-library/react";
 import { useReducedMotion } from "framer-motion";
 import { Avatar } from "../../components/Avatar/Avatar";
 import { DepartureBoard } from "../../components/DepartureBoard/DepartureBoard";
-import { Ferrofluid } from "../../components/Ferrofluid/Ferrofluid";
+import { Champagne } from "../../components/Champagne/Champagne";
+import { Contour } from "../../components/Contour/Contour";
+import { Ember } from "../../components/Ember/Ember";
 import { Handshake } from "../../components/Handshake/Handshake";
 import { NeonSign } from "../../components/NeonSign/NeonSign";
 import { SilkFlow } from "../../components/SilkFlow/SilkFlow";
@@ -32,7 +34,9 @@ stubMatchMedia([PREFERS_REDUCED_MOTION]);
 const RENDERS: ReadonlyArray<readonly [string, () => void]> = [
   ["Avatar", () => render(<Avatar src="/a.jpg" name="A" transition="splitflap" />)],
   ["DepartureBoard", () => render(<DepartureBoard phrases={["ONE", "TWO"]} />)],
-  ["Ferrofluid", () => render(<Ferrofluid />)],
+  ["Champagne", () => render(<Champagne />)],
+  ["Contour", () => render(<Contour />)],
+  ["Ember", () => render(<Ember />)],
   ["Handshake", () => render(<Handshake aria-label="x" stations={["A", "B"]} />)],
   ["NeonSign", () => render(<NeonSign state="open" aria-label="x" />)],
   ["SilkFlow", () => render(<SilkFlow />)],

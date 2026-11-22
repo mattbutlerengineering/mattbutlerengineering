@@ -8,9 +8,8 @@ vi.mock("@mbe/availability", async (importOriginal) => {
   return { ...actual, resolveDay: vi.fn(actual.resolveDay) };
 });
 
-const { resolveDay } = await import("@mbe/availability");
-const { resolveScopeConflicts, SCOPE_CONFLICT_HORIZON_DAYS } =
-  await import("./availability-config-plan.js");
+const { resolveDay, SCOPE_HORIZON_DAYS } = await import("@mbe/availability");
+const { resolveScopeConflicts } = await import("./availability-config-plan.js");
 
 const BASE: AvailabilityConfig = {
   schedules: [{ id: "sch-1", name: "Regular", kind: "regular", isRegular: true }],
@@ -63,9 +62,7 @@ describe("resolveScopeConflicts cost (runs inside the save transaction)", () => 
       "2026-10-25"
     );
 
-    expect(vi.mocked(resolveDay).mock.calls.length).toBeLessThanOrEqual(
-      2 * SCOPE_CONFLICT_HORIZON_DAYS
-    );
+    expect(vi.mocked(resolveDay).mock.calls.length).toBeLessThanOrEqual(2 * SCOPE_HORIZON_DAYS);
     expect(resolved.dateRules.filter((r) => r.kind === "skip").length).toBeGreaterThan(40);
   });
 });

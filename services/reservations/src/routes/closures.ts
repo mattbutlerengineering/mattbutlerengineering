@@ -5,11 +5,11 @@ import {
   DEFAULT_GUEST_NOTICE_LOCALE,
   type AvailabilityConfigProblem,
 } from "@mbe/types";
+import { SCOPE_HORIZON_DAYS } from "@mbe/availability";
 import { requireAuth } from "@mbe/auth/fastify";
 import { registerEndpoint } from "@mbe/service-bootstrap";
 import { createHostBrandResolver } from "../config/host-brand.js";
 import { previewClosureNotice } from "../notifications/closure-preview.js";
-import { SCOPE_CONFLICT_HORIZON_DAYS } from "../services/availability-config-plan.js";
 import type { CreateClosureOutcome } from "../services/closure-command.js";
 import { ClosureRefundEnqueueError } from "../services/closure-refund.js";
 import { CLOSURE_FORBIDDEN, closureCaller } from "./closure-caller.js";
@@ -64,7 +64,7 @@ export function sendRefusal(reply: FastifyReply, outcome: Refusal) {
           createProblemDetails(
             400,
             "Bad Request",
-            `A closure's dates can span at most ${SCOPE_CONFLICT_HORIZON_DAYS} days; use "until I reopen" for an open end.`
+            `A closure's dates can span at most ${SCOPE_HORIZON_DAYS} days; use "until I reopen" for an open end.`
           )
         );
     case "version_conflict":
@@ -72,6 +72,10 @@ export function sendRefusal(reply: FastifyReply, outcome: Refusal) {
         problem(409, "Availability changed since you loaded it.", {
           code: "version-conflict",
           winningChange: outcome.winningChange,
+          ...(outcome.currentVersion !== undefined
+            ? { currentVersion: outcome.currentVersion }
+            : {}),
+          ...(outcome.changesSince ? { changesSince: outcome.changesSince } : {}),
         })
       );
     case "closure_exists":

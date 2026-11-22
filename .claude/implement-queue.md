@@ -111,9 +111,9 @@ Dispatch with `subagent_type: "implement-queue-worker"` (`.claude/agents/impleme
 Each agent prompt MUST include:
 
 1. The issue number, title, and full body.
-2. **First step: `node scripts/worktree-base-freshness.mjs check`, then `pnpm install --frozen-lockfile`** (a worktree's base can be stale or disconnected; worktrees also have no `node_modules`).
+2. **First step: `node scripts/worktree-base-freshness.mjs check`, then `pnpm bootstrap:worktree`** (a worktree's base can be stale or disconnected; worktrees also have no `node_modules` or workspace `dist/`, and the pre-bash guard blocks `pnpm exec vitest` etc. until bootstrap finishes — a bare `pnpm install` leaves `dist/` unbuilt).
 3. TDD: failing test first, then minimal implementation, per vertical slice.
-4. Gates on affected packages before declaring done: `pnpm lint`, `pnpm typecheck`, `pnpm test` (vitest does NOT typecheck — typecheck is mandatory).
+4. Gates on affected packages before declaring done: `pnpm lint`, `pnpm typecheck`, `pnpm test` (vitest does NOT typecheck — typecheck is mandatory). Before the first push also run `pnpm build --filter @mbe/cli...` then `pnpm regen` (stage any regenerated artifact by path) — push-time `Stale artifacts detected` is otherwise caught after the fact.
 5. Push branch and open a PR with `Closes #<N>` in the body; **verify the PR's base ref is `main`** (worktree agents can branch from the wrong base). Do NOT merge.
 6. Security rules (non-negotiable):
    > Never introduce hardcoded secrets, SQL injection, XSS, or other OWASP Top 10 vulnerabilities. Never commit `.env` files, credentials, or tokens. Parameterized queries only. Validate external data at boundaries. If you discover an existing vulnerability, stop feature work and fix it first.
@@ -194,6 +194,8 @@ else
   echo "reviewer-verdict: flag (score $score, threshold 7)"; exit 1
 fi
 ```
+
+**Post the hook's output line as a PR comment before merging, on every reviewed PR** (`gh pr comment <N> --body "<line>"`, the line first). That comment is the only review evidence that outlives the session: `review_coverage` counts a merged agent PR as reviewed only from an in-session telemetry verdict or this line, which the daily telemetry reconciler parses from the PR's comments. A PR merged without either counts as unreviewed (#9308).
 
 ## reviewers
 

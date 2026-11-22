@@ -45,9 +45,13 @@ export function PrivacyPage() {
             color: "var(--rialto-text-secondary)",
           }}
         >
-          When you visit this site, we may collect anonymous usage data via analytics cookies (e.g.
-          page views, referrer, session duration). We do not collect personally identifiable
-          information unless you voluntarily provide it.
+          This site sets no analytics cookies. Our edge server keeps a cookie-free request log: the
+          route, method, country, page path, response status and response time of each request. It
+          stores no cookie, IP address or other identifier. Separately, each page you open tells our
+          error tracker a visit started, so it can count how often pages fail. When a page does
+          fail, an error report goes to the same tracker; it can include your browser, operating
+          system and IP address. Apart from the IP address that an error report or visit ping can
+          carry, we collect no personal information unless you give it to us.
         </p>
       </section>
 
@@ -68,8 +72,7 @@ export function PrivacyPage() {
             color: "var(--rialto-text-secondary)",
           }}
         >
-          We use cookies to remember your preferences and understand how visitors use the site.
-          Essential cookies are required for the site to function. Analytics and functional cookies
+          Essential cookies are required for the site to function. Functional and Marketing cookies
           are optional and only set with your consent. You can change your preferences at any time
           using the cookie banner.
         </p>
@@ -92,8 +95,10 @@ export function PrivacyPage() {
             color: "var(--rialto-text-secondary)",
           }}
         >
-          This site may use third-party analytics providers. These providers may set their own
-          cookies and are governed by their respective privacy policies.
+          Error reports and visit counts are processed by Sentry, and pages are served through
+          Cloudflare. Fonts load from Google Fonts, so your browser sends Google your IP address,
+          browser details and the page you came from. One demo page also loads a sample avatar from
+          pravatar.cc, which receives the same details. Each is governed by its own privacy policy.
         </p>
       </section>
 

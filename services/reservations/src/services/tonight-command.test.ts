@@ -1,12 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { resolveDay } from "@mbe/availability";
+import { currentServiceDate, resolveDay } from "@mbe/availability";
 import type { SetTonightBody } from "@mbe/types";
 
 vi.mock("./database.js", () => ({ prisma: {} }));
 
 const { setTonight, endTonight } = await import("./tonight-command.js");
 const { getAvailabilityConfig } = await import("./availability-config.js");
-const { currentServiceDate } = await import("./closure-command-plan.js");
 
 const NOW = new Date("2026-10-25T19:00:00.000Z"); // Sun Oct 25, noon in Los Angeles
 const TZ = "America/Los_Angeles";

@@ -92,7 +92,7 @@ describe("ShippedIndexPage", () => {
     const links = screen.getAllByRole("link");
     expect(links.map((l) => l.getAttribute("href"))).toEqual(["/shipped/b", "/shipped/a"]);
     expect(screen.getAllByText("Live")).toHaveLength(1);
-    expect(screen.getAllByText(/2 days/)).toHaveLength(2);
+    expect(screen.getAllByText(/built in 2 days/)).toHaveLength(2);
     expect(screen.getAllByText(/1 child issue\b/)).toHaveLength(2);
     expect(screen.getAllByText(/1 merged PR\b/)).toHaveLength(2);
   });

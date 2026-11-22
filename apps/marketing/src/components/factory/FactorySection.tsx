@@ -120,7 +120,7 @@ export function FactorySection() {
                       <time dateTime={feature.lastMergedAt}>
                         {formatDate(feature.lastMergedAt)}
                       </time>{" "}
-                      · {formatWallClock(feature.wallClockHours)} wall-clock
+                      · built in {formatWallClock(feature.wallClockHours)}
                     </Text>
                   </li>
                 ))}

@@ -1,5 +1,43 @@
 # @mattbutlerengineering/rialto
 
+## 2.0.0
+
+### Major Changes
+
+- [#9378](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9378) [`4a26be8`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/4a26be84befc7bfd71e6521bd8802d9cb689c773) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Remove the `Guilloche` component. The `Guilloche` root export and the `@mattbutlerengineering/rialto/Guilloche` subpath no longer exist.
+
+## 1.1.0
+
+### Minor Changes
+
+- [#9363](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9363) [`4eeb66b`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/4eeb66b573d559a1ec1b45d4d4d02a0014cf8f17) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add `Champagne`, an ambient canvas backdrop of fine bubbles rising and wobbling through a glass of champagne, built on the shared ambient-canvas runtime. A few bubbles are gold; the pointer nudges nearby bubbles aside; reduced motion renders a static poster. The frame loop works over a fixed pool of typed arrays, so it allocates nothing per bubble.
+
+- [#9359](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9359) [`5466916`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/5466916f6eebccd768b913da0330432e89c72e02) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add `Contour`, an ambient canvas backdrop of topographic isolines (marching squares over an evolving value-noise field), like the terroir map on a wine list, built on the shared ambient-canvas runtime. One level is gold; the pointer raises a local hill; reduced motion renders a static poster.
+
+### Patch Changes
+
+- [#9361](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9361) [`1af797d`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/1af797dec84e94c426dec0849cd98ba014c3700f) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add `Ember`, an ambient canvas backdrop of candlelit sparks rising with flicker and fading with height, built on the shared ambient-canvas runtime. The hottest 5% of sparks are gold; the pointer acts as a draft that bends nearby sparks; reduced motion renders a static poster.
+
+## 1.0.0
+
+### Major Changes
+
+- [#9345](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9345) [`99c406a`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/99c406a1a32ef26f303a9b927671bdd659a4d98b) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Remove the `Ferrofluid` component. The `Ferrofluid` root export and the `@mattbutlerengineering/rialto/Ferrofluid` subpath no longer exist.
+
+### Minor Changes
+
+- [#9353](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9353) [`6c0d990`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/6c0d990129c4ccc4459dfafb0f3d69de71f04cc9) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add `Guilloche`, an ambient canvas backdrop of layered hypotrochoid rings drawn as an engraved rosette (menu, gift card and check-presenter style), built on the shared ambient-canvas runtime. One ring is gold; the pointer shifts the phase of nearby rings; reduced motion renders a static poster.
+
+### Patch Changes
+
+- [#9350](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9350) [`170ce2e`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/170ce2e3cbdd5b8667b146cc57b953c3661be3fa) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Extract the generic canvas loop plumbing (DPR-capped resize, rAF playback sync, theme palette re-read, pointer tracking, single teardown) from SilkFlow into an internal shared `_ambient/ambient-canvas` module. SilkFlow behavior is unchanged.
+
+## 0.10.25
+
+### Patch Changes
+
+- [#9327](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9327) [`dda89b4`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/dda89b48db932cf66c0ff773edf4ec8e342d75e6) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - CommandPalette and Drawer overlay transitions now resolve through `useMotionPreset()` instead of a hand-built reduced-motion fallback.
+
 ## 0.10.24
 
 ### Patch Changes

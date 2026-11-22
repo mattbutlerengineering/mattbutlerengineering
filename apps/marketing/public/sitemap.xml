@@ -73,6 +73,10 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://mattbutlerengineering.com/rialto/components/champagne</loc>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://mattbutlerengineering.com/rialto/components/checkbox-radio</loc>
     <priority>0.6</priority>
   </url>
@@ -98,6 +102,10 @@
   </url>
   <url>
     <loc>https://mattbutlerengineering.com/rialto/components/context-menu</loc>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://mattbutlerengineering.com/rialto/components/contour</loc>
     <priority>0.6</priority>
   </url>
   <url>
@@ -141,11 +149,11 @@
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://mattbutlerengineering.com/rialto/components/empty-state</loc>
+    <loc>https://mattbutlerengineering.com/rialto/components/ember</loc>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://mattbutlerengineering.com/rialto/components/ferrofluid</loc>
+    <loc>https://mattbutlerengineering.com/rialto/components/empty-state</loc>
     <priority>0.6</priority>
   </url>
   <url>
