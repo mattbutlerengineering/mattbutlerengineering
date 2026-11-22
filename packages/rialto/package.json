@@ -118,6 +118,10 @@
       "types": "./dist/lib/components/ConfirmDialog/index.d.ts",
       "import": "./dist/lib/components/ConfirmDialog/index.js"
     },
+    "./Constellation": {
+      "types": "./dist/lib/components/Constellation/index.d.ts",
+      "import": "./dist/lib/components/Constellation/index.js"
+    },
     "./ContextMenu": {
       "types": "./dist/lib/components/ContextMenu/index.d.ts",
       "import": "./dist/lib/components/ContextMenu/index.js"
