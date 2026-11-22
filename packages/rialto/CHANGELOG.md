@@ -1,5 +1,11 @@
 # @mattbutlerengineering/rialto
 
+## 2.0.0
+
+### Major Changes
+
+- [#9378](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9378) [`4a26be8`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/4a26be84befc7bfd71e6521bd8802d9cb689c773) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Remove the `Guilloche` component. The `Guilloche` root export and the `@mattbutlerengineering/rialto/Guilloche` subpath no longer exist.
+
 ## 1.1.0
 
 ### Minor Changes
