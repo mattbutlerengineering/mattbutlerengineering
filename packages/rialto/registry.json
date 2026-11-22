@@ -2015,6 +2015,20 @@
       ]
     },
     {
+      "name": "Fireflies",
+      "description": "An ambient canvas backdrop: sparse fireflies on a dusk patio. Each fly\nwanders slowly and pulses on its own beat, flashing bright and fading to\nnothing; the few that glow gold (the accent) are the only warm points, the\nrest are faint text-primary. The pointer draws nearby flies a little closer.\n\nPurely decorative — always `aria-hidden` and never interactive. Colors come\nfrom live theme tokens and re-read on theme change, so it works in light and\ndark without configuration. Under `prefers-reduced-motion` it degrades to a\nstatic gradient poster and no animation loop is ever started.\n\nAn expressive element: use one per view, as the backdrop of a single hero or\nempty-state slot, never stacked with `SilkFlow` or another backdrop.\n\nSizes to its container; give that container `position: relative`.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [
+        {
+          "name": "className",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Additional class names for the root element."
+        }
+      ],
+      "slots": []
+    },
+    {
       "name": "FlipDot",
       "importPath": "@mattbutlerengineering/rialto",
       "props": [

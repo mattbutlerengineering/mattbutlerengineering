@@ -19,6 +19,7 @@ import { Avatar } from "../../components/Avatar/Avatar";
 import { DepartureBoard } from "../../components/DepartureBoard/DepartureBoard";
 import { Champagne } from "../../components/Champagne/Champagne";
 import { DustMotes } from "../../components/DustMotes/DustMotes";
+import { Fireflies } from "../../components/Fireflies/Fireflies";
 import { Contour } from "../../components/Contour/Contour";
 import { Ember } from "../../components/Ember/Ember";
 import { Handshake } from "../../components/Handshake/Handshake";
@@ -37,6 +38,7 @@ const RENDERS: ReadonlyArray<readonly [string, () => void]> = [
   ["DepartureBoard", () => render(<DepartureBoard phrases={["ONE", "TWO"]} />)],
   ["Champagne", () => render(<Champagne />)],
   ["DustMotes", () => render(<DustMotes />)],
+  ["Fireflies", () => render(<Fireflies />)],
   ["Contour", () => render(<Contour />)],
   ["Ember", () => render(<Ember />)],
   ["Handshake", () => render(<Handshake aria-label="x" stations={["A", "B"]} />)],

@@ -57,6 +57,7 @@ vi.mock("../pages/data/ContourPage.js", () => ({ ContourPage: () => null }));
 vi.mock("../pages/data/EmberPage.js", () => ({ EmberPage: () => null }));
 vi.mock("../pages/data/ChampagnePage.js", () => ({ ChampagnePage: () => null }));
 vi.mock("../pages/data/DustMotesPage.js", () => ({ DustMotesPage: () => null }));
+vi.mock("../pages/data/FirefliesPage.js", () => ({ FirefliesPage: () => null }));
 vi.mock("../pages/data/HandshakePage.js", () => ({ HandshakePage: () => null }));
 vi.mock("../pages/data/NeonSignPage.js", () => ({ NeonSignPage: () => null }));
 vi.mock("../pages/data/TapeChartPage.js", () => ({ TapeChartPage: () => null }));
