@@ -101,6 +101,10 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://mattbutlerengineering.com/rialto/components/constellation</loc>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://mattbutlerengineering.com/rialto/components/context-menu</loc>
     <priority>0.6</priority>
   </url>

@@ -1249,6 +1249,20 @@
       ]
     },
     {
+      "name": "Constellation",
+      "description": "An ambient canvas backdrop: a constellation of points drifting slowly, each\npair joined by a faint line while they are near, so the network forms and\nbreaks as they move — the guest and loyalty web. The pointer links the\nnearest few points to itself. A few points glow gold (the accent); the rest,\nand every line, are faint text-primary.\n\nPurely decorative — always `aria-hidden` and never interactive. Colors come\nfrom live theme tokens and re-read on theme change, so it works in light and\ndark without configuration. Under `prefers-reduced-motion` it degrades to a\nstatic gradient poster and no animation loop is ever started.\n\nAn expressive element: use one per view, as the backdrop of a single hero or\nempty-state slot, never stacked with `SilkFlow` or another backdrop.\n\nSizes to its container; give that container `position: relative`.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [
+        {
+          "name": "className",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Additional class names for the root element."
+        }
+      ],
+      "slots": []
+    },
+    {
       "name": "ContextMenu",
       "description": "A context menu that opens at the pointer on right-click, or on the focused\ntarget with Shift+F10 or the Context Menu key. A target that is not already\nfocusable is placed in the tab order. The child must forward `tabIndex`,\n`onKeyDown`, `onContextMenu`, and `className` (DOM nodes and Card do).\nAutomatically adjusts position to stay within viewport boundaries.",
       "importPath": "@mattbutlerengineering/rialto",
