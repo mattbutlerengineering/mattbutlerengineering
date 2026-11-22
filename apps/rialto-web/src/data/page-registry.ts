@@ -169,7 +169,6 @@ const RAW_PAGE_ENTRIES: RawPageEntry[] = [
   { id: "chalkboard", label: "Chalkboard", category: "Data Display" },
   { id: "letterboard", label: "Letterboard", category: "Data Display" },
   { id: "silk-flow", label: "Silk Flow", category: "Data Display" },
-  { id: "guilloche", label: "Guilloche", category: "Data Display" },
   { id: "contour", label: "Contour", category: "Data Display" },
   { id: "ember", label: "Ember", category: "Data Display" },
   { id: "champagne", label: "Champagne", category: "Data Display" },

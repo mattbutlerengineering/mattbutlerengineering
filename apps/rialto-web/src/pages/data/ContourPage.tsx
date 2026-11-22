@@ -68,7 +68,7 @@ export function ContourPage() {
             </Text>{" "}
             and a height, then layer your content above it. It is an expressive element: use one per
             view, as the backdrop of a single hero or empty-state slot, and never stack it with
-            SilkFlow or Guilloche.
+            SilkFlow.
           </Text>
           <div style={{ position: "relative", height: "300px", overflow: "hidden" }}>
             <Contour />
