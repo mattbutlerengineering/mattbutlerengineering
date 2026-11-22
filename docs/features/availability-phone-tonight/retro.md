@@ -82,9 +82,9 @@ Skipped. I did not run `kb.py harvest` in this session (the run's session transc
 
 ## Idea seeds
 
-Seeds below are not yet in `docs/backlog.md` as of `origin/main` (grepped for `stack`, `retarget`, `force-push`, `pending-merge`, `prepared`, `walkthrough`). Three seeds from this run already exist there (lines 428-430) and are not repeated. This run did not edit `docs/backlog.md`; the caller appends.
+Seeds below are not yet in `docs/backlog.md` as of `origin/main` (grepped for `stack`, `retarget`, `force-push`, `pending-merge`, `walkthrough`). `prepared` also matches backlog line 94 ("Make prepare-and-stop runs reconcilable", from maintenance:visual-tolerance-threshold), so the stale-`prepared` seed below is scoped to what that line does not cover. Three seeds from this run already exist there (lines 428-430) and are not repeated. This run did not edit `docs/backlog.md`; the caller appends.
 
-- Add a scheduled check that finds a `release.md` with `outcome: prepared` whose `pending-merge:` PR is closed or merged and files an issue naming the run, because #8533 closed on 2026-11-08 and the write-back landed 14 days later in #9397 (from: feature:availability-phone-tonight)
+- Extend backlog line 94's reconciliation to a `pending-merge:` PR that closed unmerged and was replaced: #8533 closed on 2026-11-08 and its replacement #8538 merged, but `release.md` kept naming #8533 as `prepared` until the write-back landed 14 days later in #9397, and a check that only looks for a merged PR would have missed it (from: feature:availability-phone-tonight)
 - Give Ship's stacked-release plan a step for the base squash-merging, with the `git rebase --onto origin/main <old-base-sha>` command and a note to update `pending-merge:` and the rollback plan when the PR is replaced, because #8533's release.md assumed "GitHub retargets" and #8538 needed a replacement branch (from: feature:availability-phone-tonight)
 - Walk /availability on a real phone once and record it in a file: the week form as one line per service, "Change tonight" opening the Timeline's Tonight panel, and the Today line reading hours and what's in force, because release.md's three Owner-only checks have never run and users-observed is 0 (from: feature:availability-phone-tonight)
 
