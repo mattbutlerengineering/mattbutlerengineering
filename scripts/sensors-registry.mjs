@@ -188,7 +188,7 @@ export function readQueueEfficiencyPrs(ghClient, now = new Date(), fetchCommits)
  * @param {string} root
  * @returns {string[] | null} changed paths, or `null` when the SHA is unresolvable locally
  */
-export function resolveRunChangedPaths(sha, root) {
+export function resolveRunChangedPaths(sha, root, fetchFallback = () => null) {
   try {
     return execFileSync("git", ["show", "--name-only", "--format=", sha], {
       encoding: "utf-8",
@@ -198,6 +198,31 @@ export function resolveRunChangedPaths(sha, root) {
       // per unresolvable SHA must not pollute the report's stderr.
       stdio: ["ignore", "pipe", "pipe"],
     })
+      .split("\n")
+      .filter(Boolean);
+  } catch {
+    return fetchFallback(sha);
+  }
+}
+
+/**
+ * Changed paths of a commit read from the GitHub API (`gh api`, REST only),
+ * for run head SHAs absent from the local checkout. "E2E Tests" runs only on
+ * `pull_request`, so their head SHAs are PR-branch commits that a scheduled
+ * collector's checkout rarely has (#9356). Returns `null` on any failure so
+ * the caller still tallies the run as unresolved.
+ *
+ * @param {string} sha
+ * @returns {string[] | null}
+ */
+export function fetchCommitPathsViaApi(sha) {
+  if (!/^[0-9a-f]{40}$/.test(sha)) return null;
+  try {
+    return execFileSync(
+      "gh",
+      ["api", `repos/:owner/:repo/commits/${sha}`, "--jq", ".files[].filename"],
+      { encoding: "utf-8", timeout: 15000, stdio: ["ignore", "pipe", "pipe"] }
+    )
       .split("\n")
       .filter(Boolean);
   } catch {
@@ -980,7 +1005,7 @@ export const SENSORS = [
   {
     id: "e2eStability",
     category: "availability",
-    collect: ({ root, ghClient }) => {
+    collect: ({ root, ghClient, fetchCommitPaths = fetchCommitPathsViaApi }) => {
       let ghRuns;
       try {
         // #5005: scoped to the real E2E workflow only — the same class of
@@ -1000,6 +1025,12 @@ export const SENSORS = [
         // runs, ever, which surfaced on the dashboard as a permanent
         // "Unavailable: No E2E Tests runs on main were returned". Dropped:
         // `--workflow "E2E Tests"` already gives the #5005 scoping without it.
+        //
+        // #9356: e2e.yml still never runs on main pushes (pull_request +
+        // workflow_dispatch only; last main run was a May dispatch), so the
+        // real signal is the PR runs. Their head SHAs are PR-branch commits
+        // missing from a scheduled checkout, which made every run
+        // unresolvable; changed paths now fall back to the GitHub API.
         ghRuns = ghClient.workflow.runs([
           "--limit",
           "30",
@@ -1016,7 +1047,9 @@ export const SENSORS = [
 
       // Resolve each run's changed paths locally, skipping (and tallying) any
       // head SHA not in the local object store — see resolveRunChangedPaths.
-      const { runs, unresolved } = buildE2eRuns(ghRuns, (sha) => resolveRunChangedPaths(sha, root));
+      const { runs, unresolved } = buildE2eRuns(ghRuns, (sha) =>
+        resolveRunChangedPaths(sha, root, fetchCommitPaths)
+      );
       if (unresolved > 0) {
         console.warn(
           `[e2eStability] ${unresolved} CI run head SHA(s) not in the local git object store ` +
