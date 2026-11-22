@@ -1,9 +1,3 @@
-## 2026-11-05
-
-**queueEfficiency:** composite 0.843 (baseline n/a) — healthy
-**Difficulty distribution:** size:m:5, size:s:20, size:l:16, size:xl:19, size:xs:8
-**Issues filed:** 0
-
 ## 2026-11-05 — mbe-ui-quality
 
 **State:** `state.mjs checkout` source `branch` (head c82f581, merged origin/main 0da7ca8, 0 conflicts resolved).
@@ -1184,3 +1178,12 @@ A clean fire: everything due was captured and judged, and nothing met the bar to
 ### Skipped Issues
 
 0 skipped after max retries (agent-skip label: empty).
+
+## 2026-11-22
+
+**queueEfficiency:** composite 0.959 (baseline n/a) — 1 regression(s) detected
+**Difficulty distribution:** size:xl:9, size:xs:26, size:l:5, size:s:46, size:m:10
+**Issues filed:** 0
+**Regressions:**
+
+- review_coverage_trend: 0.146 (was 0.367, Δ-0.221) [high]
