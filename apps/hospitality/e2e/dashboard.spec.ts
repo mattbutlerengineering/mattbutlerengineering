@@ -16,9 +16,11 @@ test.describe("CF-2: Dashboard morning load", () => {
     // label as its name), so each value binds to its label and strict mode
     // never collides on equal values.
     await expect(mockedPage.getByRole("group", { name: "Today's Reservations" })).toContainText(
-      /^3\b/
+      /^3(?!\d)/
     );
-    await expect(mockedPage.getByRole("group", { name: "Expected Covers" })).toContainText(/^12\b/);
+    await expect(mockedPage.getByRole("group", { name: "Expected Covers" })).toContainText(
+      /^12(?!\d)/
+    );
     // The 2-hour-window count depends on the wall clock (mocks re-date the
     // fixture reservations to *today*, so how many fall inside the window
     // varies with run time — run 29116937129 saw 1 where 29116315283 saw 2).
