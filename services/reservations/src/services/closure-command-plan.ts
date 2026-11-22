@@ -1,10 +1,4 @@
-import {
-  MINUTES_PER_DAY,
-  addDays,
-  localDateTimeOf,
-  resolveDay,
-  serviceDayInstant,
-} from "@mbe/availability";
+import { MINUTES_PER_DAY, localDateTimeOf, resolveDay, serviceDayInstant } from "@mbe/availability";
 import type { AvailabilitySnapshot } from "@mbe/availability";
 import type {
   ClosureAction,
@@ -162,25 +156,6 @@ export function moveTarget(
   return startTime
     ? { startTime, endTime: new Date(startTime.getTime() + durationMin * MS_PER_MINUTE) }
     : null;
-}
-
-/**
- * The service day "tonight" means right now (ADR-029): today's civil date when
- * one of its services is open, else yesterday's when its service runs past
- * midnight and is still open, else today's. A Fri 22:00-02:00 service at Sat
- * 00:30 is still Friday's.
- */
-export function currentServiceDate(snapshot: AvailabilitySnapshot, now: Date): string {
-  const today = localDateTimeOf(now, snapshot.timezone).date;
-  const isOpen = (date: string): boolean => {
-    const minute = wallMinutes(now, date, snapshot.timezone);
-    return resolveDay(snapshot, date).services.some(
-      (s) => s.opensAt <= minute && minute < s.closesAt
-    );
-  };
-  if (isOpen(today)) return today;
-  const yesterday = addDays(today, -1);
-  return isOpen(yesterday) ? yesterday : today;
 }
 
 /** A service a Tonight change leaves open for less than this is closed in effect (#7687). */

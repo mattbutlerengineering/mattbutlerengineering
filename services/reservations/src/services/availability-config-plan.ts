@@ -1,12 +1,14 @@
 import {
   ARCHIVED_ON_REMOVE,
+  SCOPE_HORIZON_DAYS,
   addDays,
   applyChanges,
   applyDraft,
+  coversDate,
   expandSectionRules,
+  isHoursRule,
   resolveDay,
   validateConfig,
-  weekdayIndexOf,
   type ConfigIssue,
 } from "@mbe/availability";
 import type {
@@ -38,11 +40,6 @@ export const CONFIG_TABLES: readonly ConfigTable[] = [
   "dateRules",
 ];
 
-/** How far past its start an open-ended scope conflict is settled date by date. */
-export const SCOPE_CONFLICT_HORIZON_DAYS = 366;
-
-const HOURS_RULE_KINDS = new Set<DateRule["kind"]>(["special_hours", "use_schedule"]);
-
 /** Key-order-independent equality for parsed rows. */
 function canonical(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
@@ -73,20 +70,10 @@ export { applyChanges };
 
 // ── Scope conflicts ─────────────────────────────────────────────────────────
 
-const isHoursRule = (r: DateRule): boolean => HOURS_RULE_KINDS.has(r.kind) && r.seriesId == null;
-
-function coversDate(rule: DateRule, date: string): boolean {
-  return (
-    rule.startsOn <= date &&
-    (rule.endsOn == null || date <= rule.endsOn) &&
-    (rule.repeat == null || rule.repeat.weekdays.includes(weekdayIndexOf(date)))
-  );
-}
-
 /** Dates both rules cover, from their common start, up to the horizon for an open end. */
 function sharedDates(a: DateRule, b: DateRule): string[] {
   const from = a.startsOn > b.startsOn ? a.startsOn : b.startsOn;
-  const ends = [a.endsOn, b.endsOn, addDays(from, SCOPE_CONFLICT_HORIZON_DAYS - 1)];
+  const ends = [a.endsOn, b.endsOn, addDays(from, SCOPE_HORIZON_DAYS - 1)];
   const to = ends.filter((d): d is string => d != null).sort()[0]!;
   const dates: string[] = [];
   for (let d = from; d <= to; d = addDays(d, 1)) {
@@ -148,7 +135,7 @@ function scheduleEditSkips(
     timezone: "UTC",
     config: { ...config, dateRules: [] },
   }));
-  const last = addDays(today, SCOPE_CONFLICT_HORIZON_DAYS - 1);
+  const last = addDays(today, SCOPE_HORIZON_DAYS - 1);
   const inScope = new Set<string>();
   for (let d = today; d <= last; d = addDays(d, 1)) {
     const date = d;

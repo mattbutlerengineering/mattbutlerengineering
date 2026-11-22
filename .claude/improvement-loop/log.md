@@ -1155,3 +1155,40 @@ A clean fire: everything due was captured and judged, and nothing met the bar to
 **Regressions:**
 
 - review_coverage_trend: 0.146 (was 0.367, Δ-0.221) [high] — duplicate of already-open #9308, no new issue filed; async eval not triggered (Step 5 only fires on a fresh filing)
+## 2026-11-22 — mbe-evening
+
+### Metrics
+
+| Metric                                     | Value                                                                                         | Status |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------- | ------ |
+| Created (7d, audit+ci-fix)                 | 31 (17 audit + 14 ci-fix)                                                                     | -      |
+| Closed (7d, audit+ci-fix)                  | 43 (21 audit + 22 ci-fix)                                                                     | -      |
+| Closure Rate                               | 139%                                                                                          | Green  |
+| Time-to-Close                              | mean 50.0h (n=43; long-tail-skewed, not independently medianed this run)                      | Yellow |
+| Agent Success                              | 0 open has-pr, 0 agent-failed — undefined this instant (no open flow to rate)                 | n/a    |
+| CI Pass (main, last 10 CI-named push runs) | 10/10 success                                                                                 | Green  |
+| Queue (ready)                              | 0                                                                                             | Green  |
+| Stale (ready >7d)                          | 0                                                                                             | Green  |
+| Blocked (agent-failed)                     | 0                                                                                             | Green  |
+| Skipped (agent-skip)                       | 0                                                                                             | Green  |
+| Daily Spend (attributed)                   | $0 today / $2 (7d, agent-core sessions)                                                       | Green  |
+| 7d Spend                                   | $2 attributed + 1 queue-worker session tonight (170,372 tokens), cost unknown (not estimated) | n/a    |
+| Cost/Issue (attributed only)               | ~$0.05 ($2 / 43 closed)                                                                       | Green  |
+| Reverts (7d)                               | 1                                                                                             | Green  |
+
+### Patterns
+
+- Backlog was empty of `ready` issues at Phase 0 (same shape as 2026-11-21's single-issue run). Promoted 1 of 11 stateless candidates (#9238, `ci-fix`) — the only one of 4 reasonable candidates whose estimated merge-train zone didn't collide with another under `strictMain: true` (all 4 resolve to the global zone; `selectZoneSpreadBatch` admits at most one).
+- #9238 ("Metrics collection is stale or empty") turned out to be two merged symptoms: the `sdlcSpeed` half was already self-healed on `main` (yesterday's #9236 fix, confirmed by re-running `metrics-freshness.mjs`); the `queue-telemetry cost coverage` half is a genuine architectural gap — implement-queue's dispatch path never goes through `@mbe/agent-core`'s `recordSpend`, so no writer has ever been able to populate `cost_usd` for it (same shape as the documented `DOMAIN_METRICS_VENUE_ID` blocker). Worker correctly declined to invent a fix; evidence posted, issue moved to `needs-review` for a product decision rather than closed outright (only half was "already resolved").
+- **The merge-classifier denial from 2026-11-21's log entry recurred tonight, same shape**: this run's own telemetry PR (#9368, metrics-only, fast-path, CI Gate green) was denied by the auto-mode classifier (`[Destructive or Unwanted Actions]` this time, same class as the documented `[Merge Without Review]`/#6125). Parked on `<!-- merge-denied -->`, not retried. Two nights running now — worth flagging to the Owner as a standing friction point rather than a one-off (not yet 3+ days, so no `meta-improvement` issue filed by this run's 2/run cap, but tomorrow's run should check whether it's 3 in a row).
+- CI on main: 10/10 of the last CI-named push runs sampled succeeded — healthy, no instability signal.
+
+### Recommendations
+
+- No regression action needed — all metrics green except the explained time-to-close long-tail (consistent with yesterday's pattern, still only 2 days of data).
+- Flag for the Owner: PR #9368 (telemetry, reviewed/fast-path, CI green) needs a human `gh pr merge` — the session's own merge call keeps being denied, two nights in a row.
+- If this is still happening on 2026-11-23, file a `meta-improvement` issue for the merge-classifier denial pattern itself (3-day threshold not yet met).
+
+### Skipped Issues
+
+0 skipped after max retries (agent-skip label: empty).

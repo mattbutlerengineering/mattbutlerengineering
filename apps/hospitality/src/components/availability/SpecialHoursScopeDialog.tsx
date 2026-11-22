@@ -1,9 +1,9 @@
+import { coversDate } from "@mbe/availability";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, DatePicker } from "@mattbutlerengineering/rialto";
 import type { DateRule } from "@mbe/types";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
-import { coversDate } from "./scope-dates.js";
 import type { SeriesScope } from "./series-edit.js";
 import { ScopeDialog } from "./ScopeDialog.js";
 
