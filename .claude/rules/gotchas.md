@@ -4,7 +4,7 @@ Project-specific traps that are **still live**. Read these before diving into pr
 
 > **Format:** one entry = the rule, the reason in a clause, and an issue/PR link. Incident narratives (measurements, run IDs, timelines) go in the PR, `docs/fixes/<slug>/`, or `.claude/reflections/` — not here. This file loads into every session, so its size is budgeted by `scripts/check-instruction-budget.mjs`. Once a trap is pinned by a test, shrink its entry to "pinned by `<test>`" or drop it. The pre-compression narratives are preserved at `git show 0e870c555:.claude/rules/gotchas.md`.
 >
-> **Domain-specific gotchas** live in path-scoped siblings that load only when a matching file is read: `gotchas-pulumi.md`, `gotchas-dependencies.md`, `gotchas-releases.md`, `gotchas-fastify.md`, `gotchas-prisma.md`, `gotchas-auth0-e2e.md`.
+> **Domain-specific gotchas** live in path-scoped siblings that load only when a matching file is read: `gotchas-pulumi.md`, `gotchas-dependencies.md`, `gotchas-releases.md`, `gotchas-fastify.md`, `gotchas-prisma.md`, `gotchas-auth0-e2e.md`, `gotchas-worker-shell.md`.
 >
 > **Adding entries:** after an autonomous loop, run `/idea-to-prod:knowledge-base`'s harvest (`kb.py harvest <main checkout root> --days N` — a worktree path finds no transcripts) to propose bullets here with human review.
 
