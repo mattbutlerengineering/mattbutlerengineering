@@ -122,10 +122,11 @@ mbe agent run "Fix CI failure on main [type: <lint|typecheck|build|test|drift>]:
 \`\`\`
 
 ## Fix Instructions
-1. pnpm install --frozen-lockfile
+1. pnpm bootstrap:worktree
 2. Reproduce the failure locally: <relevant command>
 3. Fix the root cause (do NOT skip or disable tests/lint)
 4. Run gates: pnpm lint && pnpm typecheck && pnpm test (in affected package)
+4b. Before pushing: pnpm build --filter @mbe/cli... && pnpm regen (stage regenerated artifacts by path)
 5. Push branch, open PR with title: 'fix(ci): <brief description>'
 6. Include 'Fixes CI run <run URL>' in the PR body
 

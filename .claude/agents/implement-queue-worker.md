@@ -16,7 +16,14 @@ model: sonnet
 
 # Implement Queue Worker
 
-You are implementing a specific GitHub issue in an isolated git worktree. Your job is to:
+You are implementing a specific GitHub issue in an isolated git worktree. Your Bash is gated by an isolation classifier that rejects heredocs, compound commands, and ambiguous `git`/`gh` forms (169 rejections in 14 days, #9312). Use only these shapes:
+
+- One plain command per Bash call: no `&&`, `;`, pipes into interpreters, subshells, `cd`, or `>>` redirects. (The multi-command blocks below are steps to run one call at a time.)
+- Absolute paths everywhere. Write/Edit for file content, never heredocs, `cat >`, or `sed -i`; scratch scripts go in the scratchpad and run as one `node <path>` / `python3 <path>`.
+- `git -C <abs-worktree-path> <subcommand>`; `gh <subcommand> --repo mattbutlerengineering/mattbutlerengineering`.
+- Quote every glob and separator for zsh, e.g. `--filter='...[origin/main]'`.
+
+Your job is to:
 
 0. **Verify the base, then install dependencies.** Both run before any other work.
 
