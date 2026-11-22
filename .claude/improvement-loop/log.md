@@ -1155,6 +1155,7 @@ A clean fire: everything due was captured and judged, and nothing met the bar to
 **Regressions:**
 
 - review_coverage_trend: 0.146 (was 0.367, Δ-0.221) [high] — duplicate of already-open #9308, no new issue filed; async eval not triggered (Step 5 only fires on a fresh filing)
+
 ## 2026-11-22 — mbe-evening
 
 ### Metrics
