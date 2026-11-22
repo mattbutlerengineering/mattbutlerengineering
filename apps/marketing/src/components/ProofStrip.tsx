@@ -20,13 +20,7 @@ const COUNTERS = [
   { value: REPO_STATS.totalPrsMerged, label: "Pull requests merged" },
   { value: REPO_STATS.rialtoComponents, label: "Rialto components" },
   { value: REPO_STATS.testFiles, label: "Test files" },
-].map((counter) => ({
-  ...counter,
-  // Pinned to the counted figure's digit count, so the zero shown before the
-  // reveal fills exactly the reel cells the final figure will: starting the
-  // count changes the digits, never the layout.
-  formatOptions: { minimumIntegerDigits: String(counter.value).length },
-}));
+];
 
 const NARROW_VIEWPORT_QUERY = "(max-width: 640px)";
 
@@ -88,10 +82,10 @@ export function ProofStrip() {
               <motion.div key={counter.label} variants={staggerReveal.item}>
                 <Card variant="flat">
                   <Stack gap="2xs" align="center">
-                    <div className={styles.metricValue}>
+                    <div className={styles.metricValue} data-pending={revealed ? "false" : "true"}>
                       <Odometer
-                        value={revealed ? counter.value : 0}
-                        formatOptions={counter.formatOptions}
+                        key={revealed ? "revealed" : "pending"}
+                        value={counter.value}
                         size={isNarrowViewport ? "md" : "lg"}
                       />
                     </div>

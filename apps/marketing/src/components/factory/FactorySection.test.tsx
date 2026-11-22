@@ -108,10 +108,14 @@ describe("FactorySection recently shipped", () => {
     ).toHaveAttribute("href", "/shipped");
   });
 
-  it("labels the duration as wall-clock so it cannot be read as an age", () => {
+  // The span is how long the feature took, fixed at merge — it never advances
+  // with the calendar. "N days wall-clock" beside a date was misread as an age
+  // twice (#9143, #9357), so the copy names what it is: a build time.
+  it("words the duration as time taken to build, not as an age", () => {
     shipped.features = [story(1)];
     renderSection();
-    expect(screen.getByText(/2 days wall-clock/i)).toBeInTheDocument();
+    expect(screen.getByText(/built in 2 days/i)).toBeInTheDocument();
+    expect(screen.queryByText(/wall-clock/i)).toBeNull();
   });
 
   it("dates the block by its newest story instead of implying it is live", () => {

@@ -156,23 +156,28 @@ describe("ProofStrip odometer trigger", () => {
     mockRevealed.mockReturnValue(true);
   });
 
-  it.each(FIGURES)("holds %s at zero until the strip scrolls into view", (label) => {
+  // Before the reveal the counter used to be fed 0 padded to the figure's digit
+  // count, which painted a fake "0,000" until the strip scrolled into view or the
+  // 3s fallback fired (#9358). It now always holds the real figure, hidden (not
+  // faked) while it waits, and is keyed on the reveal so the roll plays on screen.
+  it.each(FIGURES)("never feeds %s a fake zero before the reveal", (label, v) => {
     mockRevealed.mockReturnValue(false);
     render(<ProofStrip />);
-    expect(figureFor(label, "0")).toBeInTheDocument();
+    expect(figureFor(label, String(v))).toBeInTheDocument();
+    expect(screen.queryByText("0")).toBeNull();
   });
 
-  it.each(FIGURES)("reserves %s's counted width while it waits, so nothing shifts", (label, v) => {
-    const digits = String(String(v).length);
-
+  it.each(FIGURES)("keeps %s's layout reserved but invisible while it waits", (label, v) => {
     mockRevealed.mockReturnValue(false);
     const { unmount } = render(<ProofStrip />);
-    expect(figureFor(label, "0")).toHaveAttribute("data-min-digits", digits);
+    const waiting = figureFor(label, String(v));
+    expect(waiting.closest("[data-pending]")).toHaveAttribute("data-pending", "true");
     unmount();
 
     mockRevealed.mockReturnValue(true);
     render(<ProofStrip />);
-    expect(figureFor(label, String(v))).toHaveAttribute("data-min-digits", digits);
+    const shown = figureFor(label, String(v));
+    expect(shown.closest("[data-pending]")).toHaveAttribute("data-pending", "false");
   });
 });
 
