@@ -204,6 +204,7 @@ const DATA_COMPONENTS = [
   "Contour",
   "Ember",
   "Champagne",
+  "DustMotes",
   "SplitFlap",
   "Stat",
   "Table",

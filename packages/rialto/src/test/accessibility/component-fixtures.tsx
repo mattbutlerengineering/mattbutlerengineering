@@ -41,6 +41,7 @@ import { CommandPalette } from "../../components/CommandPalette/CommandPalette";
 import { ConfirmDialog } from "../../components/ConfirmDialog/ConfirmDialog";
 import { ContextMenu } from "../../components/ContextMenu/ContextMenu";
 import { Champagne } from "../../components/Champagne/Champagne";
+import { DustMotes } from "../../components/DustMotes/DustMotes";
 import { Contour } from "../../components/Contour/Contour";
 import { DataList } from "../../components/DataList/DataList";
 import { DataTable } from "../../components/DataTable/DataTable";
@@ -147,6 +148,7 @@ export type BarrelExportName =
   | "ConfirmDialog"
   | "ContextMenu"
   | "Champagne"
+  | "DustMotes"
   | "Contour"
   | "DataList"
   | "DataTable"
@@ -554,6 +556,10 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
 
   Champagne: {
     element: <Champagne />,
+  },
+
+  DustMotes: {
+    element: <DustMotes />,
   },
 
   Handshake: {
