@@ -206,10 +206,6 @@
       "types": "./dist/lib/components/GuestCards/index.d.ts",
       "import": "./dist/lib/components/GuestCards/index.js"
     },
-    "./Guilloche": {
-      "types": "./dist/lib/components/Guilloche/index.d.ts",
-      "import": "./dist/lib/components/Guilloche/index.js"
-    },
     "./Handshake": {
       "types": "./dist/lib/components/Handshake/index.d.ts",
       "import": "./dist/lib/components/Handshake/index.js"

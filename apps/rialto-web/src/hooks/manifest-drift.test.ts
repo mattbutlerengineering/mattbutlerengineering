@@ -201,7 +201,6 @@ const DATA_COMPONENTS = [
   "Meter",
   "Shortcut",
   "SilkFlow",
-  "Guilloche",
   "Contour",
   "Ember",
   "Champagne",
