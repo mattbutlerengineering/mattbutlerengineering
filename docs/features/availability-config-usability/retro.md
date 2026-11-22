@@ -61,7 +61,7 @@ Both were filed after the merge by the Owner account from rendered audits, not b
 
 The run's own issues and deferrals. Never counted as feedback.
 
-- #7738: the tracker the run seeded (created 2026-10-26, before the merge). Closed with the PR.
+- #7738: the tracker the run seeded (created 2026-10-26, before the merge). Closed 2026-11-04T07:43Z, about seven hours before the PR merged, so the merge did not close it.
 - Review deferrals, each with its stated reason in `review.md` ("Final status of every first-pass finding" and the CI fix loop section):
   - Minor 3 exit-code half (the collapse script exits 0 when venues were `raced`; designed, documented).
   - Minor 6 (the interaction counter does not wrap `dblclick`, `selectOption`, `setChecked`, `tap`, keyboard or mouse actions).
