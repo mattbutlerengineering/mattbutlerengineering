@@ -47,7 +47,7 @@ function tonightText(change: HubTonightChange, { t, format }: HubTextContext): s
 }
 
 /** What is closed. A section or service whose name is not known is never worded as the venue. */
-function whatText(target: HubClosureTarget, { t, format }: HubTextContext): string {
+export function whatText(target: HubClosureTarget, { t, format }: HubTextContext): string {
   switch (target.kind) {
     case "venue":
       return t("availabilityHub.hub.closures.what.venue");
@@ -72,7 +72,7 @@ function whatText(target: HubClosureTarget, { t, format }: HubTextContext): stri
 }
 
 /** When a closure is read: in force or not, and on which date. */
-interface Reading {
+export interface Reading {
   readonly inForce: boolean;
   readonly today: string;
 }
@@ -122,7 +122,7 @@ function windowText(closure: HubClosure, reading: Reading, ctx: HubTextContext):
       });
 }
 
-function detailText(closure: HubClosure, reading: Reading, ctx: HubTextContext): string {
+export function detailText(closure: HubClosure, reading: Reading, ctx: HubTextContext): string {
   return [whenText(closure, reading, ctx), windowText(closure, reading, ctx)]
     .filter((part): part is string => part !== null)
     .join(", ");

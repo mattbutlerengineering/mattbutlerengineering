@@ -23,6 +23,7 @@ const MOUNTED: readonly string[] = [
   "/availability",
   "/availability/booking-rules",
   "/availability/calendar",
+  "/availability/closures",
   "/availability/history",
   "/availability/hours",
   "/availability/map",
@@ -53,7 +54,8 @@ describe("availabilityPath", () => {
     ],
     [{ view: "seasonal", screen: "compare" }, "/availability/calendar?tab=schedules"],
     [{ view: "specialDates" }, "/availability/calendar?tab=special"],
-    [{ view: "closures" }, "/availability/calendar?tab=special"],
+    [{ view: "closures" }, "/availability/closures"],
+    [{ view: "closures", from: "setup" }, "/availability/closures?from=setup"],
     [{ view: "calendar" }, "/availability/calendar?tab=calendar"],
     [
       { view: "calendar", calendarView: "week", date: "2026-12-24" },

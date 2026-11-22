@@ -117,7 +117,7 @@ const PAGE_TAB: Readonly<Record<AvailabilityView["view"], AvailabilityTab | unde
   hours: undefined,
   seasonal: "schedules",
   specialDates: "special",
-  closures: "special",
+  closures: undefined,
   calendar: "calendar",
   bookingRules: undefined,
   history: undefined,
@@ -147,18 +147,22 @@ export const isHistoryPage = (pathname: string): boolean =>
 /** The Seasonal hours list. Its editor and compare screens are not built yet (breakdown E4.6, E4.7). */
 const SEASONAL = `${ROUTE}/seasonal`;
 
+/** Closures and pauses, a page of its own. */
+const CLOSURES = `${ROUTE}/closures`;
+
 /** The Availability map: what decides when guests can book, from schedules down to tables. */
 const MAP = `${ROUTE}/map`;
 
 /**
- * The views with a path of their own: the hub, the drawers over it, regular hours and the
- * Availability map.
+ * The views with a path of their own: the hub, the drawers over it, regular hours, Closures and
+ * pauses, and the Availability map.
  */
 const OWN_PATHS: Readonly<Partial<Record<AvailabilityView["view"], string>>> = {
   hub: ROUTE,
   hours: HOURS,
   bookingRules: BOOKING_RULES,
   history: HISTORY,
+  closures: CLOSURES,
   map: MAP,
 };
 

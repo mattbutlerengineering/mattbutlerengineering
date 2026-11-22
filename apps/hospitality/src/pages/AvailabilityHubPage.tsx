@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Link, Navigate, useLocation } from "react-router";
@@ -19,6 +19,7 @@ import type { HubRowModels } from "../components/availability/hub/hub-rows.js";
 import { shortDate } from "../components/availability/hub/hub-text.js";
 import { HubCloseMenu } from "../components/availability/hub/HubCloseMenu.js";
 import { HubRow, type HubRowAction } from "../components/availability/hub/HubRow.js";
+import type { SpecialDateRule } from "../components/availability/special-dates.js";
 import { takeHubReturnRow } from "../components/availability/hub-return-focus.js";
 import { shownOnlinePause } from "../components/availability/close-draft.js";
 import { TodayLine } from "../components/availability/TodayLine.js";
@@ -31,6 +32,13 @@ import { useNow } from "../hooks/useNow.js";
 import { useVenueFormat } from "../hooks/useVenueFormat.js";
 import { minutesOfDayIn } from "../utils/service-day.js";
 import styles from "../components/availability/hub/Hub.module.css";
+
+// Opened only by Resume, so its reads and the Reopen dialog stay out of the hub's own chunk.
+const ResumePauseDialog = lazy(() =>
+  import("../components/availability/hub/ResumePauseDialog.js").then((m) => ({
+    default: m.ResumePauseDialog,
+  }))
+);
 
 /**
  * The index of `availability` (availability-hub ux.md, "Hub"): what is set up, row by row, and
@@ -204,6 +212,15 @@ function HubRules({ scope, rows }: HubRulesProps) {
   const ctx = useMemo(() => ({ t, format }), [t, format]);
   const actions = hubActions(rows, isManager);
   const marker = answer && t("availabilityHub.hub.decides", { date: shortDate(answer.date, ctx) });
+  const [resuming, setResuming] = useState(false);
+  // A stop made for tonight is a rule of its own kind, which the Timeline's control removes.
+  const pause = rows[3].pause;
+  const pauseRule =
+    isManager && pause?.source === "closure" && pause.inForce
+      ? config?.dateRules.find(
+          (r): r is SpecialDateRule => r.kind === "closure" && r.id === pause.ruleId
+        )
+      : undefined;
 
   return (
     <>
@@ -225,10 +242,30 @@ function HubRules({ scope, rows }: HubRulesProps) {
               action={rowAction(actions[index] ?? null, text.title, t)}
               serviceTo={isManager ? serviceTo : null}
               marker={answer?.hubRow === text.row ? marker : null}
+              button={
+                text.row === 4 && pauseRule
+                  ? {
+                      label: t("availability.paused.resume"),
+                      name: t("availabilityHub.closuresPage.resumeAria"),
+                      onClick: () => setResuming(true),
+                    }
+                  : null
+              }
             />
           ))}
         </ol>
       </section>
+      {resuming && pauseRule && state && scope.venueId && (
+        <Suspense fallback={null}>
+          <ResumePauseDialog
+            venueId={scope.venueId}
+            state={state}
+            rule={pauseRule}
+            today={today}
+            onClose={() => setResuming(false)}
+          />
+        </Suspense>
+      )}
       <Link
         to={availabilityPath({ view: "history" })}
         state={OPENED_FROM_HUB}

@@ -1,6 +1,6 @@
 import { useId } from "react";
 import { Link } from "react-router";
-import { Heading, Tag, Text } from "@mattbutlerengineering/rialto";
+import { Button, Heading, Tag, Text } from "@mattbutlerengineering/rialto";
 import { OPENED_FROM_HUB } from "../opened-from-hub.js";
 import type { HubRowText } from "./hub-row-text.js";
 import styles from "./Hub.module.css";
@@ -14,6 +14,13 @@ export interface HubRowAction {
   readonly name: string;
 }
 
+/** A second action that changes something in place, beside the row's link: Resume on row 4. */
+export interface HubRowButton {
+  readonly label: string;
+  readonly name: string;
+  readonly onClick: () => void;
+}
+
 export interface HubRowProps {
   readonly text: HubRowText;
   /** `null` when the viewer has nothing to do on this row. */
@@ -22,6 +29,7 @@ export interface HubRowProps {
   readonly serviceTo: ((venueServiceId: string) => string) | null;
   /** "decides Dec 24" on the row that decided the checked date, else `null`. */
   readonly marker: string | null;
+  readonly button?: HubRowButton | null;
 }
 
 /**
@@ -29,7 +37,7 @@ export interface HubRowProps {
  * is set, and at most one action. The date check's marker is text beside the title, so it is read
  * out and does not rest on colour.
  */
-export function HubRow({ text, action, serviceTo, marker }: HubRowProps) {
+export function HubRow({ text, action, serviceTo, marker, button }: HubRowProps) {
   const titleId = useId();
   // Two lines can read the same, so a line is keyed by its rule, else by its place in the row.
   const lines = text.lines.map((line, index) => ({ line, key: line.ruleId ?? `line-${index}` }));
@@ -40,6 +48,11 @@ export function HubRow({ text, action, serviceTo, marker }: HubRowProps) {
           {text.title}
         </Heading>
         {marker && <Tag>{marker}</Tag>}
+        {button && (
+          <Button variant="ghost" aria-label={button.name} onClick={button.onClick}>
+            {button.label}
+          </Button>
+        )}
         {action && (
           <Link
             to={action.to}
