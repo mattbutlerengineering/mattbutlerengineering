@@ -2,7 +2,9 @@
 stage: ship
 run: feature:availability-setup-hierarchy
 date: 2026-11-08
-outcome: prepared
+outcome: released
+released-at: 2026-11-08
+write-back: "2026-11-22: #8511 merged 2026-11-08T19:13:24Z as 0687154baaf4cc1fab0eb6be2f49d8118e04e3a6, read with gh pr view. The Owner-only checks this release lists were not re-verified by this write-back."
 pending-merge: https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8511
 assumptions:
   - "No release authorization in this conversation: the Owner asked to keep working and make improvements, not to merge to production. Ship is prepare-and-stop: branch pushed, pull request opened, merge left to the Owner."

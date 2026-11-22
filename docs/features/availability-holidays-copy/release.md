@@ -2,7 +2,9 @@
 stage: ship
 run: feature:availability-holidays-copy
 date: 2026-11-08
-outcome: prepared
+outcome: released
+released-at: 2026-11-09
+write-back: "2026-11-22: #8541 merged 2026-11-09T02:00:41Z as 74b775b28405a29b9cf847c52984b1496490bdf8, read with gh pr view. The Owner-only checks this release lists were not re-verified by this write-back."
 pending-merge: https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8541
 assumptions:
   - "No release authorization: the Owner asked to keep improving, not to merge. Prepare-and-stop."

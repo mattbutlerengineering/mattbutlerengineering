@@ -2,7 +2,9 @@
 stage: ship
 run: feature:availability-scenario-ux
 date: 2026-11-08
-outcome: prepared
+outcome: released
+released-at: 2026-11-08
+write-back: "2026-11-22: #8528 merged 2026-11-08T19:48:55Z as 5449119185dccb23e1ad3aca2855c0c998be2068, read with gh pr view. The Owner-only checks this release lists were not re-verified by this write-back."
 pending-merge: https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8528
 assumptions:
   - "No release authorization: the Owner asked to keep improving, not to merge. Prepare-and-stop: branch pushed, pull request opened, merge left to the Owner."
