@@ -27,8 +27,8 @@ function FeatureCard({ feature }: { readonly feature: ShippedFeature }) {
         )}
       </div>
       <Text className={styles.stats}>
-        {plural(feature.children.length, "child issue")} · {plural(prCount, "merged PR")} ·{" "}
-        {formatWallClock(feature.wallClockHours)} wall-clock
+        {plural(feature.children.length, "child issue")} · {plural(prCount, "merged PR")} · built in{" "}
+        {formatWallClock(feature.wallClockHours)}
       </Text>
       <div className={styles.meta}>
         Last merged <time dateTime={feature.lastMergedAt}>{formatDate(feature.lastMergedAt)}</time>
