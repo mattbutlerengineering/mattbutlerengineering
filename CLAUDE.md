@@ -8,6 +8,10 @@
 
 Always use caveman mode (full intensity) for all responses — ultra-compressed, dropping filler, articles, and pleasantries while keeping full technical accuracy. Code, commits, and PRs use normal formatting. Disable only when user says "stop caveman" or "normal mode".
 
+## Focus
+
+Hospitality exists so venues give guests exceptional experiences; rank work by it. Venue- or guest-felt work outranks the rest; finish in-flight features before starting new ones; tooling must name the feature work it speeds up or protects. Filter: [PRODUCT.md](./PRODUCT.md).
+
 ## Core reference
 
 - **Primary Source of Truth:** [AGENTS.md](./AGENTS.md)

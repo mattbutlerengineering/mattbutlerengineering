@@ -6,6 +6,7 @@
 
 ## Project Identity
 
+- **Focus:** hospitality exists so venues give guests exceptional experiences. Rank work by whether a venue operator or guest feels it, finish in-flight features first, and have tooling name the feature work it serves. Filter: [PRODUCT.md](./PRODUCT.md).
 - **Name:** mattbutlerengineering
 - **Type:** Monorepo (Turborepo + pnpm)
 - **Package Prefix:** `@mbe/`
