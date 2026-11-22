@@ -43,6 +43,7 @@ import { ContextMenu } from "../../components/ContextMenu/ContextMenu";
 import { Champagne } from "../../components/Champagne/Champagne";
 import { DustMotes } from "../../components/DustMotes/DustMotes";
 import { Fireflies } from "../../components/Fireflies/Fireflies";
+import { Steam } from "../../components/Steam/Steam";
 import { Contour } from "../../components/Contour/Contour";
 import { DataList } from "../../components/DataList/DataList";
 import { DataTable } from "../../components/DataTable/DataTable";
@@ -151,6 +152,7 @@ export type BarrelExportName =
   | "Champagne"
   | "DustMotes"
   | "Fireflies"
+  | "Steam"
   | "Contour"
   | "DataList"
   | "DataTable"
@@ -566,6 +568,10 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
 
   Fireflies: {
     element: <Fireflies />,
+  },
+
+  Steam: {
+    element: <Steam />,
   },
 
   Handshake: {

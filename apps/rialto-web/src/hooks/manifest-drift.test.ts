@@ -206,6 +206,7 @@ const DATA_COMPONENTS = [
   "Champagne",
   "DustMotes",
   "Fireflies",
+  "Steam",
   "SplitFlap",
   "Stat",
   "Table",
