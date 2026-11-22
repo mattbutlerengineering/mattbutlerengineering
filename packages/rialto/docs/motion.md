@@ -148,7 +148,7 @@ Verdicts as of this policy. **Keep** means it already fits its tier. **Trim** me
 | Skeleton, Progress shimmer/trace, Button and Combobox spinners, StatusLED, WatchLoader                            | Productive | Keep     | Status loops (loading, live) are allowed.                                                             |
 | NeonSign breathe, Handshake shuttle (`repeat: Infinity`)                                                          | Expressive | **Trim** | Decorative loops: confirm they pause offscreen and, past 5s, on request (WCAG 2.2.2).                 |
 | Hero, staggerReveal, SilkFlow, Contour, Ember, Champagne, SplitScreenExit, MasterOverride, ChatPanel, ImageUpload | Expressive | Keep     | Rare or guest-facing.                                                                                 |
-| FlipDot, SplitFlap, DepartureBoard, Odometer, Avatar `splitflap` transition                                       | Expressive | Keep     | Signature instruments; respect the 3-flashes rule.                                                    |
+| FlipDot, SplitFlap, DepartureBoard, Avatar `splitflap` transition                                                 | Expressive | Keep     | Signature instruments; respect the 3-flashes rule.                                                    |
 | Card, Badge and other static components                                                                           | None       | Keep     | No motion.                                                                                            |
 
 Follow-ups for the **Trim** rows: CommandPalette #7810, hover boop #7811, scale floor and Toast entrance #7812, decorative loops #7813.

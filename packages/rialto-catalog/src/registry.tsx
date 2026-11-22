@@ -51,7 +51,6 @@ import {
   IconButton,
   Input,
   NavigationMenu,
-  Odometer,
   PinInput,
   Popover,
   ReservationList,
@@ -483,7 +482,7 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
       // IconButton is a labelled, icon-only Button. The registry seam
       // (`withSchemaValidation`) validates its props against the generated Zod
       // schema before this adapter runs, so the shape is guaranteed here; the cast
-      // narrows the untyped props bag (mirrors the Odometer renderer, avoiding an
+      // narrows the untyped props bag (mirrors the GuestCards renderer, avoiding an
       // `any` here).
       IconButton: ({ props, emit }: { props: unknown; emit: (event: string) => void }) => {
         const p = props as {
@@ -793,7 +792,7 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
 
       // The registry seam (`withSchemaValidation`) validates these four against the
       // generated Zod schemas before the adapter runs, so each cast below narrows
-      // a guaranteed shape (mirrors the Odometer renderer, avoiding an `any`).
+      // a guaranteed shape (mirrors the GuestCards renderer, avoiding an `any`).
       BarChart: ({ props }: { props: unknown }) => {
         const p = props as { label: string; data: { label: string; value: number | string }[] };
         return <BarChart label={p.label} data={p.data} />;
@@ -892,26 +891,6 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
         );
       },
 
-      Odometer: ({ props }: { props: unknown }) => {
-        // The registry seam (`withSchemaValidation`) validates Odometer props
-        // against the generated Zod schema before this adapter runs, so the shape
-        // is guaranteed here.
-        const p = props as {
-          value: number;
-          size?: "sm" | "md" | "lg";
-          flipInterval?: number;
-          cascadeDelay?: number;
-        };
-        return (
-          <Odometer
-            value={p.value}
-            size={p.size}
-            flipInterval={p.flipInterval}
-            cascadeDelay={p.cascadeDelay}
-          />
-        );
-      },
-
       // EmptyState uses `heading`; the `title` alias is declared in
       // EmptyState.catalog.ts and normalized at the seam (see withAliasNormalization).
       EmptyState: ({ props, children }: any) => (
@@ -926,7 +905,7 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
       // declared in DepartureBoard.catalog.ts propSchemas; the registry seam
       // (`withSchemaValidation`) validates it against the generated Zod schema
       // before this adapter runs; the cast narrows the untyped props bag (mirrors
-      // the Odometer renderer).
+      // the GuestCards renderer).
       DepartureBoard: ({ props }: { props: unknown }) => {
         const p = props as {
           phrases: string[];

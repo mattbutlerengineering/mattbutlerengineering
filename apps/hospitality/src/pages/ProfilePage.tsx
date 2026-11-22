@@ -14,7 +14,6 @@ import {
   Divider,
   Input,
   Meter,
-  Odometer,
   Skeleton,
   SkeletonGroup,
   Stack,
@@ -82,7 +81,9 @@ interface SessionClusterProps {
   elapsedPercent: number | null;
 }
 
-/** The live instruments: countdown reels, telltale LED, and lifetime gauge. */
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+/** The live instruments: countdown, telltale LED, and lifetime gauge. */
 function SessionCluster({ remainingMs, phase, elapsedPercent }: SessionClusterProps) {
   const totalSeconds = Math.floor(remainingMs / 1000);
   const minutes = Math.floor(totalSeconds / 60);
@@ -99,19 +100,11 @@ function SessionCluster({ remainingMs, phase, elapsedPercent }: SessionClusterPr
           role="timer"
           aria-label={t("profile.session.timerLabel")}
         >
-          <Odometer
-            value={minutes}
-            formatOptions={{ minimumIntegerDigits: 2, useGrouping: false }}
-            aria-label={t("profile.session.minutesRemaining")}
-          />
+          <Text variant="display">{pad2(minutes)}</Text>
           <Text className={styles.sessionSeparator} aria-hidden="true">
             :
           </Text>
-          <Odometer
-            value={seconds}
-            formatOptions={{ minimumIntegerDigits: 2, useGrouping: false }}
-            aria-label={t("profile.session.secondsRemaining")}
-          />
+          <Text variant="display">{pad2(seconds)}</Text>
         </div>
         <div className={styles.sessionStatus}>
           <StatusLED variant={led.variant} pulse={led.pulse} label={ledLabel} />

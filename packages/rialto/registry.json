@@ -3150,50 +3150,6 @@
       ]
     },
     {
-      "name": "Odometer",
-      "description": "A mechanical rolling-counter. Reads a numeric `value`, formats it with locale\ngrouping via `Intl.NumberFormat`, and animates digit changes by composing the\n\n{@link \nSplitFlap \n}\n primitive — each contiguous run of digits becomes a reel\nthat rolls to its target, extending SplitFlap's Solari physics to numbers.\n\nGrouping separators (`,` `.` currency symbols, sign) render as static glyphs\nbetween the reels. On each value change the reel block re-settles with the\ntoken spring; `prefers-reduced-motion` snaps to the final value with no roll\n(SplitFlap honors it internally, and the container skips its settle).\n\nAccessibility: the animated reels are decorative and hidden from assistive\ntech. A single polite, atomic live region announces the whole formatted\nnumber — never per-digit. Any `aria-label`/`aria-labelledby` you pass names\nthat live region (not just the role-less wrapper), so screen readers announce\nthe label with the value. Pairs naturally with `Stat` and hero metrics.",
-      "importPath": "@mattbutlerengineering/rialto",
-      "props": [
-        {
-          "name": "value",
-          "type": "number",
-          "required": true,
-          "description": "The numeric value to display. Reels roll to match on change."
-        },
-        {
-          "name": "locale",
-          "type": "string | string[] | undefined",
-          "required": false,
-          "description": "BCP-47 locale(s) for `Intl.NumberFormat`."
-        },
-        {
-          "name": "formatOptions",
-          "type": "NumberFormatOptions | undefined",
-          "required": false,
-          "description": "`Intl.NumberFormat` options — grouping, currency, fraction digits, etc."
-        },
-        {
-          "name": "size",
-          "type": "\"sm\" | \"md\" | \"lg\" | undefined",
-          "required": false,
-          "description": "Reel size preset — forwarded to SplitFlap."
-        },
-        {
-          "name": "flipInterval",
-          "type": "number | undefined",
-          "required": false,
-          "description": "Ms between each intermediate flip within a reel."
-        },
-        {
-          "name": "cascadeDelay",
-          "type": "number | undefined",
-          "required": false,
-          "description": "Ms delay before each subsequent digit in a reel starts."
-        }
-      ],
-      "slots": []
-    },
-    {
       "name": "OverridePanel",
       "description": "A horizontal rack that groups multiple MasterOverrides with a shared\nbezel and power-rail aesthetic. Ideal for building complex control panels\nor \"launch consoles\".",
       "importPath": "@mattbutlerengineering/rialto",

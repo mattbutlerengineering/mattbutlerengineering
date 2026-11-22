@@ -20,10 +20,9 @@ import { useSpring } from "framer-motion";
 
 import { RialtoProvider } from "../../providers/RialtoProvider";
 import { useMotionPreset } from "../../providers/useMotionPreset";
-import { precision, springGentle, springTilt } from "../../tokens/motion";
+import { precision, springTilt } from "../../tokens/motion";
 import { Meter } from "../../components/Meter/Meter";
 import { Progress } from "../../components/Progress/Progress";
-import { Odometer } from "../../components/Odometer/Odometer";
 import { useTilt } from "../../hooks/useTilt";
 import { stubMatchMedia } from "../match-media";
 import { recordedTransitions } from "../record-motion";
@@ -50,12 +49,6 @@ describe("HUD motion follows the game vibe", () => {
     const { container } = render(<Progress value={40} label="Upload" />, { wrapper: Game });
     expect(recordedTransitions(container)).toContainEqual(game.precision);
     expect(recordedTransitions(container)).not.toContainEqual(precision);
-  });
-
-  it("Odometer settles with the game springGentle transition", () => {
-    const { container } = render(<Odometer value={1234} locale="en-US" />, { wrapper: Game });
-    expect(recordedTransitions(container)).toContainEqual(game.springGentle);
-    expect(recordedTransitions(container)).not.toContainEqual(springGentle);
   });
 
   it("useTilt springs with the game tilt config", () => {

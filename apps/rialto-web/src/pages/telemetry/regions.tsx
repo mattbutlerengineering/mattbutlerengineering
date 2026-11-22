@@ -16,7 +16,6 @@ import {
   DataTable,
   DepartureBoard,
   Meter,
-  Odometer,
   SegmentedControl,
   Skeleton,
   Stat,
@@ -236,7 +235,7 @@ export function VitalsRail({ frame, kind }: { frame: TelemetryFrame | null; kind
             {null}
           </ValueSlot>
         ) : (
-          <Odometer value={activeZone?.speed ?? 0} locale="en-US" size="lg" />
+          <Text variant="display">{activeZone?.speed ?? 0}</Text>
         )}
         <Stat
           value={activeZone ? `${activeZone.best} km/h` : PLACEHOLDER}

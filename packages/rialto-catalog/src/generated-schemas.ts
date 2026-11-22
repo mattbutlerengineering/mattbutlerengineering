@@ -209,12 +209,6 @@ export const generatedSchemas = {
   NavigationMenu: z.object({
     items: z.array(z.object({ label: z.string(), href: z.string().optional(), children: z.array(z.object({ label: z.string(), href: z.string().optional() })).optional() })),
   }),
-  Odometer: z.object({
-    value: z.number(),
-    size: z.enum(["lg", "md", "sm"]).optional(),
-    flipInterval: z.number().optional(),
-    cascadeDelay: z.number().optional(),
-  }),
   PinInput: z.object({
     length: z.number().optional(),
     mask: z.boolean().optional(),

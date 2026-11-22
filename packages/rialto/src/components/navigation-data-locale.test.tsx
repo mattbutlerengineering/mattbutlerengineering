@@ -15,7 +15,6 @@ import { ImageUpload } from "./ImageUpload/ImageUpload";
 import { Navbar } from "./Navbar/Navbar";
 import { NavigationMenu } from "./NavigationMenu/NavigationMenu";
 import { NumberInput } from "./NumberInput/NumberInput";
-import { Odometer } from "./Odometer/Odometer";
 import { Pagination } from "./Pagination/Pagination";
 import { ScrollArea } from "./ScrollArea/ScrollArea";
 import { Sidebar } from "./Sidebar/Sidebar";
@@ -373,19 +372,5 @@ describe("context locale is the Intl fallback", () => {
       </RialtoLocaleProvider>
     );
     expect((screen.getByRole("combobox") as HTMLInputElement).value).toMatch(/p\.\s?m\./i);
-  });
-
-  it("Odometer formats with the context locale", () => {
-    render(
-      <RialtoLocaleProvider locale="de-DE" messages={esMX}>
-        <Odometer value={1234567} />
-      </RialtoLocaleProvider>
-    );
-    expect(screen.getByRole("status")).toHaveTextContent("1.234.567");
-  });
-
-  it("Odometer keeps today's behaviour with no provider", () => {
-    render(<Odometer value={1234567} locale="en-US" />);
-    expect(screen.getByRole("status")).toHaveTextContent("1,234,567");
   });
 });

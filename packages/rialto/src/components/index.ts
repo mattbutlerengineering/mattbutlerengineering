@@ -92,7 +92,6 @@ export * from "./ImageUpload";
 export * from "./MasterOverride";
 export * from "./SplitFlap";
 export * from "./DepartureBoard";
-export * from "./Odometer";
 export * from "./Chalkboard";
 export * from "./Letterboard";
 export * from "./SplitScreenExit";
