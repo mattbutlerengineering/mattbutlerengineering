@@ -1,5 +1,15 @@
 # @mattbutlerengineering/rialto
 
+## 3.0.0
+
+### Major Changes
+
+- [#9403](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9403) [`edc7024`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/edc70241bc6ca51197319d03f18b63e617a104eb) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Remove the `Odometer` component and its `./Odometer` subpath export. Render the number with `Text` or `Stat` instead.
+
+### Minor Changes
+
+- [#9413](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9413) [`ccb0ec5`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/ccb0ec52cc5cbc9263a32613fe5a3ebb53cc3085) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add `DustMotes`, an ambient canvas backdrop of slow dust motes drifting down through a leaning shaft of light, like the back room of a speakeasy, built on the shared ambient-canvas runtime. Motes brighten as they cross the shaft and the few the light catches are gold; the pointer stirs nearby motes aside; reduced motion renders a static poster.
+
 ## 2.0.0
 
 ### Major Changes
