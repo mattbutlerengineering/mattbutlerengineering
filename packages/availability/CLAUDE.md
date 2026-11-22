@@ -12,6 +12,8 @@ src/
 ├── types.ts            # ServiceDate, Weekday, WEEKDAYS, MINUTES_PER_DAY
 ├── civil-date.ts       # addDays, weekdayOf, weekdayIndexOf (0 = Sunday, as stored) — via Date.UTC
 ├── date-rules.ts       # which date rules apply to a day (range, repeat, skips, Tonight) and their labels
+├── scope-reach.ts      # coversDate, isHoursRule, SCOPE_HORIZON_DAYS — a stored rule's reach, shared by service and client
+├── current-service-date.ts # currentServiceDate — the service day "tonight" means (ADR-029)
 ├── format-minute.ts    # "10:30 PM" for a service-day minute
 ├── resolve-day.ts      # resolveDay — the layer stack for one service day, with "Why this day"
 ├── apply-draft.ts      # applyDraft / applyChanges — a config save's row operations applied purely, for the preview and the save

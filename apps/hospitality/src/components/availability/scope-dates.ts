@@ -1,5 +1,12 @@
-import { addDays, resolveDay, weekdayIndexOf } from "@mbe/availability";
-import type { AvailabilityConfig, DateRule } from "@mbe/types";
+import {
+  SCOPE_HORIZON_DAYS,
+  addDays,
+  coversDate,
+  isHoursRule,
+  resolveDay,
+  weekdayIndexOf,
+} from "@mbe/availability";
+import type { AvailabilityConfig } from "@mbe/types";
 import type { EditScope } from "./draft-changes.js";
 
 /**
@@ -7,9 +14,6 @@ import type { EditScope } from "./draft-changes.js";
  * (`availability-config-plan.ts`): an open end is settled 366 days out, and "everywhere a
  * schedule is used" looks at the week alone, with date rules set aside.
  */
-
-/** How far past its start an open-ended scope is counted; the server's horizon. */
-export const SCOPE_HORIZON_DAYS = 366;
 
 interface ScopeContext {
   readonly config: AvailabilityConfig;
@@ -81,18 +85,6 @@ export function scheduleReach(scheduleId: string, context: ScopeContext): string
     });
   const all = [...scopeDates({ kind: "schedule", scheduleId }, context), ...viaRules];
   return [...new Set(all)].sort();
-}
-
-const isHoursRule = (rule: DateRule): boolean =>
-  (rule.kind === "special_hours" || rule.kind === "use_schedule") && rule.seriesId == null;
-
-/** Whether the rule's range and repeat reach `date`. */
-export function coversDate(rule: DateRule, date: string): boolean {
-  return (
-    rule.startsOn <= date &&
-    (rule.endsOn == null || date <= rule.endsOn) &&
-    (rule.repeat == null || rule.repeat.weekdays.includes(weekdayIndexOf(date)))
-  );
 }
 
 /**
