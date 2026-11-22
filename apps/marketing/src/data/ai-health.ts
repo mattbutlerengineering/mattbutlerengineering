@@ -388,7 +388,7 @@ const SENSOR_GAP_EXPLANATIONS: Readonly<Record<string, string>> = {
     "Needs reports/mutation/mutation.json, which only the Mutation Testing workflow produces; this run had no report.",
   no_resolvable_runs:
     "E2E runs were found, but their commits are not present in this checkout, so they could not be classified.",
-  no_runs: "No E2E Tests runs on main were returned.",
+  no_runs: "No E2E Tests runs were returned (the workflow runs on pull requests, not main pushes).",
   no_non_frontend_runs:
     "Every recent E2E run touched frontend paths, so there is nothing to measure.",
 };
