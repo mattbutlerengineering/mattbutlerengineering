@@ -188,6 +188,7 @@ describe("REPO_AUDIT_CHECKS is the audit's source of truth", () => {
       "check-ci-gate-coverage",
       "check-queue-telemetry-dupes",
       "check-workflow-pr-scope",
+      "check-ready-label-exclusive",
       "check-memory-refs",
       "check-skill-references",
       "check-i18n-catalogs",
