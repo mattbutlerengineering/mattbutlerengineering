@@ -13,7 +13,7 @@
   "devDependencies": {
     "@mbe/config": "workspace:*",
     "@mbe/edge-worker": "workspace:*",
-    "@playwright/test": "^1.65.0",
+    "@playwright/test": "^1.65.1",
     "@types/node": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
