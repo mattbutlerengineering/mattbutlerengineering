@@ -1,9 +1,3 @@
-## 2026-11-06
-
-**queueEfficiency:** composite 0.865 (baseline n/a) — healthy
-**Difficulty distribution:** size:s:24, size:xs:10, size:m:7, size:l:16, size:xl:17
-**Issues filed:** 0
-
 ## 2026-11-06 — mbe-evening (progress-tracker)
 
 ### Metrics (7d; `audit`+`ci-fix` labels, REST issue search, `created_at`/`closed_at` exact)
@@ -1188,3 +1182,42 @@ A clean fire: everything due was captured and judged, and nothing met the bar to
   **AI issue feedback:** budgets refreshed — feature 4% rejected (n=48), ci-fix 16% (n=62), audit 17% (n=46), sentry 0% (n=13), acmm 33% (n=3), meta-improvement 0% (n=25), agent-failed 100% (n=1, budget halved to 1), dependencies 0% (n=2); no category newly crossed the >40% halving line this run.
   **Skill proposals:** 0 (not Friday — Step 4 session-log analysis skipped)
   **Threshold notes:** auto-tuner applied 1 adjustment (acmm 1.832 → 1.853, headroom). 30-day fix-effectiveness (non-skip verifications only): 8 verified / 9 scored (~89%), well above the 50% floor. Overall false-positive rate across feedback categories ~11% (22/200 rejected), below the 30% loosen-trigger — no threshold changes recommended this run.
+
+## 2026-11-23 — mbe-evening
+
+### Metrics
+
+| Metric                       | Value                                                                                              | Status |
+| ---------------------------- | -------------------------------------------------------------------------------------------------- | ------ |
+| Created (7d, audit+ci-fix)   | 32 (17 audit + 15 ci-fix)                                                                          | -      |
+| Closed (7d, audit+ci-fix)    | 39 (20 audit + 19 ci-fix)                                                                          | -      |
+| Closure Rate                 | 122%                                                                                               | Green  |
+| Time-to-Close                | mean 49.2h / median 3.0h (n=39; long-tail-skewed, same shape as 11-21/11-22)                       | Yellow |
+| Agent Success                | 0 open has-pr, 0 agent-failed — undefined this instant (no open flow to rate)                      | n/a    |
+| CI Pass (main, last 20 runs) | 16 success / 4 skipped / 0 failure                                                                 | Green  |
+| Queue (ready)                | 13 (see Patterns — none safely claimable this iteration)                                           | Red    |
+| Stale (ready >7d)            | 2 (#7715 since 10-26, #4670 since 08-29 — both `ready-for-human`, awaiting a human merge/decision) | Yellow |
+| Blocked (agent-failed)       | 0                                                                                                  | Green  |
+| Skipped (agent-skip)         | 0                                                                                                  | Green  |
+| Daily Spend (attributed)     | $0 today (agent-core) + 1 queue-worker session tonight (122,282 tokens), cost unknown              | n/a    |
+| 7d Spend                     | $2 attributed (5 agent-core sessions) + 8 queue-worker sessions, 1,123,965 tokens, cost unknown    | n/a    |
+| Cost/Issue (attributed only) | ~$0.05 ($2 / 39 closed)                                                                            | Green  |
+| Reverts (7d)                 | 0                                                                                                  | Green  |
+
+### Patterns
+
+- **The `ready` queue is cluttered, not empty: 13 issues carry `ready` but none were safely claimable this iteration.** Breakdown: 4 held by `hold_labels` (`needs-review`: #9356, #9346, #9317, #9238); 1 `needs-human` (#9428); 3 `ready-for-human` (#9234, #7715, #4670) — a human-merge/decision signal, not implementation-ready despite the label; 1 tracking epic (#9335, `[Ideation] Batch 2026-11-21`); 1 `needs-triage` findings tracker (#9312, not a single actionable fix); 3 large arch-deepening refactors (#9314, #9315, #9316) whose bodies each explicitly end "The interface is not designed yet. Do not start implementation from this issue alone." This exact clutter — `ready` co-occurring with `ready-for-human`/`needs-human` — is already being fixed: #9426 (`process: make ready and ready-for-human mutually exclusive`) is `in-progress` right now, filed and claimed earlier today (created 00:27Z), so no duplicate meta-improvement issue filed here.
+- **New, not yet covered by #9426:** the three arch-deepening issues (#9314–9316) are `ready`-only (no `needs-human`/`ready-for-human`) yet are explicitly not implementable as filed — a different mislabeling shape (a design-gate inside the body text, invisible to a label-based `ready`/`ready-for-human` exclusivity fix). Worth adding to #9426's scope or a follow-up once #9426 lands, rather than a second new issue tonight (2/run budget, and this is one occurrence, not yet a 3-day pattern).
+- Promoted the one well-specified stateless candidate (`node scripts/reconcile-issue-states.mjs check` → 1 stateless, #9417) to `ready`, claimed it, dispatched one worker. Outcome: investigated, no repo change warranted — the issue's "3 new FAILs" narrative didn't match the actual committed ACMM data across the window (two of the three "new" FAILs had been failing since before Oct 12; the "13 FAILs today" list itself substituted 5 PASS criteria for 5 real FAILs it omitted). Root cause: the issue's numbers look reconstructed from memory rather than re-derived from the live `/acmm-report.json` — exactly the anti-pattern CLAUDE.md's "Trust live output" rule warns against. Evidence posted on #9417, labeled `needs-review`. Not a circuit-breaker failure (evidence outcome).
+- CI on main: 16/20 sampled runs succeeded, 4 skipped, 0 failures — healthy, no instability signal. 0 open PRs at Phase 0 start; last night's parked telemetry PR (#9368) confirmed merged (02:44Z 2026-11-22) — the two-night merge-classifier-denial pattern flagged on 2026-11-21/22 did not need escalation tonight, since this run never called `gh pr merge` itself (just opened the telemetry PR via REST and left it `has-pr` for the next iteration's gate/merge-train, per the profile).
+- 0 reverts in 7d.
+
+### Recommendations
+
+- No circuit-breaker or threshold action needed.
+- Once #9426 merges, re-check whether #9314/#9315/#9316 still read as falsely-ready; if so, file the follow-up then (not tonight — single occurrence, budget-conscious).
+- #9417 stays `needs-review` for a human to close or redirect to the real ask (per-criterion history on the ACMM dashard) if still wanted.
+
+### Skipped Issues
+
+0 skipped after max retries (`agent-skip` label: empty).
