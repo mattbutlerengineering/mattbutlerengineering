@@ -163,9 +163,11 @@ built or building).
 
 ### 4. Generate 4-5 proposals
 
-Hard minimum 4, maximum 5. Respect every PRODUCT.md guardrail (≤1 per app
-unless a signal is overwhelming; every proposal cites ≥1 signal; sized to
-decompose into 3-10 child issues).
+Hard minimum 4, maximum 5. Respect every PRODUCT.md guardrail (≤1 per app,
+hospitality up to 3, unless a signal is overwhelming; every proposal cites ≥1
+signal and states its venue/guest impact; sized to decompose into 3-10 child
+issues). A proposal whose only signal is internal fails the decision filter:
+drop it, or tie it to the hospitality work it speeds up or protects.
 
 Per proposal — title `[Proposal] <app>: <feature>`, label `feature-proposal`
 **only**, body (write it to a temp file and create with
@@ -180,6 +182,11 @@ is posted as the literal string, only `--body-file` reads a file):
 ## Charter alignment
 
 <quoted PRODUCT.md theme>
+
+## Venue/guest impact
+
+<who feels this (operator, host, guest) and what changes for them; or, for
+tooling, the named hospitality work it speeds up or protects>
 
 ## Proposed feature
 

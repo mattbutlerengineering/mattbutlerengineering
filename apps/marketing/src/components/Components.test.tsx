@@ -32,7 +32,6 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   Card: ({ children }: any) => <div>{children}</div>,
   Badge: ({ children }: any) => <span>{children}</span>,
   Icon: () => <div />,
-  Odometer: ({ value }: { value: number }) => <span>{value}</span>,
   useScrollReveal: () => ({
     ref: vi.fn(),
     controls: { start: vi.fn(), subscribe: vi.fn(), stop: vi.fn(), mount: vi.fn() },

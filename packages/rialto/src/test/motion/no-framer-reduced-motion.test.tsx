@@ -18,6 +18,10 @@ import { useReducedMotion } from "framer-motion";
 import { Avatar } from "../../components/Avatar/Avatar";
 import { DepartureBoard } from "../../components/DepartureBoard/DepartureBoard";
 import { Champagne } from "../../components/Champagne/Champagne";
+import { DustMotes } from "../../components/DustMotes/DustMotes";
+import { Fireflies } from "../../components/Fireflies/Fireflies";
+import { Steam } from "../../components/Steam/Steam";
+import { Constellation } from "../../components/Constellation/Constellation";
 import { Contour } from "../../components/Contour/Contour";
 import { Ember } from "../../components/Ember/Ember";
 import { Handshake } from "../../components/Handshake/Handshake";
@@ -35,6 +39,10 @@ const RENDERS: ReadonlyArray<readonly [string, () => void]> = [
   ["Avatar", () => render(<Avatar src="/a.jpg" name="A" transition="splitflap" />)],
   ["DepartureBoard", () => render(<DepartureBoard phrases={["ONE", "TWO"]} />)],
   ["Champagne", () => render(<Champagne />)],
+  ["DustMotes", () => render(<DustMotes />)],
+  ["Fireflies", () => render(<Fireflies />)],
+  ["Steam", () => render(<Steam />)],
+  ["Constellation", () => render(<Constellation />)],
   ["Contour", () => render(<Contour />)],
   ["Ember", () => render(<Ember />)],
   ["Handshake", () => render(<Handshake aria-label="x" stations={["A", "B"]} />)],

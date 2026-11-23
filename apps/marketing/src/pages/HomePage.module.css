@@ -108,12 +108,6 @@
   color: var(--rialto-text-primary);
 }
 
-/* Until the strip is revealed the real figure holds its place unseen: the
-   layout is reserved, and no stand-in number is ever painted (#9358). */
-.metricValue[data-pending="true"] {
-  visibility: hidden;
-}
-
 .contactLink {
   color: var(--rialto-text-secondary);
   text-decoration: none;
@@ -144,9 +138,8 @@
   }
 
   .metricsGrid {
-    /* Single column on phones: even the md odometer's flip-board cells are
-       em-sized boxes (~200px for a 4-digit figure) that cannot shrink, so a
-       two-up grid overflows the viewport on 360-412px screens.
+    /* Single column on phones: a two-up grid is too tight on 360-412px
+       screens.
        `1fr` is minmax(auto, 1fr). The presenting vibe sets --rialto-space-lg
        to 32px, so a 320px viewport leaves a 256px content box, while the
        figure plus card padding is about 280px of min-content. The track then

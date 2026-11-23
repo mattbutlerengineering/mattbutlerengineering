@@ -30,7 +30,6 @@ const COMPONENTS_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "..",
 const HUD_COMPONENTS = [
   "StatusLED",
   "Meter",
-  "Odometer",
   "SplitFlap",
   "DepartureBoard",
   "DataTable",
