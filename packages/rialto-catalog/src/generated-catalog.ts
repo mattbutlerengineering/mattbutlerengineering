@@ -198,6 +198,12 @@ export const catalogMeta: Record<string, CatalogMeta> = {
       "Horizontal dropdown navigation bar for top-level site navigation. Use for the primary nav with 3-8 top-level items. Items with children render as dropdown menus on hover.",
     slots: ["default"],
   },
+  NumberInput: {
+    name: "NumberInput",
+    description:
+      "Numeric field with stepper buttons. Use for counts and amounts such as party size, quantity, or price. Always give a label and a starting value; set min and max to bound it, and step (e.g. 0.5) to allow decimals.",
+    charLimits: { label: 40, hint: 120, disabledReason: 120 },
+  },
   PinInput: {
     name: "PinInput",
     description:
@@ -222,6 +228,11 @@ export const catalogMeta: Record<string, CatalogMeta> = {
       "Fixed-height region whose content scrolls independently of the page. Set maxHeight (CSS value, e.g. '320px') and put the long content — a feed, list, or log — as children. Use when a long list must stay inside a panel or Card instead of lengthening the page.",
     slots: ["default"],
   },
+  SegmentedControl: {
+    name: "SegmentedControl",
+    description:
+      "Pill-style switch between 2-4 mutually exclusive options, such as Day / Week / Month. Provide a segments array (id and label for each) and value set to the id selected at first. Prefer over Tabs when the choice changes a view setting rather than navigating sections.",
+  },
   Select: {
     name: "Select",
     description:
@@ -237,6 +248,12 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     name: "Skeleton",
     description:
       "Pulsing placeholder shape shown while content loads. Use variant=text or heading with lines=3 for a paragraph, variant=circle for an avatar, variant=card or rect for images and cards. Set width and height as CSS values (e.g. '100%', '48px'). Put Skeletons where the real content will appear, not as decoration.",
+  },
+  Slider: {
+    name: "Slider",
+    description:
+      "Draggable single-value range control. Use to pick a number within a known range where precision matters less than feel, such as volume, brightness, or a budget. Provide a label, min, max, and defaultValue; set showValue to display the current number.",
+    charLimits: { label: 40, disabledReason: 120 },
   },
   Stack: {
     name: "Stack",

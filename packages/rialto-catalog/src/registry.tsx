@@ -51,13 +51,16 @@ import {
   IconButton,
   Input,
   NavigationMenu,
+  NumberInput,
   PinInput,
   Popover,
   ReservationList,
   ScrollArea,
+  SegmentedControl,
   Select,
   Sidebar,
   Skeleton,
+  Slider,
   Stack,
   Stat,
   StatusLED,
@@ -197,6 +200,58 @@ function PinInputAdapter({ props, emit }: AdapterArgs<PinInputSpecProps>) {
         emit("change");
       }}
       onComplete={() => emit("complete")}
+    />
+  );
+}
+
+interface NumberInputSpecProps {
+  value?: number;
+  min?: number;
+  max?: number;
+  step?: number;
+  label?: string;
+  hint?: string;
+  error?: boolean;
+  required?: boolean;
+  disabled?: boolean;
+  disabledReason?: string;
+  showOptional?: boolean;
+  size?: "small" | "default" | "large";
+}
+
+/** NumberInput is fully controlled, so the spec's value is held here as it steps. */
+function NumberInputAdapter({ props, emit }: AdapterArgs<NumberInputSpecProps>) {
+  const [value, setValue] = useState<number>(props.value ?? props.min ?? 0);
+  return (
+    <NumberInput
+      {...props}
+      value={value}
+      onChange={(next) => {
+        setValue(next);
+        emit("change");
+      }}
+    />
+  );
+}
+
+interface SegmentedControlSpecProps {
+  segments: { id: string; label: string; disabled?: boolean }[];
+  value?: string;
+  size?: "sm" | "md";
+}
+
+/** SegmentedControl is fully controlled, so the selected id is held here. */
+function SegmentedControlAdapter({ props, emit }: AdapterArgs<SegmentedControlSpecProps>) {
+  const [value, setValue] = useState<string>(props.value ?? props.segments[0]?.id ?? "");
+  return (
+    <SegmentedControl
+      segments={props.segments}
+      size={props.size}
+      value={value}
+      onChange={(next) => {
+        setValue(next);
+        emit("change");
+      }}
     />
   );
 }
@@ -741,6 +796,31 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
       PinInput: typed(({ props, emit }: AdapterArgs<PinInputSpecProps>) => (
         <PinInputAdapter props={props} emit={emit} />
       )),
+
+      NumberInput: typed(({ props, emit }: AdapterArgs<NumberInputSpecProps>) => (
+        <NumberInputAdapter props={props} emit={emit} />
+      )),
+
+      SegmentedControl: typed(({ props, emit }: AdapterArgs<SegmentedControlSpecProps>) => (
+        <SegmentedControlAdapter props={props} emit={emit} />
+      )),
+
+      // Slider keeps its own state when given `defaultValue`; only `change` is bridged.
+      Slider: typed(
+        ({
+          props,
+          emit,
+        }: AdapterArgs<{
+          min?: number;
+          max?: number;
+          step?: number;
+          defaultValue?: number;
+          label?: string;
+          showValue?: boolean;
+          disabled?: boolean;
+          disabledReason?: string;
+        }>) => <Slider {...props} onChange={() => emit("change")} />
+      ),
 
       Table: ({ props }: any) => (
         <Table
