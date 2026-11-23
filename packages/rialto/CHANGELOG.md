@@ -1,5 +1,11 @@
 # @mattbutlerengineering/rialto
 
+## 3.1.1
+
+### Patch Changes
+
+- [#9443](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9443) [`38b17a3`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/38b17a37223ca1df87d1f4a7a038a279491f653e) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add catalog metadata for NumberInput, Slider and SegmentedControl so AI generation can use them.
+
 ## 3.1.0
 
 ### Minor Changes
