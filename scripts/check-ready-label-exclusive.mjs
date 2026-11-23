@@ -18,8 +18,8 @@ import { execFileSync } from "node:child_process";
 
 import { runCheck } from "./lib/fitness-check.mjs";
 
-export const READY_LABEL = "ready";
-export const READY_FOR_HUMAN_LABEL = "ready-for-human";
+const READY_LABEL = "ready";
+const READY_FOR_HUMAN_LABEL = "ready-for-human";
 
 const names = (issue) => (issue?.labels ?? []).map((l) => (typeof l === "string" ? l : l?.name));
 
