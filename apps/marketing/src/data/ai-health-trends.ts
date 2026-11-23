@@ -46,6 +46,7 @@ export interface HealthTrendsPayload {
   readonly window_days?: unknown;
   readonly acmmLevel?: TrendSeriesPayload;
   readonly queueEfficiency?: TrendSeriesPayload;
+  readonly mutationScore?: TrendSeriesPayload;
 }
 
 /** Safe view model for one point. */
@@ -81,12 +82,14 @@ export interface HealthTrends {
   readonly windowDays: number | null;
   readonly acmmLevel: TrendSeries;
   readonly queueEfficiency: TrendSeries;
+  readonly mutationScore: TrendSeries;
 }
 
 /** Labels used when the payload predates the field, so a panel is never nameless. */
 const DEFAULT_LABELS = {
   acmmLevel: "ACMM maturity level",
   queueEfficiency: "Queue efficiency composite",
+  mutationScore: "Mutation score (pilot scope, %)",
 } as const;
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -191,6 +194,7 @@ export function normalizeHealthTrends(payload: unknown): HealthTrends {
     windowDays: readNumber(raw.window_days),
     acmmLevel: normalizeSeries(raw.acmmLevel, DEFAULT_LABELS.acmmLevel),
     queueEfficiency: normalizeSeries(raw.queueEfficiency, DEFAULT_LABELS.queueEfficiency),
+    mutationScore: normalizeSeries(raw.mutationScore, DEFAULT_LABELS.mutationScore),
   };
 }
 

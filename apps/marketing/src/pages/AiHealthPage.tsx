@@ -33,6 +33,9 @@ const ACMM_MAX_LEVEL = 6;
 const COMPOSITE_MIN = 0;
 const COMPOSITE_MAX = 1;
 
+const PERCENT_MIN = 0;
+const PERCENT_MAX = 100;
+
 const formatLevel = (value: number) => String(value);
 const formatComposite = (value: number) => value.toFixed(2);
 
@@ -442,6 +445,20 @@ export function AiHealthPage() {
             formatValue={formatComposite}
             valueHeader="Composite"
             testId="queue-efficiency-trend"
+          />
+        </TrendSlot>
+      </section>
+
+      <section className={styles.section}>
+        <Heading level={2}>Mutation Score</Heading>
+        <TrendSlot phase={trendPhase}>
+          <TrendChart
+            series={trends.mutationScore}
+            min={PERCENT_MIN}
+            max={PERCENT_MAX}
+            formatValue={formatPercent}
+            valueHeader="Score"
+            testId="mutation-score-trend"
           />
         </TrendSlot>
       </section>

@@ -17,6 +17,7 @@ import {
   selectTrendWindow,
   buildAcmmSeries,
   buildQueueEfficiencySeries,
+  buildMutationScoreSeries,
   buildHealthTrends,
   writeHealthTrends,
 } from "../generate-health-trends.mjs";
@@ -146,6 +147,29 @@ describe("buildQueueEfficiencySeries", () => {
   });
 });
 
+describe("buildMutationScoreSeries", () => {
+  it("projects metrics/mutation-score.jsonl rows into dated percentage readings", () => {
+    const rows = [
+      { date: "2026-09-10", mutation_score: 98.5 },
+      { date: "2026-09-17", mutation_score: 99.07 },
+    ];
+    expect(buildMutationScoreSeries(rows, { today: TODAY })).toEqual([
+      { date: "2026-09-10", value: 98.5, note: null },
+      { date: "2026-09-17", value: 99.07, note: null },
+    ]);
+  });
+
+  it("keeps a row with no numeric score as an explicit hole", () => {
+    expect(
+      buildMutationScoreSeries([{ date: "2026-09-17", mutation_score: null }], { today: TODAY })
+    ).toEqual([{ date: "2026-09-17", value: null, note: "no_score_recorded" }]);
+  });
+
+  it("returns an empty series for no rows", () => {
+    expect(buildMutationScoreSeries([], { today: TODAY })).toEqual([]);
+  });
+});
+
 describe("buildHealthTrends / writeHealthTrends", () => {
   let root;
 
@@ -163,6 +187,10 @@ describe("buildHealthTrends / writeHealthTrends", () => {
     writeFileSync(
       join(root, ".claude", "acmm", "state.json"),
       JSON.stringify({ history: [{ date: "2026-09-20", level: 5 }] })
+    );
+    writeFileSync(
+      join(root, "metrics", "mutation-score.jsonl"),
+      JSON.stringify({ date: "2026-09-19", mutation_score: 99.07 }) + "\n"
     );
     writeFileSync(
       join(root, "metrics", "process-metrics.jsonl"),
@@ -195,12 +223,14 @@ describe("buildHealthTrends / writeHealthTrends", () => {
       { date: "2026-09-15", value: null, note: "query_error" },
       { date: "2026-09-20", value: 0.964, note: null },
     ]);
+    expect(trends.mutationScore.points).toEqual([{ date: "2026-09-19", value: 99.07, note: null }]);
   });
 
   it("degrades to empty series when neither history file exists", () => {
     const trends = buildHealthTrends({ root, now: new Date("2026-09-20T12:00:00Z") });
     expect(trends.acmmLevel.points).toEqual([]);
     expect(trends.queueEfficiency.points).toEqual([]);
+    expect(trends.mutationScore.points).toEqual([]);
   });
 
   it("writes apps/marketing/public/ai-health-trends.json under root", () => {

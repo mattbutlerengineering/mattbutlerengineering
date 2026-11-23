@@ -102,6 +102,15 @@ describe("normalizeHealthTrends", () => {
     const trends = normalizeHealthTrends({ acmmLevel: { points: [] } });
     expect(trends.acmmLevel.label).toBe("ACMM maturity level");
     expect(trends.queueEfficiency.label).toBe("Queue efficiency composite");
+    expect(trends.mutationScore.label).toBe("Mutation score (pilot scope, %)");
+  });
+
+  it("reads the mutation-score series, and an older payload without it degrades to empty", () => {
+    const withScore = normalizeHealthTrends({
+      mutationScore: { points: [{ date: "2026-11-16", value: 99.07, note: null }] },
+    });
+    expect(withScore.mutationScore.latest).toEqual({ date: "2026-11-16", value: 99.07 });
+    expect(normalizeHealthTrends({}).mutationScore.points).toEqual([]);
   });
 
   it("counts every calendar day in the displayed span, including dates with no row", () => {
