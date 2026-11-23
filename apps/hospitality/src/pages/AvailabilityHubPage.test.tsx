@@ -1,8 +1,9 @@
 import { useEffect, useRef } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, Outlet, RouterProvider } from "react-router";
+import { ToastProvider } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfig, AvailabilityConfigState } from "@mbe/types";
 import {
   TODAY,
@@ -16,6 +17,7 @@ import type { AvailabilityScope } from "../hooks/useAvailabilityScope.js";
 import { AvailabilityHubPage } from "./AvailabilityHubPage.js";
 
 const selected = vi.hoisted(() => ({ settings: {} as Record<string, unknown> }));
+const reopen = vi.hoisted(() => vi.fn());
 // 10:00 AM in Los Angeles on the fixtures' today.
 const NOW = vi.hoisted(() => new Date("2026-11-12T18:00:00Z"));
 
@@ -25,6 +27,19 @@ vi.mock("../contexts/VenueContext.js", () => ({
 vi.mock("../hooks/useNow.js", () => ({ useNow: () => NOW }));
 vi.mock("../hooks/useFloorPlans.js", () => ({
   useVenueFloorPlanSections: () => ({ data: [{ id: "sec-patio", name: "Patio" }] }),
+}));
+// Resume asks once in the Reopen dialog, which reads the outcome counts and reopens.
+vi.mock("../hooks/useClosures.js", () => ({
+  useClosureSummaries: () => ({ data: [], isLoading: false, error: null, refetch: vi.fn() }),
+  useReopenClosure: () => ({ mutateAsync: reopen, isPending: false }),
+}));
+vi.mock("../hooks/useRefreshAvailability.js", () => ({ useRefreshAvailability: () => vi.fn() }));
+vi.mock("../hooks/useAvailability.js", () => ({
+  useSaveAvailabilityConfig: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useRevertAvailabilityChange: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}));
+vi.mock("../hooks/useApiClient.js", () => ({
+  useApiClient: () => ({ availability: { getConfig: vi.fn() } }),
 }));
 vi.mock("../hooks/useHolidayDecisions.js", () => ({
   useHolidayDecisions: () => ({ data: [] }),
@@ -84,9 +99,11 @@ function renderHub(scope: AvailabilityScope, url = "/availability") {
     { initialEntries: ["/setup", url], initialIndex: 1 }
   );
   render(
-    <main>
-      <RouterProvider router={router} />
-    </main>
+    <ToastProvider>
+      <main>
+        <RouterProvider router={router} />
+      </main>
+    </ToastProvider>
   );
   return router;
 }
@@ -196,7 +213,7 @@ describe("AvailabilityHubPage", () => {
       hrefOf(within(row(3)).getByRole("link", { name: "Edit Special dates and holidays" }))
     ).toBe("/availability/calendar?tab=special");
     expect(hrefOf(within(row(4)).getByRole("link", { name: "View Closures and pauses" }))).toBe(
-      "/availability/calendar?tab=special"
+      "/availability/closures"
     );
     expect(hrefOf(within(row(5)).getByRole("link", { name: "Edit Booking rules" }))).toBe(
       "/availability/booking-rules"
@@ -267,6 +284,37 @@ describe("AvailabilityHubPage", () => {
     it("is not offered to a Host, nor while the role is read", () => {
       renderHub(scopeOf({ isManager: false }));
       expect(screen.queryByRole("button", { name: "Close or pause" })).not.toBeInTheDocument();
+    });
+  });
+
+  describe("Resume (L3.2)", () => {
+    const PAUSE = rule("r-pause", {
+      targetKind: "booking",
+      bookingTypes: ["online"],
+      origin: "pause",
+    });
+    const paused = () => scopeOf({ state: stateOf(venue([PAUSE])) });
+
+    it("puts Resume on row 4 while online booking is paused, and asks once before it resumes", async () => {
+      reopen.mockResolvedValue({ version: 8, changeId: "chg" });
+      renderHub(paused());
+      const resume = within(row(4)).getByRole("button", { name: "Resume online booking" });
+      expect(within(row(4)).getByRole("link", { name: "View Closures and pauses" })).toBeVisible();
+      fireEvent.click(resume);
+      const dialog = await screen.findByRole("dialog");
+      fireEvent.click(within(dialog).getByRole("button", { name: /^Resume/ }));
+      await waitFor(() => expect(reopen).toHaveBeenCalledTimes(1));
+      expect(reopen.mock.calls[0]![0]).toMatchObject({ venueId: "venue-1", ruleId: "r-pause" });
+    });
+
+    it("offers no Resume when nothing is paused", () => {
+      renderHub(scopeOf());
+      expect(screen.queryByRole("button", { name: "Resume online booking" })).toBeNull();
+    });
+
+    it("offers a Host no Resume", () => {
+      renderHub({ ...paused(), isManager: false });
+      expect(screen.queryByRole("button", { name: "Resume online booking" })).toBeNull();
     });
   });
 

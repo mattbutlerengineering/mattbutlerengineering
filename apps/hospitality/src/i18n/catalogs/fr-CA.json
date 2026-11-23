@@ -3537,6 +3537,26 @@
       "compare": "Modifier un service dans toutes les heures",
       "cantDelete": "Suppression impossible : utilisé {{where}}. Changez d’abord ces jours.",
       "cantDeleteRules": "Suppression impossible. {{where}}. Changez d’abord ces dates."
+    },
+    "closuresPage": {
+      "title": "Fermetures et pauses",
+      "loading": "Chargement des fermetures et des pauses",
+      "empty": "Rien n’est fermé ni en pause.",
+      "group": {
+        "now": "En ce moment",
+        "upcoming": "À venir",
+        "earlier": "Passées, avec remboursements en attente"
+      },
+      "dated": "{{date}} : {{what}}",
+      "datedDetail": "{{date}} : {{what}}, {{detail}}",
+      "editFor": "Modifier {{subject}}",
+      "reopen": "Rouvrir",
+      "reopenFor": "Rouvrir {{subject}}",
+      "resumeAria": "Reprendre les réservations en ligne",
+      "earlier": {
+        "removed": "Une fermeture qui n’est plus dans la liste",
+        "tonight": "Un changement fait pour ce soir"
+      }
     }
   },
   "setup": {
