@@ -1,9 +1,3 @@
-## 2026-11-06
-
-**queueEfficiency:** composite 0.865 (baseline n/a) — healthy
-**Difficulty distribution:** size:s:24, size:xs:10, size:m:7, size:l:16, size:xl:17
-**Issues filed:** 0
-
 ## 2026-11-06 — mbe-evening (progress-tracker)
 
 ### Metrics (7d; `audit`+`ci-fix` labels, REST issue search, `created_at`/`closed_at` exact)
@@ -1188,3 +1182,9 @@ A clean fire: everything due was captured and judged, and nothing met the bar to
   **AI issue feedback:** budgets refreshed — feature 4% rejected (n=48), ci-fix 16% (n=62), audit 17% (n=46), sentry 0% (n=13), acmm 33% (n=3), meta-improvement 0% (n=25), agent-failed 100% (n=1, budget halved to 1), dependencies 0% (n=2); no category newly crossed the >40% halving line this run.
   **Skill proposals:** 0 (not Friday — Step 4 session-log analysis skipped)
   **Threshold notes:** auto-tuner applied 1 adjustment (acmm 1.832 → 1.853, headroom). 30-day fix-effectiveness (non-skip verifications only): 8 verified / 9 scored (~89%), well above the 50% floor. Overall false-positive rate across feedback categories ~11% (22/200 rejected), below the 30% loosen-trigger — no threshold changes recommended this run.
+
+## 2026-11-23
+
+**queueEfficiency:** composite 0.949 (baseline n/a) — healthy
+**Difficulty distribution:** size:m:8, size:xl:10, size:xs:23, size:s:34, size:l:4
+**Issues filed:** 0
