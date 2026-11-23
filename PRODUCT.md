@@ -1,11 +1,23 @@
 # Product Charter
 
-This monorepo is Matt Butler's engineering portfolio that works for a living: a
-real hospitality SaaS demo, a design system, a generative-UI playground, and the
-autonomous agent platform that builds all of it. Every feature should either
-(a) make the hospitality demo feel like a product a small venue would pay for,
-(b) make the platform more convincingly self-improving, or (c) showcase
-engineering craft a hiring manager or client would notice in five minutes.
+Hospitality exists so a venue can give its guests an exceptional experience.
+That is the aim every decision is ranked by. The rest of this monorepo (the
+design system, the generative-UI playground, the autonomous agent platform and
+the portfolio site) supports it: each earns its place by making hospitality
+faster to ship or better made.
+
+## The decision filter
+
+1. **Felt by a venue operator or a guest?** If someone in a venue or booking a
+   table sees or feels the change, it outranks work that nobody does.
+2. **Finish before starting.** A feature run in flight beats a new one.
+3. **Infrastructure, metrics, ratchets and tooling must name the guest- or
+   venue-facing work they speed up or protect.** If they cannot, they wait.
+   Security and a red `main` still come first.
+4. **Done means released and reachable**, not merged.
+
+The platform, the design system and the portfolio remain real goals, as
+supporting work: deliver faster, with higher quality, and show the proof.
 
 ## How to use this file
 
@@ -80,10 +92,13 @@ artifact, it should not exist.
    HITL-only territory.
 3. **No schema-destructive features** — proposals may add tables/columns via
    additive migrations; anything dropping or rewriting existing data is out.
-4. **≤1 proposal per app per batch** — spread batches across surfaces unless a
-   signal is overwhelming (cite it).
+4. **≤1 proposal per app per batch, except hospitality** — spread the other
+   surfaces across batches unless a signal is overwhelming (cite it);
+   hospitality may carry up to 3, each with its own venue/guest impact.
 5. **Every proposal cites ≥1 signal artifact** — a metrics file, an open
    `audit`/`sentry`/`ci-fix` issue, a lighthouse/uptime trend, or a TODO
-   cluster. Charter alignment alone is not evidence.
+   cluster. Charter alignment alone is not evidence. A proposal also states
+   its venue/guest impact (who feels it, and how); a proposal whose only
+   signal is internal does not meet the decision filter.
 6. **Scope to one implement-queue batch** — a proposal should decompose into
    3-10 agent-sized issues; anything larger needs to be split or rejected.

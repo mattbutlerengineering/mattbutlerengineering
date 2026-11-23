@@ -1,6 +1,6 @@
 {
   "name": "@mattbutlerengineering/rialto",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "type": "module",
   "main": "./dist/lib/rialto.js",
   "module": "./dist/lib/rialto.js",
@@ -117,6 +117,10 @@
     "./ConfirmDialog": {
       "types": "./dist/lib/components/ConfirmDialog/index.d.ts",
       "import": "./dist/lib/components/ConfirmDialog/index.js"
+    },
+    "./Constellation": {
+      "types": "./dist/lib/components/Constellation/index.d.ts",
+      "import": "./dist/lib/components/Constellation/index.js"
     },
     "./ContextMenu": {
       "types": "./dist/lib/components/ContextMenu/index.d.ts",
@@ -349,6 +353,10 @@
     "./StatusLED": {
       "types": "./dist/lib/components/StatusLED/index.d.ts",
       "import": "./dist/lib/components/StatusLED/index.js"
+    },
+    "./Steam": {
+      "types": "./dist/lib/components/Steam/index.d.ts",
+      "import": "./dist/lib/components/Steam/index.js"
     },
     "./Steps": {
       "types": "./dist/lib/components/Steps/index.d.ts",

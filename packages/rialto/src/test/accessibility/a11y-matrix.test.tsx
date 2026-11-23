@@ -50,6 +50,8 @@ const BARREL_COMPONENT_NAMES: readonly BarrelExportName[] = [
   "Champagne",
   "DustMotes",
   "Fireflies",
+  "Steam",
+  "Constellation",
   "Contour",
   "DataList",
   "DataTable",
