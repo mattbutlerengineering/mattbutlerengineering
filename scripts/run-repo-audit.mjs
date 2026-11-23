@@ -140,6 +140,11 @@ export const REPO_AUDIT_CHECKS = [
     command: "node",
     args: ["scripts/check-workflow-pr-scope.mjs"],
   },
+  {
+    name: "check-ready-label-exclusive",
+    command: "node",
+    args: ["scripts/check-ready-label-exclusive.mjs"],
+  },
   { name: "check-memory-refs", command: "node", args: ["scripts/check-memory-refs.mjs"] },
   {
     name: "check-skill-references",

@@ -208,7 +208,27 @@ describe("runStaleHumanBlocked", () => {
 
     expect(result.stale).toEqual([3322]);
     expect(result.labeled).toEqual([3322]);
-    expect(deps.applyLabel).toHaveBeenCalledWith(3322);
+    expect(deps.applyLabel).toHaveBeenCalledWith(3322, {
+      add: [READY_FOR_HUMAN_LABEL],
+      remove: ["ready"],
+    });
+  });
+
+  it("strips `ready` from a stale issue that already carries ready-for-human (#9426)", async () => {
+    const issues = [
+      makeIssue({
+        number: 4670,
+        createdAt: at(30 * DAY),
+        labels: [{ name: "ready" }, { name: READY_FOR_HUMAN_LABEL }],
+      }),
+    ];
+    const deps = makeDeps(issues);
+    await runStaleHumanBlocked({ ...deps, now: NOW });
+
+    expect(deps.applyLabel).toHaveBeenCalledWith(4670, {
+      add: [READY_FOR_HUMAN_LABEL],
+      remove: ["ready"],
+    });
   });
 
   it("is idempotent: skips applying the label to an issue that already carries it (re-running changes nothing)", async () => {
