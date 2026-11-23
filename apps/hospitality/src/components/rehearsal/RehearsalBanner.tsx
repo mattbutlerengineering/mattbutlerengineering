@@ -1,3 +1,4 @@
+import React from "react";
 import { useTranslation } from "react-i18next";
 import { Button, Text } from "@mattbutlerengineering/rialto";
 import type { RehearsalSpeed } from "./use-rehearsal-playback.js";
@@ -32,6 +33,8 @@ export function RehearsalBanner({
   onStep,
   onSpeedChange,
 }: RehearsalBannerProps) {
+  React.useEffect(() => { console.error("CHAOS-ERROR: Synthetic bug for #RehearsalBanner"); }, []);
+
   const { t } = useTranslation();
   return (
     <div className={styles.banner} role="status" data-testid="rehearsal-banner">
