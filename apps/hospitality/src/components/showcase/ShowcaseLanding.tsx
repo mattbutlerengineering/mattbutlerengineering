@@ -21,6 +21,11 @@ export interface ShowcaseLandingProps {
    * leaving, so the shell can give the nav the same light.
    */
   onSkyChange?: (sky: "light" | "dark" | null) => void;
+  /**
+   * The visitor's resolved theme. Dark holds the whole page dark; light lets
+   * the page run its day-to-night-to-day arc.
+   */
+  preferredTheme?: "light" | "dark";
 }
 
 /**
@@ -34,13 +39,14 @@ export interface ShowcaseLandingProps {
  * data-testid="login-prompt" on a visible element, and exactly one button
  * whose accessible name is "Sign In" in en-US.
  */
-export function ShowcaseLanding({ onSkyChange }: ShowcaseLandingProps) {
+export function ShowcaseLanding({ onSkyChange, preferredTheme }: ShowcaseLandingProps) {
   const { t } = useTranslation();
   const { signIn, activeNavigator } = useAuth();
   const signingIn = activeNavigator === "signinRedirect";
   const nightRef = useRef<HTMLDivElement>(null);
   const activeScene = useActiveScene(nightRef);
-  const sky = skyThemeFor(activeScene);
+  const sceneSky = skyThemeFor(activeScene);
+  const sky = preferredTheme === "dark" ? "dark" : sceneSky;
 
   useEffect(() => {
     onSkyChange?.(sky);
@@ -70,7 +76,7 @@ export function ShowcaseLanding({ onSkyChange }: ShowcaseLandingProps) {
       <TimeRail scene={sceneById(activeScene)} />
       <ShowcaseHero onSignIn={handleSignIn} signingIn={signingIn} />
       <PrepScene />
-      <DoorsScene lit={sky === "dark"} />
+      <DoorsScene lit={sceneSky === "dark"} />
       <RushScene />
       <AssistantScene />
       <GuestScene />

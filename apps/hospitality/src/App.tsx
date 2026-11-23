@@ -43,7 +43,11 @@ function UnauthenticatedShell({
 }) {
   const { t } = useTranslation();
   return (
-    <div className={landing ? styles.landingLayout : styles.unauthLayout}>
+    <div
+      className={landing ? styles.landingLayout : styles.unauthLayout}
+      // The landing scrolls with the document; index.css un-locks html/body for this marker.
+      {...(landing ? { "data-guest-surface": "" } : {})}
+    >
       <a href="#main-content" className={styles.skipLink}>
         {t("shell.skipToMain")}
       </a>
@@ -160,7 +164,7 @@ export function App() {
       return (
         <UnauthenticatedShell nav={nav} landing>
           <Suspense fallback={<LoadingPage />}>
-            <ShowcaseLanding onSkyChange={setNavSky} />
+            <ShowcaseLanding onSkyChange={setNavSky} preferredTheme={resolved} />
           </Suspense>
         </UnauthenticatedShell>
       );
