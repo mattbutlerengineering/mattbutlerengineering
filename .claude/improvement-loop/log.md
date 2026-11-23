@@ -1227,3 +1227,25 @@ A clean fire: everything due was captured and judged, and nothing met the bar to
 ### Skipped Issues
 
 0 skipped after max retries (`agent-skip` label: empty).
+
+## 2026-11-23 — mbe-ui-quality
+
+State: `state.mjs checkout` exit 0, `source: branch` (`ui-quality/ledger` @ `0ec79889`, merged `origin/main` `f701eba8`, resolved `metrics/ui-quality-ledger.jsonl`). All three app builds succeeded — no `unreachable:build` rows.
+
+**Routes:** 40 due (37 rialto-web, 3 hospitality, 0 marketing), 40 captured, 40 audited. 26 rows `unreachable:auth` (all hospitality authenticated routes), never captured. Unjudged: 0. Dropped tells: 0.
+
+**Coverage before this fire: 97.1%** (137/141, `coverage.mjs` exit 1 — a breach). The four uncovered rows were `rialto-web components/{constellation,dust-motes,fireflies,steam}`; all four were due, captured and judged this fire, so coverage closed at **100%** (141/141).
+
+**Findings:** mechanical 0, judged 0. Every one of the 40 routes was judged clean against the rubric's judged tells (rubric v1, 10 judged tells). Both viewports (1280x720 and 375x812) were opened for every route. Ambient-canvas routes (constellation, dust-motes, fireflies, steam) and the Flip Dot dark display panel were judged _not_ `agent-built/unrequested-dark-theme` — deliberate dark scenes built from rialto tokens with zero axe violations, which the rubric explicitly permits.
+
+**Calibration stamp: `stale`.** `calibration-status --model-id claude-opus-5` returned exit 3 (`stale`) — the only calibration trigger. `rate.mjs pairs --calibration` then exited 2: `docs/ui-quality/calibration.json` has no labelled pairs yet (the placeholder set; a human labels >= 10 pairs once at the Verify stage). Logged, not retried. The re-asked `calibration-status` was still exit 3 (`stale`), so this is a stale stamp that calibration could not clear — agent-built findings stay suppressed by design. Rating proceeded: 12 pairs over 2 apps judged and recorded (`rate.mjs record` exit 0 — hospitality 0, rialto-web 4.17).
+
+**Filing:** no rubric migration needed (every findings-ledger key is `r1`, rubric_version 1). 37 distinct issue numbers read over MCP — all 37 `closed`. The labelled-issue set was read with `mcp__github__list_issues` (labels `ui-quality`, both states, `perPage: 100`): 40 issues, `hasNextPage: false`, complete in one page, all closed. **Note:** `mcp__github__search_issues` does not exist in this sandbox, so the label-scoped `list_issues` call was used in its place; it returns the same `{number, title, state}` set with verifiable full pagination, so the plan's completeness guard is still satisfied. `findings.mjs plan --calibration-status stale` exited 0 with **no actions, 0 seeds, no escalation file**. Issues created 0, reopened 0, commented 0. Seeds 0.
+
+**Fix PR: none** — the plan carried no `fix_pr_candidate` (there were no findings to fix).
+
+**P1 SLA:** 0 open `ui-quality:p1` issues; `p1-age.mjs --escalate` exit 0, 0 of 0 older than 7 days, 0 escalation actions. 0 breaches escalated.
+
+Checkpoint `chore(ui-quality): checkpoint 2026-11-23` committed and pushed to `ui-quality/ledger` (`f4bf9960f`). `ledger.mjs record` exit 0: due 40, audited 40, unreachable auth 26 / build 0, unjudged 0, dropped_tells 0.
+
+No `blocker: no-browser` (Chromium resolved at `/opt/pw-browsers/chromium_headless_shell-1243/...`), no stopped filing, no pipeline bug. A clean fire: everything due was captured and judged, and nothing was found.
