@@ -66,3 +66,7 @@ Rename the Copilot display strings and widen `copilot-review-apply` detection to
 - A Claude-pushed commit could reach main without the review gate. The review gate must run before any auto-merge.
 - Which of the other 10 FAILs have real substance is unaudited. Some may stay FAIL.
 - The committed `acmm-report.json` and the live page can disagree during churn, so a before-and-after score needs a fresh scan.
+
+## Revision 2026-11-22
+
+The Owner dropped the live proof and removed `acmm:copilot-review-apply` from the scorer (listed in `DROPPED_UPSTREAM_IDS`), and `claude-review-apply.yml` was deleted. The Showstopper demo and the "Success in one sentence" live-proof clause no longer apply. What shipped is the Solid scope: Copilot naming removed, `docs/governance.md` made true, and an inert `claude.yml`. The review-apply lines above are design history.
