@@ -1,5 +1,25 @@
 # @mattbutlerengineering/rialto
 
+## 3.1.0
+
+### Minor Changes
+
+- [#9420](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9420) [`f841bd3`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/f841bd3ea4cb16476312dc64b3e398b6c2067ebb) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add `Constellation`, an ambient canvas backdrop of slowly drifting points that are joined by faint lines while they are near, built on the shared ambient-canvas runtime. The pointer links the nearest few points; the occasional point is tinted gold; reduced motion renders a static poster.
+
+- [#9415](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9415) [`fc91d9a`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/fc91d9a002f049461a87eb02de767d615092bd08) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add `Fireflies`, an ambient canvas backdrop of sparse points that wander and pulse on their own beat, like a patio at dusk, built on the shared ambient-canvas runtime. A few flies glow gold; the pointer draws nearby flies closer; reduced motion renders a static poster.
+
+- [#9419](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9419) [`e27a9a0`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/e27a9a0172bb05c657fef0275776b950278ea718) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add `Steam`, an ambient canvas backdrop of a few large, low-contrast wisps that rise, swell and fade like steam off the kitchen pass, built on the shared ambient-canvas runtime. The occasional thick wisp is tinted gold; reduced motion renders a static poster.
+
+## 3.0.0
+
+### Major Changes
+
+- [#9403](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9403) [`edc7024`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/edc70241bc6ca51197319d03f18b63e617a104eb) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Remove the `Odometer` component and its `./Odometer` subpath export. Render the number with `Text` or `Stat` instead.
+
+### Minor Changes
+
+- [#9413](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9413) [`ccb0ec5`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/ccb0ec52cc5cbc9263a32613fe5a3ebb53cc3085) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add `DustMotes`, an ambient canvas backdrop of slow dust motes drifting down through a leaning shaft of light, like the back room of a speakeasy, built on the shared ambient-canvas runtime. Motes brighten as they cross the shaft and the few the light catches are gold; the pointer stirs nearby motes aside; reduced motion renders a static poster.
+
 ## 2.0.0
 
 ### Major Changes

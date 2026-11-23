@@ -34,10 +34,10 @@ export const TEMPLATES: readonly Template[] = [
   {
     id: "analytics-dashboard",
     title: "Analytics Dashboard",
-    description: "KPI cards, an odometer-style headline stat, and a recent activity table",
+    description: "KPI cards, a large headline stat, and a recent activity table",
     category: "Dashboards",
     prompt:
-      "Dashboard with KPI cards in Cards, an Odometer for the headline stat, a BarChart of monthly revenue for the last 6 months, Badges showing week-over-week change, and a recent activity DataTable",
+      "Dashboard with KPI cards in Cards, a Stat for the headline figure, a BarChart of monthly revenue for the last 6 months, Badges showing week-over-week change, and a recent activity DataTable",
   },
   {
     id: "admin-dashboard",
@@ -52,7 +52,7 @@ export const TEMPLATES: readonly Template[] = [
     description: "Revenue headline, top products table, and a conversion funnel breakdown",
     category: "Dashboards",
     prompt:
-      "Sales overview with an Odometer revenue headline, a top products Table, and a conversion funnel laid out as a DataList of stages with their counts and percentages",
+      "Sales overview with a Stat revenue headline, a top products Table, and a conversion funnel laid out as a DataList of stages with their counts and percentages",
   },
 
   // Forms
@@ -197,7 +197,7 @@ export const TEMPLATES: readonly Template[] = [
     description: "Storage and quota usage as headline counters with status badges",
     category: "Feedback",
     prompt:
-      "System capacity monitor showing storage, memory, and quota usage as Odometer counters beside their limits, with a Badge in a warning state when nearing capacity",
+      "System capacity monitor showing storage, memory, and quota usage as Stat counters beside their limits, with a Badge in a warning state when nearing capacity",
   },
 
   // Data Display (continued)
@@ -284,10 +284,10 @@ export const TEMPLATES: readonly Template[] = [
   {
     id: "metrics-ticker",
     title: "Metrics Ticker",
-    description: "Odometer-style rolling counters next to a split-flap announcement display",
+    description: "Live Stat counters next to a split-flap announcement display",
     category: "Data Display",
     prompt:
-      "Live metrics ticker with odometer-style rolling digit counters showing real-time stats like active users and orders, and a split-flap display panel cycling through headline announcements",
+      "Live metrics ticker with Stat counters showing real-time stats like active users and orders, and a split-flap display panel cycling through headline announcements",
   },
 
   // Feedback (continued)

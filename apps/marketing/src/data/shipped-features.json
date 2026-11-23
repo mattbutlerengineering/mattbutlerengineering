@@ -1,6 +1,140 @@
 {
-  "generatedAt": "2026-11-12T03:55:48.000Z",
+  "generatedAt": "2026-11-20T15:27:41.000Z",
   "features": [
+    {
+      "slug": "ideation-batch-2026-11-18-9102",
+      "title": "[Ideation] Batch 2026-11-18",
+      "trackingIssue": 9102,
+      "proposalIssue": null,
+      "proposalEvidence": null,
+      "proposedAt": null,
+      "firstMergedAt": "2026-11-20T15:27:41.000Z",
+      "lastMergedAt": "2026-11-20T15:27:41.000Z",
+      "wallClockHours": 46.3,
+      "liveUrl": null,
+      "children": [
+        {
+          "issue": 9098,
+          "title": "[Proposal] platform: cost_per_issue_usd has been null for 17 consecutive days — wire a live cost ledger",
+          "prs": [
+            {
+              "number": 9199,
+              "title": "feat(metrics): report queue cost as unmeasured below a coverage floor",
+              "mergedAt": "2026-11-20T15:27:41.000Z",
+              "mergeCommit": "8790ef2960c6a8d18df0333e12370d230575c40b",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "availability-configuration-ux-audit-2026-11-11-tracking-8696",
+      "title": "availability: configuration UX audit 2026-11-11 (tracking)",
+      "trackingIssue": 8696,
+      "proposalIssue": null,
+      "proposalEvidence": null,
+      "proposedAt": null,
+      "firstMergedAt": "2026-11-12T04:37:10.000Z",
+      "lastMergedAt": "2026-11-16T05:55:10.000Z",
+      "wallClockHours": 109.1,
+      "liveUrl": "/hospitality/availability",
+      "children": [
+        {
+          "issue": 8686,
+          "title": "availability: a service chip can place Brunch at 11 PM and save it",
+          "prs": [
+            {
+              "number": 8745,
+              "title": "fix(hospitality): named day fix and a real preview reason for availability overlaps (#8686)",
+              "mergedAt": "2026-11-12T04:37:10.000Z",
+              "mergeCommit": "6f33c086b790524fd017891f6cd0d6803e540e9d",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 8687,
+          "title": "availability: Pause online booking defaults to no end and never says when it ends",
+          "prs": [
+            {
+              "number": 8813,
+              "title": "fix: say when a paused-online pause ends, warn before leaving it open-ended",
+              "mergedAt": "2026-11-13T01:51:44.000Z",
+              "mergeCommit": "581a18614939e87ac13ab31e362b660a37426391",
+              "reviewVerdict": "pass",
+              "ciGate": "success"
+            },
+            {
+              "number": 8951,
+              "title": "feat(availability): one name for an online pause on Special dates and the day drawer",
+              "mergedAt": "2026-11-16T05:55:10.000Z",
+              "mergeCommit": "2dad5c5feca47935617b25908b5adeca20e2c8d3",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 8688,
+          "title": "availability: every regular-week save leaves the old week under Other schedules",
+          "prs": [
+            {
+              "number": 8755,
+              "title": "fix(hospitality): archive the superseded regular week on a regular-week save",
+              "mergedAt": "2026-11-13T05:39:16.000Z",
+              "mergeCommit": "1776b39b288260ca04903d964b7f64827f02eea2",
+              "reviewVerdict": "flag",
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 8689,
+          "title": "availability: Close dialog asks What and When before a date, and Repeats renders Invalid Date",
+          "prs": [
+            {
+              "number": 8757,
+              "title": "feat(hospitality): Close dialog asks the date first, and names what is missing instead of Invalid Date",
+              "mergedAt": "2026-11-12T08:23:42.000Z",
+              "mergeCommit": "890c469e56b6f7f8ff063b321b6b29518d0c659b",
+              "reviewVerdict": "pass",
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 8690,
+          "title": "availability: calm the regular-week form on desktop (collapsed services, one preview, pinned Save)",
+          "prs": [
+            {
+              "number": 8773,
+              "title": "feat(hospitality): calm the regular-week form on desktop",
+              "mergedAt": "2026-11-12T16:08:20.000Z",
+              "mergeCommit": "a5a369fe8b307953c215078a8256387ec9a6c236",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 8692,
+          "title": "availability: Special dates shows the venue's dates first and one edit and remove vocabulary",
+          "prs": [
+            {
+              "number": 8772,
+              "title": "feat(hospitality): Special dates lists the venue's dates first, one scope and remove vocabulary",
+              "mergedAt": "2026-11-12T15:41:39.000Z",
+              "mergeCommit": "28828da533440795a16955cbf1a98acdeeaafb8a",
+              "reviewVerdict": "pass",
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
     {
       "slug": "the-invitation-8670",
       "title": "The Invitation",

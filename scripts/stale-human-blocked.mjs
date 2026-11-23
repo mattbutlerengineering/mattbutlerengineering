@@ -41,6 +41,15 @@ export const EXCLUDED_LABELS = ["vetoed", "deferred", "wontfix", "tracking", "id
 /** Label applied to a qualifying issue as the surfacing mechanism. */
 export const READY_FOR_HUMAN_LABEL = "ready-for-human";
 
+/** Agent-pickable label; mutually exclusive with {@link READY_FOR_HUMAN_LABEL} (#9426). */
+const READY_LABEL = "ready";
+
+/** The single label write that applies `ready-for-human` and removes `ready`. */
+export const READY_FOR_HUMAN_TRANSITION = Object.freeze({
+  add: [READY_FOR_HUMAN_LABEL],
+  remove: [READY_LABEL],
+});
+
 /** `scripts/metrics-store.mjs` registry key for this run's measurements. */
 export const STALE_METRICS_KEY = "stale-human-blocked";
 
@@ -259,7 +268,7 @@ export function buildStaleMetricRow({ issue, timelineEvents = [], nowMs, labeled
  *
  * @param {{
  *   listOpenIssues: () => Promise<Array>,
- *   applyLabel: (number:number) => Promise<void>,
+ *   applyLabel: (number:number, transition:{add:string[],remove:string[]}) => Promise<void>,
  *   fetchTimeline?: (number:number) => Promise<Array>,
  *   recordMetric?: (row:object) => Promise<void>,
  *   now?: number,
@@ -322,11 +331,14 @@ export async function runStaleHumanBlocked({
     await recordMetric(row);
     recorded.push(row);
 
-    if (alreadyLabeled) continue;
+    // `ready` and `ready-for-human` are mutually exclusive (#9426): an issue
+    // already carrying both gets `ready` stripped, in the same write.
+    const needsReadyStripped = hasLabel(issue, READY_LABEL);
+    if (alreadyLabeled && !needsReadyStripped) continue;
 
-    await applyLabel(issue.number);
-    labeled.push(issue.number);
-    log(`labeled #${issue.number} ${READY_FOR_HUMAN_LABEL}`);
+    await applyLabel(issue.number, READY_FOR_HUMAN_TRANSITION);
+    if (!alreadyLabeled) labeled.push(issue.number);
+    log(`labeled #${issue.number} ${READY_FOR_HUMAN_LABEL} (removed ${READY_LABEL})`);
   }
 
   return {
@@ -372,8 +384,8 @@ async function run() {
   const result = await runStaleHumanBlocked({
     listOpenIssues: async () =>
       gh.issue.list(["--state", "open", "--json", ISSUE_JSON_FIELDS, "--limit", "500"]),
-    applyLabel: async (number) =>
-      gh.label.apply({ issueNumber: number, add: [READY_FOR_HUMAN_LABEL], remove: [] }),
+    applyLabel: async (number, transition) =>
+      gh.label.apply({ issueNumber: number, ...transition }),
     fetchTimeline: async (number) => fetchIssueTimeline(number, log),
     recordMetric: async (row) => append(STALE_METRICS_KEY, row),
     dryRun,

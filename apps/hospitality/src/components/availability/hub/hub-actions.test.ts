@@ -23,14 +23,14 @@ describe("hubActions", () => {
   });
 
   // Until each view is built its target is the tab of today's page that does the same job.
-  // Booking rules (C2.5) and regular hours (E4.4) have their own addresses.
+  // Booking rules (C2.5), regular hours (E4.4) and closures (L3.2) have their own addresses.
   it("sends every action to a view that is mounted today", () => {
     const rows = rowsOf(venue([], seasonal("summer", "Summer hours", {})));
     expect(hubActions(rows, true).map((a) => a?.to)).toEqual([
       "/availability/hours",
       "/availability/seasonal",
       "/availability/calendar?tab=special",
-      "/availability/calendar?tab=special",
+      "/availability/closures",
       "/availability/booking-rules",
     ]);
   });

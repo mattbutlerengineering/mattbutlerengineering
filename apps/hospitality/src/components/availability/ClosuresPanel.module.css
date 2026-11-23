@@ -1,0 +1,15 @@
+.panel,
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-md);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-sm);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

@@ -40,16 +40,41 @@ jobs:
           SNAPSHOT_DATE: ${{ steps.health.outputs.date }}
           HEALTH_DATA: ${{ steps.health.outputs.response }}
         run: |
+          set -o pipefail
+          # kv_write <METHOD> <URL> [curl args...]: a spent free-tier write quota
+          # answers HTTP 429 (error 10048, #9234) and must not turn the run red.
+          # Prints only the status and Cloudflare errors[], never the token.
+          kv_write() {
+            local method="$1" url="$2" resp code
+            shift 2
+            resp="$(mktemp)"
+            code="$(curl -s -o "$resp" -w '%{http_code}' -X "$method" "$url" \
+              -H "Authorization: Bearer ${CF_API_TOKEN}" "$@")" || code="000"
+            echo "Cloudflare KV write: HTTP ${code}"
+            case "$code" in
+              2??) rm -f "$resp" ;;
+              429)
+                jq -r '.errors[]? | "  error \(.code): \(.message)"' "$resp" 2>/dev/null || true
+                rm -f "$resp"
+                echo "::warning::Cloudflare KV write rate/quota limited (HTTP 429); not recorded"
+                ;;
+              *)
+                jq -r '.errors[]? | "  error \(.code): \(.message)"' "$resp" 2>/dev/null || true
+                rm -f "$resp"
+                return 1
+                ;;
+            esac
+          }
+
           PAYLOAD=$(jq -nc --arg data "$HEALTH_DATA" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             '{snapshot: ($data | fromjson), timestamp: $ts}')
 
-          curl -sf -X PUT \
+          kv_write PUT \
             "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces/${KV_NS_ID}/values/uptime%2F${SNAPSHOT_DATE}" \
-            -H "Authorization: Bearer ${CF_API_TOKEN}" \
             -H "Content-Type: application/json" \
             -d "$PAYLOAD"
 
-          echo "Wrote snapshot for ${SNAPSHOT_DATE}"
+          echo "Snapshot step done for ${SNAPSHOT_DATE}"
 
       - name: Cleanup old snapshots (>90 days)
         env:
@@ -58,6 +83,30 @@ jobs:
           KV_NS_ID: ${{ secrets.HEALTH_KV_NAMESPACE_ID }}
         run: |
           set -euo pipefail
+          # kv_write <METHOD> <URL> [curl args...]: HTTP 429 (spent KV quota,
+          # error 10048, #9234) warns and returns 0; other non-2xx fail.
+          kv_write() {
+            local method="$1" url="$2" resp code
+            shift 2
+            resp="$(mktemp)"
+            code="$(curl -s -o "$resp" -w '%{http_code}' -X "$method" "$url" \
+              -H "Authorization: Bearer ${CF_API_TOKEN}" "$@")" || code="000"
+            case "$code" in
+              2??) rm -f "$resp" ;;
+              429)
+                jq -r '.errors[]? | "  error \(.code): \(.message)"' "$resp" 2>/dev/null || true
+                rm -f "$resp"
+                echo "::warning::Cloudflare KV delete rate/quota limited (HTTP 429); snapshot kept"
+                ;;
+              *)
+                echo "Cloudflare KV ${method}: HTTP ${code}"
+                jq -r '.errors[]? | "  error \(.code): \(.message)"' "$resp" 2>/dev/null || true
+                rm -f "$resp"
+                return 1
+                ;;
+            esac
+          }
+
           CUTOFF=$(date -u -d "90 days ago" +%Y-%m-%d 2>/dev/null || date -u -v-90d +%Y-%m-%d)
 
           # pipefail: a failed list request must fail the step, not read as "no keys".
@@ -74,9 +123,8 @@ jobs:
           for KEY in $KEYS; do
             DATE_PART="${KEY#uptime/}"
             if [[ "$DATE_PART" < "$CUTOFF" ]]; then
-              curl -sf -X DELETE \
-                "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces/${KV_NS_ID}/values/${KEY}" \
-                -H "Authorization: Bearer ${CF_API_TOKEN}"
+              kv_write DELETE \
+                "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces/${KV_NS_ID}/values/${KEY}"
               DELETED=$((DELETED + 1))
             fi
           done

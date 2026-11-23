@@ -41,6 +41,10 @@ import { CommandPalette } from "../../components/CommandPalette/CommandPalette";
 import { ConfirmDialog } from "../../components/ConfirmDialog/ConfirmDialog";
 import { ContextMenu } from "../../components/ContextMenu/ContextMenu";
 import { Champagne } from "../../components/Champagne/Champagne";
+import { DustMotes } from "../../components/DustMotes/DustMotes";
+import { Fireflies } from "../../components/Fireflies/Fireflies";
+import { Steam } from "../../components/Steam/Steam";
+import { Constellation } from "../../components/Constellation/Constellation";
 import { Contour } from "../../components/Contour/Contour";
 import { DataList } from "../../components/DataList/DataList";
 import { DataTable } from "../../components/DataTable/DataTable";
@@ -78,7 +82,6 @@ import { Navbar } from "../../components/Navbar/Navbar";
 import { NavigationMenu } from "../../components/NavigationMenu/NavigationMenu";
 import { NeonSign } from "../../components/NeonSign/NeonSign";
 import { NumberInput } from "../../components/NumberInput/NumberInput";
-import { Odometer } from "../../components/Odometer/Odometer";
 import { PageHeader } from "../../components/PageHeader/PageHeader";
 import { Pagination } from "../../components/Pagination/Pagination";
 import { PinInput } from "../../components/PinInput/PinInput";
@@ -148,6 +151,10 @@ export type BarrelExportName =
   | "ConfirmDialog"
   | "ContextMenu"
   | "Champagne"
+  | "DustMotes"
+  | "Fireflies"
+  | "Steam"
+  | "Constellation"
   | "Contour"
   | "DataList"
   | "DataTable"
@@ -185,7 +192,6 @@ export type BarrelExportName =
   | "NavigationMenu"
   | "NeonSign"
   | "NumberInput"
-  | "Odometer"
   | "PageHeader"
   | "Pagination"
   | "PinInput"
@@ -558,6 +564,22 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
     element: <Champagne />,
   },
 
+  DustMotes: {
+    element: <DustMotes />,
+  },
+
+  Fireflies: {
+    element: <Fireflies />,
+  },
+
+  Steam: {
+    element: <Steam />,
+  },
+
+  Constellation: {
+    element: <Constellation />,
+  },
+
   Handshake: {
     element: <Handshake aria-label="Verifying sign-in" stations={["Browser", "Identity"]} />,
   },
@@ -681,10 +703,6 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
 
   NumberInput: {
     element: <NumberInput label="Quantity" value={1} onChange={noop} min={1} max={10} />,
-  },
-
-  Odometer: {
-    element: <Odometer value={1234} locale="en-US" />,
   },
 
   PageHeader: {

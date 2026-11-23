@@ -1,0 +1,26 @@
+/* One closure row: its sentence and outcomes, then its actions. */
+.item {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-sm);
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--rialto-space-sm) var(--rialto-space-md);
+  border-radius: var(--rialto-radius-default);
+  box-shadow: var(--rialto-shadow-sm);
+}
+
+.summary {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  gap: var(--rialto-space-xs);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-sm);
+  align-items: center;
+}

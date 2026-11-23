@@ -1,6 +1,6 @@
 {
   "name": "@mattbutlerengineering/rialto",
-  "version": "2.0.0",
+  "version": "3.1.0",
   "type": "module",
   "main": "./dist/lib/rialto.js",
   "module": "./dist/lib/rialto.js",
@@ -118,6 +118,10 @@
       "types": "./dist/lib/components/ConfirmDialog/index.d.ts",
       "import": "./dist/lib/components/ConfirmDialog/index.js"
     },
+    "./Constellation": {
+      "types": "./dist/lib/components/Constellation/index.d.ts",
+      "import": "./dist/lib/components/Constellation/index.js"
+    },
     "./ContextMenu": {
       "types": "./dist/lib/components/ContextMenu/index.d.ts",
       "import": "./dist/lib/components/ContextMenu/index.js"
@@ -170,6 +174,10 @@
       "types": "./dist/lib/components/DropdownMenu/index.d.ts",
       "import": "./dist/lib/components/DropdownMenu/index.js"
     },
+    "./DustMotes": {
+      "types": "./dist/lib/components/DustMotes/index.d.ts",
+      "import": "./dist/lib/components/DustMotes/index.js"
+    },
     "./Ember": {
       "types": "./dist/lib/components/Ember/index.d.ts",
       "import": "./dist/lib/components/Ember/index.js"
@@ -181,6 +189,10 @@
     "./ErrorBoundary": {
       "types": "./dist/lib/components/ErrorBoundary/index.d.ts",
       "import": "./dist/lib/components/ErrorBoundary/index.js"
+    },
+    "./Fireflies": {
+      "types": "./dist/lib/components/Fireflies/index.d.ts",
+      "import": "./dist/lib/components/Fireflies/index.js"
     },
     "./FlipDot": {
       "types": "./dist/lib/components/FlipDot/index.d.ts",
@@ -270,10 +282,6 @@
       "types": "./dist/lib/components/NumberInput/index.d.ts",
       "import": "./dist/lib/components/NumberInput/index.js"
     },
-    "./Odometer": {
-      "types": "./dist/lib/components/Odometer/index.d.ts",
-      "import": "./dist/lib/components/Odometer/index.js"
-    },
     "./PageHeader": {
       "types": "./dist/lib/components/PageHeader/index.d.ts",
       "import": "./dist/lib/components/PageHeader/index.js"
@@ -345,6 +353,10 @@
     "./StatusLED": {
       "types": "./dist/lib/components/StatusLED/index.d.ts",
       "import": "./dist/lib/components/StatusLED/index.js"
+    },
+    "./Steam": {
+      "types": "./dist/lib/components/Steam/index.d.ts",
+      "import": "./dist/lib/components/Steam/index.js"
     },
     "./Steps": {
       "types": "./dist/lib/components/Steps/index.d.ts",

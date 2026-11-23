@@ -91,6 +91,11 @@ const AvailabilityHistoryRoute = lazy(() =>
 const AvailabilityPage = lazy(() =>
   import("./pages/AvailabilityPage.js").then((m) => ({ default: m.AvailabilityPage }))
 );
+const AvailabilityClosuresPage = lazy(() =>
+  import("./pages/AvailabilityClosuresPage.js").then((m) => ({
+    default: m.AvailabilityClosuresPage,
+  }))
+);
 const AvailabilitySeasonalListPage = lazy(() =>
   import("./pages/AvailabilitySeasonalListPage.js").then((m) => ({
     default: m.AvailabilitySeasonalListPage,
@@ -413,6 +418,15 @@ const router = createBrowserRouter(
                         <AvailabilitySeasonalListPage />
                       </Suspense>
                     </RequireManager>
+                  ),
+                },
+                {
+                  // Read by a Host too: the edit controls are a Manager's.
+                  path: "closures",
+                  element: (
+                    <Suspense fallback={<LoadingPage />}>
+                      <AvailabilityClosuresPage />
+                    </Suspense>
                   ),
                 },
                 {

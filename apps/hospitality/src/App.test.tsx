@@ -214,6 +214,16 @@ describe("App", () => {
     }
   });
 
+  it("lets the document scroll on the landing only (index.css keys off [data-guest-surface])", async () => {
+    const { container, unmount } = renderAt({ phase: "signed-out", afterSignOut: false });
+    await screen.findByTestId("showcase-landing");
+    expect(container.querySelector("[data-guest-surface]")).not.toBeNull();
+    unmount();
+
+    const gate = renderAt({ phase: "signed-out", afterSignOut: true });
+    expect(gate.container.querySelector("[data-guest-surface]")).toBeNull();
+  });
+
   it("gives the nav the landing's sky, and none on any other screen", async () => {
     const { container } = renderAt({ phase: "signed-out", afterSignOut: false });
     const navSky = container.querySelector("[data-nav-sky]");

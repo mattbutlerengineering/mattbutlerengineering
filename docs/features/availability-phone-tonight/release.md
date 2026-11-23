@@ -2,7 +2,9 @@
 stage: ship
 run: feature:availability-phone-tonight
 date: 2026-11-08
-outcome: prepared
+outcome: released
+released-at: 2026-11-08
+write-back: "2026-11-22: the named PR #8533 closed unmerged, superseded by #8538 (the same 16 commits rebased onto main), which merged 2026-11-08T20:35:38Z as b709512c6acdb65c56a4f57e458400b1be00bbc9, read with gh pr view. The Owner-only checks this release lists were not re-verified by this write-back."
 pending-merge: https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8533
 assumptions:
   - "No release authorization: the Owner asked to keep improving, not to merge. Prepare-and-stop."

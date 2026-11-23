@@ -3440,6 +3440,26 @@
       "compare": "Edit one service across all hours",
       "cantDelete": "Can’t delete: used {{where}}. Change those days first.",
       "cantDeleteRules": "Can’t delete. {{where}}. Change those dates first."
+    },
+    "closuresPage": {
+      "title": "Closures and pauses",
+      "loading": "Loading closures and pauses",
+      "empty": "Nothing is closed or paused.",
+      "group": {
+        "now": "Now",
+        "upcoming": "Upcoming",
+        "earlier": "Earlier, with refunds still open"
+      },
+      "dated": "{{date}}: {{what}}",
+      "datedDetail": "{{date}}: {{what}}, {{detail}}",
+      "editFor": "Edit {{subject}}",
+      "reopen": "Reopen",
+      "reopenFor": "Reopen {{subject}}",
+      "resumeAria": "Resume online booking",
+      "earlier": {
+        "removed": "A closure that is no longer listed",
+        "tonight": "A change made for tonight"
+      }
     }
   },
   "setup": {

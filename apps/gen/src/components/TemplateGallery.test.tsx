@@ -112,7 +112,7 @@ describe("TemplateGallery", () => {
 
   it("renders template card descriptions", () => {
     render(<TemplateGallery {...defaultProps} />);
-    expect(screen.getByText(/KPI cards, an odometer-style headline stat/i)).toBeDefined();
+    expect(screen.getByText(/KPI cards, a large headline stat/i)).toBeDefined();
   });
 
   it("filters templates when a category is clicked", () => {
@@ -138,7 +138,7 @@ describe("TemplateGallery", () => {
     render(<TemplateGallery {...defaultProps} onSelect={onSelect} onClose={onClose} />);
     fireEvent.click(screen.getByRole("button", { name: /^Analytics Dashboard /i }));
     expect(onSelect).toHaveBeenCalledWith(
-      "Dashboard with KPI cards in Cards, an Odometer for the headline stat, a BarChart of monthly revenue for the last 6 months, Badges showing week-over-week change, and a recent activity DataTable"
+      "Dashboard with KPI cards in Cards, a Stat for the headline figure, a BarChart of monthly revenue for the last 6 months, Badges showing week-over-week change, and a recent activity DataTable"
     );
     expect(onClose).toHaveBeenCalledTimes(1);
   });

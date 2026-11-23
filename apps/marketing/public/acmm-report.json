@@ -1,19 +1,19 @@
 {
   "schema": "acmm-report/v2",
-  "generatedAt": "2026-11-21T12:13:55.894Z",
+  "generatedAt": "2026-11-22T12:21:51.131Z",
   "repo": {
     "currentLevel": 5,
     "levelName": "Semi-Automated",
     "role": "Operator",
-    "lastRun": "2026-11-21T12:13:53.636Z",
+    "lastRun": "2026-11-22T12:21:49.015Z",
     "summary": {
       "detected": 71,
       "total": 84,
       "coverage": 0.8452380952380952
     },
     "behavioral": {
-      "ciFlakeRate": 0.02404809619238477,
-      "agentPrAcceptanceRate": 0.9889705882352942,
+      "ciFlakeRate": 0.024024024024024024,
+      "agentPrAcceptanceRate": 0.9817518248175182,
       "agentPrRevertRate": 0.0037174721189591076,
       "evalPassRate": 0.8,
       "evalsStale": false,
@@ -278,7 +278,7 @@
         "level": 3,
         "name": "ci-flake-rate",
         "passed": true,
-        "value": 0.02404809619238477,
+        "value": 0.024024024024024024,
         "threshold": 0.2,
         "unverifiable": false
       },
@@ -286,7 +286,7 @@
         "level": 4,
         "name": "agent-pr-acceptance",
         "passed": true,
-        "value": 0.9889705882352942,
+        "value": 0.9817518248175182,
         "threshold": 0.5,
         "unverifiable": false
       },
@@ -294,7 +294,7 @@
         "level": 5,
         "name": "auto-qa-tuning-history",
         "passed": true,
-        "value": 61,
+        "value": 63,
         "threshold": 1,
         "unverifiable": false
       },
@@ -310,7 +310,7 @@
         "level": 6,
         "name": "human-touch-ratio",
         "passed": true,
-        "value": 0.011152416356877323,
+        "value": 0.02973977695167286,
         "threshold": 0.5,
         "unverifiable": false
       }

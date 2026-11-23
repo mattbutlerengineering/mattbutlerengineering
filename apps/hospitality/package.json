@@ -71,6 +71,26 @@
       "limit": "7.1 kB"
     },
     {
+      "name": "Closures and pauses page (lazy chunk: the grouped list, its row and outcome lines, and the Edit, Reopen, Resume, Restore and Retry wiring, availability-hub L3.2; 3.9 kB (3,904 B) measured)",
+      "path": "dist/assets/AvailabilityClosuresPage-*.js",
+      "limit": "4.1 kB"
+    },
+    {
+      "name": "Edit dates of a repeating closure (SeriesEditDialog, a chunk of its own once the Closures page and the Special dates tab both load it, availability-hub L3.2; 3.42 kB (3,422 B) measured)",
+      "path": "dist/assets/SeriesEditDialog-*.js",
+      "limit": "3.6 kB"
+    },
+    {
+      "name": "Hub closures wording (hub-closures-text, shared by the hub's row 4 and the Closures page, availability-hub L3.2; 2.31 kB (2,305 B) measured)",
+      "path": "dist/assets/hub-closures-text-*.js",
+      "limit": "2.5 kB"
+    },
+    {
+      "name": "Rule subjects (rule-subjects, shared by the Special dates tab, the Reopen dialog and the Closures page, availability-hub L3.2; 2.55 kB (2,553 B) measured)",
+      "path": "dist/assets/rule-subjects-*.js",
+      "limit": "2.7 kB"
+    },
+    {
       "name": "Regular hours page (lazy chunk: the Starting field, the form's frame and first setup, availability-hub E4.4; 3.34 kB (3,340 B) measured)",
       "path": "dist/assets/AvailabilityHoursPage-*.js",
       "limit": "3.5 kB"

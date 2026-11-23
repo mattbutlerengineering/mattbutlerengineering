@@ -3537,6 +3537,26 @@
       "compare": "Editar un servicio en todos los horarios",
       "cantDelete": "No se puede eliminar: se usa {{where}}. Primero cambia esos días.",
       "cantDeleteRules": "No se puede eliminar. {{where}}. Primero cambia esas fechas."
+    },
+    "closuresPage": {
+      "title": "Cierres y pausas",
+      "loading": "Cargando cierres y pausas",
+      "empty": "No hay nada cerrado ni en pausa.",
+      "group": {
+        "now": "Ahora",
+        "upcoming": "Próximos",
+        "earlier": "Anteriores, con reembolsos pendientes"
+      },
+      "dated": "{{date}}: {{what}}",
+      "datedDetail": "{{date}}: {{what}}, {{detail}}",
+      "editFor": "Editar {{subject}}",
+      "reopen": "Reabrir",
+      "reopenFor": "Reabrir {{subject}}",
+      "resumeAria": "Reanudar las reservas en línea",
+      "earlier": {
+        "removed": "Un cierre que ya no aparece en la lista",
+        "tonight": "Un cambio hecho para esta noche"
+      }
     }
   },
   "setup": {

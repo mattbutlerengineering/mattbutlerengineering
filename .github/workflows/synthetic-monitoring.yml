@@ -68,6 +68,32 @@ jobs:
           KV_NS_ID: ${{ secrets.HEALTH_KV_NAMESPACE_ID }}
           HEALTH_RESPONSE: ${{ steps.health.outputs.response }}
         run: |
+          set -o pipefail
+          # kv_write <METHOD> <URL> [curl args...]: a spent free-tier write quota
+          # answers HTTP 429 (error 10048, #9234) and must not turn the run red.
+          # Prints only the status and Cloudflare errors[], never the token.
+          kv_write() {
+            local method="$1" url="$2" resp code
+            shift 2
+            resp="$(mktemp)"
+            code="$(curl -s -o "$resp" -w '%{http_code}' -X "$method" "$url" \
+              -H "Authorization: Bearer ${CF_API_TOKEN}" "$@")" || code="000"
+            echo "Cloudflare KV write: HTTP ${code}"
+            case "$code" in
+              2??) rm -f "$resp" ;;
+              429)
+                jq -r '.errors[]? | "  error \(.code): \(.message)"' "$resp" 2>/dev/null || true
+                rm -f "$resp"
+                echo "::warning::Cloudflare KV write rate/quota limited (HTTP 429); not recorded"
+                ;;
+              *)
+                jq -r '.errors[]? | "  error \(.code): \(.message)"' "$resp" 2>/dev/null || true
+                rm -f "$resp"
+                return 1
+                ;;
+            esac
+          }
+
           HOUR_KEY=$(date -u +%Y-%m-%d-%H)
 
           # Extract per-service latencies from the health response
@@ -83,12 +109,11 @@ jobs:
           } | select(.services | length > 0)' 2>/dev/null || echo '{}')
 
           if [ -n "$LATENCIES" ] && [ "$LATENCIES" != "{}" ]; then
-            curl -sf -X PUT \
+            kv_write PUT \
               "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces/${KV_NS_ID}/values/latency%2F${HOUR_KEY}" \
-              -H "Authorization: Bearer ${CF_API_TOKEN}" \
               -H "Content-Type: application/json" \
               -d "$LATENCIES"
-            echo "Recorded latency sample for $HOUR_KEY"
+            echo "Latency sample step done for $HOUR_KEY"
           fi
 
       - name: Notify webhook on status change
@@ -101,6 +126,31 @@ jobs:
           CURRENT_STATUS: ${{ steps.health.outputs.status }}
           HEALTH_RESPONSE: ${{ steps.health.outputs.response }}
         run: |
+          set -o pipefail
+          # kv_write <METHOD> <URL> [curl args...]: HTTP 429 (spent KV quota,
+          # error 10048, #9234) warns and continues so the webhook still fires.
+          kv_write() {
+            local method="$1" url="$2" resp code
+            shift 2
+            resp="$(mktemp)"
+            code="$(curl -s -o "$resp" -w '%{http_code}' -X "$method" "$url" \
+              -H "Authorization: Bearer ${CF_API_TOKEN}" "$@")" || code="000"
+            echo "Cloudflare KV write: HTTP ${code}"
+            case "$code" in
+              2??) rm -f "$resp" ;;
+              429)
+                jq -r '.errors[]? | "  error \(.code): \(.message)"' "$resp" 2>/dev/null || true
+                rm -f "$resp"
+                echo "::warning::Cloudflare KV write rate/quota limited (HTTP 429); not recorded"
+                ;;
+              *)
+                jq -r '.errors[]? | "  error \(.code): \(.message)"' "$resp" 2>/dev/null || true
+                rm -f "$resp"
+                return 1
+                ;;
+            esac
+          }
+
           # Read previous status from KV
           PREV=$(curl -sf \
             "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces/${KV_NS_ID}/values/health%2Fprevious-status" \
@@ -109,9 +159,8 @@ jobs:
           echo "Previous: $PREV → Current: $CURRENT_STATUS"
 
           # Store current status for next comparison
-          curl -sf -X PUT \
+          kv_write PUT \
             "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces/${KV_NS_ID}/values/health%2Fprevious-status" \
-            -H "Authorization: Bearer ${CF_API_TOKEN}" \
             -H "Content-Type: text/plain" \
             -d "$CURRENT_STATUS"
 
@@ -165,8 +214,32 @@ jobs:
           KV_NS_ID: ${{ secrets.HEALTH_KV_NAMESPACE_ID }}
           CURRENT_STATUS: ${{ steps.health.outputs.status }}
         run: |
+          set -o pipefail
+          # kv_write <METHOD> <URL> [curl args...]: HTTP 429 (spent KV quota,
+          # error 10048, #9234) warns and continues instead of failing the run.
+          kv_write() {
+            local method="$1" url="$2" resp code
+            shift 2
+            resp="$(mktemp)"
+            code="$(curl -s -o "$resp" -w '%{http_code}' -X "$method" "$url" \
+              -H "Authorization: Bearer ${CF_API_TOKEN}" "$@")" || code="000"
+            echo "Cloudflare KV write: HTTP ${code}"
+            case "$code" in
+              2??) rm -f "$resp" ;;
+              429)
+                jq -r '.errors[]? | "  error \(.code): \(.message)"' "$resp" 2>/dev/null || true
+                rm -f "$resp"
+                echo "::warning::Cloudflare KV write rate/quota limited (HTTP 429); not recorded"
+                ;;
+              *)
+                jq -r '.errors[]? | "  error \(.code): \(.message)"' "$resp" 2>/dev/null || true
+                rm -f "$resp"
+                return 1
+                ;;
+            esac
+          }
+
           KV_BASE="https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/storage/kv/namespaces/${KV_NS_ID}/values"
-          AUTH="-H \"Authorization: Bearer ${CF_API_TOKEN}\""
 
           # Read previous status
           PREV=$(curl -sf "${KV_BASE}/health%2Fprevious-status" \
@@ -189,8 +262,7 @@ jobs:
             --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             '. + [{from: $from, to: $to, timestamp: $ts}] | .[-20:]')
 
-          curl -sf -X PUT "${KV_BASE}/health%2Ftransitions" \
-            -H "Authorization: Bearer ${CF_API_TOKEN}" \
+          kv_write PUT "${KV_BASE}/health%2Ftransitions" \
             -H "Content-Type: application/json" \
             -d "$UPDATED"
 

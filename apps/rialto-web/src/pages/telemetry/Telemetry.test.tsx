@@ -197,8 +197,8 @@ describe("feed states", () => {
 
     it("retains the frame instead of ticking", () => {
       renderRoute("?feed=hold");
-      // Let the odometer finish its one-shot settle from the first frame; that
-      // animation is not a new frame, so it must not count as ticking.
+      // Let any one-shot settle from the first frame finish; that animation is
+      // not a new frame, so it must not count as ticking.
       act(() => {
         vi.advanceTimersByTime(5_000);
       });

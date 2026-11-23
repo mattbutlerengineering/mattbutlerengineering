@@ -159,7 +159,7 @@
   gap: var(--rialto-space-sm);
 }
 
-/* Holds its height across the odometer, its skeleton, and its placeholder. */
+/* Holds its height across the figure, its skeleton, and its placeholder. */
 .focal {
   min-block-size: 9rem;
   justify-content: center;

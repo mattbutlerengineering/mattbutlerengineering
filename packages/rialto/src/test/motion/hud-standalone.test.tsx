@@ -12,13 +12,11 @@
 import { render, screen } from "@testing-library/react";
 import { Meter } from "../../components/Meter/Meter";
 import { Progress } from "../../components/Progress/Progress";
-import { Odometer } from "../../components/Odometer/Odometer";
 import { Card } from "../../components/Card/Card";
 
 const HUD_COMPONENTS = [
   ["Meter", <Meter key="meter" value={42} label="Load" />, "meter"],
   ["Progress", <Progress key="progress" value={42} aria-label="Sync" />, "progressbar"],
-  ["Odometer", <Odometer key="odometer" value={1234} locale="en-US" />, "status"],
   ["Card", <Card key="card" title="Zone 3" tilt />, "heading"],
 ] as const;
 

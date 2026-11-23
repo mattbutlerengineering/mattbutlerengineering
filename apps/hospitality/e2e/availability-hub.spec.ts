@@ -118,7 +118,7 @@ test.describe("Availability hub", () => {
     await expect(page.getByText(/^decides /)).toHaveCount(1);
 
     // Each service's line and each row's action is a link built by the address module.
-    const special = /\/availability\/calendar\?tab=special$/;
+    const closures = /\/availability\/closures$/;
     const edit = (n: number, name: string) => row(page, n).getByRole("link", { name });
     await expect(row(page, 1).getByRole("link", { name: /^Lunch / })).toHaveAttribute(
       "href",
@@ -128,7 +128,7 @@ test.describe("Availability hub", () => {
       "href",
       /\/availability\/hours\?service=vs-dinner$/
     );
-    await expect(edit(4, "View Closures and pauses")).toHaveAttribute("href", special);
+    await expect(edit(4, "View Closures and pauses")).toHaveAttribute("href", closures);
     await expect(edit(5, "Edit Booking rules")).toHaveAttribute(
       "href",
       /\/availability\/booking-rules$/
@@ -151,6 +151,12 @@ test.describe("Availability hub", () => {
     await back();
     await edit(3, "Edit Special dates and holidays").click();
     await expect(layer("Special dates")).toBeChecked();
+    await back();
+    // Closures and pauses is a page of its own (L3.2).
+    await edit(4, "View Closures and pauses").click();
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Closures and pauses" })
+    ).toBeVisible();
     await back();
     await page.getByRole("link", { name: "Open calendar" }).click();
     await expect(layer("Calendar")).toBeChecked();

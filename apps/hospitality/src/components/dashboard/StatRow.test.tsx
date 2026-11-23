@@ -5,14 +5,9 @@ import type { DashboardStats } from "../../hooks/useDashboardStatsQuery.js";
 import type { ReactNode } from "react";
 
 /* Lightweight stand-ins that mirror the accessible contract of the real
-   instruments: Odometer exposes its value as text; Meter is a `meter`
+   instruments: counts are plain text; Meter is a `meter`
    with value/min/max and a visible readout + label. The instruments' own
    reduced-motion + live-region behaviour is covered by their rialto tests. */
-
-interface OdometerMockProps {
-  readonly value: number;
-  readonly "aria-label"?: string;
-}
 
 interface MeterMockProps {
   readonly value: number;
@@ -28,11 +23,6 @@ interface TextMockProps {
 }
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  Odometer: ({ value, "aria-label": ariaLabel }: OdometerMockProps) => (
-    <div data-testid="odometer" aria-label={ariaLabel}>
-      {value}
-    </div>
-  ),
   Meter: ({ value, min, max, label, showValue }: MeterMockProps) => {
     const lo = min ?? 0;
     const hi = max ?? 100;
@@ -68,11 +58,8 @@ const STATS: DashboardStats = {
 };
 
 describe("StatRow", () => {
-  it("renders each count metric via an Odometer instrument", () => {
+  it("renders each count metric as plain text", () => {
     render(<StatRow stats={STATS} />);
-
-    const odometers = screen.getAllByTestId("odometer");
-    expect(odometers.length).toBe(5);
 
     // Counts are exposed as accessible text.
     expect(screen.getByText("5")).toBeDefined();
@@ -95,11 +82,10 @@ describe("StatRow", () => {
     expect(screen.getByText("10%")).toBeDefined();
   });
 
-  it("uses exactly one meter for the bounded metric and odometers for counts", () => {
+  it("uses exactly one meter for the bounded metric", () => {
     render(<StatRow stats={STATS} />);
 
     expect(screen.getAllByTestId("meter").length).toBe(1);
-    expect(screen.getAllByTestId("odometer").length).toBe(5);
   });
 
   it("labels every metric with accessible text", () => {
@@ -112,17 +98,17 @@ describe("StatRow", () => {
     expect(screen.getByText("Waitlist")).toBeDefined();
     expect(screen.getByText("Longest Wait (min)")).toBeDefined();
 
-    // Each count Odometer carries an accessible name matching its label.
-    const covers = screen.getByLabelText("Expected Covers");
-    expect(covers.getAttribute("data-testid")).toBe("odometer");
+    // Each count tile is a named group holding its figure and label.
+    const covers = screen.getByRole("group", { name: "Expected Covers" });
+    expect(covers.textContent).toContain("20");
   });
 
   it("renders waitlist tiles as 0 when nobody is waiting", () => {
     render(<StatRow stats={{ ...STATS, waitlistCount: 0, longestWaitMinutes: 0 }} />);
 
-    const waitlist = screen.getByLabelText("Waitlist");
-    expect(waitlist.textContent).toBe("0");
-    const longestWait = screen.getByLabelText("Longest Wait (min)");
-    expect(longestWait.textContent).toBe("0");
+    const waitlist = screen.getByRole("group", { name: "Waitlist" });
+    expect(waitlist.textContent).toContain("0");
+    const longestWait = screen.getByRole("group", { name: "Longest Wait (min)" });
+    expect(longestWait.textContent).toContain("0");
   });
 });

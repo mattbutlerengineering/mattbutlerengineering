@@ -172,4 +172,20 @@ describe("ShowcaseLanding", () => {
     expect(onSkyChange).toHaveBeenLastCalledWith(null);
     expect(observers.disconnect).toHaveBeenCalled();
   });
+
+  it("keeps the whole page dark when the visitor has chosen dark mode", () => {
+    const onSkyChange = vi.fn();
+    const { container } = render(
+      <ShowcaseLanding preferredTheme="dark" onSkyChange={onSkyChange} />
+    );
+    const sky = container.querySelector("[data-sky]");
+    expect(sky).toHaveAttribute("data-theme", "dark");
+    expect(onSkyChange).toHaveBeenLastCalledWith("dark");
+
+    // The doors still follow the scene, not the theme.
+    expect(screen.getByRole("img", { name: copy.doors.closed })).toBeInTheDocument();
+
+    centre(container, observers.callbacks, "morning");
+    expect(sky).toHaveAttribute("data-theme", "dark");
+  });
 });
