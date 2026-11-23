@@ -36,14 +36,14 @@
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
     "@prisma/client-runtime-utils": "^7.10.1",
-    "bullmq": "^6.7.6",
+    "bullmq": "^6.7.8",
     "fastify": "catalog:",
     "ioredis": "^6.0.0",
-    "jose": "^6.2.16",
+    "jose": "^6.2.18",
     "pg": "^8.23.1",
-    "resend": "^6.38.0",
-    "stripe": "^23.1.0",
-    "twilio": "^6.3.0"
+    "resend": "^6.39.0",
+    "stripe": "^23.2.0",
+    "twilio": "^6.3.1"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
