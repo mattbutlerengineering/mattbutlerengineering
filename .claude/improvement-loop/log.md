@@ -1183,6 +1183,12 @@ A clean fire: everything due was captured and judged, and nothing met the bar to
   **Skill proposals:** 0 (not Friday — Step 4 session-log analysis skipped)
   **Threshold notes:** auto-tuner applied 1 adjustment (acmm 1.832 → 1.853, headroom). 30-day fix-effectiveness (non-skip verifications only): 8 verified / 9 scored (~89%), well above the 50% floor. Overall false-positive rate across feedback categories ~11% (22/200 rejected), below the 30% loosen-trigger — no threshold changes recommended this run.
 
+## 2026-11-23
+
+**queueEfficiency:** composite 0.949 (baseline n/a) — healthy
+**Difficulty distribution:** size:m:8, size:xl:10, size:xs:23, size:s:34, size:l:4
+**Issues filed:** 0
+
 ## 2026-11-23 — mbe-evening
 
 ### Metrics
