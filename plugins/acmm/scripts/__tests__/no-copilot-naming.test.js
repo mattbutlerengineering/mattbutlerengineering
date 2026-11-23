@@ -7,9 +7,10 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { ALL_CRITERIA } from "../sources/index.js";
+import { DROPPED_UPSTREAM_IDS } from "../sources/upstream-parity.js";
 import { readFileSync } from "node:fs";
 
-const KEPT_IDS = ["acmm:copilot-instructions", "acmm:copilot-review-apply"];
+const KEPT_IDS = ["acmm:copilot-instructions"];
 
 function find(id) {
   const criterion = ALL_CRITERIA.find((c) => c.id === id);
@@ -17,9 +18,8 @@ function find(id) {
   return criterion;
 }
 
-test("the two formerly Copilot-named criteria keep their id, level and category", () => {
+test("copilot-instructions keeps its id and level (upstream parity)", () => {
   assert.equal(find("acmm:copilot-instructions").level, 2);
-  assert.equal(find("acmm:copilot-review-apply").level, 4);
 });
 
 for (const id of KEPT_IDS) {
@@ -29,12 +29,13 @@ for (const id of KEPT_IDS) {
   });
 }
 
-test("copilot-review-apply is satisfied by a Claude review-apply workflow", () => {
-  const { detection } = find("acmm:copilot-review-apply");
-  assert.ok(
-    detection.pattern.includes(".github/workflows/claude-review-apply.yml"),
-    "detection must accept .github/workflows/claude-review-apply.yml"
+test("copilot-review-apply is dropped: absent from the catalog, listed with a reason", () => {
+  assert.equal(
+    ALL_CRITERIA.some((c) => c.id === "acmm:copilot-review-apply"),
+    false
   );
+  const reason = DROPPED_UPSTREAM_IDS["acmm:copilot-review-apply"];
+  assert.ok(reason && reason.length > 20, "drop must carry a reason");
 });
 
 test("copilot-instructions is satisfied by the scoped rules directory this repo has", () => {

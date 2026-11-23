@@ -5,12 +5,12 @@
  * pinned here, not left to review.
  */
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { checkWorkflow } from "../check-action-pins.mjs";
 
 const ROOT = join(import.meta.dirname, "..", "..");
-const WORKFLOWS = ["claude.yml", "claude-review-apply.yml"];
+const WORKFLOWS = ["claude.yml"];
 const TRUSTED = `contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'),`;
 
 function load(name) {
@@ -65,15 +65,8 @@ describe("claude.yml triggers", () => {
   });
 });
 
-describe("claude-review-apply.yml triggers", () => {
-  const content = load("claude-review-apply.yml");
-
-  it("runs on a submitted pull request review", () => {
-    expect(content).toMatch(/pull_request_review:/);
-    expect(content).toMatch(/types: \[submitted\]/);
-  });
-
-  it("only touches PR branches from this repository, never forks", () => {
-    expect(content).toContain("github.event.pull_request.head.repo.full_name == github.repository");
+describe("claude-review-apply.yml", () => {
+  it("is gone: acmm:copilot-review-apply was dropped, so nothing applies reviews on its own", () => {
+    expect(existsSync(join(ROOT, ".github", "workflows", "claude-review-apply.yml"))).toBe(false);
   });
 });

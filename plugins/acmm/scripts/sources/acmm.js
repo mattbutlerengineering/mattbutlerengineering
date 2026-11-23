@@ -778,23 +778,6 @@ const CRITERIA = [
     },
   },
   {
-    id: "acmm:copilot-review-apply",
-    source: "acmm",
-    level: 4,
-    category: "feedback-loop",
-    name: "Automated review application",
-    description: "Workflow that applies AI-review suggestions automatically to PRs.",
-    rationale:
-      "L4 action-taking: the loop closes when suggestions become commits without human intervention.",
-    details:
-      'Automated review application is a workflow that takes AI-generated review comments and applies the suggested fixes directly as commits on the PR branch. Instead of a human reading "change X to Y" and making the edit, the system does it automatically. This is L4 because the feedback loop acts on its own output. An AI mission will add a workflow that parses review bot suggestions and commits the fixes.',
-    detection: {
-      type: "active",
-      pattern: [".github/workflows/claude-review-apply.yml", ".github/workflows/ai-fix.yml"],
-      maxAgeDays: 30,
-    },
-  },
-  {
     id: "acmm:auto-label",
     source: "acmm",
     level: 4,
