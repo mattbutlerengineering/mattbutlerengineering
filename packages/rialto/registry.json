@@ -3185,9 +3185,16 @@
       "slots": [],
       "characterLimits": [
         {
+          "prop": "disabledReason",
+          "max": 120
+        },
+        {
+          "prop": "hint",
+          "max": 120
+        },
+        {
           "prop": "label",
-          "max": 40,
-          "reason": "Form field label; above input"
+          "max": 40
         }
       ]
     },
@@ -4069,9 +4076,12 @@
       "slots": [],
       "characterLimits": [
         {
+          "prop": "disabledReason",
+          "max": 120
+        },
+        {
           "prop": "label",
-          "max": 40,
-          "reason": "Form field label; above slider track"
+          "max": 40
         }
       ]
     },
