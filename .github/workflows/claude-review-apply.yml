@@ -1,0 +1,61 @@
+name: Claude Review Apply
+
+# When a trusted reviewer submits a review that asks for changes, Claude applies
+# the suggestions as a commit on the PR branch. Same-repo branches only: a fork
+# PR must never meet this job's secrets. Pinned and gated by
+# scripts/__tests__/claude-workflows.test.mjs.
+# Satisfies the ACMM criterion acmm:copilot-review-apply (detects this file).
+
+on:
+  pull_request_review:
+    types: [submitted]
+
+concurrency:
+  group: claude-review-apply-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    name: Apply review suggestions
+    if: >-
+      github.event.review.state == 'changes_requested' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.review.author_association)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - uses: anthropics/claude-code-action@acfe7992852970efb4fee683d63d628e3e52df67 # v1.0.286
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ github.token }}
+          prompt: |
+            Review ${{ github.repository }}#${{ github.event.pull_request.number }} was submitted
+            with changes requested. Read that review and its inline comments. Apply
+            only the changes they ask for, as one commit on this branch. Do not
+            widen scope, do not touch unrelated files, and do not push to any other
+            branch. If a requested change is ambiguous, leave a PR comment instead
+            of guessing.
+
+      # GITHUB_TOKEN pushes never fire ci.yml (anti-recursion), so dispatch CI
+      # on the branch or the Claude commit never gets a CI Gate.
+      - name: Dispatch CI on the PR branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -o pipefail
+          gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref "$HEAD_REF"
