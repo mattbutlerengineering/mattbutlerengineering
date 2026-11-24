@@ -105,7 +105,7 @@ describe("buildAgentSystemPrompt", () => {
     expect(prompt).toMatch(/Neither takes today.*change_tonight_availability/);
     expect(prompt).toMatch(/full from and to span.*scope/);
     expect(prompt).toMatch(
-      /special hours, repeating closures and booking or table pauses are changed on the Availability page/
+      /special hours and repeating closures are changed on the Availability page/
     );
     expect(prompt).toMatch(/countsUnavailable never state how many/);
     expect(prompt).toMatch(
@@ -387,8 +387,34 @@ describe("briefing, dashboard stats and page-only areas in the prompt", () => {
     expect(prompt).toMatch(/Dashboard stats.*lapsing guests.*list_lapsing_guests/);
   });
 
-  it("keeps settings on the Settings page", () => {
-    expect(prompt).toMatch(/preferences, venue profile and team roles.*Settings page/);
+  it("no longer sends pauses, settings or the venue profile to their pages", () => {
+    expect(prompt).not.toMatch(/preferences, venue profile and team roles/);
+    expect(prompt).not.toMatch(/booking or table pauses are changed on the Availability page/);
+    for (const name of [
+      "pause_online_booking",
+      "resume_online_booking",
+      "pause_tables",
+      "resume_tables",
+      "get_venue_settings",
+      "update_venue_settings",
+      "update_venue_profile",
+    ]) {
+      expect(prompt).toContain(name);
+    }
+  });
+
+  it("lists pauses and settings among the confirmed changes and says how to undo them", () => {
+    const confirmLine = prompt.split("\n").find((line) => /Confirm or Cancel button/.test(line));
+
+    expect(confirmLine).toMatch(/pauses/);
+    expect(confirmLine).toMatch(/settings/);
+    expect(prompt).toMatch(/resume_online_booking.*undo/is);
+    expect(prompt).toMatch(/previous values/);
+  });
+
+  it("keeps team and roles on the Settings page, with no tool for them", () => {
+    expect(prompt).toMatch(/Team members and roles.*Settings page/);
+    expect(prompt).toMatch(/no tool for (the )?team/i);
   });
 
   it("keeps the booking widget on its page", () => {

@@ -1715,6 +1715,12 @@
       "activate_floor_plan": "Changer le plan de salle actif",
       "seat_reservation": "Placer un groupe réservé",
       "mark_no_show": "Marquer une absence",
+      "pause_online_booking": "Suspendre les réservations en ligne",
+      "resume_online_booking": "Reprendre les réservations en ligne",
+      "pause_tables": "Suspendre des tables",
+      "resume_tables": "Rouvrir des tables aux réservations",
+      "update_venue_settings": "Modifier les paramètres de l'établissement",
+      "update_venue_profile": "Modifier le profil de l'établissement",
       "fields": {
         "guestName": "Client",
         "partySize": "Personnes",
@@ -1761,7 +1767,18 @@
         "closesAt": "Fermeture",
         "tellCancelledGuests": "Aviser les clients annulés",
         "scope": "S'applique à",
-        "weekdays": "Jours de la semaine"
+        "weekdays": "Jours de la semaine",
+        "until": "Jusqu'au",
+        "message": "Message aux clients",
+        "maxPartySize": "Plus grand groupe",
+        "defaultReservationDuration": "Durée de la réservation (minutes)",
+        "requirePhone": "Exiger un téléphone",
+        "requireEmail": "Exiger un courriel",
+        "confirmationEmailEnabled": "Courriels de confirmation",
+        "reminderEmailEnabled": "Courriels de rappel",
+        "type": "Type",
+        "cuisines": "Cuisines",
+        "website": "Site web"
       },
       "yesNo": {
         "yes": "Oui",
@@ -1772,6 +1789,7 @@
         "service": "Un seul service"
       },
       "untilReopened": "Jusqu'à la réouverture",
+      "cleared": "Effacé",
       "menuAvailability": {
         "sold_out": "Épuisé",
         "available": "Disponible"

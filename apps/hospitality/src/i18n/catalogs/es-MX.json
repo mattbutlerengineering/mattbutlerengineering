@@ -1715,6 +1715,12 @@
       "activate_floor_plan": "Cambiar el plano activo",
       "seat_reservation": "Sentar a un grupo con reserva",
       "mark_no_show": "Marcar como no presentado",
+      "pause_online_booking": "Pausar las reservas en línea",
+      "resume_online_booking": "Reanudar las reservas en línea",
+      "pause_tables": "Pausar mesas",
+      "resume_tables": "Volver a abrir mesas a reservas",
+      "update_venue_settings": "Cambiar la configuración del local",
+      "update_venue_profile": "Cambiar el perfil del local",
       "fields": {
         "guestName": "Cliente",
         "partySize": "Personas",
@@ -1761,7 +1767,18 @@
         "closesAt": "Cierra",
         "tellCancelledGuests": "Avisar a los clientes cancelados",
         "scope": "Se aplica a",
-        "weekdays": "Días de la semana"
+        "weekdays": "Días de la semana",
+        "until": "Hasta",
+        "message": "Mensaje para los clientes",
+        "maxPartySize": "Grupo más grande",
+        "defaultReservationDuration": "Duración de la reserva (minutos)",
+        "requirePhone": "Pedir teléfono",
+        "requireEmail": "Pedir correo electrónico",
+        "confirmationEmailEnabled": "Correos de confirmación",
+        "reminderEmailEnabled": "Correos de recordatorio",
+        "type": "Tipo",
+        "cuisines": "Cocinas",
+        "website": "Sitio web"
       },
       "yesNo": {
         "yes": "Sí",
@@ -1772,6 +1789,7 @@
         "service": "Un solo servicio"
       },
       "untilReopened": "Hasta que se reabra",
+      "cleared": "Borrado",
       "menuAvailability": {
         "sold_out": "Agotado",
         "available": "Disponible"

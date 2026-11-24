@@ -1682,6 +1682,12 @@
       "activate_floor_plan": "Switch the active floor plan",
       "seat_reservation": "Seat a booked party",
       "mark_no_show": "Mark a no-show",
+      "pause_online_booking": "Pause online booking",
+      "resume_online_booking": "Resume online booking",
+      "pause_tables": "Pause tables",
+      "resume_tables": "Put tables back in booking",
+      "update_venue_settings": "Change venue settings",
+      "update_venue_profile": "Change the venue profile",
       "fields": {
         "guestName": "Guest",
         "partySize": "Party size",
@@ -1728,7 +1734,18 @@
         "closesAt": "Closes",
         "tellCancelledGuests": "Tell cancelled guests",
         "scope": "Applies to",
-        "weekdays": "Weekdays"
+        "weekdays": "Weekdays",
+        "until": "Until",
+        "message": "Message to guests",
+        "maxPartySize": "Largest party",
+        "defaultReservationDuration": "Booking length (minutes)",
+        "requirePhone": "Require a phone number",
+        "requireEmail": "Require an email",
+        "confirmationEmailEnabled": "Confirmation emails",
+        "reminderEmailEnabled": "Reminder emails",
+        "type": "Type",
+        "cuisines": "Cuisines",
+        "website": "Website"
       },
       "yesNo": {
         "yes": "Yes",
@@ -1739,6 +1756,7 @@
         "service": "One service"
       },
       "untilReopened": "Until reopened",
+      "cleared": "Cleared",
       "menuAvailability": {
         "sold_out": "Sold out",
         "available": "Available"
