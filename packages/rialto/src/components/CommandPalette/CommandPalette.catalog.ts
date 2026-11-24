@@ -11,4 +11,8 @@ export const commandPaletteCatalogMeta = {
   charLimits: {
     placeholder: 60,
   },
+  propSchemas: {
+    items:
+      "z.array(z.object({ id: z.string(), label: z.string().max(60), group: z.string().max(40).optional(), shortcut: z.array(z.string().max(8)).optional() }))",
+  },
 } satisfies CatalogMeta;

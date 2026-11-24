@@ -110,6 +110,22 @@ export const generatedSchemas = {
     loadingText: z.string().optional(),
     emptyText: z.string().optional(),
   }),
+  CommandPalette: z.object({
+    open: z.boolean(),
+    items: z.array(z.object({ id: z.string(), label: z.string().max(60), group: z.string().max(40).optional(), shortcut: z.array(z.string().max(8)).optional() })),
+    placeholder: z.string().max(60).optional(),
+  }),
+  ConfirmDialog: z.object({
+    open: z.boolean(),
+    title: z.string().max(80),
+    description: z.string().max(200).optional(),
+    confirmLabel: z.string().max(24).optional(),
+    cancelLabel: z.string().max(24).optional(),
+    variant: z.enum(["default", "destructive"]).optional(),
+  }),
+  ContextMenu: z.object({
+    items: z.array(z.object({ type: z.enum(["item", "divider", "label"]).optional(), id: z.string().optional(), label: z.string().max(40).optional(), shortcut: z.string().max(12).optional(), disabled: z.boolean().optional(), destructive: z.boolean().optional() })),
+  }),
   DataList: z.object({
     items: z.array(z.object({ label: z.string(), value: z.string() })),
     orientation: z.enum(["horizontal", "vertical"]).optional(),
@@ -213,6 +229,12 @@ export const generatedSchemas = {
     lane: z.number().optional(),
     size: z.enum(["lg", "md", "sm"]).optional(),
     showLabels: z.boolean().optional(),
+  }),
+  HoverCard: z.object({
+    content: z.string().optional(),
+    placement: z.enum(["bottom", "top"]).optional(),
+    openDelay: z.number().optional(),
+    closeDelay: z.number().optional(),
   }),
   IconButton: z.object({
     icon: z.string().optional(),
