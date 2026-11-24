@@ -62,6 +62,15 @@ describe("buildInventory", () => {
     expect(apis.length).toBeGreaterThanOrEqual(3);
   });
 
+  it("includes the public demo venue smoke check (#9508)", () => {
+    const demo = buildInventory().surfaces.find((s) => s.id === "api:reservations:demo-venue");
+    expect(demo).toBeDefined();
+    expect(demo?.zone).toBe("api:reservations");
+    expect(demo?.type).toBe("api_endpoint");
+    expect(demo?.url).toBe(`${BASE_URL}/api/v1/venues/by-slug/demo-bistro`);
+    expect(demo?.auth).toBe("none");
+  });
+
   it("all surfaces have sourceFiles", () => {
     for (const s of buildInventory().surfaces) {
       expect(s.sourceFiles.length).toBeGreaterThan(0);
