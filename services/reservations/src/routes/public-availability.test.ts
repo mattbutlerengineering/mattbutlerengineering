@@ -13,6 +13,10 @@ const availabilityService = {
   getAvailableDates: vi.fn(),
 } as unknown as DomainServices["availabilityService"];
 
+const lostDemandService = {
+  recordNoSlotSearch: vi.fn().mockResolvedValue("recorded"),
+} as unknown as DomainServices["lostDemandService"];
+
 vi.mock("../services/database.js", async () => {
   const { createMockDatabaseService } = await import("@mbe/database/testing");
   return createMockDatabaseService();
@@ -47,7 +51,10 @@ describe("GET /public/v1/venues/:slug/availability", () => {
 
   beforeAll(async () => {
     process.env.AUTH_BYPASS_IN_TESTS = "true";
-    app = await buildApp({ logger: false, services: { venueService, availabilityService } });
+    app = await buildApp({
+      logger: false,
+      services: { venueService, availabilityService, lostDemandService },
+    });
     await app.ready();
   });
 
@@ -194,6 +201,89 @@ describe("GET /public/v1/venues/:slug/availability", () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json().data).toHaveLength(0);
+  });
+
+  describe("lost demand recording (#9484)", () => {
+    const slot = (time: string, available: boolean) => ({ time, available, tables: [] });
+    const search = (query: string, headers: Record<string, string> = {}) =>
+      app.inject({
+        method: "GET",
+        url: `/public/v1/venues/the-oak-table/availability?${query}`,
+        headers,
+      });
+
+    it("records a search with no slot at the requested time", async () => {
+      vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
+      vi.mocked(availabilityService.getDayAvailability).mockResolvedValueOnce({
+        slots: [slot("2026-06-15T19:00:00", false), slot("2026-06-15T20:00:00", true)],
+      });
+      vi.mocked(lostDemandService.recordNoSlotSearch).mockClear();
+
+      const response = await search("date=2026-06-15&partySize=4&time=19:00", {
+        "x-session-id": "sess-1",
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(lostDemandService.recordNoSlotSearch).toHaveBeenCalledWith(
+        { venueId: "venue_1", date: "2026-06-15", requestedMinute: 19 * 60, partySize: 4 },
+        expect.objectContaining({ sessionId: "sess-1" }),
+        expect.anything()
+      );
+    });
+
+    it("records the whole-day miss with the any-time sentinel when no time was asked", async () => {
+      vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
+      vi.mocked(availabilityService.getDayAvailability).mockResolvedValueOnce({
+        slots: [slot("2026-06-15T19:00:00", false)],
+      });
+      vi.mocked(lostDemandService.recordNoSlotSearch).mockClear();
+
+      await search("date=2026-06-15&partySize=2");
+
+      expect(lostDemandService.recordNoSlotSearch).toHaveBeenCalledWith(
+        { venueId: "venue_1", date: "2026-06-15", requestedMinute: -1, partySize: 2 },
+        expect.anything(),
+        expect.anything()
+      );
+    });
+
+    it("does not record a search that has a slot at the requested time", async () => {
+      vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
+      vi.mocked(availabilityService.getDayAvailability).mockResolvedValueOnce({
+        slots: [slot("2026-06-15T19:00:00", true)],
+      });
+      vi.mocked(lostDemandService.recordNoSlotSearch).mockClear();
+
+      await search("date=2026-06-15&partySize=4&time=19:00");
+
+      expect(lostDemandService.recordNoSlotSearch).not.toHaveBeenCalled();
+    });
+
+    it("does not record a closed or paused day", async () => {
+      vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
+      vi.mocked(availabilityService.getDayAvailability).mockResolvedValueOnce({
+        slots: [],
+        closure: { message: "Closed" },
+      });
+      vi.mocked(lostDemandService.recordNoSlotSearch).mockClear();
+
+      await search("date=2026-12-24&partySize=2");
+
+      expect(lostDemandService.recordNoSlotSearch).not.toHaveBeenCalled();
+    });
+
+    it("still answers 200 when the recorder throws or rejects", async () => {
+      vi.mocked(venueService.getBySlug).mockResolvedValue(mockVenue);
+      vi.mocked(availabilityService.getDayAvailability).mockResolvedValue({ slots: [] });
+
+      vi.mocked(lostDemandService.recordNoSlotSearch).mockImplementationOnce(() => {
+        throw new Error("sync boom");
+      });
+      expect((await search("date=2026-06-15&partySize=2")).statusCode).toBe(200);
+
+      vi.mocked(lostDemandService.recordNoSlotSearch).mockRejectedValueOnce(new Error("boom"));
+      expect((await search("date=2026-06-15&partySize=2")).statusCode).toBe(200);
+    });
   });
 
   describe("GET /:slug/availability/dates", () => {
