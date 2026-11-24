@@ -20,10 +20,8 @@ import {
   TOTAL_STEPS,
 } from "../components/venue-onboarding/useOnboardingWizard.js";
 import { useOnboardingWizardContext } from "../components/venue-onboarding/OnboardingWizardContext.js";
-import {
-  OnboardingChat,
-  type OnboardingChatStep,
-} from "../components/venue-onboarding/OnboardingChat.js";
+import { OnboardingChat } from "../components/venue-onboarding/OnboardingChat.js";
+import type { OnboardingChatStep } from "../components/venue-onboarding/onboarding-chat-types.js";
 import { useOnboardingChatState } from "../components/venue-onboarding/useOnboardingChatState.js";
 import { LiveStatus } from "../components/LiveStatus.js";
 import { useStatusMessage } from "../hooks/useStatusMessage.js";

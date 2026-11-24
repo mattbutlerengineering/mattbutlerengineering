@@ -16,7 +16,7 @@ import {
 import { focusFirstFilledField, type FilledItem } from "./useOnboardingChatState.js";
 import styles from "./OnboardingChat.module.css";
 
-export type OnboardingChatStep = "locationTime" | "settings";
+import type { OnboardingChatStep } from "./onboarding-chat-types.js";
 
 const ONBOARDING_CHAT_API = "/api/gen/onboarding";
 // ChatPanel's request body does not use the domain schemas; the server owns the prompt.

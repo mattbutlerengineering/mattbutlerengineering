@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { SettingsData } from "./SettingsStep.js";
 import type { LocationTimeData } from "./LocationTimeStep.js";
-import type { OnboardingChatStep } from "./OnboardingChat.js";
+import type { OnboardingChatStep } from "./onboarding-chat-types.js";
 import type { AppliedPatch, FallbackReason } from "./onboarding-chat-stream.js";
 import type { OnboardingPatchTarget } from "./onboarding-chat-patch.js";
 
