@@ -231,6 +231,7 @@ export const generatedSchemas = {
   }),
   InputGroup: z.object({}),
   Meter: z.object({
+    value: z.number().nullable(),
     min: z.number().optional(),
     max: z.number().optional(),
     label: z.string().max(40).optional(),
