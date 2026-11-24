@@ -1,16 +1,49 @@
 .toolbar {
   display: flex;
   align-items: center;
-  gap: var(--rialto-space-md);
+  gap: var(--rialto-space-sm);
   margin-block-end: var(--rialto-space-lg);
   flex-wrap: wrap;
 }
 
-.figures {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+/* A phone's 44 px targets for the night-stepping buttons. */
+.step {
+  min-block-size: 44px;
+  min-inline-size: 44px;
+}
+
+.note {
+  display: block;
+  margin-block-end: var(--rialto-space-md);
+}
+
+.results {
+  display: flex;
+  flex-direction: column;
   gap: var(--rialto-space-lg);
   padding: var(--rialto-space-lg);
+}
+
+/* Covers lead on its own row; turns and no-shows share the next. */
+.figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  gap: var(--rialto-space-lg);
+}
+
+.lead {
+  grid-column: 1 / -1;
+}
+
+/* Wide enough, covers take the most room beside the rest. */
+@media (min-width: 40rem) {
+  .figures {
+    grid-template-columns: 2fr repeat(auto-fit, minmax(8rem, 1fr));
+  }
+
+  .lead {
+    grid-column: auto;
+  }
 }
 
 .banner {

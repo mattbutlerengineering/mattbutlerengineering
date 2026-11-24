@@ -3723,13 +3723,16 @@
     "loading": "Cargando la noche en números…",
     "loaded": "La noche en números del {{date}} se cargó.",
     "serviceDate": "Fecha de servicio",
+    "previous": "Noche anterior",
+    "next": "Noche siguiente",
+    "hoursUnknown": "No se pudo leer tu horario, así que se muestra el día calendario. Elige otra fecha si lo necesitas.",
     "loadError": "No se pudo cargar la noche en números.",
     "covers": "Cubiertos servidos",
     "tableTurns": "Rotaciones de mesa",
     "noShows": "Ausencias",
     "turnedAway": "Rechazados",
     "empty": {
-      "heading": "No se completó ningún servicio el {{date}}.",
+      "heading": "No se atendió ninguna mesa el {{date}}.",
       "description": "Elige otra fecha de servicio para mirar atrás."
     }
   },

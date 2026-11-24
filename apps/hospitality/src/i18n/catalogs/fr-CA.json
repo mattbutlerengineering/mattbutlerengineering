@@ -3723,13 +3723,16 @@
     "loading": "Chargement de la soirée en chiffres…",
     "loaded": "La soirée en chiffres du {{date}} est chargée.",
     "serviceDate": "Date du service",
+    "previous": "Soirée précédente",
+    "next": "Soirée suivante",
+    "hoursUnknown": "Impossible de lire votre horaire; la date du calendrier est affichée. Choisissez une autre date au besoin.",
     "loadError": "Impossible de charger la soirée en chiffres.",
     "covers": "Couverts servis",
     "tableTurns": "Rotations de table",
     "noShows": "Absences",
     "turnedAway": "Clients refusés",
     "empty": {
-      "heading": "Aucun service n'a été terminé le {{date}}.",
+      "heading": "Aucune table n'a été servie le {{date}}.",
       "description": "Choisissez une autre date de service pour revenir en arrière."
     }
   },

@@ -135,6 +135,17 @@ describe("buildAgentSystemPrompt", () => {
       expect(prompt).toMatch(/2026-10-30/);
     });
 
+    it("names the night page and the date it shows", () => {
+      const prompt = buildAgentSystemPrompt({
+        ...base,
+        page: "night",
+        focusDate: "2026-11-06",
+      });
+
+      expect(prompt).toMatch(/chat open on the Night in numbers page/);
+      expect(prompt).toMatch(/2026-11-06/);
+    });
+
     it("says nothing about a page when none was sent", () => {
       const prompt = buildAgentSystemPrompt(base);
 

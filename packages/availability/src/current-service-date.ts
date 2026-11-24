@@ -16,3 +16,15 @@ export function currentServiceDate(snapshot: AvailabilitySnapshot, now: Date): s
   const yesterday = addDays(local.date, -1);
   return isOpen(yesterday, local.minute + MINUTES_PER_DAY) ? yesterday : local.date;
 }
+
+/**
+ * The service day a closing summary means: the one that last opened. Until today's first
+ * service opens (or when today has none) that is yesterday's, even after its service has
+ * closed, which `currentServiceDate` alone would already have rolled forward to today.
+ */
+export function lastServiceDate(snapshot: AvailabilitySnapshot, now: Date): string {
+  const local = localDateTimeOf(now, snapshot.timezone);
+  const opensAts = resolveDay(snapshot, local.date).services.map((s) => s.opensAt);
+  const todayOpened = opensAts.length > 0 && local.minute >= Math.min(...opensAts);
+  return todayOpened ? currentServiceDate(snapshot, now) : addDays(local.date, -1);
+}

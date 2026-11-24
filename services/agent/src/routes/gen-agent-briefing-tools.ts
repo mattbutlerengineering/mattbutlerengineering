@@ -2,6 +2,7 @@ import { tool } from "ai";
 import type { ToolSet } from "ai";
 import { z } from "zod";
 import type { FastifyBaseLogger } from "fastify";
+import { lastServiceDate } from "@mbe/availability";
 import { NO_VENUE, localTimeIn, readFailure, todayIn, type ApiClient } from "./gen-tool-support.js";
 
 /**
@@ -45,6 +46,21 @@ function seatingOf(entry: BriefingEntry, timeZone: string | undefined) {
   };
 }
 
+/**
+ * The service day "tonight" or "last night" means: the one that last opened, from the venue's own
+ * hours. After midnight that is still yesterday's. Throws when the hours or the time zone are
+ * unavailable: the caller must report that, never fall back to the calendar day.
+ */
+async function lastNightOf(
+  api: ApiClient,
+  venueId: string,
+  timeZone: string | undefined
+): Promise<string> {
+  if (!timeZone) throw new Error("The venue's time zone is unknown");
+  const { config } = await api.availability.getConfig(venueId);
+  return lastServiceDate({ timezone: timeZone, config }, new Date());
+}
+
 export function createBriefingTools(
   log: FastifyBaseLogger,
   api: ApiClient,
@@ -58,14 +74,19 @@ export function createBriefingTools(
         date: z
           .string()
           .optional()
-          .describe("Service date in YYYY-MM-DD format, defaults to today"),
+          .describe(
+            "Service date in YYYY-MM-DD format. Omit for the service night that last opened (still last night's after midnight)"
+          ),
       }),
       execute: async ({ date }) => {
         if (!venueId) return NO_VENUE;
-        const day = date ?? todayIn(timeZone);
-        if (!isRealDate(day)) return { rejected: true, error: UNREADABLE_DATE };
-        log.info({ venueId, date: day }, "get_night_summary tool called");
+        if (date !== undefined && !isRealDate(date)) {
+          return { rejected: true, error: UNREADABLE_DATE };
+        }
+        log.info({ venueId, date }, "get_night_summary tool called");
+        let day = date ?? "";
         try {
+          day = date ?? (await lastNightOf(api, venueId, timeZone));
           const summary = await api.reservations.getEndOfServiceSummary({ venueId, date: day });
           return {
             date: summary.date,
