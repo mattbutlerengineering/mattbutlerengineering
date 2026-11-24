@@ -1,12 +1,3 @@
-## 2026-11-07 — mbe-learning-loop
-
-**Sensors:** 17/18 available (e2eStability not available) — ✅ Healthy
-**Regressions:** 0 detected, 0 issues created
-**Verifications:** 5 checked (48h window), 0 verified, 0 failed (reopened), 5 skipped (#8450 no matching verifier for its labels; #8445/#8444/#8436/#8435 no success/failure CI runs found to verify against)
-**Sentry triage:** skipped — stored Sentry MCP access token still rejected (authorization expired, same as 2026-11-06), no human available to re-authorize in this unattended run
-**Skill proposals:** 0 (Saturday — Friday-only, session-log analysis not run)
-**Threshold notes:** auto-tuner applied 1 adjustment (acmm: 1.521 → 1.523, headroom). False-positive rate 3.7% (13/353 sensor-labeled issues closed `not_planned` in the last 30 days, via `gh api search/issues --paginate`) — well under 30%, no loosening needed. Fix-effectiveness 60% (6/10 checked, excluding 107 skipped-for-lack-of-data in the last 30 days) — above 50% threshold, no review needed; unchanged from 2026-11-06 since today's 5 new verifications were all skips. AI issue-feedback budgets: all 7 categories at default budget=3 (max rejection 4%, feature category: 108 total, 4 rejected).
-
 ## 2026-11-08 — mbe-evening (progress-tracker)
 
 ### Metrics (7d; `audit`+`ci-fix` labels, REST issue search, `created_at`/`closed_at` exact)
@@ -1169,3 +1160,9 @@ No `blocker: no-browser` (Chromium resolved at `/opt/pw-browsers/chromium_headle
 **AI issue feedback:** budgets refreshed (90d) — ci-fix 16% rejected (n=64), audit 18% (n=44), meta-improvement 0% (n=27), feature 4% (n=49), sentry 0% (n=11), acmm 33% (n=3), agent-failed 100% (n=1, budget stays halved to 1), dependencies 0% (n=1); no category newly crossed the >40% halving line this run; 1 linked-PR lookup failed (non-fatal).
 **Skill proposals:** 0 (not Friday — Step 4 session-log analysis skipped)
 **Threshold notes:** auto-tuner applied 1 adjustment (acmm 1.853 → 1.878, headroom). 30-day fix-effectiveness (non-skip verifications only): 8 verified / 9 scored (~88.9%), well above the 50% floor. Overall false-positive rate across feedback categories ~11% (22/200 rejected), below the 30% loosen-trigger — no threshold changes recommended this run.
+
+## 2026-11-24
+
+**queueEfficiency:** composite 0.965 (baseline n/a) — healthy
+**Difficulty distribution:** size:xs:23, size:m:9, size:s:35, size:xl:7, size:l:2
+**Issues filed:** 0
