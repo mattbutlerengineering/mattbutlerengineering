@@ -511,6 +511,17 @@ export const SURFACE_REGISTRY: readonly AuditSurface[] = [
     "services/reservations/src/routes/health.ts",
     "services/reservations/src/app.ts",
   ]),
+  // Public demo venue (#9334): a missing seed must file a ci-fix+audit issue.
+  surface(
+    "api:reservations:demo-venue",
+    "api:reservations",
+    "api_endpoint",
+    "/api/v1/venues/by-slug/demo-bistro",
+    [
+      "services/reservations/src/services/demo-venue.ts",
+      "services/reservations/src/routes/venues.ts",
+    ]
+  ),
   surface("api:agent:health", "api:agent", "api_endpoint", "/api/gen/health", [
     "services/agent/src/routes/health.ts",
     "services/agent/src/app.ts",

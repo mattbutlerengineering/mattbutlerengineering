@@ -89,6 +89,8 @@ HTTP_STATUS=$(curl -o /dev/null -w "%{http_code}" "${AUDIT_CURL_OPTS[@]}" "$URL"
 [ "$HTTP_STATUS" = "403" ] && echo "ACCESS-RESTRICTED: $URL"
 ```
 
+**Demo venue check (#9508):** `GET /api/v1/venues/by-slug/demo-bistro` (surface `api:reservations:demo-venue`) must return 200. A non-200 means the public demo venue is missing from production: file a `ci-fix`+`audit` issue.
+
 4. Detect regressions (>0.05 drop vs lastScore), create issues (labels: `ci-fix`+`audit`), then persist the result for every surface checked via `node scripts/record-audit-check.mjs --surface "$SURFACE_ID" --performance ... --accessibility ... --best-practices ... --seo ...` (see [Inventory](#inventory)).
 
 ## Mode 2: Sweep (weekly zone rotation)
