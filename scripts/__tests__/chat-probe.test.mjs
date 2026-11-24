@@ -89,7 +89,13 @@ describe("classifyReply", () => {
 
   it("treats 429 and the spend-ceiling 503 as inconclusive and other non-200s as failures", () => {
     expect(classifyReply(prompt(), { status: 429, events: [] }).verdict).toBe("inconclusive");
-    expect(classifyReply(prompt(), { status: 503, events: [] }).verdict).toBe("inconclusive");
+    const ceiling = { type: "urn:mbe:problem:gen-spend-ceiling-reached", status: 503 };
+    expect(classifyReply(prompt(), { status: 503, events: [ceiling] }).verdict).toBe(
+      "inconclusive"
+    );
+    // Any other 503 (agent-api down behind the load balancer) is an outage to report.
+    const down = classifyReply(prompt(), { status: 503, events: [] });
+    expect(down.failures.map((f) => f.code)).toEqual(["http-503"]);
     const bad = classifyReply(prompt(), { status: 500, events: [] });
     expect(bad.failures.map((f) => f.code)).toEqual(["http-500"]);
   });

@@ -85,6 +85,8 @@ const LEAK_PATTERNS = [
 ];
 
 const BUSY_PATTERN = /assistant is busy right now/i;
+/** Problem type prefix of the server's spend-ceiling 503s (gen-route-factory.ts). */
+const SPEND_CEILING_PROBLEM = "urn:mbe:problem:gen-spend-ceiling";
 
 /**
  * @param {ProbePrompt} probe
@@ -92,9 +94,12 @@ const BUSY_PATTERN = /assistant is busy right now/i;
  * @returns {{ verdict: "pass" | "fail" | "inconclusive", failures: Array<{ code: string, detail: string }> }}
  */
 export function classifyReply(probe, reply) {
-  // 429 (rate limit) and 503 (the server's gen spend ceiling) are capacity, not regressions.
-  if (reply.status === 429 || reply.status === 503)
-    return { verdict: "inconclusive", failures: [] };
+  // 429 (rate limit) and the server's own spend-ceiling 503 are capacity, not regressions.
+  // Any other 503 (agent-api down) stays a failure so an outage is reported.
+  const atSpendCeiling =
+    reply.status === 503 &&
+    reply.events.some((e) => String(e?.type ?? "").startsWith(SPEND_CEILING_PROBLEM));
+  if (reply.status === 429 || atSpendCeiling) return { verdict: "inconclusive", failures: [] };
   if (reply.status !== 200) {
     return {
       verdict: "fail",
