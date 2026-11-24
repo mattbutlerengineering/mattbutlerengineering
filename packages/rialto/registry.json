@@ -2972,7 +2972,7 @@
       "characterLimits": [
         {
           "prop": "label",
-          "max": 40
+          "max": 25
         }
       ]
     },

@@ -18,7 +18,7 @@ function renderSpec(spec: Parameters<typeof Renderer>[0]["spec"]) {
 
 describe("status and progress elements", () => {
   it("renders Progress and Meter with their values", () => {
-    const { getAllByRole } = renderSpec({
+    const { getByRole } = renderSpec({
       root: "s",
       elements: {
         s: { type: "Stack", props: {}, children: ["p", "m"] },
@@ -26,7 +26,8 @@ describe("status and progress elements", () => {
         m: { type: "Meter", props: { value: 3, min: 0, max: 10, label: "Occupancy" } },
       },
     });
-    expect(getAllByRole("progressbar").length + getAllByRole("meter").length).toBe(2);
+    expect(getByRole("progressbar")).toBeTruthy();
+    expect(getByRole("meter").getAttribute("aria-valuenow")).toBe("3");
   });
 
   it("renders Steps with every label", () => {

@@ -234,7 +234,7 @@ export const generatedSchemas = {
     value: z.number().nullable(),
     min: z.number().optional(),
     max: z.number().optional(),
-    label: z.string().max(40).optional(),
+    label: z.string().max(25).optional(),
     variant: z.enum(["accent", "default", "error", "success"]).optional(),
     showValue: z.boolean().optional(),
     size: z.enum(["md", "sm"]).optional(),

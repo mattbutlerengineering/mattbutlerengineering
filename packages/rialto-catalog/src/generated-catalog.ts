@@ -221,7 +221,7 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     name: "Meter",
     description:
       "Gauge showing a measured value within a known range, such as table occupancy or deposit goal. Unlike Progress it is not a task. Give value, min and max, a short label, and a variant (success, error) to signal good or bad.",
-    charLimits: { label: 40 },
+    charLimits: { label: 25 },
   },
   NavigationMenu: {
     name: "NavigationMenu",
