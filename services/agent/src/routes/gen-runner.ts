@@ -75,6 +75,8 @@ export const GEN_WRITE_TOOL_NAMES = [
   "close_dates",
   "set_special_hours",
   "reopen_closure",
+  "close_repeating_days",
+  "set_regular_hours",
   "add_guest",
   "update_guest",
   "add_guest_note",
