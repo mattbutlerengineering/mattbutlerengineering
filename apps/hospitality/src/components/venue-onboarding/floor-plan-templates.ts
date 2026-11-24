@@ -100,11 +100,6 @@ function draftTableFor(table: RoomLayout["tables"][number]): DraftTable {
 }
 
 /**
- * A fresh, pristine draft holding everything the chosen room places. Pure —
- * the builders are, and nothing here is cached — so re-picking the same room
- * at the same size always yields the same draft.
- */
-/**
  * The draft at another room size. Resizing is only meaningful once a room is chosen; until
  * then the step just remembers the size so the chosen room is built at it.
  */
@@ -114,6 +109,11 @@ export function resizeDraft(draft: FloorPlanDraft, sizeId: RoomSizeId): FloorPla
     : draftFromTemplate(draft.templateId, sizeId);
 }
 
+/**
+ * A fresh, pristine draft holding everything the chosen room places. Pure —
+ * the builders are, and nothing here is cached — so re-picking the same room
+ * at the same size always yields the same draft.
+ */
 export function draftFromTemplate(templateId: TemplateId, sizeId: RoomSizeId): FloorPlanDraft {
   const template = roomTemplateById(templateId);
   const size = roomSizeById(sizeId);

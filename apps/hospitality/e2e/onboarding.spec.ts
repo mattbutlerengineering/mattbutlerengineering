@@ -25,8 +25,8 @@ async function advanceToLaunchReview(page: Page, templateName: string, venueName
 
   // Step 3 (Regular week) is the availability quick-setup card: pick a
   // service and a day preset; Next stays refused until both are chosen.
-  await page.getByRole("button", { name: "Dinner" }).click();
-  await page.getByRole("button", { name: "Weekdays" }).click();
+  await page.getByRole("button", { name: "Dinner", exact: true }).click();
+  await page.getByRole("button", { name: "Weekdays", exact: true }).click();
   await expect(page.getByRole("checkbox", { name: "Monday" })).toBeChecked();
   await page.getByRole("button", { name: "Next" }).click();
 
@@ -180,7 +180,7 @@ test.describe("Venue onboarding wizard", () => {
     // least one day are required before Next lets the wizard advance.
     // "Late" closes at 1:00 AM, after midnight: Next must still advance.
     await mockedPage.getByRole("button", { name: "Late" }).click();
-    await mockedPage.getByRole("button", { name: "Weekdays" }).click();
+    await mockedPage.getByRole("button", { name: "Weekdays", exact: true }).click();
     await expect(mockedPage.getByRole("checkbox", { name: "Monday" })).toBeChecked();
 
     await mockedPage.getByRole("button", { name: "Next" }).click();
