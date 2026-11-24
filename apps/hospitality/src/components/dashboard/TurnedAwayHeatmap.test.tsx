@@ -14,6 +14,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   Text: ({ children, ...props }: { children?: React.ReactNode; color?: string }) => (
     <span {...props}>{children}</span>
   ),
+  Skeleton: () => <div data-testid="skeleton" />,
 }));
 
 const demand: LostDemand = {
@@ -36,10 +37,19 @@ describe("TurnedAwayHeatmap", () => {
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });
 
-  it("shows the empty state when there is no data yet", () => {
+  it("shows the empty state when the read came back with nothing", () => {
     render(<TurnedAwayHeatmap demand={null} />);
 
     expect(screen.getByText(/no guests were turned away/i)).toBeInTheDocument();
+  });
+
+  // Before the read resolves, "nobody was turned away" would be a false claim.
+  it("makes no claim while the read is still loading", () => {
+    render(<TurnedAwayHeatmap demand={undefined} />);
+
+    expect(screen.queryByText(/no guests were turned away/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /turned away/i })).toBeInTheDocument();
   });
 
   it("renders a named table with weekday column headers", () => {

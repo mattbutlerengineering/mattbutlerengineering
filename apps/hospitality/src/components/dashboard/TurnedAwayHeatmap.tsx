@@ -1,6 +1,6 @@
 import { useMemo, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
-import { Card, Text } from "@mattbutlerengineering/rialto";
+import { Card, Skeleton, Text } from "@mattbutlerengineering/rialto";
 import type { LostDemand } from "@mbe/types";
 import { formatCalendarDate, formatWallHour } from "../../utils/format.js";
 import styles from "./TurnedAwayHeatmap.module.css";
@@ -56,6 +56,15 @@ export function TurnedAwayHeatmap({ demand }: TurnedAwayHeatmapProps) {
   const { t, i18n } = useTranslation();
   const locale = i18n.language;
   const rows = useMemo(() => (demand && demand.total > 0 ? toRows(demand) : null), [demand]);
+
+  // undefined = the read hasn't resolved; claiming "nobody was turned away" now would be false.
+  if (demand === undefined) {
+    return (
+      <Card title={t("home.turnedAway.title")}>
+        <Skeleton variant="rect" height={120} width="100%" />
+      </Card>
+    );
+  }
 
   if (!demand || !rows) {
     return (
