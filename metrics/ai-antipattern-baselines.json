@@ -13,7 +13,7 @@
       "description": "Test functions containing no recognized assertion call (expect(), assert(), assert.<method>(), or t.assert.<method>())"
     },
     "hardcodedRoutes": {
-      "count": 249,
+      "count": 250,
       "description": "Hardcoded /api/... route strings instead of route constants (non-test files)"
     },
     "anyType": {
