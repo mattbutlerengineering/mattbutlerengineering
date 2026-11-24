@@ -6,6 +6,8 @@ import { GEN_WRITE_TOOL_NAMES } from "./gen-runner.js";
 import { createAvailabilityTools } from "./gen-agent-availability-tools.js";
 import { createBriefingTools } from "./gen-agent-briefing-tools.js";
 import { createClosureTools } from "./gen-agent-closure-tools.js";
+import { createPauseTools } from "./gen-agent-pause-tools.js";
+import { createSettingsTools } from "./gen-agent-settings-tools.js";
 import { createScheduleTools } from "./gen-agent-schedule-tools.js";
 import { createGuestTools } from "./gen-agent-guest-tools.js";
 import { createFloorPlanTools } from "./gen-agent-floor-plan-tools.js";
@@ -687,6 +689,8 @@ export function createAgentTools(
 
     ...createAvailabilityTools(log, api, { venueId, timeZone }),
     ...createClosureTools(log, api, { venueId, timeZone }),
+    ...createPauseTools(log, api, { venueId, timeZone }),
+    ...createSettingsTools(log, api, { venueId }),
     ...createScheduleTools(log, api, { venueId, timeZone }),
     ...createGuestTools(log, api, { venueId }),
     ...createWaitlistTools(log, api, { venueId, timeZone }),
