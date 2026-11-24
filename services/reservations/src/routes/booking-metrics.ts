@@ -1,12 +1,18 @@
 import type { FastifyPluginAsync } from "fastify";
 import type { ProblemDetails } from "@mbe/types";
-import { createProblemDetails, endOfServiceEndpoints } from "@mbe/types";
+import { createProblemDetails, endOfServiceEndpoints, lostDemandEndpoints } from "@mbe/types";
 import { requireAuth } from "@mbe/auth/fastify";
 import { registerEndpoint } from "@mbe/service-bootstrap";
 import { validateDateString } from "@mbe/database";
 import { venueScoped } from "./venue-scope.js";
 import { bookingMetricsService, type DailyBookingMetrics } from "../services/booking-metrics.js";
 import { endOfServiceSummaryService } from "../services/end-of-service-summary.js";
+import {
+  MAX_WINDOW_DAYS,
+  defaultWindowStart,
+  lostDemandReportService,
+  windowDays,
+} from "../services/lost-demand-report.js";
 
 /** Today's date as YYYY-MM-DD (UTC), the default window when no `date` is given. */
 function todayDateString(): string {
@@ -45,6 +51,54 @@ export const bookingMetricsRoutes: FastifyPluginAsync = async (fastify) => {
           return reply.code(400).send(createProblemDetails(400, "Bad Request", dateResult.error));
         }
         return { data: await endOfServiceSummaryService.getSummary({ venueId, date }) };
+      }
+    ),
+  });
+
+  // Turned-away demand by weekday and hour (#9485): counts only, from the Lost Demand Ledger.
+  registerEndpoint(fastify, lostDemandEndpoints.get, {
+    docs: {
+      summary: "Get turned-away demand by weekday and hour",
+      operationId: "getLostDemand",
+      description:
+        "Counts of public availability searches that found no slot, bucketed by the venue-local " +
+        "weekday of the service date and the hour of the requested time. Searches that named no " +
+        "time are returned separately as `anyTime`, by weekday, and are never placed in an hour. " +
+        "The window defaults to the last 28 days ending today in the venue's own time zone and may " +
+        `span at most ${MAX_WINDOW_DAYS} days. Counts only: no guest, session or IP. ` +
+        "Requires venue membership.",
+      tags: ["Metrics"],
+      security: [{ bearerAuth: [] }],
+    },
+    preHandler: requireAuth,
+    handler: venueScoped(
+      {
+        venue: {
+          from: "query",
+          field: "venueId",
+          missing: "venueId query parameter is required",
+        },
+      },
+      async (request, reply, { venueId }) => {
+        const to = request.query.to ?? (await lostDemandReportService.defaultWindow(venueId)).to;
+        const from = request.query.from ?? defaultWindowStart(to);
+        const invalid = [validateDateString(from), validateDateString(to)].find((r) => !r.valid);
+        if (invalid && !invalid.valid) {
+          return reply.code(400).send(createProblemDetails(400, "Bad Request", invalid.error));
+        }
+        const days = windowDays(from, to);
+        if (days < 1 || days > MAX_WINDOW_DAYS) {
+          return reply
+            .code(400)
+            .send(
+              createProblemDetails(
+                400,
+                "Bad Request",
+                `from must not be after to, and the window may span at most ${MAX_WINDOW_DAYS} days`
+              )
+            );
+        }
+        return { data: await lostDemandReportService.getLostDemand({ venueId, from, to }) };
       }
     ),
   });

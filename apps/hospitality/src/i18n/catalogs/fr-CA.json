@@ -724,6 +724,17 @@
       "sendWinBack": "Envoyer une invitation de retour",
       "sendWinBackTo": "Envoyer une invitation de retour à {{name}}"
     },
+    "turnedAway": {
+      "title": "Clients refusés",
+      "empty": "Aucun client n'a été refusé au cours des 28 derniers jours.",
+      "summary_one": "{{count}} recherche n'a trouvé aucune table au cours des 28 derniers jours.",
+      "summary_many": "{{count}} de recherches n'ont trouvé aucune table au cours des 28 derniers jours.",
+      "summary_other": "{{count}} recherches n'ont trouvé aucune table au cours des 28 derniers jours.",
+      "tableLabel": "Recherches sans table par jour de la semaine et heure",
+      "anyTime": "Heure non précisée",
+      "anyTimeNote": "Les clients de la dernière ligne n'ont précisé aucune heure et n'ont trouvé aucune table ce jour-là; ils sont donc comptés par jour de la semaine seulement, jamais dans une heure.",
+      "loadFailed": "Impossible de charger les recherches sans table."
+    },
     "deposit": {
       "title": "Exposition aux dépôts",
       "atRisk": "Dépôts à risque",

@@ -724,6 +724,17 @@
       "sendWinBack": "Enviar invitación para volver",
       "sendWinBackTo": "Enviar invitación para volver a {{name}}"
     },
+    "turnedAway": {
+      "title": "Sin mesa disponible",
+      "empty": "No se rechazó a ningún invitado en los últimos 28 días.",
+      "summary_one": "{{count}} búsqueda no encontró mesa en los últimos 28 días.",
+      "summary_many": "{{count}} de búsquedas no encontraron mesa en los últimos 28 días.",
+      "summary_other": "{{count}} búsquedas no encontraron mesa en los últimos 28 días.",
+      "tableLabel": "Búsquedas sin mesa por día de la semana y hora",
+      "anyTime": "Sin hora indicada",
+      "anyTimeNote": "Los invitados de la última fila no indicaron hora y no encontraron mesa ese día, por eso se cuentan solo por día de la semana, nunca en una hora.",
+      "loadFailed": "No se pudieron cargar las búsquedas sin mesa."
+    },
     "deposit": {
       "title": "Exposición de depósitos",
       "atRisk": "Depósitos en riesgo",
