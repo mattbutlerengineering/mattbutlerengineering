@@ -23,6 +23,11 @@ export type GenStreamEvent =
       readonly status: "running" | "complete";
     }
   | {
+      /** A validated, client-applied onboarding patch (no server write); `patch` is `{ step, data }`. */
+      readonly type: "onboarding_patch";
+      readonly patch: unknown;
+    }
+  | {
       readonly type: "permission_denied";
       readonly toolName: string;
       readonly reason: string;
@@ -208,6 +213,10 @@ export function createGenRunner(config: GenRunnerConfig): GenRunner {
           await handleToolCall(event, onEvent, already);
           if (event.toolName === "render_component") trackingRender = false;
         } else if (event.type === "tool-result") {
+          if (event.toolName === "propose_onboarding_patch") {
+            const out = event.output as { ok?: boolean; patch?: unknown } | undefined;
+            if (out?.ok === true) await onEvent({ type: "onboarding_patch", patch: out.patch });
+          }
           await onEvent({
             type: "tool_status",
             tool: event.toolName,
