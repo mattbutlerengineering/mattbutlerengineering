@@ -139,6 +139,12 @@ export function mapTypeToZod(
     return optional ? `${schema}.optional()` : schema;
   }
 
+  // Nullable number (e.g. Meter `value`: null = no data)
+  if (inner === "number | null" || inner === "null | number") {
+    const schema = "z.number().nullable()";
+    return optional ? `${schema}.optional()` : schema;
+  }
+
   // String (plain)
   if (inner === "string") {
     const schema = maxLen !== undefined ? `z.string().max(${maxLen})` : "z.string()";
