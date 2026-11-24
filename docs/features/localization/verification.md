@@ -371,7 +371,7 @@ The CSP refusal and the single-file test fragility are findings outside the run'
 
 ## Not verified
 
-- **Found-venue guest booking flow in production**, in any locale: time slots, details, deposit amount formatting and the widget's compact picker. No real public venue slug is discoverable (assumption 4). The flow is covered by the CI sweep's 6 public tests against mocked APIs only. **Surfaced for the Owner:** a stable public demo venue slug would make this probe possible.
+- **Found-venue guest booking flow in production**, in any locale: time slots, details, deposit amount formatting and the widget's compact picker. A public demo venue now exists: slug `demo-bistro` (seed with `node --conditions production dist/scripts/seed-demo-venue.js` in `services/reservations`; see its CLAUDE.md). **Verify in production once seeded** (not from CI): open `/hospitality/book/demo-bistro` and confirm slots render. The flow is covered by the CI sweep's 6 public tests against mocked APIs only.
 - **Authenticated staff surfaces in production.** These are evidenced by CI only, per the brief: the 108 gated sweep tests and `settings.spec.ts` reload. The gated sweep loads a real Auth0 session (ROPC setup) but mocks every API.
 - **en-GB money and time formatting in production.** It needs a real venue. Unit evidence only.
 - **The production locale switcher**, both guest and staff. The probed guest error states render no picker. Only the stored-choice-wins-after-reload half was observed.

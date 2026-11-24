@@ -22,6 +22,7 @@
     "db:migrate:status": "prisma migrate status",
     "db:studio": "prisma studio",
     "db:backfill-availability": "tsx src/scripts/backfill-availability.ts",
+    "db:seed-demo-venue": "tsx src/scripts/seed-demo-venue.ts",
     "db:collapse-day-named-schedules": "tsx src/scripts/collapse-day-named-schedules.ts"
   },
   "dependencies": {
