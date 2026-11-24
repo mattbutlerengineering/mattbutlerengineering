@@ -18,3 +18,10 @@ export {
 export { guestsEndpoints, GUESTS_PREFIX } from "./guests.js";
 export { availabilityConfigEndpoints, AVAILABILITY_CONFIG_PREFIX } from "./availability-config.js";
 export { holidayDecisionEndpoints } from "./holiday-decisions.js";
+export {
+  endOfServiceEndpoints,
+  END_OF_SERVICE_PATH,
+  EndOfServiceQuerySchema,
+  EndOfServiceSummarySchema,
+  type EndOfServiceSummary,
+} from "./end-of-service.js";
