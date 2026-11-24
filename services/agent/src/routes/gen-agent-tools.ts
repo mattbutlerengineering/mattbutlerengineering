@@ -10,6 +10,7 @@ import { createScheduleTools } from "./gen-agent-schedule-tools.js";
 import { createGuestTools } from "./gen-agent-guest-tools.js";
 import { createFloorPlanTools } from "./gen-agent-floor-plan-tools.js";
 import { createMenuTools } from "./gen-agent-menu-tools.js";
+import { createMenuStructureTools } from "./gen-agent-menu-structure-tools.js";
 import { createWaitlistTools } from "./gen-agent-waitlist-tools.js";
 import { createTimelineTools } from "./gen-agent-timeline-tools.js";
 import {
@@ -690,6 +691,7 @@ export function createAgentTools(
     ...createGuestTools(log, api, { venueId }),
     ...createWaitlistTools(log, api, { venueId, timeZone }),
     ...createMenuTools(log, api, { venueId }),
+    ...createMenuStructureTools(log, api, { venueId }),
     ...createFloorPlanTools(log, api, { venueId }),
     ...createTimelineTools(log, api, { venueId }),
     ...createBriefingTools(log, api, { venueId, timeZone }),

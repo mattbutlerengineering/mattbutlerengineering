@@ -15,7 +15,8 @@ import {
  * Chat tools for menus (#7928): read them, mark an item sold out or available,
  * change an item's price, name or description. Menus and items are named the way
  * staff say them, never by id; each write runs only after the user confirms.
- * Creating, deleting and reordering stay on the Menus page.
+ * Creating and reordering are in gen-agent-menu-structure-tools.ts; deleting
+ * stays on the Menus page.
  */
 
 const CENTS_PER_UNIT = 100;
@@ -26,7 +27,7 @@ type MenuDetail = Awaited<ReturnType<ApiClient["menus"]["getById"]>>;
 type MenuSection = MenuDetail["sections"][number];
 type MenuItem = MenuSection["items"][number];
 
-const sameName = (a: string, b: string): boolean =>
+export const sameName = (a: string, b: string): boolean =>
   a.trim().toLowerCase() === b.trim().toLowerCase();
 
 /** "14.50" from 1450: the price as staff read it. */
@@ -53,7 +54,7 @@ const ItemSchema = {
 const MENU_SAVE_UNSURE = saveUnsure("get_menu");
 
 /** One menu by name (case-insensitive) or by the id of the menu the page has open. */
-function findMenu(menus: readonly Menu[], ref: string): { menu: Menu } | { error: string } {
+export function findMenu(menus: readonly Menu[], ref: string): { menu: Menu } | { error: string } {
   const matches = menus.filter((m) => m.id === ref || sameName(m.name, ref));
   if (matches.length === 1) return { menu: matches[0]! };
   const names = menus.map((m) => m.name).join(", ");
