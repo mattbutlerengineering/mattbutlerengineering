@@ -7,7 +7,7 @@ import { SEED_VENUES } from "../test/seed-venues.js";
 export const DEMO_VENUE_SLUG = "demo-bistro";
 /** Fixed id so the row can be written inside its own RLS context (`venues` is keyed on its own id). */
 export const DEMO_VENUE_ID = "demo-venue-bistro";
-export const DEMO_GROUP_SLUG = "demo-dining";
+const DEMO_GROUP_SLUG = "demo-dining";
 
 const TEMPLATE = SEED_VENUES[0];
 
