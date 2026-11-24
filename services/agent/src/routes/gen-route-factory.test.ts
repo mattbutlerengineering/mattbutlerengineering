@@ -402,6 +402,66 @@ describe("createGenRoute factory", () => {
     );
   });
 
+  describe("failed turn diagnosis (F40)", () => {
+    async function runFailing(error: Error) {
+      const logLines: Array<Record<string, unknown>> = [];
+      app = Fastify({
+        logger: {
+          level: "error",
+          stream: {
+            write(line: string) {
+              logLines.push(JSON.parse(line) as Record<string, unknown>);
+            },
+          },
+        },
+      });
+      void app.register(rateLimit, { global: false });
+      await app.register(
+        createGenRoute({
+          path: TEST_PATH.fail,
+          costLogLabel: "test-fail cost log",
+          rateLimit: { max: 50, timeWindow: "1 hour" },
+          schema: ChatSchema,
+          streamFormat: "ndjson",
+          maxSteps: 1,
+          getTools: async () => ({}),
+        })
+      );
+      await app.ready();
+      vi.mocked(streamText).mockReturnValueOnce({
+        fullStream: mockStream([{ type: "error", error }]),
+      } as never);
+      const response = await app.inject({
+        method: "POST",
+        url: TEST_PATH.fail,
+        payload: { messages: [{ role: "user", content: "hello" }] },
+      });
+      return { response, logLines };
+    }
+
+    it("logs provider, step and error class for a failed turn", async () => {
+      const { logLines } = await runFailing(
+        Object.assign(new Error("Overloaded"), { name: "AI_APICallError", statusCode: 529 })
+      );
+      const entry = logLines.find((l) => l.msg === "gen stream failed");
+      expect(entry).toMatchObject({
+        provider: "anthropic",
+        step: "before-first-event",
+        errorClass: "AI_APICallError",
+        upstreamStatus: 529,
+      });
+    });
+
+    it("tells the user a busy upstream is temporary instead of the generic failure", async () => {
+      const { response } = await runFailing(
+        Object.assign(new Error("Overloaded"), { name: "AI_APICallError", statusCode: 529 })
+      );
+      expect(response.body).toContain('"$genError"');
+      expect(response.body).toMatch(/busy/i);
+      expect(response.body).not.toContain("Overloaded");
+    });
+  });
+
   describe("zero-output guard", () => {
     it.each(["text", "ndjson"] as const)(
       "answers a 502, not an empty 200, when the %s runner returns with no output",
