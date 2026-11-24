@@ -54,13 +54,18 @@ import {
   DropdownMenu,
   EmptyState,
   Footer,
+  GlobalNav,
   GuestCards,
   Handshake,
+  Heading,
+  Hero,
   HoverCard,
   IconButton,
   Input,
+  Navbar,
   NavigationMenu,
   NumberInput,
+  PageHeader,
   PinInput,
   Popover,
   ReservationList,
@@ -1182,6 +1187,62 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
       ),
 
       Footer: ({ props, children }: any) => <Footer variant={props.variant}>{children}</Footer>,
+
+      // Navigation and page structure (#9519). Slot-like props (logo, actions, meta, footer)
+      // arrive as plain text from a spec, which is a valid node.
+      Navbar: typed(({ props }: AdapterArgs<ComponentProps<typeof Navbar>>) => (
+        <Navbar
+          logo={props.logo}
+          user={props.user}
+          links={props.links}
+          footer={props.footer}
+          label={props.label}
+        />
+      )),
+
+      GlobalNav: typed(({ props }: AdapterArgs<ComponentProps<typeof GlobalNav>>) => (
+        <GlobalNav
+          currentApp={props.currentApp}
+          currentPath={props.currentPath}
+          theme={props.theme}
+          mobileMenuOpen={props.mobileMenuOpen}
+        />
+      )),
+
+      PageHeader: typed(({ props, children }: AdapterArgs<ComponentProps<typeof PageHeader>>) => (
+        <PageHeader
+          title={props.title}
+          breadcrumbs={props.breadcrumbs}
+          breadcrumbLabel={props.breadcrumbLabel}
+          actions={props.actions}
+          meta={props.meta}
+        >
+          {children}
+        </PageHeader>
+      )),
+
+      Heading: typed(({ props, children }: AdapterArgs<ComponentProps<typeof Heading>>) => (
+        <Heading
+          level={props.level}
+          size={props.size}
+          color={props.color}
+          align={props.align}
+          truncate={props.truncate}
+        >
+          {slotOr(children, props.children)}
+        </Heading>
+      )),
+
+      Hero: typed(({ props }: AdapterArgs<ComponentProps<typeof Hero>>) => (
+        <Hero
+          eyebrow={props.eyebrow}
+          title={props.title}
+          subtitle={props.subtitle}
+          actions={props.actions}
+          minHeight={props.minHeight}
+          showDivider={props.showDivider}
+        />
+      )),
     })
   ),
 

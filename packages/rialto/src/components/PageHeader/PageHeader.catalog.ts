@@ -8,6 +8,9 @@ export const pageHeaderCatalogMeta = {
   name: "PageHeader",
   description:
     "Page masthead with a title, optional breadcrumb trail, badges beside the title and action buttons. Use once at the top of a page. Keep title short and put the main actions in actions.",
+  propSchemas: {
+    breadcrumbs: "z.array(z.object({ label: z.string(), href: z.string().optional() })).optional()",
+  },
   charLimits: {
     title: 80,
     breadcrumbLabel: 40,

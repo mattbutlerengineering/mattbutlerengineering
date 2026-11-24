@@ -219,6 +219,12 @@ export const generatedSchemas = {
   FormField: z.object({
     name: z.string(),
   }),
+  GlobalNav: z.object({
+    currentApp: z.enum(["gen", "hospitality", "marketing", "rialto"]),
+    currentPath: z.string().optional(),
+    theme: z.enum(["dark", "light"]).optional(),
+    mobileMenuOpen: z.boolean().optional(),
+  }),
   GuestCards: z.object({
     guests: z.array(z.object({ name: z.string().nullish(), visits: z.union([z.number(), z.string()]).nullish(), risk: z.string().nullish(), tags: z.unknown().optional() })),
   }),
@@ -229,6 +235,20 @@ export const generatedSchemas = {
     lane: z.number().optional(),
     size: z.enum(["lg", "md", "sm"]).optional(),
     showLabels: z.boolean().optional(),
+  }),
+  Heading: z.object({
+    color: z.enum(["accent", "error", "on-accent", "primary", "secondary", "success", "tertiary", "warning"]).optional(),
+    align: z.enum(["center", "left", "right"]).optional(),
+    truncate: z.boolean().optional(),
+    children: z.string(),
+  }),
+  Hero: z.object({
+    eyebrow: z.string().max(40).optional(),
+    title: z.string(),
+    subtitle: z.string().max(200).optional(),
+    actions: z.string().optional(),
+    minHeight: z.string().optional(),
+    showDivider: z.boolean().optional(),
   }),
   HoverCard: z.object({
     content: z.string().optional(),
@@ -252,6 +272,13 @@ export const generatedSchemas = {
     showOptional: z.boolean().optional(),
   }),
   InputGroup: z.object({}),
+  Navbar: z.object({
+    logo: z.string().optional(),
+    user: z.object({ name: z.string(), email: z.string().optional() }).optional(),
+    links: z.array(z.object({ id: z.string(), label: z.string(), href: z.string().optional(), badge: z.number().optional(), children: z.array(z.object({ id: z.string(), label: z.string(), href: z.string().optional() })).optional() })),
+    footer: z.string().optional(),
+    label: z.string().max(40).optional(),
+  }),
   NavigationMenu: z.object({
     items: z.array(z.object({ label: z.string(), href: z.string().optional(), children: z.array(z.object({ label: z.string(), href: z.string().optional() })).optional() })),
   }),
@@ -267,6 +294,13 @@ export const generatedSchemas = {
     disabledReason: z.string().max(120).optional(),
     showOptional: z.boolean().optional(),
     size: z.enum(["default", "large", "small"]).optional(),
+  }),
+  PageHeader: z.object({
+    title: z.string().max(80),
+    breadcrumbs: z.array(z.object({ label: z.string(), href: z.string().optional() })).optional(),
+    breadcrumbLabel: z.string().max(40).optional(),
+    actions: z.string().optional(),
+    meta: z.string().optional(),
   }),
   PinInput: z.object({
     length: z.number().optional(),

@@ -8,6 +8,10 @@ export const heroCatalogMeta = {
   name: "Hero",
   description:
     "Large opening section for a landing page, with a small eyebrow label, a big title, a subtitle and action buttons. Use once at the top of a marketing page. Keep title to one short line and subtitle to one or two sentences.",
+  // title is a ReactNode in rialto; a spec gives it as plain text.
+  propSchemas: {
+    title: "z.string()",
+  },
   charLimits: {
     eyebrow: 40,
     subtitle: 200,
