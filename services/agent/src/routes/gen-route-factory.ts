@@ -65,6 +65,13 @@ export interface GenRouteConfig<TSchema extends z.ZodType> {
    * Takes precedence over `serializeEvent`.
    */
   readonly createEventSerializer?: (parsed: z.infer<TSchema>) => (event: GenStreamEvent) => unknown;
+  /**
+   * ndjson only: runs before the model. Returning lines answers the request with
+   * exactly those lines (HTTP 200, no model call, no spend); undefined proceeds.
+   */
+  readonly preflight?: (request: FastifyRequest, parsed: z.infer<TSchema>) => unknown[] | undefined;
+  /** Called with each run's charged cost (actual, or worst case for a failed run). */
+  readonly onRunCost?: (request: FastifyRequest, costMicroUsd: number) => void;
   readonly getTools: (
     request: FastifyRequest,
     parsed: z.infer<TSchema>
@@ -242,6 +249,14 @@ export function createGenRoute<TSchema extends z.ZodType>(
         }
 
         const parsed = parseResult.data;
+
+        const preflightLines =
+          streamFormat === "ndjson" ? config.preflight?.(request, parsed) : undefined;
+        if (preflightLines) {
+          applyStreamHeaders(reply, contentType);
+          return reply.send(preflightLines.map((line) => JSON.stringify(line) + "\n").join(""));
+        }
+
         const messages = config.toMessages
           ? config.toMessages(parsed)
           : (parsed as { messages: GenMessages }).messages;
@@ -316,7 +331,9 @@ export function createGenRoute<TSchema extends z.ZodType>(
             label: costLogLabel,
             telemetry: telemetry(finishReason),
           });
-          await trackGenSpend(failedGenCostMicroUsd(), request.log);
+          const failedCost = failedGenCostMicroUsd();
+          config.onRunCost?.(request, failedCost);
+          await trackGenSpend(failedCost, request.log);
         };
         // Fired when the client disconnects (the response stream is cancelled),
         // so the model call stops instead of spending tokens nobody will read.
@@ -340,7 +357,9 @@ export function createGenRoute<TSchema extends z.ZodType>(
               telemetry: telemetry(finishReason ?? "unknown"),
             });
             usageReported = true;
-            await trackGenSpend(genCostMicroUsd(usage, providerMetadata), request.log);
+            const costMicroUsd = genCostMicroUsd(usage, providerMetadata);
+            config.onRunCost?.(request, costMicroUsd);
+            await trackGenSpend(costMicroUsd, request.log);
           },
         });
 

@@ -42,6 +42,9 @@ import {
   Card,
   Checkbox,
   Combobox,
+  CommandPalette,
+  ConfirmDialog,
+  ContextMenu,
   DataList,
   DataTable,
   DepartureBoard,
@@ -53,6 +56,7 @@ import {
   Footer,
   GuestCards,
   Handshake,
+  HoverCard,
   IconButton,
   Input,
   Meter,
@@ -158,7 +162,8 @@ function slotOr(children: ReactNode, words: unknown): ReactNode {
   return Children.count(children) > 0 ? children : (words as ReactNode);
 }
 
-type MenuEntries = ComponentProps<typeof DropdownMenu>["items"];
+type MenuEntries = ComponentProps<typeof DropdownMenu>["items"] &
+  ComponentProps<typeof ContextMenu>["items"];
 
 /** Spec entries as menu entries; an item with a blank label reads as missing and is dropped. */
 function toMenuEntries(entries: readonly MenuEntrySpec[], onSelect: () => void): MenuEntries {
@@ -834,6 +839,70 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
           />
         )
       ),
+
+      // Overlays: `open` is host-supplied (a spec has no state store); the user's choice is
+      // emitted as an event. HoverCard and ContextMenu open from their trigger, uncontrolled.
+      ConfirmDialog: typed(
+        ({
+          props,
+          emit,
+        }: AdapterArgs<{
+          open: boolean;
+          title: string;
+          description?: string;
+          confirmLabel?: string;
+          cancelLabel?: string;
+          variant?: "default" | "destructive";
+        }>) => (
+          <ConfirmDialog
+            {...props}
+            onConfirm={() => emit("confirm")}
+            onCancel={() => emit("cancel")}
+          />
+        )
+      ),
+
+      CommandPalette: typed(
+        ({
+          props,
+          emit,
+        }: AdapterArgs<{
+          open: boolean;
+          items: { id: string; label: string; group?: string; shortcut?: string[] }[];
+          placeholder?: string;
+        }>) => (
+          <CommandPalette
+            open={props.open}
+            onOpenChange={(next) => {
+              if (!next) emit("close");
+            }}
+            placeholder={props.placeholder}
+            items={props.items.map((item) => ({ ...item, onSelect: () => emit("select") }))}
+          />
+        )
+      ),
+
+      HoverCard: typed(
+        ({
+          props,
+          children,
+        }: AdapterArgs<{
+          content?: string;
+          placement?: "top" | "bottom";
+          openDelay?: number;
+          closeDelay?: number;
+        }>) => (
+          <HoverCard {...props} content={props.content ?? null}>
+            <span>{children}</span>
+          </HoverCard>
+        )
+      ),
+
+      ContextMenu: typed(({ props, children, emit }: AdapterArgs<{ items: MenuEntrySpec[] }>) => (
+        <ContextMenu items={toMenuEntries(props.items, () => emit("select"))}>
+          <div>{children}</div>
+        </ContextMenu>
+      )),
 
       Tooltip: typed(
         ({

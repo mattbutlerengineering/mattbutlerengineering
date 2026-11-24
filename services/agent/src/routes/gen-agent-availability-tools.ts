@@ -28,8 +28,8 @@ import {
 /**
  * Chat tools for Tonight changes (ux.md F7) and undo. Every input is a flat
  * value, because the chat's confirm bar shows each one as text and what the
- * user confirms is what runs. Closures, special hours and schedules stay on
- * the Availability page.
+ * user confirms is what runs. Closures, special hours and regular hours have
+ * their own tools (gen-agent-closure-tools, gen-agent-schedule-tools).
  */
 
 const TONIGHT_CHANGE_TYPES = [
@@ -381,7 +381,7 @@ export function createAvailabilityTools(
     // ── Write (each runs only after the user confirms) ─────
     change_tonight_availability: tool({
       description:
-        "Make one Tonight change for the venue's current service day; it ends on its own when the day does. Requires confirmation. For a closure, special hours or a schedule change on another day, point the user to the Availability page instead.",
+        "Make one Tonight change for the venue's current service day; it ends on its own when the day does. Requires confirmation. For a closure, special hours or regular hours on another day, use close_dates, set_special_hours, close_repeating_days or set_regular_hours instead.",
       inputSchema: ChangeTonightInputSchema,
       execute: async (input) => {
         if (!venueId) return notExecuted(NO_VENUE);

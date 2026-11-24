@@ -1,7 +1,11 @@
 import { expect } from "vitest";
 import { randomUUID } from "node:crypto";
 import type { FastifyInstance, InjectOptions, LightMyRequestResponse } from "fastify";
-import { AVAILABILITY_CONFIG_PREFIX, ClosureSummariesSchema } from "@mbe/types";
+import {
+  AVAILABILITY_CONFIG_PREFIX,
+  ClosureSummariesSchema,
+  endOfServiceEndpoints,
+} from "@mbe/types";
 
 /**
  * #5369 PR 2 — the route-sweep completeness data. Kept out of the `.test.ts`
@@ -2256,6 +2260,10 @@ const reservationEventFixtures: Record<string, RouteFixture> = {
 const bookingMetricsFixtures: Record<string, RouteFixture> = {
   "GET /api/v1/reservations/metrics/daily": okScopedByQuery(
     "/api/v1/reservations/metrics/daily",
+    "&date=2026-10-01"
+  ),
+  "GET /api/v1/reservations/metrics/end-of-service": okScopedByQuery(
+    endOfServiceEndpoints.get.path,
     "&date=2026-10-01"
   ),
 };

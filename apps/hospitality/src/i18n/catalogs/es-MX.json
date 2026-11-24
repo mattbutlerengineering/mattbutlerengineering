@@ -1656,6 +1656,8 @@
       "end_tonight_change": "Terminar un cambio de esta noche",
       "undo_availability_change": "Deshacer un cambio de disponibilidad",
       "close_dates": "Cerrar en ciertas fechas",
+      "close_repeating_days": "Cerrar en días de la semana repetidos",
+      "set_regular_hours": "Cambiar el horario regular",
       "set_special_hours": "Definir horario especial para una fecha",
       "reopen_closure": "Reabrir un cierre",
       "add_guest": "Agregar un cliente",
@@ -1714,7 +1716,8 @@
         "lastSeating": "Último asiento",
         "closesAt": "Cierra",
         "tellCancelledGuests": "Avisar a los clientes cancelados",
-        "scope": "Se aplica a"
+        "scope": "Se aplica a",
+        "weekdays": "Días de la semana"
       },
       "yesNo": {
         "yes": "Sí",

@@ -3,6 +3,7 @@ import { genLanguageModel, genProviderOptions, type GenProviderId } from "./gen-
 // Permission policy sourced from agent-core — not duplicated here (security requirement)
 import { GEN_BLOCKED_TOOLS, genIsBashCommandBlocked } from "@mbe/agent-core";
 import { genSystemInstructions } from "./gen-stream.js";
+import { PROPOSE_PATCH_TOOL } from "./gen-onboarding-tools.js";
 import { completeJsonElements } from "./gen-json-elements.js";
 import { createComponentCallScrubber } from "./gen-text-scrub.js";
 
@@ -21,6 +22,11 @@ export type GenStreamEvent =
       readonly type: "tool_status";
       readonly tool: string;
       readonly status: "running" | "complete";
+    }
+  | {
+      /** A validated, client-applied onboarding patch (no server write); `patch` is `{ step, data }`. */
+      readonly type: "onboarding_patch";
+      readonly patch: unknown;
     }
   | {
       readonly type: "permission_denied";
@@ -75,6 +81,8 @@ export const GEN_WRITE_TOOL_NAMES = [
   "close_dates",
   "set_special_hours",
   "reopen_closure",
+  "close_repeating_days",
+  "set_regular_hours",
   "add_guest",
   "update_guest",
   "add_guest_note",
@@ -206,6 +214,10 @@ export function createGenRunner(config: GenRunnerConfig): GenRunner {
           await handleToolCall(event, onEvent, already);
           if (event.toolName === "render_component") trackingRender = false;
         } else if (event.type === "tool-result") {
+          if (event.toolName === PROPOSE_PATCH_TOOL) {
+            const out = event.output as { ok?: boolean; patch?: unknown } | undefined;
+            if (out?.ok === true) await onEvent({ type: "onboarding_patch", patch: out.patch });
+          }
           await onEvent({
             type: "tool_status",
             tool: event.toolName,
