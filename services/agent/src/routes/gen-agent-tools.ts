@@ -15,6 +15,7 @@ import { createMenuTools } from "./gen-agent-menu-tools.js";
 import { createMenuStructureTools } from "./gen-agent-menu-structure-tools.js";
 import { createWaitlistTools } from "./gen-agent-waitlist-tools.js";
 import { createTimelineTools } from "./gen-agent-timeline-tools.js";
+import { createDepositTools } from "./gen-agent-deposit-tools.js";
 import {
   NOT_EXECUTED,
   NO_VENUE,
@@ -698,6 +699,7 @@ export function createAgentTools(
     ...createMenuStructureTools(log, api, { venueId }),
     ...createFloorPlanTools(log, api, { venueId }),
     ...createTimelineTools(log, api, { venueId }),
+    ...createDepositTools(log, api, { venueId }),
     ...createBriefingTools(log, api, { venueId, timeZone }),
   };
   return gateWriteTools(tools, log, options.confirmedAction);
