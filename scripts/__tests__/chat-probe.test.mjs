@@ -55,6 +55,9 @@ describe("classifyReply", () => {
   it.each([
     ["element call text", "ReservationList(reservations=[{time: 1}])", "raw-element-call"],
     ["TimeSlots call", 'TimeSlots(date="Monday")', "raw-element-call"],
+    ["object-arg call", "ReservationList({ reservations: [] })", "raw-element-call"],
+    ["array-arg call", 'TimeSlots(["19:00"])', "raw-element-call"],
+    ["empty call", "StatusLED()", "raw-element-call"],
     ["JSONL patch", '{"op":"add","path":"/x"}', "raw-tool-json"],
     ["tool json", '{"toolName":"get_table_status"}', "raw-tool-json"],
     ["stack trace", "TypeError: boom\n    at foo (/app/x.js:1:2)", "stack-trace"],
@@ -84,8 +87,9 @@ describe("classifyReply", () => {
     expect(result.verdict).toBe("inconclusive");
   });
 
-  it("treats 429 as inconclusive and other non-200s as failures", () => {
+  it("treats 429 and the spend-ceiling 503 as inconclusive and other non-200s as failures", () => {
     expect(classifyReply(prompt(), { status: 429, events: [] }).verdict).toBe("inconclusive");
+    expect(classifyReply(prompt(), { status: 503, events: [] }).verdict).toBe("inconclusive");
     const bad = classifyReply(prompt(), { status: 500, events: [] });
     expect(bad.failures.map((f) => f.code)).toEqual(["http-500"]);
   });

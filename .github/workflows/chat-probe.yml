@@ -1,6 +1,6 @@
 name: Chat Probe
 
-# Post-deploy live chat probe (#9481): sends 9 scripted prompts to PRODUCTION
+# Daily live chat probe (#9481): sends 9 scripted prompts to PRODUCTION
 # /api/gen/agent as the E2E test user and files ONE deduplicated issue when a
 # reply fails or leaks raw text (element call text, raw tool JSON, stack traces,
 # `undefined`, unrendered placeholders, a missing element).
@@ -13,14 +13,14 @@ name: Chat Probe
 # Cost ceiling: $0.05 per run (COST_CEILING_USD in scripts/lib/chat-probe.mjs),
 # enforced by counting requests against a $0.005 per-request estimate; 9 prompts
 # is $0.045. The server adds its own per-identity 30/hr limit and daily spend
-# ceiling. Triggered after "Deploy Services" succeeds, on demand, and once a day.
+# ceiling. Runs once a day and on demand: never per deploy. Deploy Services ran
+# 18 times on 2026-11-24, and a probe per deploy (~$0.85/day) would pass the
+# shared $0.50/day GEN_DAILY_CEILING_USD and cut off real venues' chat. Daily
+# cost: 9 requests, ~$0.045, under 10% of that shared ceiling.
 #
 # Needs the `CHAT_PROBE_VENUE_ID` secret (docs/SECRETS.md). Without it, or
 # without the E2E Auth0 secrets, the job skips with a visible notice.
 on:
-  workflow_run:
-    workflows: ["Deploy Services"]
-    types: [completed]
   schedule:
     - cron: "17 15 * * *"
   workflow_dispatch: {}
@@ -36,7 +36,6 @@ permissions:
 jobs:
   probe:
     name: Live chat probe
-    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

@@ -8,10 +8,12 @@ const workflow = readFileSync(join(root, ".github/workflows/chat-probe.yml"), "u
 const runner = readFileSync(join(root, "scripts/chat-probe.mjs"), "utf-8");
 
 describe("chat-probe workflow", () => {
-  it("triggers after Deploy Services, on demand and daily", () => {
-    expect(workflow).toMatch(/workflows: \["Deploy Services"\]/);
+  // Deploy Services ran 18 times on 2026-11-24; a probe per deploy would spend
+  // past the shared $0.50/day gen ceiling and cut off real venues' chat.
+  it("runs on demand and once a day, never per deploy", () => {
+    expect(workflow).not.toContain("workflow_run");
     expect(workflow).toContain("workflow_dispatch");
-    expect(workflow).toContain("schedule:");
+    expect(workflow.match(/- cron:/g)).toHaveLength(1);
   });
 
   it("has least-privilege permissions and pipefail in piped run blocks", () => {

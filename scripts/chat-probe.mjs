@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Thin I/O runner for the post-deploy live chat probe (#9481). All decisions
+ * Thin I/O runner for the daily live chat probe (#9481). All decisions
  * live in `scripts/lib/chat-probe.mjs`.
  *
  * Usage: node scripts/chat-probe.mjs <out-dir>

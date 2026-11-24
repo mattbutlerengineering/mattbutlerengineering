@@ -1,5 +1,5 @@
 /**
- * Pure logic for the post-deploy live chat probe (#9481): the scripted prompts,
+ * Pure logic for the daily live chat probe (#9481): the scripted prompts,
  * the reply classifier, the dedupe key, the cost guard and the issue builder.
  * All I/O (auth, fetch, filing) lives in `scripts/chat-probe.mjs` and the
  * workflow. Nothing here touches the network.
@@ -71,7 +71,12 @@ export function parseNdjson(body) {
 }
 
 const LEAK_PATTERNS = [
-  ["raw-element-call", /\b[A-Z][A-Za-z]+\(\s*[a-z][A-Za-z]*\s*[=:]/],
+  // Second alternative is the server scrubber's own CALL_START (gen-text-scrub.ts):
+  // any CamelCase name followed by "(", so `StatusLED()` and `List({` are caught too.
+  [
+    "raw-element-call",
+    /\b[A-Z][A-Za-z]+\(\s*[a-z][A-Za-z]*\s*[=:]|\b[A-Z][a-z0-9]+[A-Z][A-Za-z0-9]*\(/,
+  ],
   ["raw-tool-json", /"(?:op|toolName|toolCallId|toolInput)"\s*:/],
   ["stack-trace", /\n\s+at\s+\S+.*:\d+:\d+|\b\w*Error:\s.*\n\s+at\s/],
   ["undefined-text", /\bundefined\b/],
@@ -87,7 +92,9 @@ const BUSY_PATTERN = /assistant is busy right now/i;
  * @returns {{ verdict: "pass" | "fail" | "inconclusive", failures: Array<{ code: string, detail: string }> }}
  */
 export function classifyReply(probe, reply) {
-  if (reply.status === 429) return { verdict: "inconclusive", failures: [] };
+  // 429 (rate limit) and 503 (the server's gen spend ceiling) are capacity, not regressions.
+  if (reply.status === 429 || reply.status === 503)
+    return { verdict: "inconclusive", failures: [] };
   if (reply.status !== 200) {
     return {
       verdict: "fail",
@@ -227,7 +234,7 @@ export function buildIssue(results, { runUrl }) {
     title: `Chat probe: live chat regression [${key}]`,
     dedupeKey: key,
     body: [
-      "The post-deploy live chat probe (#9481) found failing replies in production.",
+      "The daily live chat probe (#9481) found failing replies in production.",
       "",
       ...rows,
       "",
