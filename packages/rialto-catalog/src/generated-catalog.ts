@@ -239,6 +239,12 @@ export const catalogMeta: Record<string, CatalogMeta> = {
       "Joins adjacent form controls into one visual row, for example a search Input beside a submit Button. Use only to pair related controls; place the controls as children.",
     slots: ["default"],
   },
+  Meter: {
+    name: "Meter",
+    description:
+      "Gauge showing a measured value within a known range, such as table occupancy or deposit goal. Unlike Progress it is not a task. Give value, min and max, a short label, and a variant (success, error) to signal good or bad.",
+    charLimits: { label: 25 },
+  },
   NavigationMenu: {
     name: "NavigationMenu",
     description:
@@ -250,6 +256,12 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     description:
       "Numeric field with stepper buttons. Use for counts and amounts such as party size, quantity, or price. Always give a label and a starting value; set min and max to bound it, and step (e.g. 0.5) to allow decimals.",
     charLimits: { label: 40, hint: 120, disabledReason: 120 },
+  },
+  Pagination: {
+    name: "Pagination",
+    description:
+      "Page navigation for long lists or tables, such as reservations or guests. Give page (starting at 1) and totalPages; use siblingCount to control how many neighbouring page numbers show.",
+    charLimits: { ariaLabel: 60 },
   },
   PinInput: {
     name: "PinInput",
@@ -263,6 +275,12 @@ export const catalogMeta: Record<string, CatalogMeta> = {
       "Click-to-open floating panel anchored to a trigger button; it opens from that trigger (there is no open prop to set). Set trigger to the trigger button label (e.g. 'Pick a time') and put the panel body as children — text, Inputs, or a short list of Buttons. Use for small contextual choices or details that should not take permanent space; use Dialog for anything that needs the user attention. title is an optional panel heading; placement is bottom (default), top, left or right.",
     slots: ["default"],
     charLimits: { title: 60 },
+  },
+  Progress: {
+    name: "Progress",
+    description:
+      "Progress bar for a task or flow that has a known or unknown duration, such as a booking import or an upload. Give a value from 0 to 100 for determinate progress, or omit it for an indeterminate bar. Add a short label saying what is in progress.",
+    charLimits: { label: 40 },
   },
   ReservationList: {
     name: "ReservationList",
@@ -319,6 +337,11 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     description:
       "A coloured status light with a label, such as a table's state. Use variant=success for free/available, variant=warning for needs attention (e.g. dirty), variant=danger for occupied or blocked, variant=accent for ready, variant=neutral or off otherwise. Always set label so the status is readable without colour.",
     charLimits: { label: 40 },
+  },
+  Steps: {
+    name: "Steps",
+    description:
+      "Step indicator for a multi-step flow such as booking, checkout or onboarding. Give the ordered steps, each with a short label and optional description, and currentStep as a zero-based index of the active step.",
   },
   Table: {
     name: "Table",

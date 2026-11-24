@@ -48,6 +48,7 @@ describe("mapTypeToZod", () => {
 
     it("maps number", () => {
       expect(mapTypeToZod("number", false, undefined)).toBe("z.number()");
+      expect(mapTypeToZod("number | null", false, undefined)).toBe("z.number().nullable()");
     });
 
     it("maps plain string", () => {

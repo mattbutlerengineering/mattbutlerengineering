@@ -59,10 +59,13 @@ import {
   HoverCard,
   IconButton,
   Input,
+  Meter,
   NavigationMenu,
   NumberInput,
   PinInput,
+  Pagination,
   Popover,
+  Progress,
   ReservationList,
   ScrollArea,
   SegmentedControl,
@@ -73,6 +76,7 @@ import {
   Stack,
   Stat,
   StatusLED,
+  Steps,
   Table,
   Tabs,
   Tag,
@@ -321,6 +325,28 @@ function SegmentedControlAdapter({ props, emit }: AdapterArgs<SegmentedControlSp
       value={value}
       onChange={(next) => {
         setValue(next);
+        emit("change");
+      }}
+    />
+  );
+}
+
+interface PaginationSpecProps {
+  page: number;
+  totalPages: number;
+  siblingCount?: number;
+  ariaLabel?: string;
+}
+
+/** Pagination is fully controlled, so the current page is held here. */
+function PaginationAdapter({ props, emit }: AdapterArgs<PaginationSpecProps>) {
+  const [page, setPage] = useState<number>(props.page);
+  return (
+    <Pagination
+      {...props}
+      page={page}
+      onChange={(next) => {
+        setPage(next);
         emit("change");
       }}
     />
@@ -979,6 +1005,46 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
           disabled?: boolean;
           disabledReason?: string;
         }>) => <Slider {...props} onChange={() => emit("change")} />
+      ),
+
+      Pagination: typed(({ props, emit }: AdapterArgs<PaginationSpecProps>) => (
+        <PaginationAdapter props={props} emit={emit} />
+      )),
+
+      Progress: typed(
+        ({
+          props,
+        }: AdapterArgs<{
+          value?: number;
+          label?: string;
+          showValue?: boolean;
+          size?: "sm" | "md" | "lg";
+        }>) => <Progress {...props} />
+      ),
+
+      Meter: typed(
+        ({
+          props,
+        }: AdapterArgs<{
+          value?: number | null;
+          min?: number;
+          max?: number;
+          label?: string;
+          variant?: "default" | "accent" | "success" | "error";
+          showValue?: boolean;
+          size?: "sm" | "md";
+        }>) => <Meter {...props} value={props.value ?? null} />
+      ),
+
+      Steps: typed(
+        ({
+          props,
+        }: AdapterArgs<{
+          steps: { label: string; description?: string }[];
+          currentStep: number;
+          orientation?: "horizontal" | "vertical";
+          compact?: boolean;
+        }>) => <Steps {...props} />
       ),
 
       Table: ({ props }: any) => (
