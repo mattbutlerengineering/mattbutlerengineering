@@ -30,22 +30,44 @@
         "advanceBookingDays_one": "Reservable hasta {{count}} día antes",
         "advanceBookingDays_many": "Reservable hasta {{count}} de días antes",
         "advanceBookingDays_other": "Reservable hasta {{count}} días antes",
-        "advanceBookingToday": "Reservable solo para hoy"
+        "advanceBookingToday": "Reservable solo para hoy",
+        "serviceName": "Servicio: {{value}}",
+        "opens": "Abre a las {{value}}",
+        "closes": "Cierra a las {{value}}",
+        "lastSeating": "Última mesa a las {{value}}",
+        "days": "Abierto: {{value}}",
+        "templateId": "Salón: {{value}}",
+        "roomSize": "Tamaño: {{value}}"
       },
+      "floorPlanEdited": "Cambiaste esta distribución a mano, así que la dejé como estaba. Elige otro salón de la lista para empezar de nuevo.",
       "notOffered": {
         "ianaTimezone": "la zona horaria \"{{value}}\" no está en la lista",
-        "currencyCode": "la moneda \"{{value}}\" no está en la lista"
+        "currencyCode": "la moneda \"{{value}}\" no está en la lista",
+        "time": "\"{{value}}\" no es una hora de 24 horas como 17:30",
+        "days": "\"{{value}}\" no es una lista de días como mon,tue,fri",
+        "serviceName": "el servicio necesita un nombre",
+        "templateId": "el salón \"{{value}}\" no está disponible",
+        "roomSize": "el tamaño \"{{value}}\" no está disponible"
       },
       "suggestion": {
         "locationTime": "Estamos en Lisboa y cobramos en euros",
-        "settings": "Grupos de hasta 8, 90 minutos por mesa, reservas con 60 días de anticipación"
+        "settings": "Grupos de hasta 8, 90 minutos por mesa, reservas con 60 días de anticipación",
+        "hours": "Cena de martes a sábado, de 5 a 10:30",
+        "floorPlan": "Un bistró informal, un poco más grande que acogedor"
       },
       "fields": {
         "ianaTimezone": "zona horaria",
         "currencyCode": "moneda",
         "defaultReservationDuration": "duración de la reservación",
         "maxPartySize": "grupo más grande",
-        "advanceBookingDays": "días de anticipación"
+        "advanceBookingDays": "días de anticipación",
+        "serviceName": "nombre del servicio",
+        "opens": "hora de apertura",
+        "closes": "hora de cierre",
+        "lastSeating": "última mesa",
+        "days": "días de apertura",
+        "templateId": "distribución del salón",
+        "roomSize": "tamaño del salón"
       }
     },
     "steps": {

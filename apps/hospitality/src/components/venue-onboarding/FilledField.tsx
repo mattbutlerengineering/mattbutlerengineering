@@ -14,9 +14,9 @@ interface FilledFieldProps {
 /**
  * Marks a form field the chat just filled (#9474). The mark is static (a tinted ground and a
  * glow ring, no animation), so it is the same under `prefers-reduced-motion`. The spoken
- * announcement lives once on the page, not per field. While marked, the wrapper can be focused
- * from script (the chat's Review action): that lands on the field without opening its popup,
- * and the next Tab enters the control.
+ * announcement lives once on the page, not per field. The wrapper can be focused from script
+ * (the chat's Review action): that lands on the field without opening its popup, and the next
+ * Tab enters the control.
  */
 export function FilledField({ filled, label, children }: FilledFieldProps) {
   const { t } = useTranslation();
@@ -24,12 +24,11 @@ export function FilledField({ filled, label, children }: FilledFieldProps) {
     <div
       className={filled ? styles.filled : styles.field}
       data-filled-from-chat={filled || undefined}
+      // Always focusable from script (never in the tab order): a wrapper the Review action
+      // focused must keep focus when its mark times out, not drop it to the page.
+      tabIndex={-1}
       {...(filled
-        ? {
-            tabIndex: -1,
-            role: "group",
-            "aria-label": t("onboarding.chat.filledGroup", { field: label }),
-          }
+        ? { role: "group", "aria-label": t("onboarding.chat.filledGroup", { field: label }) }
         : {})}
     >
       {children}

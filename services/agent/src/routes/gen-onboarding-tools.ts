@@ -1,6 +1,12 @@
 import { tool } from "ai";
 import type { ToolSet } from "ai";
 import { z } from "zod";
+import {
+  OFFERED_CURRENCY_CODES,
+  OFFERED_TIMEZONES,
+  ROOM_SIZE_IDS,
+  ROOM_TEMPLATE_IDS,
+} from "@mbe/types";
 
 /**
  * The one tool of the chat-first onboarding route (#9473). It performs no server
@@ -9,8 +15,8 @@ import { z } from "zod";
  * (apps/hospitality/.../onboarding-chat-patch.ts) and its step validators.
  *
  * Allowed fields mirror that file's `PATCH_FIELDS`; values are strings because
- * the wizard's form state is strings. To open another step (#9475), add one entry
- * to `STEP_FIELDS`.
+ * the wizard's patch is strings. To open another step, add one entry to
+ * `STEP_FIELDS`. The steps the owner finishes by hand (name, Launch) have none.
  */
 
 export function isTimeZone(value: string): boolean {
@@ -28,19 +34,38 @@ const numeral = (max: number) =>
     .regex(/^\d+$/, "must be a whole number")
     .refine((v) => Number(v) > 0 && Number(v) <= max, `must be between 1 and ${max}`);
 
+/** `VenueServiceSchema.name` max; the quick-setup card refuses a longer service name. */
+const SERVICE_NAME_MAX = 40;
+const CLOCK = /^([01]\d|2[0-3]):[0-5]\d$/;
+const DAY = "(?:mon|tue|wed|thu|fri|sat|sun)";
+const DAYS = new RegExp(`^${DAY}(?:,${DAY})*$`);
+const clock = z.string().regex(CLOCK, "must be a 24-hour time like 17:30");
+
 /** step -> the fields the model may set on it. The single extension point. */
 const STEP_FIELDS = {
   locationTime: {
-    ianaTimezone: z
-      .string()
-      .max(64)
-      .refine((v) => v.includes("/") && isTimeZone(v), "must be an IANA time zone"),
-    currencyCode: z.string().regex(/^[A-Z]{3}$/, "must be an ISO 4217 code like USD"),
+    // The form's own lists (`@mbe/types`): a value the form cannot show must not reach it.
+    ianaTimezone: z.enum(OFFERED_TIMEZONES, { error: "must be one of the offered time zones" }),
+    currencyCode: z.enum(OFFERED_CURRENCY_CODES, {
+      error: "must be one of the offered currencies",
+    }),
   },
   settings: {
     defaultReservationDuration: numeral(480),
     maxPartySize: numeral(500),
     advanceBookingDays: numeral(730),
+  },
+  // The first service of the hours card; days are shared across it.
+  hours: {
+    serviceName: z.string().trim().min(1).max(SERVICE_NAME_MAX),
+    opens: clock,
+    closes: clock,
+    lastSeating: clock,
+    days: z.string().regex(DAYS, "must be comma-separated days like mon,tue,fri"),
+  },
+  floorPlan: {
+    templateId: z.enum(ROOM_TEMPLATE_IDS, { error: "must be one of the offered room templates" }),
+    roomSize: z.enum(ROOM_SIZE_IDS, { error: "must be one of the offered room sizes" }),
   },
 } as const;
 
@@ -89,7 +114,7 @@ export function createOnboardingTools(): ToolSet {
         data: z
           .record(z.string(), z.string())
           .describe(
-            "Field name to value. locationTime: ianaTimezone (IANA zone, e.g. Europe/Lisbon), currencyCode (ISO 4217, e.g. EUR). settings: defaultReservationDuration (minutes), maxPartySize, advanceBookingDays, as digit strings."
+            "Field name to value. locationTime: ianaTimezone (IANA zone, e.g. Europe/Lisbon), currencyCode (ISO 4217, e.g. EUR). settings: defaultReservationDuration (minutes), maxPartySize, advanceBookingDays, as digit strings. hours: serviceName (e.g. Dinner), opens, closes, lastSeating (24-hour HH:mm; a close earlier than the open runs past midnight), days (comma-separated from mon,tue,wed,thu,fri,sat,sun). floorPlan: templateId (blank, fine-dining, casual-bistro, bar-lounge, cafe, banquet-hall, open-kitchen), roomSize (cozy, standard, spacious, grand)."
           ),
       }),
       execute: async (input) => proposeOnboardingPatch(input),
