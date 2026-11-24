@@ -28,6 +28,12 @@ export const catalogMeta: Record<string, CatalogMeta> = {
       "Constrains children to a fixed width-to-height ratio. Use for images, videos, or media embeds to prevent layout shift. Common ratios: 16/9 (video), 4/3 (photo), 1 (square).",
     slots: ["default"],
   },
+  Autocomplete: {
+    name: "Autocomplete",
+    description:
+      "Text field with a filterable suggestion list. Use when the guest or staff member picks from a long list of known options (guests, tables, venues) but may type to narrow it. Always give a label and options; set emptyText for the no-match state.",
+    charLimits: { label: 40, hint: 120, emptyText: 60 },
+  },
   Avatar: {
     name: "Avatar",
     description:
@@ -84,6 +90,13 @@ export const catalogMeta: Record<string, CatalogMeta> = {
       "Checkbox for boolean selection. Use when users need to opt-in or out of something. Provide a label of at most 80 characters (a full sentence such as a terms agreement fits). Use description for additional context below the label. Use indeterminate for 'select all' with partial selection.",
     charLimits: { label: 80, description: 80 },
   },
+  Collapsible: {
+    name: "Collapsible",
+    description:
+      "Single show/hide section with a heading trigger. Use to tuck away secondary detail such as policies, notes, or advanced options so the main content stays scannable. Put the section content in the children slot.",
+    slots: ["default"],
+    charLimits: { trigger: 60 },
+  },
   Combobox: {
     name: "Combobox",
     description:
@@ -112,6 +125,12 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     include: false,
     description:
       "Inline, locale-aware month grid for date-range selection. Controlled via value ({ start, end } yyyy-mm-dd ISO strings, either endpoint nullable while picking) and onChange; the first activation sets the start, the second sets the end (endpoints auto-ordered, same-day allowed). Supports min/max bounds, an isDateDisabled predicate, locale, and weekStartsOn. Keyboard-navigable ARIA grid with an in-progress range preview.",
+  },
+  DateRangePicker: {
+    name: "DateRangePicker",
+    description:
+      "Calendar popover for choosing a start and end date. Use for stays, multi-night bookings, and report periods. Set min and max to bound selectable dates and label to name the field.",
+    charLimits: { label: 40, placeholder: 60 },
   },
   DepartureBoard: {
     name: "DepartureBoard",
@@ -191,6 +210,12 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     description:
       "Single-line text field. Always provide a label. Use hint for helper text below the field. Set error=true to show error styling. Use type attribute for email, password, number, etc.",
     charLimits: { label: 40, hint: 80 },
+  },
+  InputGroup: {
+    name: "InputGroup",
+    description:
+      "Joins adjacent form controls into one visual row, for example a search Input beside a submit Button. Use only to pair related controls; place the controls as children.",
+    slots: ["default"],
   },
   NavigationMenu: {
     name: "NavigationMenu",
@@ -298,6 +323,12 @@ export const catalogMeta: Record<string, CatalogMeta> = {
       "Typography component for semantic text rendering. Use variant=display for page headings, variant=body (default) for paragraphs, variant=label for form labels, variant=caption for helper text, variant=detail for metadata. Put its words in text (required unless it holds child elements).",
     slots: ["default"],
     aliases: { text: "children" },
+  },
+  TextArea: {
+    name: "TextArea",
+    description:
+      "Multi-line text field. Use for free-form input such as special requests, allergies, notes, or messages. Always give a label; add a hint for guidance and set maxLength when input must be bounded.",
+    charLimits: { label: 40, hint: 120, disabledReason: 120 },
   },
   TimePicker: {
     name: "TimePicker",

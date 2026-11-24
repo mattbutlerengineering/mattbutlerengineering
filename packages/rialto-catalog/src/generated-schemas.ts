@@ -22,6 +22,14 @@ export const generatedSchemas = {
   AspectRatio: z.object({
     ratio: z.number().optional(),
   }),
+  Autocomplete: z.object({
+    label: z.string().max(40).optional(),
+    hint: z.string().max(120).optional(),
+    options: z.array(z.object({ value: z.string(), label: z.string() })),
+    value: z.string().optional(),
+    emptyText: z.string().max(60).optional(),
+    showOptional: z.boolean().optional(),
+  }),
   Avatar: z.object({
     src: z.string().optional(),
     alt: z.string().optional(),
@@ -78,6 +86,13 @@ export const generatedSchemas = {
     disabledReason: z.string().optional(),
     description: z.string().max(80).optional(),
   }),
+  Collapsible: z.object({
+    open: z.boolean().optional(),
+    defaultOpen: z.boolean().optional(),
+    trigger: z.string().max(60).optional(),
+    disabled: z.boolean().optional(),
+    headingTag: z.enum(["h2", "h3", "h4", "h5", "h6"]).optional(),
+  }),
   Combobox: z.object({
     options: z.array(z.object({ value: z.string(), label: z.string(), disabled: z.boolean().optional() })),
     label: z.string().max(40).optional(),
@@ -123,6 +138,14 @@ export const generatedSchemas = {
     min: z.string().optional(),
     max: z.string().optional(),
     locale: z.string().optional(),
+  }),
+  DateRangePicker: z.object({
+    min: z.string().optional(),
+    max: z.string().optional(),
+    locale: z.string().optional(),
+    label: z.string().max(40).optional(),
+    placeholder: z.string().max(60).optional(),
+    placement: z.enum(["bottom", "left", "right", "top"]).optional(),
   }),
   DepartureBoard: z.object({
     phrases: z.array(z.string()),
@@ -206,6 +229,7 @@ export const generatedSchemas = {
     endIcon: z.string().optional(),
     showOptional: z.boolean().optional(),
   }),
+  InputGroup: z.object({}),
   NavigationMenu: z.object({
     items: z.array(z.object({ label: z.string(), href: z.string().optional(), children: z.array(z.object({ label: z.string(), href: z.string().optional() })).optional() })),
   }),
@@ -334,6 +358,15 @@ export const generatedSchemas = {
     mono: z.boolean().optional(),
     truncate: z.boolean().optional(),
     children: z.string(),
+  }),
+  TextArea: z.object({
+    label: z.string().max(40).optional(),
+    hint: z.string().max(120).optional(),
+    error: z.boolean().optional(),
+    autoResize: z.boolean().optional(),
+    maxLength: z.number().optional(),
+    disabledReason: z.string().max(120).optional(),
+    showOptional: z.boolean().optional(),
   }),
   TimePicker: z.object({
     step: z.number().optional(),
