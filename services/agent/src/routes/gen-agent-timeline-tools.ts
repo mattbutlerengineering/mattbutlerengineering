@@ -31,7 +31,7 @@ const ReservationIdSchema = z.string().min(1).describe("The reservation's ID, fr
 type Reservation = Awaited<ReturnType<ApiClient["reservations"]["get"]>>;
 
 /** The booking, when it belongs to the selected venue; the user confirmed this venue's booking. */
-async function venueReservation(
+export async function venueReservation(
   api: ApiClient,
   venueId: string,
   reservationId: string
