@@ -18,6 +18,11 @@ export const ANY_TIME_MINUTE = -1;
 const DEDUPE_TTL_MS = 30 * 60 * 1000;
 /** A client may add at most this many distinct no-slot searches per window; more is bot-like. */
 const RATE_LIMIT_MAX_DISTINCT = 20;
+/**
+ * One IP may add at most this many per window whatever session id or user agent it sends,
+ * so rotating those cannot reset the bot limit. Higher than the per-client cap for shared NAT.
+ */
+const RATE_LIMIT_MAX_DISTINCT_PER_IP = 60;
 const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 /** Hard cap on in-memory entries; at the cap we stop counting rather than grow. */
 const MAX_TRACKED_ENTRIES = 50_000;
@@ -87,13 +92,13 @@ export function createLostDemandService(deps: LostDemandDeps) {
   }
 
   /** True when this client may add another distinct search; bumps its window. */
-  function admit(client: string, at: number): boolean {
+  function admit(client: string, at: number, max: number): boolean {
     const current = windows.get(client);
     const win =
       current && at - current.windowStart < RATE_LIMIT_WINDOW_MS
         ? current
         : { windowStart: at, distinct: 0 };
-    if (win.distinct >= RATE_LIMIT_MAX_DISTINCT) {
+    if (win.distinct >= max) {
       windows.set(client, win);
       return false;
     }
@@ -121,7 +126,12 @@ export function createLostDemandService(deps: LostDemandDeps) {
       );
       const expiresAt = seen.get(dedupeKey);
       if (expiresAt !== undefined && expiresAt > at) return "duplicate";
-      if (!admit(client, at)) return "rate-limited";
+      if (
+        !admit(client, at, RATE_LIMIT_MAX_DISTINCT) ||
+        !admit(hash("ip", signals.ip), at, RATE_LIMIT_MAX_DISTINCT_PER_IP)
+      ) {
+        return "rate-limited";
+      }
 
       seen.set(dedupeKey, at + DEDUPE_TTL_MS);
       await store.increment({

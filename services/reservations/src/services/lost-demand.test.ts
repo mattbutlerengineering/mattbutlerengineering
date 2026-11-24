@@ -89,6 +89,23 @@ describe("lostDemandService.recordNoSlotSearch", () => {
     expect(store.increment).toHaveBeenCalledTimes(20);
   });
 
+  // A fresh x-session-id (or user agent) per request must not reset the bot limit.
+  it("caps one IP that rotates its session id on every search", async () => {
+    const { service, store } = setup();
+    const results: string[] = [];
+    for (let i = 0; i < 100; i += 1) {
+      results.push(
+        await service.recordNoSlotSearch(
+          { ...SEARCH, requestedMinute: i },
+          { ...GUEST, sessionId: `sess-${i}`, userAgent: `bot-${i}` }
+        )
+      );
+    }
+    expect(results.filter((r) => r === "recorded")).toHaveLength(60);
+    expect(results.at(-1)).toBe("rate-limited");
+    expect(store.increment).toHaveBeenCalledTimes(60);
+  });
+
   it("swallows a store failure, logs it, and reports failed", async () => {
     const store = {
       increment: vi
