@@ -92,6 +92,8 @@ const ACTION_TITLES = [
   "close_dates",
   "set_special_hours",
   "reopen_closure",
+  "close_repeating_days",
+  "set_regular_hours",
   "add_guest",
   "update_guest",
   "add_guest_note",
@@ -151,6 +153,7 @@ const ACTION_FIELDS = [
   "closesAt",
   "tellCancelledGuests",
   "scope",
+  "weekdays",
 ] as const;
 
 const TABLE_STATUSES = {

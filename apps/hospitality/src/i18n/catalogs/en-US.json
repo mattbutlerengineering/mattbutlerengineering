@@ -1624,6 +1624,8 @@
       "end_tonight_change": "End a Tonight change",
       "undo_availability_change": "Undo an availability change",
       "close_dates": "Close on dates",
+      "close_repeating_days": "Close on repeating weekdays",
+      "set_regular_hours": "Change regular hours",
       "set_special_hours": "Set special hours for a date",
       "reopen_closure": "Reopen a closure",
       "add_guest": "Add a guest",
@@ -1682,7 +1684,8 @@
         "lastSeating": "Last seating",
         "closesAt": "Closes",
         "tellCancelledGuests": "Tell cancelled guests",
-        "scope": "Applies to"
+        "scope": "Applies to",
+        "weekdays": "Weekdays"
       },
       "yesNo": {
         "yes": "Yes",

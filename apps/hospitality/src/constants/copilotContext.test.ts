@@ -363,6 +363,44 @@ describe("describeChatAction closure actions", () => {
     ]);
   });
 
+  // #9477: a repeating closure and a regular-hours change state exactly what changes.
+  it("states a repeating closure's weekdays and span", () => {
+    const { title, details } = describeIn("close_repeating_days", {
+      scope: "whole_venue",
+      weekdays: ["Monday", "Friday"],
+      from: "2027-01-05",
+      to: "2027-01-26",
+    });
+
+    expect(title).toBe("t:chat.actions.close_repeating_days");
+    expect(details).toEqual([
+      { label: "t:chat.actions.fields.scope", value: "t:chat.actions.scopes.whole_venue" },
+      { label: "t:chat.actions.fields.weekdays", value: "Monday, Friday" },
+      { label: "t:chat.actions.fields.from", value: "Tuesday, Jan 5" },
+      { label: "t:chat.actions.fields.to", value: "Tuesday, Jan 26" },
+    ]);
+  });
+
+  it("states a regular-hours change as the service, days and times", () => {
+    const { title, details } = describeIn("set_regular_hours", {
+      service: "Dinner",
+      weekdays: ["Saturday"],
+      opensAt: "17:00",
+      lastSeating: "21:30",
+      closesAt: "23:00",
+    });
+
+    expect(title).toBe("t:chat.actions.set_regular_hours");
+    expect(details.map((d) => d.label)).toEqual([
+      "t:chat.actions.fields.service",
+      "t:chat.actions.fields.weekdays",
+      "t:chat.actions.fields.opensAt",
+      "t:chat.actions.fields.lastSeating",
+      "t:chat.actions.fields.closesAt",
+    ]);
+    expect(details[2]!.value).toMatch(/5:00/);
+  });
+
   it("states a whole-venue close on the confirm bar", () => {
     const { details } = describeIn("close_dates", { scope: "whole_venue", date: "2026-12-24" });
 

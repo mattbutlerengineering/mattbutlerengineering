@@ -76,7 +76,19 @@ describe("buildAgentSystemPrompt", () => {
     expect(prompt).toMatch(
       /list_tonight_changes .*before .*end_tonight_change .*undo_availability_change/i
     );
-    expect(prompt).toMatch(/schedules.*Availability page/i);
+    expect(prompt).toMatch(/finish it on the Availability page/i);
+  });
+
+  // #9477: regular hours and repeating closures are chat writes, not refusals.
+  it("offers regular hours and repeating closures instead of sending them to the page", () => {
+    const prompt = buildAgentSystemPrompt({ venueId: "v", now: NOW, catalogPrompt: "CATALOG" });
+    const confirmLine = prompt.split("\n").find((line) => /Confirm or Cancel button/.test(line));
+
+    expect(confirmLine).toMatch(/regular hours/);
+    expect(prompt).toMatch(/close_repeating_days/);
+    expect(prompt).toMatch(/set_regular_hours/);
+    expect(prompt).not.toMatch(/Regular schedules and service hours stay on the Availability page/);
+    expect(prompt).toMatch(/adding or removing services.*stay on the Availability page/);
   });
 
   // #7929: closures and special hours on later dates, and reopening.
@@ -89,7 +101,6 @@ describe("buildAgentSystemPrompt", () => {
     expect(prompt).toMatch(/set_special_hours/);
     expect(prompt).toMatch(/list_closures .*before .*reopen_closure/i);
     expect(prompt).toMatch(/affects bookings.*Availability page/i);
-    expect(prompt).toMatch(/regular schedules and service hours.*Availability page/i);
     expect(prompt).toMatch(/scope whole_venue only when the user asked to close the whole venue/);
     expect(prompt).toMatch(/Neither takes today.*change_tonight_availability/);
     expect(prompt).toMatch(/full from and to span.*scope/);
