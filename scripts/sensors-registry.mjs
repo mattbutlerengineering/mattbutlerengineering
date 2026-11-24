@@ -535,6 +535,42 @@ export const SENSORS = [
           `${Math.round((data.overall_rubber_stamp_ratio ?? 0) * 100)}% rubber-stamped`,
   },
   {
+    // Per-endpoint health snapshots written by
+    // .github/workflows/production-feedback.yml — one `YYYY-MM-DD.jsonl` per
+    // day, so metrics-store's single-file `read()` cannot be used (#9525).
+    id: "productionHealth",
+    category: "quality",
+    collect: ({ root }) => {
+      const dir = resolve(root, "metrics", "production-health");
+      const latest = safe(() => {
+        const files = readdirSync(dir)
+          .filter((f) => f.endsWith(".jsonl"))
+          .sort();
+        if (files.length === 0) return null;
+        const lines = readFileSync(join(dir, files[files.length - 1]), "utf8")
+          .split("\n")
+          .filter((l) => l.trim());
+        return lines.length === 0 ? null : JSON.parse(lines[lines.length - 1]);
+      });
+      if (!latest || !Array.isArray(latest.endpoints)) return { available: false };
+      return {
+        available: true,
+        collected_at: latest.timestamp ?? null,
+        endpoints: latest.endpoints.map((e) => ({
+          name: e.name,
+          status: e.status,
+          http_code: e.http_code,
+          latency_ms: e.latency_ms,
+        })),
+      };
+    },
+    format: (data, name) => {
+      const eps = data.endpoints ?? [];
+      const healthy = eps.filter((e) => e.status === "healthy").length;
+      return `${name}: ${healthy}/${eps.length} endpoints healthy`;
+    },
+  },
+  {
     id: "prCategoryMetrics",
     category: "quality",
     collect: ({ ghClient }) => {
