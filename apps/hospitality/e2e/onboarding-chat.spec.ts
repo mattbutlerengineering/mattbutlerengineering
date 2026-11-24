@@ -67,7 +67,8 @@ test.describe("Onboarding chat", () => {
 
     await tellTheChat(page, SENTENCE);
     await expect(page.getByRole("combobox", { name: /Timezone/ })).toHaveValue(/Lisbon/);
-    await expect(page.getByText("Filled from chat")).toHaveCount(2);
+    // Exact: the live region's "Time zone and currency filled from chat" would match a substring.
+    await expect(page.getByText("Filled from chat", { exact: true })).toHaveCount(2);
     await expect(page.getByText("Time zone: Lisbon · Currency: EUR")).toBeVisible();
     await expect(page.getByRole("status")).toHaveText("Time zone and currency filled from chat");
     expect(requests[0]?.step).toBe("locationTime");
