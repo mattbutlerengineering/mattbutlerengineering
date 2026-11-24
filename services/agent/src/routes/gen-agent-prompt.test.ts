@@ -342,7 +342,11 @@ describe("menus in the prompt", () => {
 
     expect(confirmLine).toMatch(/menu items/);
     expect(prompt).toMatch(/set_menu_item_availability/);
-    expect(prompt).toMatch(/Creating, deleting or reordering.*Menus page/);
+    expect(prompt).toMatch(/create_menu/);
+    expect(prompt).toMatch(/reorder_menu_sections/);
+    expect(prompt).toMatch(/reorder_menu_items/);
+    expect(prompt).not.toMatch(/Creating, deleting or reordering/);
+    expect(prompt).toMatch(/Deleting menus, sections or items stays on the Menus page/);
     expect(prompt).not.toMatch(/can't manage deposits or menus/);
   });
 });
