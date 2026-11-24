@@ -3,10 +3,10 @@ import { useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import type { EndOfServiceSummary } from "@mbe/types";
 import {
-  Button,
   Card,
   EmptyState,
   Heading,
+  IconButton,
   Input,
   Skeleton,
   SkeletonGroup,
@@ -23,6 +23,7 @@ import { addDays, deviceDate } from "../utils/service-day.js";
 import { formatCount } from "../utils/format.js";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner.js";
 import { LiveStatus } from "../components/LiveStatus.js";
+import { ChevronLeftIcon, ChevronRightIcon } from "./timeline-icons.js";
 import { PageHeader } from "../components/PageHeader.js";
 import styles from "./NightSummaryPage.module.css";
 
@@ -127,28 +128,28 @@ export function NightSummaryPage() {
       <LiveStatus status={status} />
 
       <div className={styles.toolbar}>
-        <Button
+        <IconButton
+          icon={<ChevronLeftIcon />}
+          aria-label={t("night.previous")}
           variant="secondary"
           className={styles.step}
           disabled={!selectedDate}
           onClick={() => selectedDate && goTo(addDays(selectedDate, -1))}
-        >
-          {t("night.previous")}
-        </Button>
+        />
         <Input
           aria-label={t("night.serviceDate")}
           type="date"
           value={selectedDate ?? ""}
           onChange={(e) => e.target.value && goTo(e.target.value)}
         />
-        <Button
+        <IconButton
+          icon={<ChevronRightIcon />}
+          aria-label={t("night.next")}
           variant="secondary"
           className={styles.step}
           disabled={!selectedDate || !latestDate || selectedDate >= latestDate}
           onClick={() => selectedDate && goTo(addDays(selectedDate, 1))}
-        >
-          {t("night.next")}
-        </Button>
+        />
       </div>
 
       {hoursFailed && !searchParams.get("date") && (

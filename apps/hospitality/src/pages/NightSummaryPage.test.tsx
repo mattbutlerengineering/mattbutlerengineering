@@ -155,6 +155,18 @@ describe("NightSummaryPage", () => {
     );
   });
 
+  // At 375 px a worded "Next night" wrapped onto its own row; icon-only steps
+  // keep Previous, the date and Next on one row in every locale.
+  it("steps by icon-only buttons so the toolbar stays on one row on a phone", async () => {
+    renderPage();
+    await screen.findByRole("group", { name: "Covers served" });
+    for (const name of ["Previous night", "Next night"]) {
+      const step = screen.getByRole("button", { name });
+      expect(step.textContent?.trim()).toBe("");
+      expect(step.querySelector("svg")).not.toBeNull();
+    }
+  });
+
   it("announces the loaded date on every date change", async () => {
     renderPage();
     await screen.findByRole("group", { name: "Covers served" });
