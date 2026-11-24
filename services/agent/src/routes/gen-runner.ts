@@ -4,6 +4,7 @@ import { genLanguageModel, genProviderOptions, type GenProviderId } from "./gen-
 import { GEN_BLOCKED_TOOLS, genIsBashCommandBlocked } from "@mbe/agent-core";
 import { genSystemInstructions } from "./gen-stream.js";
 import { completeJsonElements } from "./gen-json-elements.js";
+import { createComponentCallScrubber } from "./gen-text-scrub.js";
 
 // ── Public types ──────────────────────────────────────────────────────
 
@@ -152,6 +153,8 @@ export function createGenRunner(config: GenRunnerConfig): GenRunner {
       let renderJson = "";
       let renderEmitted = 0;
       let trackingRender = false;
+      // F36: a model that writes a component call as prose must not show it.
+      const scrubber = createComponentCallScrubber();
       // Gemini sometimes answers a forced call with several parallel calls that
       // repeat element keys (2 of 6 live runs, 2026-11-12); only the first is rendered.
       let firstRenderId: string | undefined;
@@ -185,7 +188,9 @@ export function createGenRunner(config: GenRunnerConfig): GenRunner {
           }
           renderEmitted = ready.length;
         } else if (event.type === "text-delta") {
-          const content = textSoFar && stepEnded ? `\n\n${event.text}` : event.text;
+          const clean = scrubber.push(event.text);
+          if (clean === "") continue;
+          const content = textSoFar && stepEnded ? `\n\n${clean}` : clean;
           textSoFar = true;
           stepEnded = false;
           await onEvent({ type: "text", content });
@@ -233,6 +238,8 @@ export function createGenRunner(config: GenRunnerConfig): GenRunner {
           throw toError(event.error);
         }
       }
+      const tailText = scrubber.flush();
+      if (tailText !== "") await onEvent({ type: "text", content: tailText });
       // A tool call arrives whole or as a tool-error; JSON text can stop
       // mid-document on a stop other than `length`. The elements seen so far
       // must not pass (and be cached) as the whole tree. No text at all is

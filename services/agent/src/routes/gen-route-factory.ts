@@ -95,7 +95,29 @@ function generationFailureMessage(err: unknown): string {
   if (text.includes("no output")) {
     return "Generation finished without a UI. Try a simpler description.";
   }
+  const status = upstreamStatus(err);
+  if (status === 429 || status === 503 || status === 529) {
+    return "The assistant is busy right now. Wait a minute, then try again.";
+  }
   return "Generation failed before a UI came back. Your prompt is still here — try again.";
+}
+
+/** HTTP status of the upstream model call, read from the error or its cause. */
+function upstreamStatus(err: unknown): number | undefined {
+  for (let e: unknown = err, i = 0; e instanceof Error && i < 3; e = e.cause, i++) {
+    const r = e as Error & { statusCode?: unknown; status?: unknown };
+    const code = r.statusCode ?? r.status;
+    // toError's own 502 is ours, not the upstream's.
+    if (typeof code === "number" && e.message !== "Generation failed upstream") return code;
+  }
+  return undefined;
+}
+
+/** Name of the innermost error, so logs say what failed rather than our wrapper. */
+function innermostErrorClass(err: unknown): string {
+  let e: unknown = err;
+  while (e instanceof Error && e.cause instanceof Error) e = e.cause;
+  return e instanceof Error ? e.name : typeof e;
 }
 
 function toError(err: unknown): Error & { statusCode: number } {
@@ -436,7 +458,16 @@ export function createGenRoute<TSchema extends z.ZodType>(
                 await chargeIfUnreported("aborted");
                 return;
               }
-              request.log.error({ err }, "gen stream failed");
+              request.log.error(
+                {
+                  err,
+                  provider: GEN_PROVIDER,
+                  step: elementCount === 0 ? "before-first-event" : `after-${elementCount}-events`,
+                  errorClass: innermostErrorClass(err),
+                  upstreamStatus: upstreamStatus(err),
+                },
+                "gen stream failed"
+              );
               await chargeIfUnreported();
               if (!sent) {
                 closed = true;

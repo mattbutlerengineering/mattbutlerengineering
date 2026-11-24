@@ -5,7 +5,9 @@
  * tests catch them. Periodic testing only (weekly or on-demand) — not per-commit
  * since mutation testing is computationally expensive.
  *
- * Pilot scope: services/users (route handlers + business logic)
+ * Pilot scope: services/users (route handlers + business logic). The
+ * services/reservations scope (#9333) lives in stryker.reservations.config.mjs,
+ * which spreads this config and overrides only the scope.
  * Target mutation score: > 80%
  *
  * Note: This config targets services/users business logic and route handlers,

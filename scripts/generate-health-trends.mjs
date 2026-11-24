@@ -124,6 +124,22 @@ export function buildQueueEfficiencySeries(rows, options) {
 }
 
 /**
+ * Mutation score (percent) per collection date, from `metrics/mutation-score.jsonl`.
+ * A row without a numeric score stays as a hole.
+ *
+ * @param {readonly Record<string, unknown>[]} rows
+ * @param {{ windowDays?: number, today: string }} options
+ * @returns {Array<{ date: string, value: number | null, note: string | null }>}
+ */
+export function buildMutationScoreSeries(rows, options) {
+  return selectTrendWindow(Array.isArray(rows) ? rows : [], options).map((row) =>
+    typeof row.mutation_score === "number"
+      ? { date: row.date, value: row.mutation_score, note: null }
+      : { date: row.date, value: null, note: "no_score_recorded" }
+  );
+}
+
+/**
  * Parses a `.jsonl` file into rows, skipping blank and unparseable lines. The
  * file is appended to concurrently by local and cloud routines under
  * `merge=union`, so a torn line is a real possibility and must not abort the
@@ -193,6 +209,10 @@ export function buildHealthTrends({ root = ROOT, now = new Date(), windowDays } 
     readOrFallback(resolve(root, "metrics/process-metrics.jsonl"), "")
   );
 
+  const mutationRows = parseJsonl(
+    readOrFallback(resolve(root, "metrics/mutation-score.jsonl"), "")
+  );
+
   return {
     generated_at: now.toISOString(),
     window_days: windowDays ?? TREND_WINDOW_DAYS,
@@ -205,6 +225,11 @@ export function buildHealthTrends({ root = ROOT, now = new Date(), windowDays } 
       label: "Queue efficiency composite",
       source: "metrics/process-metrics.jsonl",
       points: buildQueueEfficiencySeries(processRows, options),
+    },
+    mutationScore: {
+      label: "Mutation score (pilot scope, %)",
+      source: "metrics/mutation-score.jsonl",
+      points: buildMutationScoreSeries(mutationRows, options),
     },
   };
 }

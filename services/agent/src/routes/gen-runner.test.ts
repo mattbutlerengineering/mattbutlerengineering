@@ -288,6 +288,26 @@ describe("createGenRunner", () => {
       ]);
     });
 
+    it("keeps raw component-call text out of the reply (F36)", async () => {
+      vi.mocked(streamText).mockReturnValueOnce({
+        fullStream: mockAsyncIterable([
+          { type: "text-delta", text: "Tonight: ReservationLi" },
+          { type: "text-delta", text: "st(items=[1" },
+          { type: "text-delta", text: "]) is full." },
+        ]),
+        usage: Promise.resolve({ inputTokens: 10, outputTokens: 5 }),
+        providerMetadata: Promise.resolve({}),
+      } as never);
+
+      const events: GenStreamEvent[] = [];
+      await runner.run([{ role: "user", content: "hi" }], {}, async (event) => {
+        events.push(event);
+      });
+
+      const text = events.map((e) => (e.type === "text" ? e.content : "")).join("");
+      expect(text).toBe("Tonight:  is full.");
+    });
+
     it("adds no break before the first text when an earlier step had none", async () => {
       vi.mocked(streamText).mockReturnValueOnce({
         fullStream: mockAsyncIterable([

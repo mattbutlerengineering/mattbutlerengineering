@@ -209,6 +209,19 @@ export const generatedSchemas = {
   NavigationMenu: z.object({
     items: z.array(z.object({ label: z.string(), href: z.string().optional(), children: z.array(z.object({ label: z.string(), href: z.string().optional() })).optional() })),
   }),
+  NumberInput: z.object({
+    value: z.number(),
+    min: z.number().optional(),
+    max: z.number().optional(),
+    step: z.number().optional(),
+    label: z.string().max(40).optional(),
+    hint: z.string().max(120).optional(),
+    error: z.boolean().optional(),
+    disabled: z.boolean().optional(),
+    disabledReason: z.string().max(120).optional(),
+    showOptional: z.boolean().optional(),
+    size: z.enum(["default", "large", "small"]).optional(),
+  }),
   PinInput: z.object({
     length: z.number().optional(),
     mask: z.boolean().optional(),
@@ -235,6 +248,11 @@ export const generatedSchemas = {
   ScrollArea: z.object({
     maxHeight: z.union([z.number(), z.string().max(20)]).optional(),
   }),
+  SegmentedControl: z.object({
+    segments: z.array(z.object({ id: z.string(), label: z.string(), disabled: z.boolean().optional() })),
+    value: z.string(),
+    size: z.enum(["md", "sm"]).optional(),
+  }),
   Select: z.object({
     options: z.array(z.object({ value: z.string(), label: z.string(), disabled: z.boolean().optional() })),
     value: z.string().optional(),
@@ -259,6 +277,18 @@ export const generatedSchemas = {
     height: z.union([z.number(), z.string().max(20)]).optional(),
     lines: z.number().optional(),
     gap: z.union([z.number(), z.string().max(20)]).optional(),
+  }),
+  Slider: z.object({
+    min: z.number().optional(),
+    max: z.number().optional(),
+    step: z.number().optional(),
+    value: z.number().optional(),
+    defaultValue: z.number().optional(),
+    label: z.string().max(40).optional(),
+    showValue: z.boolean().optional(),
+    disabled: z.boolean().optional(),
+    disabledReason: z.string().max(120).optional(),
+    "aria-label": z.string().optional(),
   }),
   Stack: z.object({
     direction: z.enum(["column", "row"]).optional(),

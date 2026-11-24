@@ -774,6 +774,14 @@ describe("AiHealthPage", () => {
           { date: "2026-09-16", value: 0.911, note: null },
         ],
       },
+      mutationScore: {
+        label: "Mutation score (pilot scope, %)",
+        source: "metrics/mutation-score.jsonl",
+        points: [
+          { date: "2026-11-09", value: 98.5, note: null },
+          { date: "2026-11-10", value: 99.07, note: null },
+        ],
+      },
     };
 
     /** Routes each URL to its own payload, or to a rejection. */
@@ -821,6 +829,16 @@ describe("AiHealthPage", () => {
       ).toBeInTheDocument();
     });
 
+    it("charts the mutation-score history and states it in text", async () => {
+      mockByUrl({ "/sensor-report.json": MOCK_REPORT, "/ai-health-trends.json": MOCK_TRENDS });
+      renderPage();
+
+      const panel = await screen.findByTestId("mutation-score-trend");
+      expect(panel).toHaveTextContent(
+        "Mutation score (pilot scope, %) over 2 days: 98.5% on 2026-11-09 to 99.1% on 2026-11-10."
+      );
+    });
+
     it("still charts the history when today's snapshot reading is unavailable", async () => {
       // A failed collection today says nothing about the trailing window, so
       // hiding the trend behind the snapshot's availability would hide the
@@ -846,7 +864,7 @@ describe("AiHealthPage", () => {
       renderPage();
 
       await waitFor(() =>
-        expect(screen.getAllByText("Trend history unavailable.")).toHaveLength(2)
+        expect(screen.getAllByText("Trend history unavailable.")).toHaveLength(3)
       );
       // The snapshot panels still render behind the missing trends.
       expect(screen.getByText("Key Metrics")).toBeInTheDocument();

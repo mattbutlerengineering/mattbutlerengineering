@@ -66,4 +66,17 @@ describe("SiteChrome", () => {
     render(<SiteChrome>page body</SiteChrome>);
     expect(screen.getByText("page body")).toBeDefined();
   });
+
+  it("offers a skip link as the first focusable element, targeting the main landmark", () => {
+    render(
+      <SiteChrome>
+        <main id="main-content">page body</main>
+      </SiteChrome>
+    );
+    const skip = screen.getByRole("link", { name: "Skip to main content" });
+    expect(skip.getAttribute("href")).toBe("#main-content");
+    const first = document.querySelector("a[href], button");
+    expect(first).toBe(skip);
+    expect(document.getElementById("main-content")).toBe(screen.getByRole("main"));
+  });
 });

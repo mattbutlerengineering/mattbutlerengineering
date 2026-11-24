@@ -263,6 +263,8 @@ F39 status: not reproduced in 4 of 4 replies. Keep open until a few more batches
 
 New observation: the element's row order follows the tool result and is not sorted by date (13.2 starts on Oct 26, then Nov 3, then Oct 16). Not logged as a finding.
 
+Resolved (#9472): multi-date rows now render sorted by date then time.
+
 ## Batch 14 (after #9097), 2026-11-18
 
 Re-check of F39 and the prose-date rule once `Deploy API Services` succeeded for merge `96a27ecbb` (#9097). Run against prod `mattbutlerengineering.com/hospitality` (chat drawer) with the existing signed-in Playwright MCP session, after a hard reload and a fresh conversation for every run. The 12-call budget ran out before six English replies: 8 English sends gave 4 replies and 4 "Generation failed" errors (see F40), so the tally is 4 English, 3 es-MX and 1 single-date control, 8 replies in all.
@@ -294,4 +296,4 @@ Prose-date rule status: not proven. English was clean in 3 of 3 replies that had
 
 New findings:
 
-- F40: `/api/gen/agent` answered 200 with `{"$genError":"Generation failed before a UI came back…"}` in 4 consecutive sends of "Show all of Matt Butler's reservations" (about 8 minutes). The chat shows the error and a "Try again" button. The same question worked once before and again after a different question, so it may be a transient outage or the 30/hour limit shared with other work. Not diagnosed; check the agent-api logs for that window.
+- F40: `/api/gen/agent` answered 200 with `{"$genError":"Generation failed before a UI came back…"}` in 4 consecutive sends of "Show all of Matt Butler's reservations" (about 8 minutes). The chat shows the error and a "Try again" button. The same question worked once before and again after a different question, so it may be a transient outage or the 30/hour limit shared with other work. Resolved (#9469): every failure after the first keepalive byte collapsed into one generic `$genError` and the log lacked provider and step, so the cause was never recorded. A busy upstream (429/503/529) now answers "The assistant is busy right now. Wait a minute, then try again.", and `gen stream failed` logs `provider`, `step`, `errorClass` and `upstreamStatus`. The upstream cause of the 2026-11-18 window is unrecoverable without that log line; the next occurrence names it.
