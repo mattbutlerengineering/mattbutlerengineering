@@ -10,6 +10,11 @@ export const DEMO_VENUE_ID = "demo-venue-bistro";
 const DEMO_GROUP_SLUG = "demo-dining";
 
 const TEMPLATE = SEED_VENUES[0];
+/** Guests may book up to 30 days ahead; Monday is closed so closed-day handling is visible on the demo. */
+const DEMO_SETTINGS = { ...TEMPLATE?.settings, maxAdvanceBooking: 30 };
+const DEMO_HOURS = (TEMPLATE?.hours ?? []).map((h) =>
+  h.dayOfWeek === 1 ? { ...h, openTime: "00:00", closeTime: "00:00", isClosed: true } : h
+);
 const DEMO_FLOOR_NAME = "Main Floor";
 
 /** Varied capacities 2-10 so party-size availability is non-trivial. x/y are canvas coordinates. */
@@ -79,8 +84,8 @@ export async function ensureDemoVenue(prisma: PrismaClient): Promise<{ venueId: 
   if (!TEMPLATE) throw new Error("No seed venue template available");
   const plan = planVenueMigration(
     {
-      operatingHours: TEMPLATE.hours,
-      settings: TEMPLATE.settings,
+      operatingHours: DEMO_HOURS,
+      settings: DEMO_SETTINGS,
       ianaTimezone: TEMPLATE.ianaTimezone,
     },
     new Date()
@@ -109,7 +114,7 @@ export async function ensureDemoVenue(prisma: PrismaClient): Promise<{ venueId: 
         ianaTimezone: TEMPLATE.ianaTimezone,
         currencyCode: "USD",
         operatingHours: plan.projection,
-        settings: TEMPLATE.settings,
+        settings: DEMO_SETTINGS,
       },
     });
     const rows = await tx.schedule.count({ where: { venueId: DEMO_VENUE_ID, isRegular: true } });
