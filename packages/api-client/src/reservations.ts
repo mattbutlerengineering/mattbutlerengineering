@@ -6,8 +6,14 @@ import type {
   CreateReservationRequest,
   UpdateReservationRequest,
   WalkInRequest,
+  EndOfServiceSummary,
 } from "@mbe/types";
-import { ReservationSchema, ReservationStatusSchema, paginatedResponseSchema } from "@mbe/types";
+import {
+  ReservationSchema,
+  ReservationStatusSchema,
+  endOfServiceEndpoints,
+  paginatedResponseSchema,
+} from "@mbe/types";
 import type { ApiClient, PerRequestOptions, QueryParams } from "./client.js";
 
 export interface ListReservationsParams {
@@ -210,6 +216,17 @@ const RESERVATION_BASE_PATH = "/api/v1/reservations";
 
 export class ReservationsClient {
   constructor(private client: ApiClient) {}
+
+  /**
+   * End-of-service summary for a venue's service date (counts only). Omit
+   * `date` for today in the venue's own time zone.
+   */
+  async getEndOfServiceSummary(params: {
+    venueId: string;
+    date?: string;
+  }): Promise<EndOfServiceSummary> {
+    return (await this.client.call(endOfServiceEndpoints.get, { query: params })).data;
+  }
 
   /**
    * List reservations with optional filters
