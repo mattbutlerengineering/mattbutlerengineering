@@ -196,9 +196,20 @@ describe("deposits in the prompt", () => {
     expect(prompt).not.toMatch(/You can't manage deposits yet/);
   });
 
-  it("keeps charging, refunding and waiving on the reservation page", () => {
+  // Deposit controls live in the booking's details on the Timeline page; the
+  // Reservations list has none, so "the reservation page" sent hosts nowhere.
+  it("keeps charging, refunding and waiving in the booking's details on the Timeline page", () => {
     expect(prompt).toMatch(
-      /Charging, refunding or waiving a deposit stays on the reservation page/
+      /Charging, refunding or waiving a deposit stays in the booking's details on the Timeline page/
     );
+    expect(prompt).not.toMatch(/reservation page/);
+  });
+
+  it("never states a partial refund amount it cannot see", () => {
+    expect(prompt).toMatch(/partial_refunded.*refunded amount isn't shown/);
+  });
+
+  it("warns that a no-show or cancellation may capture or refund the deposit", () => {
+    expect(prompt).toMatch(/no-show or cancelling may capture or refund the deposit/);
   });
 });

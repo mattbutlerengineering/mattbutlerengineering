@@ -7,7 +7,7 @@ import { NO_VENUE, failureLog, readFailure, type ApiClient } from "./gen-tool-su
 
 /**
  * A read-only chat tool for a booking's deposit (#9480). Charging, refunding and
- * waiving stay on the reservation page: no deposit write is wired here. Only what a
+ * waiving stay in the booking's details on the Timeline page: no deposit write is wired here. Only what a
  * host needs is returned; Stripe ids and payment details never leave the service.
  */
 
@@ -47,7 +47,7 @@ export function createDepositTools(
   return {
     get_deposit_status: tool({
       description:
-        "Read a booking's deposit: its status (pending, held, applied, refunded, partial_refunded, forfeited, uncollectable), amount in cents with currency, and when it was held, captured, refunded or forfeited. Find the reservationId with lookup_reservation first. Read-only: charging, refunding or waiving a deposit can't be done here and stays on the reservation page.",
+        "Read a booking's deposit: its status (pending, held, applied, refunded, partial_refunded, forfeited, uncollectable), amount in cents with currency, and when it was held, captured, refunded or forfeited. Find the reservationId with lookup_reservation first. Read-only: charging, refunding or waiving a deposit can't be done here and stays in the booking's details on the Timeline page.",
       inputSchema: z.object({
         reservationId: z.string().min(1).describe("The reservation's ID, from a lookup"),
       }),
