@@ -179,6 +179,10 @@ export const generatedSchemas = {
     footer: z.string().optional(),
     role: z.enum(["alertdialog", "dialog"]).optional(),
   }),
+  DisabledTooltip: z.object({
+    disabled: z.boolean().optional(),
+    disabledReason: z.string().max(120).optional(),
+  }),
   Divider: z.object({
     orientation: z.enum(["horizontal", "vertical"]).optional(),
     label: z.string().max(20).optional(),
@@ -206,6 +210,9 @@ export const generatedSchemas = {
     action: z.string().optional(),
     variant: z.enum(["elevated", "flat"]).optional(),
     size: z.enum(["md", "sm"]).optional(),
+  }),
+  ErrorBoundary: z.object({
+    fallback: z.string().optional(),
   }),
   Footer: z.object({
     variant: z.enum(["minimal", "rich"]).optional(),
@@ -252,6 +259,9 @@ export const generatedSchemas = {
     showOptional: z.boolean().optional(),
   }),
   InputGroup: z.object({}),
+  Kbd: z.object({
+    children: z.string().max(12),
+  }),
   Meter: z.object({
     value: z.number().nullable(),
     min: z.number().optional(),
@@ -357,6 +367,10 @@ export const generatedSchemas = {
     disabledReason: z.string().max(120).optional(),
     "aria-label": z.string().optional(),
   }),
+  SplitScreenExit: z.object({
+    active: z.boolean(),
+    announcement: z.string().max(120).optional(),
+  }),
   Stack: z.object({
     direction: z.enum(["column", "row"]).optional(),
     gap: z.enum(["2xl", "2xs", "3xl", "lg", "md", "sm", "xl", "xs"]).optional(),
@@ -416,6 +430,9 @@ export const generatedSchemas = {
     maxLength: z.number().optional(),
     disabledReason: z.string().max(120).optional(),
     showOptional: z.boolean().optional(),
+  }),
+  ThemeToggle: z.object({
+    theme: z.enum(["dark", "light"]),
   }),
   TimePicker: z.object({
     step: z.number().optional(),
