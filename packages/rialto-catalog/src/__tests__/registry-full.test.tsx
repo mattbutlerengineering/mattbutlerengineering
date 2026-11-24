@@ -929,6 +929,11 @@ describe("generated-schemas", () => {
     expect(generatedSchemas.Heading.safeParse({ size, children: "Hi" }).success).toBe(false);
   });
 
+  // Neither the Navbar schema nor its adapter carries `search` (#9548).
+  it("Navbar description promises no search field the schema lacks", () => {
+    expect(catalogMeta.Navbar?.description).not.toMatch(/search/i);
+  });
+
   it("Dialog schema requires open field", () => {
     // open is z.boolean() (not optional) — missing it should fail
     const result = generatedSchemas.Dialog.safeParse({ title: "Test" });
