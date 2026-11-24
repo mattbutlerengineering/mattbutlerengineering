@@ -88,7 +88,10 @@ export function SettingsStep({
         {t("onboarding.settings.useRecommended")}
       </Button>
       <Stack gap="md">
-        <FilledField filled={filled.includes("defaultReservationDuration")}>
+        <FilledField
+          filled={filled.includes("defaultReservationDuration")}
+          label={t("onboarding.settings.durationLabel")}
+        >
           <Input
             label={t("onboarding.settings.durationLabel")}
             type="number"
@@ -107,7 +110,10 @@ export function SettingsStep({
           />
         </FilledField>
 
-        <FilledField filled={filled.includes("maxPartySize")}>
+        <FilledField
+          filled={filled.includes("maxPartySize")}
+          label={t("availability.bookingRules.largestParty")}
+        >
           <Input
             label={t("availability.bookingRules.largestParty")}
             type="number"
@@ -126,7 +132,10 @@ export function SettingsStep({
           />
         </FilledField>
 
-        <FilledField filled={filled.includes("advanceBookingDays")}>
+        <FilledField
+          filled={filled.includes("advanceBookingDays")}
+          label={t("availability.bookingRules.daysAhead")}
+        >
           <Input
             label={t("availability.bookingRules.daysAhead")}
             type="number"

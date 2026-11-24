@@ -66,7 +66,7 @@ test.describe("Onboarding chat", () => {
     await startOnboarding(page);
 
     await tellTheChat(page, SENTENCE);
-    await expect(page.getByLabel("Timezone")).toHaveValue(/Lisbon/);
+    await expect(page.getByRole("combobox", { name: /Timezone/ })).toHaveValue(/Lisbon/);
     await expect(page.getByText("Filled from chat")).toHaveCount(2);
     await expect(page.getByText("Time zone: Lisbon · Currency: EUR")).toBeVisible();
     await expect(page.getByRole("status")).toHaveText("Time zone and currency filled from chat");
@@ -82,8 +82,8 @@ test.describe("Onboarding chat", () => {
 
     await expect(page.getByRole("log")).toBeVisible();
     await tellTheChat(page, SENTENCE);
-    await expect(page.getByLabel(/^Largest party/)).toHaveValue("12");
-    await expect(page.getByLabel(/^Days ahead/)).toHaveValue("60");
+    await expect(page.getByRole("spinbutton", { name: /^Largest party/ })).toHaveValue("12");
+    await expect(page.getByRole("spinbutton", { name: /^Days ahead/ })).toHaveValue("60");
     expect(requests[1]?.step).toBe("settings");
     // A fresh conversation per step: nothing from the location step rides along.
     expect(requests[1]?.messages).toHaveLength(1);

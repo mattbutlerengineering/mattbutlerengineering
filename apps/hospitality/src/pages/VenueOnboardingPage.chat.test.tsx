@@ -261,9 +261,14 @@ describe("onboarding chat beside the form", () => {
     await say("long dinners, big tables");
 
     await waitFor(() =>
-      expect(screen.getByLabelText(/^Largest party/)).toHaveProperty("value", "12")
+      expect(screen.getByRole("spinbutton", { name: /^Largest party/ })).toHaveProperty(
+        "value",
+        "12"
+      )
     );
-    expect(screen.getByLabelText(/^Default Reservation Duration/)).toHaveProperty("value", "120");
+    expect(
+      screen.getByRole("spinbutton", { name: /^Default Reservation Duration/ })
+    ).toHaveProperty("value", "120");
     expect(screen.getByRole("status").textContent).toBe(
       "Reservation length, largest party, and days ahead filled from chat"
     );
@@ -360,7 +365,9 @@ describe("onboarding chat beside the form", () => {
     fireEvent.click(
       within(chat).getByRole("button", { name: "Review the fields filled from chat" })
     );
-    expect(document.activeElement).toBe(screen.getByLabelText("Timezone"));
+    expect(document.activeElement).toBe(
+      screen.getByLabelText("Timezone").closest("[data-filled-from-chat]")
+    );
   });
 
   it("clears a field's mark, and its summary entry, when the owner edits that field", async () => {

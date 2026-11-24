@@ -153,13 +153,9 @@ export function useOnboardingChatState({
 /** Moves focus to the first field marked as filled from chat, and brings it into view. */
 export function focusFirstFilledField(reducedMotion: boolean): void {
   const mark = document.querySelector<HTMLElement>("[data-filled-from-chat]");
-  const control = mark?.querySelector<HTMLElement>("input, select, button, [role='combobox']");
-  if (!mark || !control) return;
-  control.focus({ preventScroll: true });
-  // rialto's Autocomplete opens its list when focused with text in it, which would cover the
-  // form the owner came to review. Escape closes it without touching the text.
-  if (control.getAttribute("role") === "combobox") {
-    control.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-  }
+  if (!mark) return;
+  // The wrapper takes focus, not the control: rialto's Autocomplete opens its list when focused
+  // with text in it, which would cover the form the owner came to review. The next Tab enters it.
+  mark.focus({ preventScroll: true });
   mark.scrollIntoView?.({ block: "center", behavior: reducedMotion ? "auto" : "smooth" });
 }

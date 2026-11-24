@@ -15,6 +15,7 @@
       "heading": "Cuéntanos sobre tu restaurante",
       "region": "Asistente de configuración",
       "filledTag": "Completado desde el chat",
+      "filledGroup": "{{field}}, completado desde el chat",
       "filledAnnouncement": "{{fields}}: completado desde el chat",
       "fallbackNote": "Terminemos este paso con el formulario.",
       "rejected": "Eso no encaja en este paso ({{errors}}), así que dejé tu formulario como estaba.",

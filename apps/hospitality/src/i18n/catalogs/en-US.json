@@ -15,6 +15,7 @@
       "heading": "Tell us about your restaurant",
       "region": "Setup assistant",
       "filledTag": "Filled from chat",
+      "filledGroup": "{{field}}, filled from chat",
       "filledAnnouncement": "{{fields}} filled from chat",
       "fallbackNote": "Let's finish this step with the form.",
       "rejected": "That doesn't fit this step ({{errors}}), so I left your form as it was.",

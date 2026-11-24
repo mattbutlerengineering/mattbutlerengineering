@@ -13,6 +13,12 @@
   box-shadow: 0 0 0 var(--rialto-space-xs) var(--rialto-accent-glow);
 }
 
+/* Only script focuses the wrapper (Review), so a plain :focus ring is right. */
+.filled:focus {
+  outline: none;
+  box-shadow: var(--rialto-shadow-focus);
+}
+
 .tag {
   align-self: flex-end;
 }

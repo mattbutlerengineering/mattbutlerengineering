@@ -231,7 +231,10 @@ export function LocationTimeStep({
   return (
     <div className={styles.stepContainer}>
       <Stack gap="md">
-        <FilledField filled={filled.includes("ianaTimezone")}>
+        <FilledField
+          filled={filled.includes("ianaTimezone")}
+          label={t("onboarding.locationTime.timezoneLabel")}
+        >
           <Autocomplete
             label={t("onboarding.locationTime.timezoneLabel")}
             placeholder={t("onboarding.locationTime.timezonePlaceholder")}
@@ -257,7 +260,10 @@ export function LocationTimeStep({
           </Text>
         </FilledField>
 
-        <FilledField filled={filled.includes("currencyCode")}>
+        <FilledField
+          filled={filled.includes("currencyCode")}
+          label={t("onboarding.locationTime.currencyLabel")}
+        >
           <Select
             label={t("onboarding.locationTime.currencyLabel")}
             options={currencySelectOptions}
