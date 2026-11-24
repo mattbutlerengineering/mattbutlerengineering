@@ -103,6 +103,23 @@ export const catalogMeta: Record<string, CatalogMeta> = {
       "Editable, filterable listbox for picking from many options. Always provide a label and options array. Use for single selection with type-ahead, or set multiple for tag-style multi-select with removable chips. Supports async/loading and empty states announced to screen readers. Prefer over Select when users benefit from typing to filter a long list.",
     charLimits: { label: 40 },
   },
+  CommandPalette: {
+    name: "CommandPalette",
+    description:
+      "Searchable command palette for jumping to pages or running actions by typing. Use for staff shortcuts across a busy service. Give items each with an id and short label, optionally grouped, and a placeholder.",
+    charLimits: { placeholder: 60 },
+  },
+  ConfirmDialog: {
+    name: "ConfirmDialog",
+    description:
+      "Confirmation dialog that asks the user to approve or cancel an action before it happens. Use for cancelling a booking, removing a guest or any step that is hard to undo. Give a short question as title, optional description, and set variant to destructive for irreversible actions.",
+    charLimits: { title: 80, description: 200, confirmLabel: 24, cancelLabel: 24 },
+  },
+  ContextMenu: {
+    name: "ContextMenu",
+    description:
+      "Right-click menu of actions attached to an element, such as a reservation or table. Use for secondary actions like edit, move or cancel. Give items with short labels; mark risky ones destructive.",
+  },
   DataList: {
     name: "DataList",
     description:
@@ -199,6 +216,11 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     description:
       "Instrument showing a multi-party exchange such as an OIDC sign-in, webhook confirmation, or device pairing: named stations joined by legs with a credential pulse travelling along the active one. Set stations to 2+ unique short names in order, state=idle, negotiating (default), settled or failed, and lane to the index of the active leg (0 = first to second station). aria-label is required and names the exchange (e.g. 'Verifying your sign-in'). Pair it with Text, Badge or DataList for per-station results.",
     charLimits: { "aria-label": 80 },
+  },
+  HoverCard: {
+    name: "HoverCard",
+    description:
+      "Rich preview card that opens when a trigger is hovered or focused. Use to show extra detail about a guest, table or reservation without leaving the page. Pass a short trigger element as children and the preview as content.",
   },
   IconButton: {
     name: "IconButton",

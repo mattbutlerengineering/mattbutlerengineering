@@ -1180,7 +1180,13 @@
           "description": "Ordered list of group names — ungrouped items appear first. With a query,\ngroups reorder by the strongest match they contain (see `rankCommandMatch`);\nthis order only breaks ties."
         }
       ],
-      "slots": []
+      "slots": [],
+      "characterLimits": [
+        {
+          "prop": "placeholder",
+          "max": 60
+        }
+      ]
     },
     {
       "name": "ComponentRegistry",
@@ -1245,19 +1251,20 @@
       "slots": [],
       "characterLimits": [
         {
+          "prop": "cancelLabel",
+          "max": 24
+        },
+        {
           "prop": "confirmLabel",
-          "max": 20,
-          "reason": "Confirm button text; concise verb"
+          "max": 24
         },
         {
           "prop": "description",
-          "max": 120,
-          "reason": "Confirmation body; explains consequences"
+          "max": 200
         },
         {
           "prop": "title",
-          "max": 60,
-          "reason": "Confirmation heading; clear and direct"
+          "max": 80
         }
       ]
     },
