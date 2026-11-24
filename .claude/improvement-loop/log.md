@@ -1206,3 +1206,27 @@ No `blocker: no-browser` (Chromium resolved at `/opt/pw-browsers/chromium_headle
 ### Skipped Issues
 
 0 skipped after max retries (`agent-skip` label: empty).
+
+## 2026-11-24 — mbe-ui-quality
+
+State: `state.mjs checkout` exit 0, `source: branch` (`ui-quality/ledger` @ `5984b5b8`, merged `origin/main` `7a09fbaf`, `resolved: []` — no conflicts). All three app builds succeeded — no `unreachable:build` rows.
+
+**Routes:** 40 due (36 rialto-web, 2 hospitality, 2 marketing), 40 captured, 40 audited. 26 rows `unreachable:auth` (all hospitality authenticated routes), never captured. Unjudged: 0. Dropped tells: 0.
+
+**Coverage before this fire: 100%** (141/141, `coverage.mjs` exit 0 — no breach).
+
+**Findings:** mechanical 0, judged 0. Every one of the 40 routes was judged clean against the rubric's judged tells (rubric v1, 10 judged tells); both viewports (1280x720 and 375x812) were opened for every route. `detect.mjs mechanical` exited 0 with two `out of inventory` notes (marketing `ai-health` and `shipped` link `/gen/`, mount `/gen` → `apps/gen`) — correctly no finding. Judgement notes: the `components/page-header` dark band and the `components/split-flap` Solari cells were judged _not_ `agent-built/unrequested-dark-theme` — both are deliberate dark scenes built from rialto tokens (`darkSurface` override), which the rubric explicitly permits. The `components/sidebar` "Key Features" block is a four-card grid with two-word titles, but carries no icons, so it is not `agent-built/icon-card-grid` and not a three-card row.
+
+Three real defects were seen that the rubric has no judged tell for, so none was filed (the judge may name listed tell ids only): `components/navigation-menu` overflows horizontally at 375px (nav items clipped at the right edge); `examples/reservation-kanban` renders its "N guests" Badge stretched full-width inside each card; `components/stat` shows an up arrow against a negative delta (`LAP TIME ↑ -0.342`). Recording them here rather than inventing tells — promoting any of them needs a human rubric bump.
+
+**Calibration stamp: `stale`.** `calibration-status --model-id claude-opus-5` returned exit 3 (`stale`) — the only calibration trigger. `rate.mjs pairs --calibration` then exited 2: `docs/ui-quality/calibration.json` still has no labelled pairs (the placeholder set; a human labels >= 10 pairs once at the Verify stage). Logged, not retried. The re-asked `calibration-status` was still exit 3 (`stale`), so this is a stale stamp calibration could not clear — agent-built findings stay suppressed by design. Rating proceeded: 14 pairs over 3 apps judged and recorded (`rate.mjs record` exit 0 — hospitality 0, marketing 2.5, rialto-web 3.33).
+
+**Filing:** no rubric migration needed (every findings-ledger key is `r1`, rubric_version 1). 37 distinct issue numbers resolved — all 37 `closed`. The labelled-issue set was read with `mcp__github__list_issues` (labels `ui-quality`, both states, `perPage: 100`): 40 issues, `hasNextPage: false`, `totalCount: 40`, complete in one page, all closed; the 3 beyond the findings ledger are the historical `ui-quality: filing blocked by unknown labelled issues` escalation issues (#7477, #7908, #8959), all closed. **Note:** `mcp__github__search_issues` does not exist in this sandbox, so the label-scoped `list_issues` call was used in its place; it returns the same `{number, title, state}` set with verifiable full pagination, so the plan's completeness guard is still satisfied. `findings.mjs plan --calibration-status stale` exited 0 with **no actions, 0 seeds, no escalation file**. Issues created 0, reopened 0, commented 0. Seeds 0.
+
+**Fix PR: none** — the plan carried no `fix_pr_candidate` (there were no findings to fix).
+
+**P1 SLA:** 0 open `ui-quality:p1` issues; `p1-age.mjs --escalate` exit 0, 0 of 0 older than 7 days, 0 escalation actions. 0 breaches escalated.
+
+Checkpoint `chore(ui-quality): checkpoint 2026-11-24` committed and pushed to `ui-quality/ledger` (`516adc480`). `ledger.mjs record` exit 0: due 40, audited 40, unreachable auth 26 / build 0, unjudged 0, dropped_tells 0.
+
+No `blocker: no-browser` (Chromium resolved at `/opt/pw-browsers/chromium_headless_shell-1243/...`), no stopped filing, no pipeline bug. A clean fire: everything due was captured and judged, and nothing the rubric names was found.
