@@ -3,6 +3,7 @@ import { genLanguageModel, genProviderOptions, type GenProviderId } from "./gen-
 // Permission policy sourced from agent-core — not duplicated here (security requirement)
 import { GEN_BLOCKED_TOOLS, genIsBashCommandBlocked } from "@mbe/agent-core";
 import { genSystemInstructions } from "./gen-stream.js";
+import { PROPOSE_PATCH_TOOL } from "./gen-onboarding-tools.js";
 import { completeJsonElements } from "./gen-json-elements.js";
 import { createComponentCallScrubber } from "./gen-text-scrub.js";
 
@@ -213,7 +214,7 @@ export function createGenRunner(config: GenRunnerConfig): GenRunner {
           await handleToolCall(event, onEvent, already);
           if (event.toolName === "render_component") trackingRender = false;
         } else if (event.type === "tool-result") {
-          if (event.toolName === "propose_onboarding_patch") {
+          if (event.toolName === PROPOSE_PATCH_TOOL) {
             const out = event.output as { ok?: boolean; patch?: unknown } | undefined;
             if (out?.ok === true) await onEvent({ type: "onboarding_patch", patch: out.patch });
           }

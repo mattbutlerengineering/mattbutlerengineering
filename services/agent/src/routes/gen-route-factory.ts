@@ -331,8 +331,9 @@ export function createGenRoute<TSchema extends z.ZodType>(
             label: costLogLabel,
             telemetry: telemetry(finishReason),
           });
-          config.onRunCost?.(request, failedGenCostMicroUsd());
-          await trackGenSpend(failedGenCostMicroUsd(), request.log);
+          const failedCost = failedGenCostMicroUsd();
+          config.onRunCost?.(request, failedCost);
+          await trackGenSpend(failedCost, request.log);
         };
         // Fired when the client disconnects (the response stream is cancelled),
         // so the model call stops instead of spending tokens nobody will read.

@@ -46,6 +46,11 @@ const STEP_FIELDS = {
 
 type StepName = keyof typeof STEP_FIELDS;
 
+/** The field names the model may set (and see in the draft) for a step. */
+export function onboardingStepFields(step: StepName): string[] {
+  return Object.keys(STEP_FIELDS[step]);
+}
+
 export const ONBOARDING_STEPS = Object.keys(STEP_FIELDS) as [StepName, ...StepName[]];
 
 const STEP_SCHEMAS: Record<StepName, z.ZodType<Record<string, string>>> = Object.fromEntries(

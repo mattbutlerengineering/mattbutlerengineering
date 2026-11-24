@@ -64,7 +64,8 @@ export function addOnboardingSpend(
   }
   spend.set(userId, {
     startedAt: entry?.startedAt ?? now,
-    microUsd: (entry?.microUsd ?? 0) + microUsd,
+    // A negative delta settles a reservation against the real cost; never below zero.
+    microUsd: Math.max(0, (entry?.microUsd ?? 0) + microUsd),
   });
 }
 

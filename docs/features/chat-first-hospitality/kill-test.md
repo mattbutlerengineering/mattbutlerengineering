@@ -36,6 +36,7 @@ Wrong or rejected: pending of 10. Decision: pending.
 ## Cost (#9476)
 
 - Ceiling: **$0.05 per user over a 24 h onboarding window**, override with `GEN_ONBOARDING_CEILING_USD`. At the cheap model that is roughly ten or more turns. Past it the route answers HTTP 200 with one line `{"type":"onboarding_ceiling","fallback":"form","ceilingUsd":0.05}`; the client continues with the plain form, no error toast.
+- Each request reserves one worst-case turn (the output cap's cost) at preflight and settles to the real cost when the run finishes, fails or aborts, so parallel requests from a user at $0 cannot all pass. A request that dies before the run starts (for example a tool-setup throw) leaves its reservation held until the 24 h window ends.
 - State is in process memory, so with N instances one user can spend up to N times the ceiling; the aggregate `GEN_DAILY_CEILING_USD` still bounds the total.
 - Each turn logs two lines, both with `userId`:
   - `gen-onboarding cost log` (`logGenCost`: tokens, cache, duration)

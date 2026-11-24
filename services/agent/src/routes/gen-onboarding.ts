@@ -6,7 +6,9 @@ import {
   PROPOSE_PATCH_TOOL,
   createOnboardingTools,
   isTimeZone,
+  onboardingStepFields,
 } from "./gen-onboarding-tools.js";
+import { failedGenCostMicroUsd } from "../services/gen-spend-ceiling.js";
 import {
   addOnboardingSpend,
   getOnboardingCeilingMicroUsd,
@@ -55,7 +57,10 @@ type GenOnboardingBody = z.infer<typeof GenOnboardingBodySchema>;
 
 /** Short on purpose: it is paid for on every turn. */
 function onboardingSystemPrompt(parsed: GenOnboardingBody): string {
+  // Only this step's own fields reach the prompt: the draft is client-supplied.
+  const allowed = onboardingStepFields(parsed.step);
   const draft = Object.entries(parsed.draft)
+    .filter(([k]) => allowed.includes(k))
     .map(([k, v]) => `${k}=${v === "" ? "(empty)" : v}`)
     .join(", ");
   return [
@@ -73,6 +78,9 @@ function onboardingSystemPrompt(parsed: GenOnboardingBody): string {
     .join("\n");
 }
 
+/** Worst-case spend held for each in-flight request until its real cost lands. */
+const reservations = new WeakMap<object, number>();
+
 export const genOnboardingRoutes = createGenRoute({
   path: "/api/gen/onboarding",
   // Distinct label: the log query for cost per completed onboarding filters on it.
@@ -86,14 +94,24 @@ export const genOnboardingRoutes = createGenRoute({
   preflight: (request) => {
     const userId = request.user?.id;
     const ceiling = getOnboardingCeilingMicroUsd();
-    if (!userId || !isOnboardingCeilingReached(userId, ceiling)) return undefined;
-    request.log.info({ userId, ceilingMicroUsd: ceiling }, "gen-onboarding ceiling reached");
-    return [{ type: "onboarding_ceiling", fallback: "form", ceilingUsd: ceiling / 1_000_000 }];
+    if (!userId) return undefined;
+    if (isOnboardingCeilingReached(userId, ceiling)) {
+      request.log.info({ userId, ceilingMicroUsd: ceiling }, "gen-onboarding ceiling reached");
+      return [{ type: "onboarding_ceiling", fallback: "form", ceilingUsd: ceiling / 1_000_000 }];
+    }
+    // Reserve the worst-case turn so parallel requests from a $0 user cannot all pass;
+    // onRunCost swaps the reservation for the real cost.
+    const reservation = failedGenCostMicroUsd();
+    reservations.set(request, reservation);
+    addOnboardingSpend(userId, reservation);
+    return undefined;
   },
   onRunCost: (request, costMicroUsd) => {
     const userId = request.user?.id;
     if (!userId) return;
-    addOnboardingSpend(userId, costMicroUsd);
+    const reserved = reservations.get(request) ?? 0;
+    reservations.delete(request);
+    addOnboardingSpend(userId, costMicroUsd - reserved);
     request.log.info({ userId, costMicroUsd }, "gen-onboarding spend");
   },
   getTools: () => createOnboardingTools(),
