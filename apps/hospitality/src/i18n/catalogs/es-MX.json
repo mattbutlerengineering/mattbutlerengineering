@@ -309,6 +309,7 @@
       "settings": "Configuración",
       "users": "Usuarios",
       "tonightsService": "Servicio de esta noche",
+      "night": "La noche en números",
       "timeline": "Cronología",
       "reservations": "Reservas",
       "waitlist": "Lista de espera",
@@ -334,6 +335,7 @@
       "guests": "Clientes",
       "waitlist": "Lista de espera",
       "briefing": "Servicio de esta noche",
+      "night": "La noche en números",
       "floorPlan": "Plano de sala",
       "bookingWidget": "Widget de reservas",
       "onboarding": "Nuevo local",
@@ -3713,6 +3715,25 @@
       "heading": "No hay nada en el libro para {{date}}.",
       "description": "Cambia la fecha o asigna mesa a clientes sin reserva desde la Línea de tiempo.",
       "action": "Abrir Línea de tiempo"
+    }
+  },
+  "night": {
+    "title": "La noche en números",
+    "description": "Cómo salió el servicio, en una sola pantalla",
+    "loading": "Cargando la noche en números…",
+    "loaded": "La noche en números del {{date}} se cargó.",
+    "serviceDate": "Fecha de servicio",
+    "previous": "Noche anterior",
+    "next": "Noche siguiente",
+    "hoursUnknown": "No se pudo leer tu horario, así que se muestra el día calendario. Elige otra fecha si lo necesitas.",
+    "loadError": "No se pudo cargar la noche en números.",
+    "covers": "Cubiertos servidos",
+    "tableTurns": "Rotaciones de mesa",
+    "noShows": "Ausencias",
+    "turnedAway": "Rechazados",
+    "empty": {
+      "heading": "No se atendió ninguna mesa el {{date}}.",
+      "description": "Elige otra fecha de servicio para mirar atrás."
     }
   },
   "profile": {

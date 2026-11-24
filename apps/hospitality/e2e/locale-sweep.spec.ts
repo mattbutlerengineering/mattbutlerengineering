@@ -217,7 +217,11 @@ async function overflows(page: Page): Promise<string[]> {
       range.selectNodeContents(node);
       const textBox = range.getBoundingClientRect();
       const clip = clippingAncestor(parent);
-      if (textBox.width === 0 || !clip || hiddenOnPurpose(parent)) continue;
+      // The clipping box itself may be the visually-hidden one (LiveStatus wraps its sentence
+      // in a span inside a 1px region), so a clip that small hides on purpose too.
+      if (textBox.width === 0 || !clip || hiddenOnPurpose(parent) || hiddenOnPurpose(clip)) {
+        continue;
+      }
       const box = clip.getBoundingClientRect();
       if (textBox.right < box.left - window.innerWidth) continue;
       if (textBox.right > box.right + 1 || textBox.left < box.left - 1) {
@@ -658,6 +662,11 @@ async function mockGatedRoutes(page: Page, route: string): Promise<void> {
     [
       /\/api\/v1\/venues\/[^/?]+\/availability\/changes(\?.*)?$/,
       { items: [], total: 0, offset: 0 },
+    ],
+    // `night` (#9483): the end-of-service summary, so the figures and their labels are swept.
+    [
+      /\/api\/v1\/reservations\/metrics\/end-of-service\?/,
+      { date: day, venueId: VENUE_ID, covers: 84, tableTurns: 31, noShows: 1, turnedAway: null },
     ],
   ];
   for (const [pattern, data] of answers) {
