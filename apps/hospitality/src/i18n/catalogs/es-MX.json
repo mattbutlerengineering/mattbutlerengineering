@@ -18,8 +18,16 @@
       "filledAnnouncement": "{{fields}}: completado desde el chat",
       "fallbackNote": "Terminemos este paso con el formulario.",
       "rejected": "Eso no encaja en este paso ({{errors}}), así que dejé tu formulario como estaba.",
+      "tryAgain": "Probar el chat otra vez",
+      "review": "Revisar",
+      "reviewLabel": "Revisar los campos completados desde el chat",
+      "summaryItem": "{{field}}: {{value}}",
+      "notOffered": {
+        "ianaTimezone": "la zona horaria \"{{value}}\" no está en la lista",
+        "currencyCode": "la moneda \"{{value}}\" no está en la lista"
+      },
       "suggestion": {
-        "locationTime": "Somos un bistró de 60 lugares en Lisboa",
+        "locationTime": "Estamos en Lisboa y cobramos en euros",
         "settings": "Grupos de hasta 8, 90 minutos por mesa, reservas con 60 días de anticipación"
       },
       "fields": {

@@ -18,8 +18,16 @@
       "filledAnnouncement": "{{fields}} : rempli depuis le clavardage",
       "fallbackNote": "Terminons cette étape avec le formulaire.",
       "rejected": "Cela ne convient pas à cette étape ({{errors}}); j'ai donc laissé votre formulaire tel quel.",
+      "tryAgain": "Réessayer le clavardage",
+      "review": "Vérifier",
+      "reviewLabel": "Vérifier les champs remplis depuis le clavardage",
+      "summaryItem": "{{field}} : {{value}}",
+      "notOffered": {
+        "ianaTimezone": "le fuseau horaire « {{value}} » n'est pas dans la liste",
+        "currencyCode": "la devise « {{value}} » n'est pas dans la liste"
+      },
       "suggestion": {
-        "locationTime": "Nous sommes un bistro de 60 places à Lisbonne",
+        "locationTime": "Nous sommes à Lisbonne et nous facturons en euros",
         "settings": "Groupes jusqu'à 8, 90 minutes par table, réservations 60 jours à l'avance"
       },
       "fields": {

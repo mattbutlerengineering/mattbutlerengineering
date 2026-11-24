@@ -46,6 +46,10 @@ async function collect(iterable: AsyncIterable<unknown>): Promise<unknown[]> {
   return out;
 }
 
+function patchLineFor(step: string, data: Record<string, string>) {
+  return { type: "onboarding_patch", patch: { step, data } };
+}
+
 const PATCH_LINE = {
   type: "onboarding_patch",
   patch: { step: "locationTime", data: { ianaTimezone: "Europe/Lisbon", currencyCode: "EUR" } },
@@ -108,13 +112,36 @@ describe("createOnboardingChatStream", () => {
     expect(onMalformed).toHaveBeenCalledTimes(1);
   });
 
-  it("steps aside on the ceiling line and stops reading", async () => {
+  it("merges a second patch in the same response over the first, not over stale data", async () => {
+    const { stream, onApplied } = setup([
+      patchLineFor("locationTime", { ianaTimezone: "Europe/Lisbon" }),
+      patchLineFor("locationTime", { currencyCode: "EUR" }),
+    ]);
+    await collect(stream(request()));
+    expect(onApplied).toHaveBeenCalledTimes(2);
+    expect(onApplied.mock.calls[1]?.[0]).toEqual({
+      step: "locationTime",
+      data: { ianaTimezone: "Europe/Lisbon", currencyCode: "EUR" },
+      changed: ["currencyCode"],
+    });
+  });
+
+  it("starts a rejection on its own paragraph after streamed text", async () => {
+    const { stream } = setup([
+      { type: "text", content: "Got it." },
+      patchLineFor("locationTime", { ianaTimezone: "" }),
+    ]);
+    const out = (await collect(stream(request()))) as { content: string }[];
+    expect(out.map((l) => l.content).join("")).toBe("Got it.\n\nTime zone is required");
+  });
+
+  it("steps aside for good on the ceiling line and stops reading", async () => {
     const { stream, onFallback } = setup([
       { type: "onboarding_ceiling", fallback: "form", ceilingUsd: 0.05 },
       { type: "text", content: "never seen" },
     ]);
     const out = await collect(stream(request()));
-    expect(onFallback).toHaveBeenCalledTimes(1);
+    expect(onFallback).toHaveBeenCalledWith("ceiling");
     expect(out).toEqual([]);
   });
 
@@ -132,7 +159,7 @@ describe("createOnboardingChatStream", () => {
       describeRejection: () => "",
     });
     const out = await collect(stream(request()));
-    expect(onFallback).toHaveBeenCalledTimes(1);
+    expect(onFallback).toHaveBeenCalledWith("error");
     expect(out).toEqual([{ type: "text", content: "Hel" }]);
   });
 

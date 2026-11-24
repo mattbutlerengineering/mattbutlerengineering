@@ -3,10 +3,16 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "@mbe/auth/react";
 import { streamNDJSON } from "@mbe/api-client/streaming";
 import { reportHandledError } from "@mbe/sentry/react";
-import { ChatPanel, Text } from "@mattbutlerengineering/rialto";
+import { Button, ChatPanel, Text } from "@mattbutlerengineering/rialto";
+import { useMotionPreset } from "@mattbutlerengineering/rialto/providers";
 import { detectTimezone } from "./LocationTimeStep.js";
 import type { OnboardingPatchTarget } from "./onboarding-chat-patch.js";
-import { createOnboardingChatStream, type AppliedPatch } from "./onboarding-chat-stream.js";
+import {
+  createOnboardingChatStream,
+  type AppliedPatch,
+  type FallbackReason,
+} from "./onboarding-chat-stream.js";
+import { focusFirstFilledField, type FilledItem } from "./useOnboardingChatState.js";
 import styles from "./OnboardingChat.module.css";
 
 export type OnboardingChatStep = "locationTime" | "settings";
@@ -15,6 +21,10 @@ const ONBOARDING_CHAT_API = "/api/gen/onboarding";
 // ChatPanel's request body does not use the domain schemas; the server owns the prompt.
 const NO_DOMAIN_CONTEXT = { schemas: [] };
 const NOOP = () => {};
+
+function capitalize(text: string, locale: string): string {
+  return text.charAt(0).toLocaleUpperCase(locale) + text.slice(1);
+}
 
 /** A stable getter for the newest `value`, safe to call from callbacks that outlive a render. */
 function useLatest<T>(value: T): () => T {
@@ -31,7 +41,9 @@ interface OnboardingChatProps {
   target: OnboardingPatchTarget;
   onApplied: (patch: AppliedPatch) => void;
   /** The chat steps aside (cost ceiling or a failed stream); the form carries on. */
-  onFallback: () => void;
+  onFallback: (reason: FallbackReason) => void;
+  /** What the chat just filled, for the summary under it. Empty when nothing is marked. */
+  filled: readonly FilledItem[];
 }
 
 /**
@@ -39,9 +51,16 @@ interface OnboardingChatProps {
  * stream that applies typed patches through the step validator. Nothing is written to the
  * server here; the wizard still saves once, at Launch.
  */
-export function OnboardingChat({ step, target, onApplied, onFallback }: OnboardingChatProps) {
+export function OnboardingChat({
+  step,
+  target,
+  onApplied,
+  onFallback,
+  filled,
+}: OnboardingChatProps) {
   const { t, i18n } = useTranslation();
   const { accessToken } = useAuth();
+  const { reduced } = useMotionPreset();
 
   // The stream outlives renders (ChatPanel keeps it in a ref), so it reads the wizard's data and
   // the callbacks as they are when a patch arrives, not as they were when it was built.
@@ -53,7 +72,7 @@ export function OnboardingChat({ step, target, onApplied, onFallback }: Onboardi
         base: streamNDJSON,
         getTarget: () => latest().target,
         onApplied: (patch) => latest().onApplied(patch),
-        onFallback: () => latest().onFallback(),
+        onFallback: (reason) => latest().onFallback(reason),
         onMalformed: () =>
           reportHandledError(new Error("Malformed onboarding patch"), "onboarding-chat"),
         describeRejection: (result) =>
@@ -92,6 +111,28 @@ export function OnboardingChat({ step, target, onApplied, onFallback }: Onboardi
           suggestions={suggestions}
         />
       </div>
+      {filled.length > 0 && (
+        // On a phone the form is below the fold of the chat, so say what changed right here.
+        <div className={styles.summary}>
+          <Text variant="caption" color="secondary">
+            {filled
+              .map((item) =>
+                t("onboarding.chat.summaryItem", {
+                  field: capitalize(t(`onboarding.chat.fields.${item.field}`), i18n.language),
+                  value: item.value,
+                })
+              )
+              .join(" · ")}
+          </Text>
+          <Button
+            variant="secondary"
+            aria-label={t("onboarding.chat.reviewLabel")}
+            onClick={() => focusFirstFilledField(reduced)}
+          >
+            {t("onboarding.chat.review")}
+          </Button>
+        </div>
+      )}
     </section>
   );
 }

@@ -56,11 +56,19 @@ async function tellTheChat(page: Page, text: string) {
 test.describe("Onboarding chat", () => {
   test("one sentence fills the location and settings steps", async ({ mockedPage: page }) => {
     const requests = await mockOnboardingChat(page);
+    // Launch is the one save: nothing may create the venue while the chat fills the forms.
+    const venueCreates: string[] = [];
+    page.on("request", (request) => {
+      if (request.method() === "POST" && /\/api\/v1\/venues(\?|$)/.test(request.url())) {
+        venueCreates.push(request.url());
+      }
+    });
     await startOnboarding(page);
 
     await tellTheChat(page, SENTENCE);
     await expect(page.getByLabel("Timezone")).toHaveValue(/Lisbon/);
     await expect(page.getByText("Filled from chat")).toHaveCount(2);
+    await expect(page.getByText("Time zone: Lisbon · Currency: EUR")).toBeVisible();
     await expect(page.getByRole("status")).toHaveText("Time zone and currency filled from chat");
     expect(requests[0]?.step).toBe("locationTime");
     expect(requests[0]?.messages).toEqual([{ role: "user", content: SENTENCE }]);
@@ -79,6 +87,8 @@ test.describe("Onboarding chat", () => {
     expect(requests[1]?.step).toBe("settings");
     // A fresh conversation per step: nothing from the location step rides along.
     expect(requests[1]?.messages).toHaveLength(1);
+
+    expect(venueCreates).toEqual([]);
   });
 
   test("a hand edit reaches the chat on its next turn", async ({ mockedPage: page }) => {

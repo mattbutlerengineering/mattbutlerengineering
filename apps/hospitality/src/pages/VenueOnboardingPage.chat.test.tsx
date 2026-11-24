@@ -163,7 +163,7 @@ describe("onboarding chat beside the form", () => {
   it("offers a starter prompt for the step", () => {
     renderPage();
     goToLocationStep();
-    expect(screen.getByRole("button", { name: "We're a 60-seat bistro in Lisbon" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "We're in Lisbon and charge euros" })).toBeTruthy();
   });
 
   it("fills the form from an applied patch, marks the fields and announces them once", async () => {
@@ -283,12 +283,14 @@ describe("onboarding chat beside the form", () => {
     expect(screen.getByRole("status").textContent).toBe("Let's finish this step with the form.");
     expect(screen.queryByRole("log")).toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();
+    // The ceiling is final: no way back to the chat.
+    expect(screen.queryByRole("button", { name: "Try chat again" })).toBeNull();
 
     fireEvent.change(screen.getByLabelText("Currency"), { target: { value: "CAD" } });
     expect(selectValue("Currency")).toBe("CAD");
   });
 
-  it("steps aside the same way when the stream fails", async () => {
+  it("steps aside when the stream fails, and offers to try the chat again", async () => {
     mockStream.mockImplementation(async function* () {
       yield { type: "text", content: "..." };
       throw new Error("This UI is too large");
@@ -302,5 +304,70 @@ describe("onboarding chat beside the form", () => {
       expect(screen.getAllByText("Let's finish this step with the form.")).toHaveLength(2)
     );
     expect(screen.queryByRole("log")).toBeNull();
+
+    replyWith();
+    fireEvent.click(screen.getByRole("button", { name: "Try chat again" }));
+    expect(screen.getByRole("log")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Try chat again" })).toBeNull();
+  });
+
+  it("refuses a time zone the form cannot show, in friendly words, and applies nothing", async () => {
+    replyWith(patchLine("locationTime", { ianaTimezone: "America/Detroit" }));
+    renderPage();
+    goToLocationStep();
+
+    await say("Detroit");
+
+    const log = screen.getByRole("log");
+    await waitFor(() =>
+      expect(within(log).getByText(/time zone "America\/Detroit" isn't in the list/)).toBeTruthy()
+    );
+    expect(selectValue("Timezone")).toBe("America/New_York");
+    expect(screen.queryByText("Filled from chat")).toBeNull();
+  });
+
+  it("applies both patches of one response, the second over the first", async () => {
+    replyWith(
+      patchLine("locationTime", { ianaTimezone: "Europe/Lisbon" }),
+      patchLine("locationTime", { currencyCode: "EUR" })
+    );
+    renderPage();
+    goToLocationStep();
+
+    await say("Lisbon, euros");
+
+    await waitFor(() => expect(selectValue("Currency")).toBe("EUR"));
+    expect(selectValue("Timezone")).toBe("Europe/Lisbon");
+  });
+
+  it("summarises what was filled in the chat, and Review moves focus to the first filled field", async () => {
+    replyWith(patchLine("locationTime", { ianaTimezone: "Europe/Lisbon", currencyCode: "EUR" }));
+    renderPage();
+    goToLocationStep();
+
+    await say("Lisbon, euros");
+
+    const chat = screen.getByRole("region", { name: "Setup assistant" });
+    await waitFor(() =>
+      expect(within(chat).getByText("Time zone: Lisbon · Currency: EUR")).toBeTruthy()
+    );
+    fireEvent.click(
+      within(chat).getByRole("button", { name: "Review the fields filled from chat" })
+    );
+    expect(document.activeElement).toBe(screen.getByLabelText("Timezone"));
+  });
+
+  it("clears a field's mark, and its summary entry, when the owner edits that field", async () => {
+    replyWith(patchLine("locationTime", { ianaTimezone: "Europe/Lisbon", currencyCode: "EUR" }));
+    renderPage();
+    goToLocationStep();
+
+    await say("Lisbon, euros");
+    await waitFor(() => expect(screen.getAllByText("Filled from chat")).toHaveLength(2));
+
+    fireEvent.change(screen.getByLabelText("Currency"), { target: { value: "GBP" } });
+
+    expect(screen.getAllByText("Filled from chat")).toHaveLength(1);
+    expect(screen.queryByText(/Currency: EUR/)).toBeNull();
   });
 });

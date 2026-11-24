@@ -18,8 +18,16 @@
       "filledAnnouncement": "{{fields}} filled from chat",
       "fallbackNote": "Let's finish this step with the form.",
       "rejected": "That doesn't fit this step ({{errors}}), so I left your form as it was.",
+      "tryAgain": "Try chat again",
+      "review": "Review",
+      "reviewLabel": "Review the fields filled from chat",
+      "summaryItem": "{{field}}: {{value}}",
+      "notOffered": {
+        "ianaTimezone": "time zone \"{{value}}\" isn't in the list",
+        "currencyCode": "currency \"{{value}}\" isn't in the list"
+      },
       "suggestion": {
-        "locationTime": "We're a 60-seat bistro in Lisbon",
+        "locationTime": "We're in Lisbon and charge euros",
         "settings": "Parties up to 8, 90 minutes a table, bookable 60 days ahead"
       },
       "fields": {

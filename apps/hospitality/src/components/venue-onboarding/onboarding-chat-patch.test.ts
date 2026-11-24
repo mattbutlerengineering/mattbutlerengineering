@@ -6,6 +6,34 @@ const CURRENT: OnboardingPatchTarget = {
   settings: { defaultReservationDuration: "90", maxPartySize: "8", advanceBookingDays: "30" },
 };
 
+describe("applyOnboardingPatch: values the form cannot show", () => {
+  it("rejects a time zone that is not in the form's list", () => {
+    const result = applyOnboardingPatch(CURRENT, {
+      step: "locationTime",
+      data: { ianaTimezone: "America/Detroit" },
+    });
+    expect(result.kind).toBe("rejected");
+    if (result.kind === "rejected") expect(result.errors.ianaTimezone).toContain("America/Detroit");
+  });
+
+  it("rejects a currency that is not in the form's list", () => {
+    const result = applyOnboardingPatch(CURRENT, {
+      step: "locationTime",
+      data: { currencyCode: "CZK" },
+    });
+    expect(result.kind).toBe("rejected");
+    if (result.kind === "rejected") expect(result.errors.currencyCode).toContain("CZK");
+  });
+
+  it("applies a patch whose time zone and currency are both offered", () => {
+    const result = applyOnboardingPatch(CURRENT, {
+      step: "locationTime",
+      data: { ianaTimezone: "Europe/Lisbon", currencyCode: "EUR" },
+    });
+    expect(result.kind).toBe("applied");
+  });
+});
+
 describe("applyOnboardingPatch", () => {
   it("merges a valid location patch over the current step data", () => {
     const result = applyOnboardingPatch(CURRENT, {

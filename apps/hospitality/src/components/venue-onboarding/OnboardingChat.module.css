@@ -5,6 +5,14 @@
   min-width: 0;
 }
 
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--rialto-space-sm);
+}
+
 /* A bounded box so the log scrolls inside it: on a phone the form stays directly below. */
 .panel {
   display: flex;

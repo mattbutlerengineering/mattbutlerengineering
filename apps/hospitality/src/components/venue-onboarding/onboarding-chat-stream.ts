@@ -33,12 +33,15 @@ export type AppliedPatch = AppliedResult extends infer R
     : never
   : never;
 
+export type FallbackReason = "ceiling" | "error";
+
 export interface OnboardingChatStreamDeps {
   base: ChatStreamFn;
   /** The wizard's data at the moment a patch arrives (read lazily, never captured). */
   getTarget: () => OnboardingPatchTarget;
   onApplied: (patch: AppliedPatch) => void;
-  onFallback: () => void;
+  /** `ceiling` retires the chat for good; `error` (network, 429, a stream error) may be retried. */
+  onFallback: (reason: FallbackReason) => void;
   onMalformed: () => void;
   describeRejection: (result: RejectedResult) => string;
 }
@@ -84,20 +87,36 @@ function isAbort(error: unknown): boolean {
   return isRecord(error) && error.name === "AbortError";
 }
 
+/** Per-response state: the data patches merge over, and whether text has been streamed yet. */
+interface ResponseState {
+  working: OnboardingPatchTarget | null;
+  textSeen: boolean;
+}
+
 export function createOnboardingChatStream(deps: OnboardingChatStreamDeps): ChatStreamFn {
-  function* handlePatch(line: Record<string, unknown>, step: unknown): Generator<unknown> {
+  // `state.working` is a copy that every applied patch is merged into, so a second patch in the
+  // same response builds on the first instead of on the wizard data from before the response.
+  function* handlePatch(
+    line: Record<string, unknown>,
+    step: unknown,
+    state: ResponseState
+  ): Generator<unknown> {
     const patch = line.patch;
-    const result = applyOnboardingPatch(deps.getTarget(), patch);
+    const base = state.working ?? deps.getTarget();
+    const result = applyOnboardingPatch(base, patch);
     if (result.kind === "malformed" || (isRecord(patch) && patch.step !== step)) {
       deps.onMalformed();
       return;
     }
     if (result.kind === "rejected") {
-      yield { type: "text", content: deps.describeRejection(result) };
+      // Streamed text has no trailing break; the rejection starts its own paragraph.
+      const note = deps.describeRejection(result);
+      yield { type: "text", content: state.textSeen ? `\n\n${note}` : note };
+      state.textSeen = true;
       return;
     }
-    const before = deps.getTarget()[result.step];
-    const changed = changedFields(before, result.data);
+    const changed = changedFields(base[result.step], result.data);
+    state.working = { ...base, [result.step]: result.data };
     deps.onApplied(
       result.step === "locationTime"
         ? { step: "locationTime", data: result.data, changed }
@@ -108,21 +127,23 @@ export function createOnboardingChatStream(deps: OnboardingChatStreamDeps): Chat
   return async function* (request) {
     const trimmed = withTrimmedHistory(request);
     const step = isRecord(trimmed.body) ? trimmed.body.step : undefined;
+    const state: ResponseState = { working: null, textSeen: false };
     try {
       for await (const raw of deps.base(trimmed)) {
         if (isRecord(raw) && raw.type === "onboarding_ceiling") {
-          deps.onFallback();
+          deps.onFallback("ceiling");
           return;
         }
         if (isRecord(raw) && raw.type === "onboarding_patch") {
-          yield* handlePatch(raw, step);
+          yield* handlePatch(raw, step, state);
           continue;
         }
+        if (isRecord(raw) && raw.type === "text") state.textSeen = true;
         yield raw;
       }
     } catch (error) {
       if (isAbort(error)) throw error;
-      deps.onFallback();
+      deps.onFallback("error");
     }
   };
 }

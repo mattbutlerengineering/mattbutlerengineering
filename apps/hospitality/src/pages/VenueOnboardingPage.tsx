@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@mbe/auth/react";
@@ -24,7 +24,7 @@ import {
   OnboardingChat,
   type OnboardingChatStep,
 } from "../components/venue-onboarding/OnboardingChat.js";
-import type { AppliedPatch } from "../components/venue-onboarding/onboarding-chat-stream.js";
+import { useOnboardingChatState } from "../components/venue-onboarding/useOnboardingChatState.js";
 import { LiveStatus } from "../components/LiveStatus.js";
 import { useStatusMessage } from "../hooks/useStatusMessage.js";
 import styles from "./VenueOnboardingPage.module.css";
@@ -35,35 +35,8 @@ const CHAT_STEP_BY_NUMBER: Readonly<Record<number, OnboardingChatStep | undefine
   4: "settings",
 };
 
-/** How long the "Filled from chat" marks stay on the form. */
-const FILLED_MARK_MS = 6000;
-const NO_FIELDS: readonly string[] = [];
-
-interface FilledFromChat {
-  step: OnboardingChatStep;
-  fields: readonly string[];
-}
-
-const FIELD_LABEL_KEYS = {
-  ianaTimezone: "onboarding.chat.fields.ianaTimezone",
-  currencyCode: "onboarding.chat.fields.currencyCode",
-  defaultReservationDuration: "onboarding.chat.fields.defaultReservationDuration",
-  maxPartySize: "onboarding.chat.fields.maxPartySize",
-  advanceBookingDays: "onboarding.chat.fields.advanceBookingDays",
-} as const;
-
-function isPatchField(field: string): field is keyof typeof FIELD_LABEL_KEYS {
-  return field in FIELD_LABEL_KEYS;
-}
-
-/** "time zone and currency" / "a, b, and c", in the active locale. */
-function formatFieldList(labels: readonly string[], locale: string): string {
-  const list = new Intl.ListFormat(locale, { style: "long", type: "conjunction" }).format(labels);
-  return list.charAt(0).toLocaleUpperCase(locale) + list.slice(1);
-}
-
 export function VenueOnboardingPage() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { accessToken } = useAuth();
   const api = useApiClient();
@@ -86,51 +59,15 @@ export function VenueOnboardingPage() {
 
   // Chat beside the form (#9474).
   const { status, announce } = useStatusMessage();
-  const [asideSteps, setAsideSteps] = useState<readonly OnboardingChatStep[]>([]);
-  const [filled, setFilled] = useState<FilledFromChat | null>(null);
-  // Bumped on every chat patch so the step's form remounts and re-reads its (now changed) data.
-  const [patchVersion, setPatchVersion] = useState(0);
-  const chatTarget = useMemo(
-    () => ({ locationTime: data.locationTime, settings: data.settings }),
-    [data.locationTime, data.settings]
-  );
-
-  // The marks are for noticing, not for keeping: they fade out of the form after a few seconds.
-  useEffect(() => {
-    if (filled === null) return;
-    const timer = setTimeout(() => setFilled(null), FILLED_MARK_MS);
-    return () => clearTimeout(timer);
-  }, [filled]);
-
-  const handleChatPatch = useCallback(
-    (patch: AppliedPatch) => {
-      if (patch.step === "locationTime") {
-        actions.setStepData("locationTime", patch.data);
-      } else {
-        actions.setStepData("settings", patch.data);
-      }
-      if (patch.changed.length === 0) return;
-      setFilled({ step: patch.step, fields: patch.changed });
-      setPatchVersion((version) => version + 1);
-      announce(
-        t("onboarding.chat.filledAnnouncement", {
-          fields: formatFieldList(
-            patch.changed.filter(isPatchField).map((field) => t(FIELD_LABEL_KEYS[field])),
-            i18n.language
-          ),
-        })
-      );
-    },
-    [actions, announce, t, i18n.language]
-  );
-
-  const handleChatFallback = useCallback(
-    (aside: OnboardingChatStep) => {
-      setAsideSteps((current) => (current.includes(aside) ? current : [...current, aside]));
-      announce(t("onboarding.chat.fallbackNote"));
-    },
-    [announce, t]
-  );
+  const chatStep = CHAT_STEP_BY_NUMBER[step];
+  const chat = useOnboardingChatState({
+    step: chatStep,
+    locationTime: data.locationTime,
+    settings: data.settings,
+    setLocationTime: (next) => actions.setStepData("locationTime", next),
+    setSettings: (next) => actions.setStepData("settings", next),
+    announce,
+  });
 
   // Debounced slug-uniqueness check — the actual check-and-dispatch lifecycle
   // (checking -> taken/available) lives entirely inside actions.checkSlugAvailability.
@@ -255,10 +192,8 @@ export function VenueOnboardingPage() {
 
   // Chat beside the form on the steps with patch support (#9474). A step the chat stepped aside
   // from (cost ceiling or a failed stream) shows the form alone, with a calm note.
-  const chatStep = CHAT_STEP_BY_NUMBER[step];
-  const chatSteppedAside = chatStep !== undefined && asideSteps.includes(chatStep);
+  const chatSteppedAside = chatStep !== undefined && chat.asideReason !== undefined;
   const showChat = chatStep !== undefined && !chatSteppedAside;
-  const filledFields = filled !== null && filled.step === chatStep ? filled.fields : NO_FIELDS;
 
   // The floor plan canvas wants more room than the 40rem review card — widen
   // the container on step 5 only; the chat steps need room for two columns.
@@ -284,129 +219,144 @@ export function VenueOnboardingPage() {
         />
       </div>
 
-      <div className={showChat ? styles.chatLayout : undefined}>
-        {showChat && (
-          <OnboardingChat
-            key={chatStep}
-            step={chatStep}
-            target={chatTarget}
-            onApplied={handleChatPatch}
-            onFallback={() => handleChatFallback(chatStep)}
-          />
-        )}
+      <div className={showChat ? styles.chatLayoutHost : undefined}>
+        <div className={showChat ? styles.chatLayout : undefined}>
+          {showChat && (
+            <OnboardingChat
+              key={chatStep}
+              step={chatStep}
+              target={chat.target}
+              onApplied={chat.onApplied}
+              onFallback={(reason) => chat.onFallback(chatStep, reason)}
+              filled={chat.filledItems}
+            />
+          )}
 
-        <Card>
-          <Stack gap="lg">
-            {chatSteppedAside && (
-              <Text variant="caption" color="secondary">
-                {t("onboarding.chat.fallbackNote")}
-              </Text>
-            )}
-
-            {step === 1 && (
-              <WelcomeStep
-                data={data.basicInfo}
-                errors={errors.basicInfo}
-                onChange={(basicInfo) => actions.setStepData("basicInfo", basicInfo)}
-                onValidate={actions.validateStep}
-                slugStatus={slugStatus}
-              />
-            )}
-
-            {step === 2 && (
-              <>
-                <Text variant="label">{t("onboarding.locationTime.heading")}</Text>
-                <Text variant="caption" color="secondary">
-                  {t("onboarding.locationTime.intro")}
-                </Text>
-                {/* Re-keyed on a chat patch: the time zone box keeps its own text. */}
-                <LocationTimeStep
-                  key={patchVersion}
-                  data={data.locationTime}
-                  errors={errors.locationTime}
-                  onChange={(locationTime) => actions.setStepData("locationTime", locationTime)}
-                  onValidate={actions.validateStep}
-                  filled={filledFields}
-                />
-              </>
-            )}
-
-            {step === 3 && (
-              <>
-                <Text variant="label">{t("onboarding.hours.heading")}</Text>
-                <Text variant="caption" color="secondary">
-                  {t("onboarding.hours.intro")}
-                </Text>
-                <QuickSetupHoursStep
-                  draft={data.hoursDraft}
-                  errors={errors.operatingHours ?? undefined}
-                  onChange={(hoursDraft) => actions.setStepData("hoursDraft", hoursDraft)}
-                />
-              </>
-            )}
-
-            {step === 4 && (
-              <>
-                <Text variant="label">{t("onboarding.settings.heading")}</Text>
-                <Text variant="caption" color="secondary">
-                  {t("onboarding.settings.intro")}
-                </Text>
-                <SettingsStep
-                  data={data.settings}
-                  errors={errors.settings}
-                  onChange={(settings) => actions.setStepData("settings", settings)}
-                  onValidate={actions.validateStep}
-                  onAdvance={actions.next}
-                  filled={filledFields}
-                />
-              </>
-            )}
-
-            {step === 5 && (
-              <FloorPlanStep
-                draft={data.floorPlan}
-                error={errors.floorPlan}
-                onSelectTemplate={actions.setTemplate}
-                onSelectSize={actions.setRoomSize}
-                onAddTable={actions.addDraftTable}
-                onMoveTable={actions.moveDraftTable}
-                onRemoveTable={actions.removeDraftTable}
-                readOnly={launch.venueId !== null}
-              />
-            )}
-
-            {step === 6 && (
-              <LaunchStep
-                basicInfo={data.basicInfo}
-                locationTime={data.locationTime}
-                hoursDraft={data.hoursDraft}
-                settings={data.settings}
-                onLaunch={handleLaunch}
-                onCelebrationDone={handleCelebrationDone}
-                onRehearse={handleRehearse}
-                floorPlan={data.floorPlan}
-                launch={launch}
-                onRetry={handleRetry}
-              />
-            )}
-
-            <Stack direction="row" gap="md" justify="between">
-              <Button
-                variant="secondary"
-                onClick={actions.back}
-                disabled={step === 1 || launchInFlight}
-              >
-                {t("onboarding.actions.back")}
-              </Button>
-
-              {step < TOTAL_STEPS && (
-                <Button variant="primary" onClick={actions.next}>
-                  {t("onboarding.actions.next")}
-                </Button>
+          <Card>
+            <Stack gap="lg">
+              {chatStep !== undefined && chat.asideReason !== undefined && (
+                <Stack direction="row" gap="sm" align="center" wrap>
+                  <Text variant="caption" color="secondary">
+                    {t("onboarding.chat.fallbackNote")}
+                  </Text>
+                  {/* Only the cost ceiling is final; a network or stream failure may pass. */}
+                  {chat.asideReason === "error" && (
+                    <Button variant="secondary" onClick={() => chat.retry(chatStep)}>
+                      {t("onboarding.chat.tryAgain")}
+                    </Button>
+                  )}
+                </Stack>
               )}
+
+              {step === 1 && (
+                <WelcomeStep
+                  data={data.basicInfo}
+                  errors={errors.basicInfo}
+                  onChange={(basicInfo) => actions.setStepData("basicInfo", basicInfo)}
+                  onValidate={actions.validateStep}
+                  slugStatus={slugStatus}
+                />
+              )}
+
+              {step === 2 && (
+                <>
+                  <Text variant="label">{t("onboarding.locationTime.heading")}</Text>
+                  <Text variant="caption" color="secondary">
+                    {t("onboarding.locationTime.intro")}
+                  </Text>
+                  <LocationTimeStep
+                    data={data.locationTime}
+                    errors={errors.locationTime}
+                    onChange={(locationTime) => {
+                      chat.noteEdit("locationTime", data.locationTime, locationTime);
+                      actions.setStepData("locationTime", locationTime);
+                    }}
+                    onValidate={actions.validateStep}
+                    filled={chat.filledFields}
+                  />
+                </>
+              )}
+
+              {step === 3 && (
+                <>
+                  <Text variant="label">{t("onboarding.hours.heading")}</Text>
+                  <Text variant="caption" color="secondary">
+                    {t("onboarding.hours.intro")}
+                  </Text>
+                  <QuickSetupHoursStep
+                    draft={data.hoursDraft}
+                    errors={errors.operatingHours ?? undefined}
+                    onChange={(hoursDraft) => actions.setStepData("hoursDraft", hoursDraft)}
+                  />
+                </>
+              )}
+
+              {step === 4 && (
+                <>
+                  <Text variant="label">{t("onboarding.settings.heading")}</Text>
+                  <Text variant="caption" color="secondary">
+                    {t("onboarding.settings.intro")}
+                  </Text>
+                  <SettingsStep
+                    data={data.settings}
+                    errors={errors.settings}
+                    onChange={(settings) => {
+                      chat.noteEdit("settings", data.settings, settings);
+                      actions.setStepData("settings", settings);
+                    }}
+                    onValidate={actions.validateStep}
+                    onAdvance={actions.next}
+                    filled={chat.filledFields}
+                  />
+                </>
+              )}
+
+              {step === 5 && (
+                <FloorPlanStep
+                  draft={data.floorPlan}
+                  error={errors.floorPlan}
+                  onSelectTemplate={actions.setTemplate}
+                  onSelectSize={actions.setRoomSize}
+                  onAddTable={actions.addDraftTable}
+                  onMoveTable={actions.moveDraftTable}
+                  onRemoveTable={actions.removeDraftTable}
+                  readOnly={launch.venueId !== null}
+                />
+              )}
+
+              {step === 6 && (
+                <LaunchStep
+                  basicInfo={data.basicInfo}
+                  locationTime={data.locationTime}
+                  hoursDraft={data.hoursDraft}
+                  settings={data.settings}
+                  onLaunch={handleLaunch}
+                  onCelebrationDone={handleCelebrationDone}
+                  onRehearse={handleRehearse}
+                  floorPlan={data.floorPlan}
+                  launch={launch}
+                  onRetry={handleRetry}
+                />
+              )}
+
+              <Stack direction="row" gap="md" justify="between">
+                <Button
+                  variant="secondary"
+                  onClick={actions.back}
+                  disabled={step === 1 || launchInFlight}
+                >
+                  {t("onboarding.actions.back")}
+                </Button>
+
+                {step < TOTAL_STEPS && (
+                  <Button variant="primary" onClick={actions.next}>
+                    {t("onboarding.actions.next")}
+                  </Button>
+                )}
+              </Stack>
             </Stack>
-          </Stack>
-        </Card>
+          </Card>
+        </div>
       </div>
     </div>
   );
