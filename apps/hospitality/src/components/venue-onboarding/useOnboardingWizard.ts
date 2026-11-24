@@ -22,7 +22,7 @@ import {
   draftTableFromCreateRequest,
   type FloorPlanDraft,
 } from "./floor-plan-draft.js";
-import { draftFromTemplate, type TemplateId } from "./floor-plan-templates.js";
+import { draftFromTemplate, resizeDraft, type TemplateId } from "./floor-plan-templates.js";
 import type { RoomSizeId } from "../floor-plan/room-templates.js";
 import { INITIAL_LAUNCH_PROGRESS, type LaunchProgress } from "./launch-sequence.js";
 
@@ -64,6 +64,7 @@ type OnboardingWizardAction =
   | { type: "SET_STEP_DATA"; step: "operatingHours"; data: OperatingHours }
   | { type: "SET_STEP_DATA"; step: "hoursDraft"; data: QuickSetupDraft }
   | { type: "SET_STEP_DATA"; step: "settings"; data: SettingsData }
+  | { type: "SET_STEP_DATA"; step: "floorPlan"; data: FloorPlanDraft }
   | { type: "NEXT" }
   | { type: "BACK" }
   | { type: "GO_TO_STEP"; step: number }
@@ -206,6 +207,13 @@ function reducer(
           };
         case "settings":
           return { ...state, data: { ...state.data, settings: action.data } };
+        case "floorPlan":
+          // A whole draft from the chat (#9475); the step's own picker uses SET_TEMPLATE.
+          return {
+            ...state,
+            data: { ...state.data, floorPlan: action.data },
+            errors: { ...state.errors, floorPlan: null },
+          };
         default:
           return state;
       }
@@ -270,16 +278,11 @@ function reducer(
         errors: { ...state.errors, floorPlan: null },
       };
 
-    case "SET_ROOM_SIZE": {
-      const { templateId } = state.data.floorPlan;
-      // Resizing is only meaningful once a room is chosen; until then the step
-      // just remembers the size so the chosen room is built at it.
-      const floorPlan =
-        templateId === null
-          ? { ...state.data.floorPlan, sizeId: action.sizeId }
-          : draftFromTemplate(templateId, action.sizeId);
-      return { ...state, data: { ...state.data, floorPlan } };
-    }
+    case "SET_ROOM_SIZE":
+      return {
+        ...state,
+        data: { ...state.data, floorPlan: resizeDraft(state.data.floorPlan, action.sizeId) },
+      };
 
     case "ADD_DRAFT_TABLE": {
       const table = draftTableFromCreateRequest(action.request, action.request.name);
@@ -392,6 +395,9 @@ export function useOnboardingWizard(): OnboardingWizardResult {
           return;
         case "settings":
           dispatch({ type: "SET_STEP_DATA", step: "settings", data: data as SettingsData });
+          return;
+        case "floorPlan":
+          dispatch({ type: "SET_STEP_DATA", step: "floorPlan", data: data as FloorPlanDraft });
           return;
       }
     },
