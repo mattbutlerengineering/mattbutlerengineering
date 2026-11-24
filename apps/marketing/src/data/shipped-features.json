@@ -1,6 +1,104 @@
 {
-  "generatedAt": "2026-11-20T15:27:41.000Z",
+  "generatedAt": "2026-11-24T13:54:02.000Z",
   "features": [
+    {
+      "slug": "public-demo-venue-9509",
+      "title": "Public demo venue",
+      "trackingIssue": 9509,
+      "proposalIssue": 9334,
+      "proposalEvidence": "Issue #4974 (closed 2026-09-11, code half only) found that **no live venue slug resolves on production** — `GET /api/v1/venues/by-slug/the-oak-table` and `/test-venue` both 404'd, and \"neither slug anyone in this repo has ever referenced resolves, so the public booking loop has zero guest reach on production.\" The code half (a real exit link instead of `history.back()`) shipped; the human half — \"confirm a real prod slug (or seed a demo venue) and link it from the marketing site\" — was explicitly left for a person and never done.",
+      "proposedAt": "2026-11-21T17:11:49.000Z",
+      "firstMergedAt": "2026-11-24T12:08:21.000Z",
+      "lastMergedAt": "2026-11-24T13:54:02.000Z",
+      "wallClockHours": 68.7,
+      "liveUrl": "/",
+      "children": [
+        {
+          "issue": 9503,
+          "title": "[Feature] Public demo venue [1/6]: Add an idempotent demo-venue seeding command that runs against production",
+          "prs": [
+            {
+              "number": 9510,
+              "title": "feat(reservations): idempotent demo-venue seeder (mbe-feature-drain #9503)",
+              "mergedAt": "2026-11-24T12:08:21.000Z",
+              "mergeCommit": "4d8efe25b30cc289bdef70c24e079405a9732dec",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 9504,
+          "title": "[Feature] Public demo venue [2/6]: Seed a floor plan and tables for the demo venue",
+          "prs": [
+            {
+              "number": 9512,
+              "title": "feat(reservations): seed demo-venue floor plan and tables (mbe-feature-drain #9504)",
+              "mergedAt": "2026-11-24T12:58:07.000Z",
+              "mergeCommit": "0d5281c97834c54c1a32e362285c7a3145748efa",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 9505,
+          "title": "[Feature] Public demo venue [3/6]: Make demo-venue slots bookable: pacing and availability rules",
+          "prs": [
+            {
+              "number": 9513,
+              "title": "feat(reservations): demo venue offers 30 days of bookable slots (mbe-feature-drain #9505)",
+              "mergedAt": "2026-11-24T13:14:16.000Z",
+              "mergeCommit": "7a072bb2a6f974ba082164c82e87372fc0d26800",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 9506,
+          "title": "[Feature] Public demo venue [4/6]: Wire the demo-venue seeder into the migrate/deploy path and document the canonical slug",
+          "prs": [
+            {
+              "number": 9515,
+              "title": "feat(reservations): one-shot demo-venue seed command and slug docs (mbe-feature-drain #9506)",
+              "mergedAt": "2026-11-24T13:54:02.000Z",
+              "mergeCommit": "57b770e55b940be6545ccc9dae0912c97236c59c",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 9507,
+          "title": "[Feature] Public demo venue [5/6]: Link the demo venue booking page from the marketing site",
+          "prs": [
+            {
+              "number": 9511,
+              "title": "feat(marketing): link the demo venue booking page from the projects section (mbe-feature-drain #9507)",
+              "mergedAt": "2026-11-24T12:12:36.000Z",
+              "mergeCommit": "62b869ca5aeecf911a5e17a45511dc51040cd2dd",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 9508,
+          "title": "[Feature] Public demo venue [6/6]: Add a site-audit smoke check for the demo venue",
+          "prs": [
+            {
+              "number": 9514,
+              "title": "feat(agent-core): site-audit smoke check for the public demo venue (mbe-feature-drain #9508)",
+              "mergedAt": "2026-11-24T13:24:06.000Z",
+              "mergeCommit": "cff2d134c8c2dd0319e31abb7f241ee8c0b87647",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
     {
       "slug": "ideation-batch-2026-11-18-9102",
       "title": "[Ideation] Batch 2026-11-18",
