@@ -11,6 +11,25 @@
     "dashboardDocumentTitle": "Tableau de bord - {{brand}}"
   },
   "onboarding": {
+    "chat": {
+      "heading": "Parlez-nous de votre restaurant",
+      "region": "Assistant de configuration",
+      "filledTag": "Rempli depuis le clavardage",
+      "filledAnnouncement": "{{fields}} : rempli depuis le clavardage",
+      "fallbackNote": "Terminons cette étape avec le formulaire.",
+      "rejected": "Cela ne convient pas à cette étape ({{errors}}); j'ai donc laissé votre formulaire tel quel.",
+      "suggestion": {
+        "locationTime": "Nous sommes un bistro de 60 places à Lisbonne",
+        "settings": "Groupes jusqu'à 8, 90 minutes par table, réservations 60 jours à l'avance"
+      },
+      "fields": {
+        "ianaTimezone": "fuseau horaire",
+        "currencyCode": "devise",
+        "defaultReservationDuration": "durée de la réservation",
+        "maxPartySize": "plus grand groupe",
+        "advanceBookingDays": "jours à l'avance"
+      }
+    },
     "steps": {
       "welcome": {
         "label": "Bienvenue",

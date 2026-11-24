@@ -5,6 +5,7 @@ import { Stack, Text, Autocomplete, Select } from "@mattbutlerengineering/rialto
 import type { AutocompleteOption } from "@mattbutlerengineering/rialto";
 import { localeRuntime } from "../../i18n/runtime.js";
 import { formatCurrencyName } from "../../utils/format.js";
+import { FilledField } from "./FilledField";
 import styles from "./venue-onboarding.module.css";
 
 export interface LocationTimeData {
@@ -17,6 +18,8 @@ interface LocationTimeStepProps {
   errors: Partial<Record<keyof LocationTimeData, string>>;
   onChange: (data: LocationTimeData) => void;
   onValidate?: () => void;
+  /** Fields the chat just filled; each is marked in the form. */
+  filled?: readonly string[];
 }
 
 /** Comprehensive list of IANA timezones (50+), grouped by region. */
@@ -177,7 +180,13 @@ export function validateLocationTime(
   return errors;
 }
 
-export function LocationTimeStep({ data, errors, onChange, onValidate }: LocationTimeStepProps) {
+export function LocationTimeStep({
+  data,
+  errors,
+  onChange,
+  onValidate,
+  filled = [],
+}: LocationTimeStepProps) {
   const { t, i18n } = useTranslation();
   const locale = i18n.language;
   // Track the text shown in the Autocomplete input
@@ -205,7 +214,7 @@ export function LocationTimeStep({ data, errors, onChange, onValidate }: Locatio
   return (
     <div className={styles.stepContainer}>
       <Stack gap="md">
-        <div className={styles.fieldGroup}>
+        <FilledField filled={filled.includes("ianaTimezone")}>
           <Autocomplete
             label={t("onboarding.locationTime.timezoneLabel")}
             placeholder={t("onboarding.locationTime.timezonePlaceholder")}
@@ -229,9 +238,9 @@ export function LocationTimeStep({ data, errors, onChange, onValidate }: Locatio
           <Text variant="caption" color="secondary">
             {t("onboarding.locationTime.timezoneHint")}
           </Text>
-        </div>
+        </FilledField>
 
-        <div className={styles.fieldGroup}>
+        <FilledField filled={filled.includes("currencyCode")}>
           <Select
             label={t("onboarding.locationTime.currencyLabel")}
             options={currencySelectOptions}
@@ -243,7 +252,7 @@ export function LocationTimeStep({ data, errors, onChange, onValidate }: Locatio
             placeholder={t("onboarding.locationTime.currencyPlaceholder")}
           />
           {errors.currencyCode && <Text className={styles.errorText}>{errors.currencyCode}</Text>}
-        </div>
+        </FilledField>
       </Stack>
     </div>
   );

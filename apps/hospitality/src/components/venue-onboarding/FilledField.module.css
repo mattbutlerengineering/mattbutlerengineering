@@ -1,0 +1,18 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-xs);
+}
+
+/* Static on purpose: no animation to gate behind prefers-reduced-motion. */
+.filled {
+  composes: field;
+  padding: var(--rialto-space-sm);
+  border-radius: var(--rialto-radius-default);
+  background: var(--rialto-surface-recessed);
+  box-shadow: 0 0 0 var(--rialto-space-xs) var(--rialto-accent-glow);
+}
+
+.tag {
+  align-self: flex-end;
+}

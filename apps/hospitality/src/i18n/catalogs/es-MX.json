@@ -11,6 +11,25 @@
     "dashboardDocumentTitle": "Panel - {{brand}}"
   },
   "onboarding": {
+    "chat": {
+      "heading": "Cuéntanos sobre tu restaurante",
+      "region": "Asistente de configuración",
+      "filledTag": "Completado desde el chat",
+      "filledAnnouncement": "{{fields}}: completado desde el chat",
+      "fallbackNote": "Terminemos este paso con el formulario.",
+      "rejected": "Eso no encaja en este paso ({{errors}}), así que dejé tu formulario como estaba.",
+      "suggestion": {
+        "locationTime": "Somos un bistró de 60 lugares en Lisboa",
+        "settings": "Grupos de hasta 8, 90 minutos por mesa, reservas con 60 días de anticipación"
+      },
+      "fields": {
+        "ianaTimezone": "zona horaria",
+        "currencyCode": "moneda",
+        "defaultReservationDuration": "duración de la reservación",
+        "maxPartySize": "grupo más grande",
+        "advanceBookingDays": "días de anticipación"
+      }
+    },
     "steps": {
       "welcome": {
         "label": "Bienvenida",
