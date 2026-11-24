@@ -61,7 +61,9 @@ import {
   Hero,
   HoverCard,
   IconButton,
+  ImageUpload,
   Input,
+  MasterOverride,
   Meter,
   Navbar,
   NavigationMenu,
@@ -89,6 +91,7 @@ import {
   Timeline,
   TimeSlots,
   Toggle,
+  Tree,
   Tooltip,
 } from "@mattbutlerengineering/rialto";
 import type {
@@ -1026,6 +1029,22 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
           size?: "sm" | "md" | "lg";
         }>) => <Progress {...props} />
       ),
+
+      MasterOverride: typed(
+        ({ props, emit }: AdapterArgs<Omit<ComponentProps<typeof MasterOverride>, "onChange">>) => (
+          <MasterOverride {...props} onChange={() => emit("change")} />
+        )
+      ),
+
+      ImageUpload: typed(
+        ({ props, emit }: AdapterArgs<Omit<ComponentProps<typeof ImageUpload>, "onChange">>) => (
+          <ImageUpload {...props} onChange={() => emit("change")} />
+        )
+      ),
+
+      Tree: typed(({ props, emit }: AdapterArgs<Omit<ComponentProps<typeof Tree>, "onSelect">>) => (
+        <Tree {...props} onSelect={() => emit("select")} />
+      )),
 
       Meter: typed(
         ({
