@@ -915,6 +915,20 @@ describe("generated-schemas", () => {
     expect(result.success).toBe(false);
   });
 
+  it("Heading schema accepts levels and sizes 1-6", () => {
+    expect(generatedSchemas.Heading.safeParse({ level: 1, size: 6, children: "Hi" }).success).toBe(
+      true
+    );
+  });
+
+  it.each([0, 7, 1.5])("Heading schema rejects out-of-range level %s", (level) => {
+    expect(generatedSchemas.Heading.safeParse({ level, children: "Hi" }).success).toBe(false);
+  });
+
+  it.each([0, 7])("Heading schema rejects out-of-range size %s", (size) => {
+    expect(generatedSchemas.Heading.safeParse({ size, children: "Hi" }).success).toBe(false);
+  });
+
   it("Dialog schema requires open field", () => {
     // open is z.boolean() (not optional) — missing it should fail
     const result = generatedSchemas.Dialog.safeParse({ title: "Test" });

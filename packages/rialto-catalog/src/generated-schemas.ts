@@ -244,6 +244,8 @@ export const generatedSchemas = {
     showLabels: z.boolean().optional(),
   }),
   Heading: z.object({
+    level: z.number().int().min(1).max(6).optional(),
+    size: z.number().int().min(1).max(6).optional(),
     color: z.enum(["accent", "error", "on-accent", "primary", "secondary", "success", "tertiary", "warning"]).optional(),
     align: z.enum(["center", "left", "right"]).optional(),
     truncate: z.boolean().optional(),
