@@ -118,11 +118,20 @@ function goToLocationStep() {
   fireEvent.change(screen.getByLabelText("Timezone"), { target: { value: "America/New_York" } });
 }
 
-function goToSettingsStep() {
+function goToHoursStep() {
   goToLocationStep();
   fireEvent.click(screen.getByRole("button", { name: "Next" }));
+}
+
+function goToSettingsStep() {
+  goToHoursStep();
   fireEvent.click(screen.getByRole("button", { name: "Dinner" }));
   fireEvent.click(screen.getByRole("button", { name: "Weekdays" }));
+  fireEvent.click(screen.getByRole("button", { name: "Next" }));
+}
+
+function goToFloorPlanStep() {
+  goToSettingsStep();
   fireEvent.click(screen.getByRole("button", { name: "Next" }));
 }
 
@@ -132,6 +141,25 @@ async function say(text: string) {
   });
   fireEvent.click(screen.getByRole("button", { name: "Send" }));
 }
+
+/** Every live region's text: the hours card and floor plan have regions of their own. */
+function liveStatus(): string {
+  return screen
+    .queryAllByRole("status")
+    .map((node) => node.textContent ?? "")
+    .join("");
+}
+
+// The floor plan step reads the viewport; a narrow one renders the read-only preview band.
+Object.defineProperty(window, "matchMedia", {
+  writable: true,
+  value: (query: string) => ({
+    matches: false,
+    media: query,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  }),
+});
 
 function selectValue(label: string): string {
   return (screen.getByLabelText(label) as HTMLSelectElement).value;
@@ -143,8 +171,9 @@ beforeEach(() => {
 });
 
 describe("onboarding chat beside the form", () => {
-  it("leads the location and settings steps with a chat; other steps show the form only", () => {
+  it("leads the location, hours, settings and floor plan steps with a chat; the name and Launch show the form only", () => {
     renderPage();
+    // The venue's name is the owner's own: no chat, no model call.
     expect(screen.queryByRole("log")).toBeNull();
 
     goToLocationStep();
@@ -152,12 +181,29 @@ describe("onboarding chat beside the form", () => {
     expect(screen.getByLabelText("Timezone")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
-    expect(screen.queryByRole("log")).toBeNull();
+    expect(screen.getByRole("log")).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Dinner Tuesday to Saturday, 5 to 10:30" })
+    ).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Dinner" }));
     fireEvent.click(screen.getByRole("button", { name: "Weekdays" }));
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(screen.getByRole("log")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(
+      screen.getByRole("button", { name: "A casual bistro, a bit bigger than cozy" })
+    ).toBeTruthy();
+
+    // Showing a chat is not a model call: nothing is sent until the owner writes.
+    expect(mockStream).not.toHaveBeenCalled();
+  });
+
+  it("makes no model call until the owner sends a message on a chat step", () => {
+    renderPage();
+    goToSettingsStep();
+    expect(mockStream).not.toHaveBeenCalled();
   });
 
   it("offers a starter prompt for the step", () => {
@@ -278,6 +324,84 @@ describe("onboarding chat beside the form", () => {
         "Reservation length: 120 min · Parties up to 12 · Bookable up to 60 days ahead"
       )
     ).toBeTruthy();
+  });
+
+  it("fills the hours card from an hours patch, so Next is allowed, and says what it filled", async () => {
+    replyWith(
+      patchLine("hours", {
+        serviceName: "Dinner",
+        opens: "17:00",
+        closes: "22:30",
+        days: "tue,wed,thu,fri,sat",
+      })
+    );
+    renderPage();
+    goToHoursStep();
+
+    await say("Dinner Tuesday to Saturday, 5 to 10:30");
+
+    await waitFor(() =>
+      expect(liveStatus()).toBe(
+        "Service name, opening time, closing time, last seating, and open days filled from chat"
+      )
+    );
+    const chat = screen.getByRole("region", { name: "Setup assistant" });
+    expect(within(chat).getByText(/Service: Dinner · Opens 17:00 · Closes 22:30/)).toBeTruthy();
+    // Hours have no "Filled from chat" marks, so there is no Review action to land nowhere.
+    expect(
+      within(chat).queryByRole("button", { name: "Review the fields filled from chat" })
+    ).toBeNull();
+
+    // The step's own gate accepts what the chat filled: Next moves on to Settings.
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByRole("button", { name: /Parties up to 8/ })).toBeTruthy();
+  });
+
+  it("refuses hours the card would flag, in friendly words, and applies nothing", async () => {
+    replyWith(patchLine("hours", { opens: "5pm" }));
+    renderPage();
+    goToHoursStep();
+
+    await say("open at 5pm");
+
+    const log = screen.getByRole("log");
+    await waitFor(() =>
+      expect(within(log).getByText(/"5pm" isn't a 24-hour time like 17:30/)).toBeTruthy()
+    );
+    expect(liveStatus()).toBe("");
+  });
+
+  it("picks the floor plan room from a floor plan patch, as the picker would", async () => {
+    replyWith(patchLine("floorPlan", { templateId: "cafe", roomSize: "standard" }));
+    renderPage();
+    goToFloorPlanStep();
+
+    await say("a cafe, medium size");
+
+    await waitFor(() => expect(liveStatus()).toBe("Room layout and room size filled from chat"));
+    const chat = screen.getByRole("region", { name: "Setup assistant" });
+    expect(within(chat).getByText("Room: Café · Size: Standard")).toBeTruthy();
+    // The step's gate is satisfied: Next reaches Launch, where there is no chat.
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.queryByRole("log")).toBeNull();
+  });
+
+  it("sends the step's values as flat strings for hours and floor plan", async () => {
+    renderPage();
+    goToHoursStep();
+    await say("hello");
+    await waitFor(() => expect(mockStream).toHaveBeenCalledTimes(1));
+    const request = mockStream.mock.calls[0]?.[0] as unknown as {
+      body: { step: string; draft: Record<string, string> };
+    };
+    expect(request.body.step).toBe("hours");
+    expect(request.body.draft).toEqual({
+      serviceName: "",
+      opens: "",
+      closes: "",
+      lastSeating: "",
+      days: "",
+    });
   });
 
   it("steps aside on the ceiling line: a calm note, no chat, and the form still works", async () => {

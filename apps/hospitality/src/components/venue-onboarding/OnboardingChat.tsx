@@ -7,7 +7,7 @@ import { reportHandledError } from "@mbe/sentry/react";
 import { Button, ChatPanel, Text } from "@mattbutlerengineering/rialto";
 import { useMotionPreset } from "@mattbutlerengineering/rialto/providers";
 import { detectTimezone } from "./LocationTimeStep.js";
-import type { OnboardingPatchTarget } from "./onboarding-chat-patch.js";
+import { onboardingDraftOf, type OnboardingPatchTarget } from "./onboarding-chat-patch.js";
 import {
   createOnboardingChatStream,
   type AppliedPatch,
@@ -38,8 +38,19 @@ function summarize({ field, value }: FilledItem, t: TFunction): string {
       return Number(value) === 0
         ? t("onboarding.chat.summary.advanceBookingToday")
         : t("onboarding.chat.summary.advanceBookingDays", { count: Number(value) });
+    case "serviceName":
+    case "opens":
+    case "closes":
+    case "lastSeating":
+    case "days":
+    case "templateId":
+    case "roomSize":
+      return t(`onboarding.chat.summary.${field}`, { value });
   }
 }
+
+/** The steps whose form fields carry the "Filled from chat" mark the Review action focuses. */
+const MARKED_STEPS: readonly OnboardingChatStep[] = ["locationTime", "settings"];
 
 /** A stable getter for the newest `value`, safe to call from callbacks that outlive a render. */
 function useLatest<T>(value: T): () => T {
@@ -97,7 +108,8 @@ export function OnboardingChat({
   );
 
   const getAccessToken = useCallback(() => accessToken, [accessToken]);
-  const draft = target[step];
+  // The server takes the step's values as flat strings (hand edits reach the model that way).
+  const draft = useMemo(() => onboardingDraftOf(step, target), [step, target]);
   const browserTimeZone = useMemo(() => detectTimezone(), []);
   const requestContext = useMemo(
     () => ({
@@ -132,13 +144,15 @@ export function OnboardingChat({
           <Text variant="caption" color="secondary">
             {filled.map((item) => summarize(item, t)).join(" · ")}
           </Text>
-          <Button
-            variant="secondary"
-            aria-label={t("onboarding.chat.reviewLabel")}
-            onClick={() => focusFirstFilledField(reduced)}
-          >
-            {t("onboarding.chat.review")}
-          </Button>
+          {MARKED_STEPS.includes(step) && (
+            <Button
+              variant="secondary"
+              aria-label={t("onboarding.chat.reviewLabel")}
+              onClick={() => focusFirstFilledField(reduced)}
+            >
+              {t("onboarding.chat.review")}
+            </Button>
+          )}
         </div>
       )}
     </section>

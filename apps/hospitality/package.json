@@ -156,9 +156,9 @@
       "limit": "3 kB"
     },
     {
-      "name": "Venue Onboarding (lazy chunk)",
+      "name": "Venue Onboarding (lazy chunk; 9.2 kB (9,198 B) measured at #9475 for the hours and floor plan chat patches and their validators; limit 9.5 kB)",
       "path": "dist/assets/VenueOnboardingPage-*.js",
-      "limit": "8 kB"
+      "limit": "9.5 kB"
     },
     {
       "name": "Canvas Vendor (konva/react-konva, lazy chunk)",

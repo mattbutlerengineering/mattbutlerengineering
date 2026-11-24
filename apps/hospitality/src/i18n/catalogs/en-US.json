@@ -29,22 +29,44 @@
         "maxPartySize": "Parties up to {{value}}",
         "advanceBookingDays_one": "Bookable up to {{count}} day ahead",
         "advanceBookingDays_other": "Bookable up to {{count}} days ahead",
-        "advanceBookingToday": "Bookable today only"
+        "advanceBookingToday": "Bookable today only",
+        "serviceName": "Service: {{value}}",
+        "opens": "Opens {{value}}",
+        "closes": "Closes {{value}}",
+        "lastSeating": "Last seating {{value}}",
+        "days": "Open {{value}}",
+        "templateId": "Room: {{value}}",
+        "roomSize": "Size: {{value}}"
       },
+      "floorPlanEdited": "You've changed this layout by hand, so I left it as it was. Pick another room from the list to start over.",
       "notOffered": {
         "ianaTimezone": "time zone \"{{value}}\" isn't in the list",
-        "currencyCode": "currency \"{{value}}\" isn't in the list"
+        "currencyCode": "currency \"{{value}}\" isn't in the list",
+        "time": "\"{{value}}\" isn't a 24-hour time like 17:30",
+        "days": "\"{{value}}\" isn't a list of days like mon,tue,fri",
+        "serviceName": "the service needs a name",
+        "templateId": "room layout \"{{value}}\" isn't offered",
+        "roomSize": "room size \"{{value}}\" isn't offered"
       },
       "suggestion": {
         "locationTime": "We're in Lisbon and charge euros",
-        "settings": "Parties up to 8, 90 minutes a table, bookable 60 days ahead"
+        "settings": "Parties up to 8, 90 minutes a table, bookable 60 days ahead",
+        "hours": "Dinner Tuesday to Saturday, 5 to 10:30",
+        "floorPlan": "A casual bistro, a bit bigger than cozy"
       },
       "fields": {
         "ianaTimezone": "time zone",
         "currencyCode": "currency",
         "defaultReservationDuration": "reservation length",
         "maxPartySize": "largest party",
-        "advanceBookingDays": "days ahead"
+        "advanceBookingDays": "days ahead",
+        "serviceName": "service name",
+        "opens": "opening time",
+        "closes": "closing time",
+        "lastSeating": "last seating",
+        "days": "open days",
+        "templateId": "room layout",
+        "roomSize": "room size"
       }
     },
     "steps": {

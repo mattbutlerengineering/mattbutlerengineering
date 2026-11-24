@@ -2,10 +2,14 @@ import { describe, it, expect, vi } from "vitest";
 import type { ChatStreamFn, ChatStreamRequest } from "@mattbutlerengineering/rialto";
 import { createOnboardingChatStream } from "./onboarding-chat-stream.js";
 import type { OnboardingPatchTarget } from "./onboarding-chat-patch.js";
+import { emptyDraft } from "../availability/quick-setup-draft.js";
+import { EMPTY_FLOOR_PLAN_DRAFT } from "./floor-plan-draft.js";
 
 const TARGET: OnboardingPatchTarget = {
   locationTime: { ianaTimezone: "America/New_York", currencyCode: "USD" },
   settings: { defaultReservationDuration: "90", maxPartySize: "8", advanceBookingDays: "30" },
+  hours: emptyDraft("onboarding-service-1"),
+  floorPlan: EMPTY_FLOOR_PLAN_DRAFT,
 };
 
 function streamOf(lines: readonly unknown[]): ChatStreamFn {
@@ -60,10 +64,42 @@ describe("createOnboardingChatStream", () => {
     const { stream, onApplied } = setup([PATCH_LINE]);
     await collect(stream(request()));
     expect(onApplied).toHaveBeenCalledWith({
+      kind: "applied",
       step: "locationTime",
       data: { ianaTimezone: "Europe/Lisbon", currencyCode: "EUR" },
       changed: ["ianaTimezone", "currencyCode"],
     });
+  });
+
+  it("applies an hours patch and reports the flat fields that changed", async () => {
+    const { stream, onApplied } = setup([
+      patchLineFor("hours", { serviceName: "Dinner", opens: "17:00", closes: "22:00" }),
+    ]);
+    await collect(stream(request({ step: "hours" })));
+    expect(onApplied).toHaveBeenCalledTimes(1);
+    const applied = onApplied.mock.calls[0]?.[0];
+    expect(applied.step).toBe("hours");
+    expect(applied.changed).toEqual(["serviceName", "opens", "closes", "lastSeating"]);
+  });
+
+  it("applies a floor plan patch and reports the fields that changed", async () => {
+    const { stream, onApplied } = setup([
+      patchLineFor("floorPlan", { templateId: "cafe", roomSize: "cozy" }),
+    ]);
+    await collect(stream(request({ step: "floorPlan" })));
+    expect(onApplied.mock.calls[0]?.[0]).toMatchObject({
+      step: "floorPlan",
+      changed: ["templateId"],
+    });
+  });
+
+  it("drops a patch for another step than the request's", async () => {
+    const { stream, onApplied, onMalformed } = setup([
+      patchLineFor("floorPlan", { templateId: "cafe" }),
+    ]);
+    await collect(stream(request({ step: "hours" })));
+    expect(onApplied).not.toHaveBeenCalled();
+    expect(onMalformed).toHaveBeenCalledTimes(1);
   });
 
   it("reports only fields whose value actually changed", async () => {
@@ -120,6 +156,7 @@ describe("createOnboardingChatStream", () => {
     await collect(stream(request()));
     expect(onApplied).toHaveBeenCalledTimes(2);
     expect(onApplied.mock.calls[1]?.[0]).toEqual({
+      kind: "applied",
       step: "locationTime",
       data: { ianaTimezone: "Europe/Lisbon", currencyCode: "EUR" },
       changed: ["currencyCode"],

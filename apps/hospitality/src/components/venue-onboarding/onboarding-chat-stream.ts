@@ -1,6 +1,8 @@
 import type { ChatStreamFn, ChatStreamRequest } from "@mattbutlerengineering/rialto";
 import {
   applyOnboardingPatch,
+  onboardingDraftOf,
+  withApplied,
   type OnboardingPatchResult,
   type OnboardingPatchTarget,
 } from "./onboarding-chat-patch.js";
@@ -27,11 +29,7 @@ type AppliedResult = Extract<OnboardingPatchResult, { kind: "applied" }>;
 type RejectedResult = Extract<OnboardingPatchResult, { kind: "rejected" }>;
 
 /** An applied patch, discriminated on `step`, with the field names whose value actually changed. */
-export type AppliedPatch = AppliedResult extends infer R
-  ? R extends { step: infer S; data: infer D }
-    ? { step: S; data: D; changed: string[] }
-    : never
-  : never;
+export type AppliedPatch = AppliedResult & { changed: string[] };
 
 export type FallbackReason = "ceiling" | "error";
 
@@ -75,10 +73,10 @@ function withTrimmedHistory(request: ChatStreamRequest): ChatStreamRequest {
   return { ...request, body: { ...request.body, messages } };
 }
 
-function changedFields(before: object, after: object): string[] {
-  const prev = before as Record<string, unknown>;
-  return Object.entries(after as Record<string, unknown>)
-    .filter(([key, value]) => prev[key] !== value)
+/** The keys of the flat step drafts whose value differs. */
+function changedFields(before: Record<string, string>, after: Record<string, string>): string[] {
+  return Object.entries(after)
+    .filter(([key, value]) => before[key] !== value)
     .map(([key]) => key);
 }
 
@@ -115,13 +113,13 @@ export function createOnboardingChatStream(deps: OnboardingChatStreamDeps): Chat
       state.textSeen = true;
       return;
     }
-    const changed = changedFields(base[result.step], result.data);
-    state.working = { ...base, [result.step]: result.data };
-    deps.onApplied(
-      result.step === "locationTime"
-        ? { step: "locationTime", data: result.data, changed }
-        : { step: "settings", data: result.data, changed }
+    const next = withApplied(base, result);
+    const changed = changedFields(
+      onboardingDraftOf(result.step, base),
+      onboardingDraftOf(result.step, next)
     );
+    state.working = next;
+    deps.onApplied({ ...result, changed });
   }
 
   return async function* (request) {

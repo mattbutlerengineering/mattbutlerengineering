@@ -30,22 +30,44 @@
         "advanceBookingDays_one": "Réservable jusqu'à {{count}} jour à l'avance",
         "advanceBookingDays_many": "Réservable jusqu'à {{count}} de jours à l'avance",
         "advanceBookingDays_other": "Réservable jusqu'à {{count}} jours à l'avance",
-        "advanceBookingToday": "Réservable le jour même seulement"
+        "advanceBookingToday": "Réservable le jour même seulement",
+        "serviceName": "Service : {{value}}",
+        "opens": "Ouvre à {{value}}",
+        "closes": "Ferme à {{value}}",
+        "lastSeating": "Dernière table à {{value}}",
+        "days": "Ouvert : {{value}}",
+        "templateId": "Salle : {{value}}",
+        "roomSize": "Taille : {{value}}"
       },
+      "floorPlanEdited": "Vous avez modifié cette disposition à la main, alors je l'ai laissée telle quelle. Choisissez une autre salle dans la liste pour recommencer.",
       "notOffered": {
         "ianaTimezone": "le fuseau horaire « {{value}} » n'est pas dans la liste",
-        "currencyCode": "la devise « {{value}} » n'est pas dans la liste"
+        "currencyCode": "la devise « {{value}} » n'est pas dans la liste",
+        "time": "« {{value}} » n'est pas une heure de 24 heures comme 17:30",
+        "days": "« {{value}} » n'est pas une liste de jours comme mon,tue,fri",
+        "serviceName": "le service doit avoir un nom",
+        "templateId": "la salle « {{value}} » n'est pas offerte",
+        "roomSize": "la taille « {{value}} » n'est pas offerte"
       },
       "suggestion": {
         "locationTime": "Nous sommes à Lisbonne et nous facturons en euros",
-        "settings": "Groupes jusqu'à 8, 90 minutes par table, réservations 60 jours à l'avance"
+        "settings": "Groupes jusqu'à 8, 90 minutes par table, réservations 60 jours à l'avance",
+        "hours": "Souper du mardi au samedi, de 17 h à 22 h 30",
+        "floorPlan": "Un bistro décontracté, un peu plus grand que l'intime"
       },
       "fields": {
         "ianaTimezone": "fuseau horaire",
         "currencyCode": "devise",
         "defaultReservationDuration": "durée de la réservation",
         "maxPartySize": "plus grand groupe",
-        "advanceBookingDays": "jours à l'avance"
+        "advanceBookingDays": "jours à l'avance",
+        "serviceName": "nom du service",
+        "opens": "heure d'ouverture",
+        "closes": "heure de fermeture",
+        "lastSeating": "dernière table",
+        "days": "jours d'ouverture",
+        "templateId": "disposition de la salle",
+        "roomSize": "taille de la salle"
       }
     },
     "steps": {
