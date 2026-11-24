@@ -185,6 +185,11 @@ const VISUAL_ROUTES: ReadonlyArray<readonly [RegExp, unknown]> = [
   [/\/api\/v1\/venues\/[^/?]+\/table-statuses$/, [{ tableId: "tbl_e2e_001", status: "available" }]],
   // availability/history (C2.6) reads the change log; an empty log is its first-run state.
   [/\/api\/v1\/venues\/[^/?]+\/availability\/changes\?/, { total: 0, offset: 0, items: [] }],
+  // night (#9483): the end-of-service summary, so the baseline shows figures, not an error.
+  [
+    /\/api\/v1\/reservations\/metrics\/end-of-service\?/,
+    { date: DAY, venueId: VENUE.id, covers: 84, tableTurns: 31, noShows: 1, turnedAway: null },
+  ],
   [
     /\/public\/v1\/reservations\/manage\?token=/,
     {

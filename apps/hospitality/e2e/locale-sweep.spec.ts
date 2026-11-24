@@ -659,6 +659,11 @@ async function mockGatedRoutes(page: Page, route: string): Promise<void> {
       /\/api\/v1\/venues\/[^/?]+\/availability\/changes(\?.*)?$/,
       { items: [], total: 0, offset: 0 },
     ],
+    // `night` (#9483): the end-of-service summary, so the figures and their labels are swept.
+    [
+      /\/api\/v1\/reservations\/metrics\/end-of-service\?/,
+      { date: day, venueId: VENUE_ID, covers: 84, tableTurns: 31, noShows: 1, turnedAway: null },
+    ],
   ];
   for (const [pattern, data] of answers) {
     await page.route(pattern, (r) => r.fulfill(ok(data)));
