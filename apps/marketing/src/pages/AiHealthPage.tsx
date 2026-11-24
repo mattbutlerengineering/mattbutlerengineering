@@ -15,6 +15,7 @@ import {
   type SensorReport,
   type QueueEfficiencyMetrics,
   type ReviewBurdenMetrics,
+  type ProductionHealthMetrics,
   type AcmmMetrics,
   type PrCategoryBreakdownMetrics,
   type PrCategoryBreakdownStats,
@@ -179,6 +180,50 @@ function ReviewBurdenPanel({ reviewBurden }: { reviewBurden: ReviewBurdenMetrics
           here, so the rubber-stamp ratio is not reported rather than shown as 0%.
         </Text>
       )}
+    </div>
+  );
+}
+
+function ProductionHealthPanel({
+  productionHealth,
+}: {
+  productionHealth: ProductionHealthMetrics;
+}) {
+  if (!productionHealth.available) {
+    return (
+      <div className={styles.sensorGrid} data-testid="production-health-panel">
+        <div className={styles.sensorRow}>
+          <Text className={styles.sensorName}>productionHealth</Text>
+          <div className={styles.sensorBadge}>
+            <Badge color="red" size="sm">
+              Unavailable
+            </Badge>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div data-testid="production-health-panel">
+      <div className={styles.sensorGrid}>
+        {productionHealth.endpoints.map((endpoint) => (
+          <div key={endpoint.name} className={styles.sensorRow}>
+            <Text className={styles.sensorName}>{endpoint.name}</Text>
+            <div className={styles.sensorBadge}>
+              <Badge color={endpoint.status === "healthy" ? "green" : "red"} size="sm">
+                {endpoint.status}
+              </Badge>
+            </div>
+          </div>
+        ))}
+      </div>
+      <Text className={styles.panelNote}>
+        Last checked{" "}
+        {productionHealth.collectedAt == null
+          ? PLACEHOLDER
+          : formatTimestamp(productionHealth.collectedAt)}
+      </Text>
     </div>
   );
 }
@@ -466,6 +511,11 @@ export function AiHealthPage() {
       <section className={styles.section}>
         <Heading level={2}>Review Burden</Heading>
         <ReviewBurdenPanel reviewBurden={metrics.reviewBurden} />
+      </section>
+
+      <section className={styles.section}>
+        <Heading level={2}>Production Health</Heading>
+        <ProductionHealthPanel productionHealth={metrics.productionHealth} />
       </section>
 
       <section className={styles.section}>
