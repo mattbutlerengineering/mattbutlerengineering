@@ -206,6 +206,11 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     description:
       "Wraps a single field control (Input, TextArea, NumberInput, Select, or Combobox) and connects it to the enclosing Form's validation state.",
   },
+  GlobalNav: {
+    name: "GlobalNav",
+    description:
+      "Top bar that moves between the Mattbutler apps with a theme toggle. Use once at the top of a page. Set currentApp to the app being shown so its link is marked current.",
+  },
   GuestCards: {
     name: "GuestCards",
     description:
@@ -216,6 +221,20 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     description:
       "Instrument showing a multi-party exchange such as an OIDC sign-in, webhook confirmation, or device pairing: named stations joined by legs with a credential pulse travelling along the active one. Set stations to 2+ unique short names in order, state=idle, negotiating (default), settled or failed, and lane to the index of the active leg (0 = first to second station). aria-label is required and names the exchange (e.g. 'Verifying your sign-in'). Pair it with Text, Badge or DataList for per-station results.",
     charLimits: { "aria-label": 80 },
+  },
+  Heading: {
+    name: "Heading",
+    description:
+      "Section heading. Use level to set the document outline (1 for the page title, 2 for sections, 3 below that) and size when the look should differ from the level. Put its words in text (required unless it holds child elements).",
+    slots: ["default"],
+    charLimits: { children: 120 },
+    aliases: { text: "children" },
+  },
+  Hero: {
+    name: "Hero",
+    description:
+      "Large opening section for a landing page, with a small eyebrow label, a big title, a subtitle and action buttons. Use once at the top of a marketing page. Keep title to one short line and subtitle to one or two sentences.",
+    charLimits: { eyebrow: 40, subtitle: 200 },
   },
   HoverCard: {
     name: "HoverCard",
@@ -245,6 +264,12 @@ export const catalogMeta: Record<string, CatalogMeta> = {
       "Gauge showing a measured value within a known range, such as table occupancy or deposit goal. Unlike Progress it is not a task. Give value, min and max, a short label, and a variant (success, error) to signal good or bad.",
     charLimits: { label: 25 },
   },
+  Navbar: {
+    name: "Navbar",
+    description:
+      "Side navigation panel with a link list, optional search field, user block and footer. Use for the main menu of a staff app. Give each link a short label and an href; nest links as children for sub-sections.",
+    charLimits: { label: 40 },
+  },
   NavigationMenu: {
     name: "NavigationMenu",
     description:
@@ -256,6 +281,12 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     description:
       "Numeric field with stepper buttons. Use for counts and amounts such as party size, quantity, or price. Always give a label and a starting value; set min and max to bound it, and step (e.g. 0.5) to allow decimals.",
     charLimits: { label: 40, hint: 120, disabledReason: 120 },
+  },
+  PageHeader: {
+    name: "PageHeader",
+    description:
+      "Page masthead with a title, optional breadcrumb trail, badges beside the title and action buttons. Use once at the top of a page. Keep title short and put the main actions in actions.",
+    charLimits: { title: 80, breadcrumbLabel: 40 },
   },
   Pagination: {
     name: "Pagination",
