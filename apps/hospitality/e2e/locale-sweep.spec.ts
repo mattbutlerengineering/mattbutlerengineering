@@ -217,7 +217,11 @@ async function overflows(page: Page): Promise<string[]> {
       range.selectNodeContents(node);
       const textBox = range.getBoundingClientRect();
       const clip = clippingAncestor(parent);
-      if (textBox.width === 0 || !clip || hiddenOnPurpose(parent)) continue;
+      // The clipping box itself may be the visually-hidden one (LiveStatus wraps its sentence
+      // in a span inside a 1px region), so a clip that small hides on purpose too.
+      if (textBox.width === 0 || !clip || hiddenOnPurpose(parent) || hiddenOnPurpose(clip)) {
+        continue;
+      }
       const box = clip.getBoundingClientRect();
       if (textBox.right < box.left - window.innerWidth) continue;
       if (textBox.right > box.right + 1 || textBox.left < box.left - 1) {
