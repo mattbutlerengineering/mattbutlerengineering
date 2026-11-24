@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { FastifyBaseLogger } from "fastify";
 import { createAgentTools } from "./gen-agent-tools.js";
+import { resolveDay, validateConfig } from "@mbe/availability";
 import { GEN_WRITE_TOOL_NAMES } from "./gen-runner.js";
 
 function createMockLogger(): FastifyBaseLogger {
@@ -54,18 +55,21 @@ function lunchRow(extra: Record<string, unknown> = {}) {
   };
 }
 
-function configState(rows: unknown[] = [lunchRow()]) {
+const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
+
+function configState(rows: unknown[] = [lunchRow()], assignedDays: number[] = ALL_DAYS) {
   return {
     version: 7,
     source: "rows",
     config: {
-      schedules: [{ id: "s1", name: "Regular", kind: "weekly", isRegular: true }],
+      schedules: [{ id: "s1", name: "Regular", kind: "regular", isRegular: true }],
       venueServices: [
         { id: "svc-lunch", name: "Lunch", position: 0 },
         { id: "svc-dinner", name: "Dinner", position: 1 },
+        { id: "svc-brunch", name: "Brunch", position: 2 },
       ],
       scheduleServices: rows,
-      assignments: [],
+      assignments: [{ id: "as1", scheduleId: "s1", weekdays: assignedDays, precedence: 0 }],
       dateRules: [],
     },
   };
@@ -241,7 +245,7 @@ describe("schedule chat tools (#9477)", () => {
       const unknownService = await confirmed("close_repeating_days", {
         ...input,
         scope: "service",
-        service: "Brunch",
+        service: "Dessert",
       });
       expect(unknownService).toMatchObject({ error: expect.stringMatching(/no service called/) });
 
@@ -414,6 +418,101 @@ describe("schedule chat tools (#9477)", () => {
 
       expect(api.availability.saveConfig).not.toHaveBeenCalled();
       expect(result).toMatchObject({ error: expect.stringMatching(/doesn't run on Sunday/) });
+    });
+
+    describe("weekday changes against the server's rules", () => {
+      const brunchRow = (extra: Record<string, unknown> = {}) =>
+        lunchRow({ id: "ss3", venueServiceId: "svc-brunch", weekdays: [0, 6], ...extra });
+      const hours = { opensAt: "11:00", lastSeating: "13:00", closesAt: "15:00" };
+
+      /** The config as the server would hold it after the saved row replaces the old one. */
+      async function savedConfig(
+        rows: unknown[],
+        change: Record<string, unknown>,
+        assignedDays: number[] = ALL_DAYS
+      ) {
+        const state = configState(rows, assignedDays);
+        api.availability.getConfig.mockResolvedValue(state);
+        const result = await confirmed("set_regular_hours", change);
+        const body = api.availability.saveConfig.mock.calls[0]?.[1] as
+          { changes: { upsert: { scheduleServices: Array<{ id: string }> } } } | undefined;
+        const saved = body?.changes.upsert.scheduleServices[0];
+        const config = {
+          ...state.config,
+          scheduleServices: state.config.scheduleServices.map((row) =>
+            saved && (row as { id: string }).id === saved.id ? saved : row
+          ),
+        };
+        return { result, config: config as never, saved };
+      }
+
+      it.each([
+        ["one day of a partial week", [brunchRow()], "Brunch", ["Saturday"]],
+        ["every day of a partial week", [brunchRow()], "Brunch", ["Saturday", "Sunday"]],
+        ["a day of weekdays [1,2,3]", [lunchRow({ weekdays: [1, 2, 3] })], "Lunch", ["Monday"]],
+        ["a day of an every-day row", [lunchRow()], "Lunch", ["Friday"]],
+      ])("%s passes validateConfig", async (_name, rows, service, weekdays) => {
+        const { result, config } = await savedConfig(rows, { service, weekdays, ...hours });
+
+        expect(result).toMatchObject({ saved: true });
+        expect(validateConfig(config)).toEqual([]);
+      });
+
+      it("moves the named days out of the row's weekdays into the set", async () => {
+        const { saved } = await savedConfig([brunchRow()], {
+          service: "Brunch",
+          weekdays: ["Saturday"],
+          ...hours,
+        });
+
+        expect(saved).toMatchObject({
+          weekdays: [0],
+          opensAt: 690,
+          dayHours: { sets: [{ weekdays: [6], opensAt: 660, closesAt: 900 }] },
+        });
+      });
+
+      it("applies naming every day it runs to the row itself", async () => {
+        const { saved } = await savedConfig([brunchRow()], {
+          service: "Brunch",
+          weekdays: ["Sunday", "Saturday"],
+          ...hours,
+        });
+
+        expect(saved).toMatchObject({
+          weekdays: [0, 6],
+          opensAt: 660,
+          dayHours: { sets: [] },
+        });
+      });
+
+      it("refuses a day the regular schedule doesn't cover, and changes nothing", async () => {
+        const { result, config } = await savedConfig(
+          [lunchRow()],
+          { service: "Lunch", weekdays: ["Monday"], ...hours },
+          [0, 2, 3, 4, 5, 6]
+        );
+
+        expect(api.availability.saveConfig).not.toHaveBeenCalled();
+        expect(result).toMatchObject({
+          error: expect.stringMatching(/doesn't run on Monday.*Availability page/s),
+        });
+        expect(config).toBeDefined();
+      });
+
+      it("a saved change shows up on the day it names", async () => {
+        const { result, config } = await savedConfig([lunchRow()], {
+          service: "Lunch",
+          weekdays: ["Friday"],
+          ...hours,
+        });
+
+        expect(result).toMatchObject({ saved: true });
+        const friday = resolveDay({ timezone: "UTC", config }, "2027-01-08");
+        const thursday = resolveDay({ timezone: "UTC", config }, "2027-01-07");
+        expect(friday.services[0]).toMatchObject({ opensAt: 660, closesAt: 900 });
+        expect(thursday.services[0]).toMatchObject({ opensAt: 690, closesAt: 900 });
+      });
     });
 
     it("refuses a service that isn't on the regular schedule", async () => {

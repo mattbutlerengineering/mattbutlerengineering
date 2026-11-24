@@ -151,34 +151,52 @@ const sameHours = (row: Hours, hours: Hours): boolean =>
   row.lastSeatingAt === hours.lastSeatingAt &&
   row.closesAt === hours.closesAt;
 
+/** The weekdays the regular schedule's assignments cover: the days any service can run. */
+function coveredDays(config: AvailabilityConfig): number[] {
+  const regular = config.schedules.find((s) => s.isRegular && !s.archivedAt);
+  const days = config.assignments
+    .filter((a) => a.scheduleId === regular?.id)
+    .flatMap((a) => a.weekdays);
+  return [...new Set(days)].sort((a, b) => a - b);
+}
+
+const sameDays = (a: readonly number[], b: readonly number[]): boolean =>
+  a.length === b.length && a.every((d) => b.includes(d));
+
 /**
  * The row with `hours` applied: to every day it runs (no weekdays), or to just
- * `days` as one day set. A service already varied by day is left to the page.
+ * `days`. A day set takes its days out of the row's own weekdays, because the
+ * server allows one set of hours per day. A service already varied by day, or
+ * a day it can't run on, is left to the page.
  */
 function withHours(
   row: ScheduleService,
   hours: Hours,
-  days: number[] | undefined
+  days: number[] | undefined,
+  covered: readonly number[]
 ): { row: ScheduleService } | { error: string } {
   if (row.dayHours.sets.length > 0) {
     return {
       error: `This service already has different hours on some days. ${AVAILABILITY_PAGE} Nothing was changed.`,
     };
   }
-  const outside = (days ?? []).filter((d) => row.weekdays.length > 0 && !row.weekdays.includes(d));
+  if (!days) return { row: { ...row, ...hours } };
+  const runs = row.weekdays.length > 0 ? row.weekdays : covered;
+  const outside = days.filter((d) => !runs.includes(d));
   if (outside.length > 0) {
     return {
-      error: `This service doesn't run on ${listDays(outside.map((d) => WEEKDAYS[d]!))}. Nothing was changed.`,
+      error: `This service doesn't run on ${listDays(outside.map((d) => WEEKDAYS[d]!))}. ${AVAILABILITY_PAGE} Nothing was changed.`,
     };
   }
-  if (!days || days.length === 7) return { row: { ...row, ...hours } };
-  const set = {
-    weekdays: days,
-    ...hours,
-    seating: row.seating,
-    bookingTypes: row.bookingTypes,
+  if (sameDays(days, runs)) return { row: { ...row, ...hours } };
+  const set = { weekdays: days, ...hours, seating: row.seating, bookingTypes: row.bookingTypes };
+  return {
+    row: {
+      ...row,
+      weekdays: row.weekdays.filter((d) => !days.includes(d)),
+      dayHours: { version: 1, sets: [set] },
+    },
   };
-  return { row: { ...row, dayHours: { version: 1, sets: [set] } } };
 }
 
 /** A refused hours save, in words the model can pass on. */
@@ -229,7 +247,7 @@ function setRegularHours({ log, api, venueId }: ToolContext) {
           return notExecuted({ error: `${service} already has those hours. Nothing was changed.` });
         }
         const days = weekdays ? weekdayIndexes(weekdays) : undefined;
-        const built = withHours(current, hours, days);
+        const built = withHours(current, hours, days, coveredDays(state.config));
         if ("error" in built) return notExecuted(built);
         unsure = HOURS_UNSURE;
         await api.availability.saveConfig(venueId, {
