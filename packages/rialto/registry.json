@@ -272,6 +272,20 @@
       ],
       "slots": [
         "children"
+      ],
+      "characterLimits": [
+        {
+          "prop": "emptyText",
+          "max": 60
+        },
+        {
+          "prop": "hint",
+          "max": 120
+        },
+        {
+          "prop": "label",
+          "max": 40
+        }
       ]
     },
     {
@@ -977,8 +991,7 @@
       "characterLimits": [
         {
           "prop": "trigger",
-          "max": 60,
-          "reason": "Collapsible trigger text; single line"
+          "max": 60
         }
       ]
     },
@@ -1636,7 +1649,17 @@
           "required": false
         }
       ],
-      "slots": []
+      "slots": [],
+      "characterLimits": [
+        {
+          "prop": "label",
+          "max": 40
+        },
+        {
+          "prop": "placeholder",
+          "max": 60
+        }
+      ]
     },
     {
       "name": "DateRangeValue",
@@ -4915,9 +4938,16 @@
       ],
       "characterLimits": [
         {
+          "prop": "disabledReason",
+          "max": 120
+        },
+        {
+          "prop": "hint",
+          "max": 120
+        },
+        {
           "prop": "label",
-          "max": 40,
-          "reason": "Form field label; above textarea"
+          "max": 40
         }
       ]
     },

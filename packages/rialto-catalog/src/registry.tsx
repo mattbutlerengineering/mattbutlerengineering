@@ -25,6 +25,11 @@
 import { defineRegistry } from "@json-render/react";
 import {
   Accordion,
+  Autocomplete,
+  Collapsible,
+  DateRangePicker,
+  InputGroup,
+  TextArea,
   Alert,
   AppBar,
   AspectRatio,
@@ -78,6 +83,7 @@ import {
   Tooltip,
 } from "@mattbutlerengineering/rialto";
 import type {
+  DateRangeValue,
   DepartureBoardProps,
   GuestCard,
   ReservationListRow,
@@ -246,6 +252,56 @@ function NumberInputAdapter({ props, emit }: AdapterArgs<NumberInputSpecProps>) 
       }}
     />
   );
+}
+
+interface DateRangePickerSpecProps {
+  min?: string;
+  max?: string;
+  locale?: string;
+  label?: string;
+  placeholder?: string;
+  placement?: "top" | "bottom" | "left" | "right";
+}
+
+/** DateRangePicker is fully controlled, so the picked range is held here. */
+function DateRangePickerAdapter({ props, emit }: AdapterArgs<DateRangePickerSpecProps>) {
+  const [value, setValue] = useState<DateRangeValue>({ start: null, end: null });
+  return (
+    <DateRangePicker
+      {...props}
+      value={value}
+      onChange={(next) => {
+        setValue(next);
+        emit("change");
+      }}
+    />
+  );
+}
+
+interface TextAreaSpecProps {
+  label?: string;
+  hint?: string;
+  error?: boolean;
+  autoResize?: boolean;
+  maxLength?: number;
+  disabledReason?: string;
+  showOptional?: boolean;
+}
+
+interface AutocompleteSpecProps {
+  label?: string;
+  hint?: string;
+  options: { value: string; label: string }[];
+  emptyText?: string;
+  showOptional?: boolean;
+}
+
+interface CollapsibleSpecProps {
+  trigger: string;
+  open?: boolean;
+  defaultOpen?: boolean;
+  disabled?: boolean;
+  headingTag?: "h2" | "h3" | "h4" | "h5" | "h6";
 }
 
 interface SegmentedControlSpecProps {
@@ -835,6 +891,30 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
 
       NumberInput: typed(({ props, emit }: AdapterArgs<NumberInputSpecProps>) => (
         <NumberInputAdapter props={props} emit={emit} />
+      )),
+
+      DateRangePicker: typed(({ props, emit }: AdapterArgs<DateRangePickerSpecProps>) => (
+        <DateRangePickerAdapter props={props} emit={emit} />
+      )),
+
+      TextArea: typed(({ props }: AdapterArgs<TextAreaSpecProps>) => <TextArea {...props} />),
+
+      Autocomplete: typed(({ props, emit }: AdapterArgs<AutocompleteSpecProps>) => (
+        <Autocomplete
+          label={props.label}
+          hint={props.hint}
+          options={props.options}
+          emptyText={props.emptyText}
+          showOptional={props.showOptional}
+          onChange={() => emit("change")}
+          onSelect={() => emit("select")}
+        />
+      )),
+
+      InputGroup: ({ children }: { children?: ReactNode }) => <InputGroup>{children}</InputGroup>,
+
+      Collapsible: typed(({ props, children }: AdapterArgs<CollapsibleSpecProps>) => (
+        <Collapsible {...props}>{children}</Collapsible>
       )),
 
       SegmentedControl: typed(({ props, emit }: AdapterArgs<SegmentedControlSpecProps>) => (
