@@ -161,6 +161,13 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     slots: ["default"],
     charLimits: { title: 60, description: 120 },
   },
+  DisabledTooltip: {
+    name: "DisabledTooltip",
+    description:
+      "Wraps a control and explains why it is unavailable. Set disabled=true and give disabledReason a short sentence such as why a table cannot be booked; with no reason it renders its child unchanged.",
+    slots: ["default"],
+    charLimits: { disabledReason: 120 },
+  },
   Divider: {
     name: "Divider",
     description:
@@ -186,6 +193,12 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     slots: ["default"],
     charLimits: { heading: 50, description: 300 },
     aliases: { title: "heading" },
+  },
+  ErrorBoundary: {
+    name: "ErrorBoundary",
+    description:
+      "Safety wrapper that catches a rendering error in the content inside it and shows a calm fallback instead of a blank page. Wrap any section that loads data or renders something that could fail. It has no text of its own to write.",
+    slots: ["default"],
   },
   Footer: {
     name: "Footer",
@@ -257,6 +270,11 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     description:
       "Joins adjacent form controls into one visual row, for example a search Input beside a submit Button. Use only to pair related controls; place the controls as children.",
     slots: ["default"],
+  },
+  Kbd: {
+    name: "Kbd",
+    description:
+      "Keyboard key cap for showing one key, such as Esc or K, inside help text or a hint. Put the key name in children.",
   },
   Meter: {
     name: "Meter",
@@ -351,6 +369,13 @@ export const catalogMeta: Record<string, CatalogMeta> = {
       "Draggable single-value range control. Use to pick a number within a known range where precision matters less than feel, such as volume, brightness, or a budget. Provide a label, min, max, and defaultValue; set showValue to display the current number.",
     charLimits: { label: 40, disabledReason: 120 },
   },
+  SplitScreenExit: {
+    name: "SplitScreenExit",
+    description:
+      "Closing transition that splits the screen in two and reveals what is behind it. Set active=true when a finished flow, such as a confirmed booking, should exit. Give announcement a short sentence for screen readers.",
+    slots: ["default"],
+    charLimits: { announcement: 120 },
+  },
   Stack: {
     name: "Stack",
     description:
@@ -405,6 +430,11 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     description:
       "Multi-line text field. Use for free-form input such as special requests, allergies, notes, or messages. Always give a label; add a hint for guidance and set maxLength when input must be bounded.",
     charLimits: { label: 40, hint: 120, disabledReason: 120 },
+  },
+  ThemeToggle: {
+    name: "ThemeToggle",
+    description:
+      "Sun/moon icon button that switches between light and dark mode. Set theme to light or dark to match the current mode. Place it once, in the app bar or settings area.",
   },
   TimePicker: {
     name: "TimePicker",

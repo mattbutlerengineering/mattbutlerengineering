@@ -49,10 +49,12 @@ import {
   DataTable,
   DepartureBoard,
   Dialog,
+  DisabledTooltip,
   Divider,
   Drawer,
   DropdownMenu,
   EmptyState,
+  ErrorBoundary,
   Footer,
   GlobalNav,
   GuestCards,
@@ -62,6 +64,7 @@ import {
   HoverCard,
   IconButton,
   Input,
+  Kbd,
   Meter,
   Navbar,
   NavigationMenu,
@@ -78,6 +81,7 @@ import {
   Sidebar,
   Skeleton,
   Slider,
+  SplitScreenExit,
   Stack,
   Stat,
   StatusLED,
@@ -86,6 +90,7 @@ import {
   Tabs,
   Tag,
   Text,
+  ThemeToggle,
   Timeline,
   TimeSlots,
   Toggle,
@@ -908,6 +913,37 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
           <div>{children}</div>
         </ContextMenu>
       )),
+
+      // System and utility. Host state (theme, active) comes from the spec; actions are events.
+      ErrorBoundary: typed(({ children }: AdapterArgs<Record<string, never>>) => (
+        <ErrorBoundary>{children}</ErrorBoundary>
+      )),
+
+      ThemeToggle: typed(({ props, emit }: AdapterArgs<{ theme: "light" | "dark" }>) => (
+        <ThemeToggle theme={props.theme} onToggle={() => emit("toggle")} />
+      )),
+
+      DisabledTooltip: typed(
+        ({ props, children }: AdapterArgs<{ disabled?: boolean; disabledReason?: string }>) => (
+          <DisabledTooltip disabled={props.disabled} disabledReason={props.disabledReason}>
+            {children}
+          </DisabledTooltip>
+        )
+      ),
+
+      SplitScreenExit: typed(
+        ({ props, children, emit }: AdapterArgs<{ active: boolean; announcement?: string }>) => (
+          <SplitScreenExit
+            active={props.active}
+            announcement={props.announcement}
+            onExitComplete={() => emit("exitComplete")}
+          >
+            {children}
+          </SplitScreenExit>
+        )
+      ),
+
+      Kbd: typed(({ props }: AdapterArgs<{ children: string }>) => <Kbd>{props.children}</Kbd>),
 
       Tooltip: typed(
         ({
