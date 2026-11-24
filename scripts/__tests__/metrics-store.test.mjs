@@ -21,9 +21,62 @@ import {
   resolvePath,
   resolveWeeklyPath,
   metricsDir,
+  dataManifest,
+  REPO_LOCATED,
+  DATA_DIRNAME,
 } from "../metrics-store.mjs";
 
 const SCRIPTS_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+
+// ---------------------------------------------------------------------------
+// Data branch location — telemetry lives on the `metrics-data` branch,
+// checked out at <root>/.metrics-data; CI gate inputs stay on main.
+// ---------------------------------------------------------------------------
+
+describe("data branch location", () => {
+  let root;
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), "mstore-data-"));
+  });
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it("keeps resolving telemetry under metrics/ while no data checkout exists", () => {
+    expect(resolvePath("queue-telemetry", { root })).toBe(
+      join(root, "metrics", "queue-telemetry.jsonl")
+    );
+  });
+
+  it("resolves telemetry into the data checkout once it exists", () => {
+    mkdirSync(join(root, DATA_DIRNAME));
+    expect(resolvePath("queue-telemetry", { root })).toBe(
+      join(root, DATA_DIRNAME, "queue-telemetry.jsonl")
+    );
+    expect(resolveWeeklyPath("process-metrics", { root })).toBe(
+      join(root, DATA_DIRNAME, "process-metrics-weekly.json")
+    );
+  });
+
+  it("keeps CI gate inputs and non-durable snapshots on main", () => {
+    mkdirSync(join(root, DATA_DIRNAME));
+    for (const name of [...REPO_LOCATED, "sensor-report"]) {
+      expect(resolvePath(name, { root })).toBe(join(root, "metrics", METRICS[name].file));
+    }
+  });
+
+  it("lists every durable telemetry path, and no gate input or retired file", () => {
+    const manifest = dataManifest();
+    expect(manifest).toContain("metrics/queue-telemetry.jsonl");
+    expect(manifest).toContain("metrics/production-health/");
+    expect(manifest).toContain("metrics/eval-reports.jsonl");
+    expect(manifest).not.toContain("metrics/ai-antipattern-baselines.json");
+    expect(manifest).not.toContain("metrics/ui-quality-ledger.jsonl");
+    expect(manifest).not.toContain("metrics/last-audit.json");
+    expect(manifest).not.toContain("metrics/sensor-report.json");
+    expect(manifest.every((p) => p.startsWith("metrics/"))).toBe(true);
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Path resolution — the seam that guards against #3079-style path drift.
