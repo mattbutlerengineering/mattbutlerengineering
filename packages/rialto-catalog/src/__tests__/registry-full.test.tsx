@@ -1344,6 +1344,31 @@ describe("ReservationList", () => {
     expect(list.textContent).toContain("Walk-in");
   });
 
+  // #9472: rows spanning several dates arrive in tool order; show date, then time.
+  it("sorts multi-date rows by date then time", () => {
+    const { container } = renderReservations([
+      { time: "2026-10-26 19:00", guest: "Third", partySize: 2, status: "CONFIRMED" },
+      { time: "2026-11-03 18:00", guest: "Fourth", partySize: 2, status: "CONFIRMED" },
+      { time: "2026-10-16 20:00", guest: "Second", partySize: 2, status: "CONFIRMED" },
+      { time: "2026-10-16 12:30", guest: "First", partySize: 2, status: "CONFIRMED" },
+    ]);
+    const rows = within(container).getAllByRole("listitem");
+    expect(
+      rows.map((r) =>
+        ["First", "Second", "Third", "Fourth"].find((g) => r.textContent?.includes(g))
+      )
+    ).toEqual(["First", "Second", "Third", "Fourth"]);
+  });
+
+  it("keeps single-date rows in the order given", () => {
+    const { container } = renderReservations([
+      { time: "20:00", guest: "Late", partySize: 2, status: "CONFIRMED" },
+      { time: "12:00", guest: "Early", partySize: 2, status: "CONFIRMED" },
+    ]);
+    const rows = within(container).getAllByRole("listitem");
+    expect(rows[0]?.textContent).toContain("Late");
+  });
+
   // Reservation.guestName is `string | null`: a walk-in copied as is must not
   // fall back the whole list (F13).
   it("shows Walk-in for a null guest and keeps every row", () => {

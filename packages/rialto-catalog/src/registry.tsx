@@ -115,12 +115,22 @@ function isFilled(value: unknown): value is string {
 
 /** Rows a reservation list can show: time, party size and status present (gen-ui-elements-2). */
 function usableReservations(rows: readonly Record<string, unknown>[]): ReservationListRow[] {
-  return rows.flatMap(({ time, guest, partySize, status }) => {
+  const usable = rows.flatMap(({ time, guest, partySize, status }) => {
     const size = toPartySize(partySize);
     return isFilled(time) && isFilled(status) && size !== undefined
       ? [{ time, guest: typeof guest === "string" ? guest : undefined, partySize: size, status }]
       : [];
   });
+  return sortByDateWhenDated(usable);
+}
+
+const DATED_TIME = /^\d{4}-\d{2}-\d{2} \d{1,2}:\d{2}/;
+
+/** Multi-date rows carry "YYYY-MM-DD HH:mm"; order them by date then time (#9472). Undated lists keep their order. */
+function sortByDateWhenDated(rows: ReservationListRow[]): ReservationListRow[] {
+  if (rows.length < 2 || !rows.every((r) => DATED_TIME.test(r.time))) return rows;
+  const key = (t: string) => t.replace(/ (\d):/, " 0$1:");
+  return [...rows].sort((a, b) => key(a.time).localeCompare(key(b.time)));
 }
 
 /** Cards a guest list can show: name, visits and risk present; blank tags dropped (gen-ui-elements-2). */

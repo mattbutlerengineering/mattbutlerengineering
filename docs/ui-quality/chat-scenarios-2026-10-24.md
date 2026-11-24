@@ -263,6 +263,8 @@ F39 status: not reproduced in 4 of 4 replies. Keep open until a few more batches
 
 New observation: the element's row order follows the tool result and is not sorted by date (13.2 starts on Oct 26, then Nov 3, then Oct 16). Not logged as a finding.
 
+Resolved (#9472): multi-date rows now render sorted by date then time.
+
 ## Batch 14 (after #9097), 2026-11-18
 
 Re-check of F39 and the prose-date rule once `Deploy API Services` succeeded for merge `96a27ecbb` (#9097). Run against prod `mattbutlerengineering.com/hospitality` (chat drawer) with the existing signed-in Playwright MCP session, after a hard reload and a fresh conversation for every run. The 12-call budget ran out before six English replies: 8 English sends gave 4 replies and 4 "Generation failed" errors (see F40), so the tally is 4 English, 3 es-MX and 1 single-date control, 8 replies in all.
