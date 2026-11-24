@@ -285,7 +285,7 @@ export const catalogMeta: Record<string, CatalogMeta> = {
   Navbar: {
     name: "Navbar",
     description:
-      "Side navigation panel with a link list, optional search field, user block and footer. Use for the main menu of a staff app. Give each link a short label and an href; nest links as children for sub-sections.",
+      "Side navigation panel with a link list, user block and footer. Use for the main menu of a staff app. Give each link a short label and an href; nest links as children for sub-sections.",
     charLimits: { label: 40 },
   },
   NavigationMenu: {
