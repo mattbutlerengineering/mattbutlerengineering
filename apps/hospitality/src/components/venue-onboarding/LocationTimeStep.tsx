@@ -5,6 +5,7 @@ import { Stack, Text, Autocomplete, Select } from "@mattbutlerengineering/rialto
 import type { AutocompleteOption } from "@mattbutlerengineering/rialto";
 import { localeRuntime } from "../../i18n/runtime.js";
 import { formatCurrencyName } from "../../utils/format.js";
+import { FilledField } from "./FilledField";
 import styles from "./venue-onboarding.module.css";
 
 export interface LocationTimeData {
@@ -17,6 +18,8 @@ interface LocationTimeStepProps {
   errors: Partial<Record<keyof LocationTimeData, string>>;
   onChange: (data: LocationTimeData) => void;
   onValidate?: () => void;
+  /** Fields the chat just filled; each is marked in the form. */
+  filled?: readonly string[];
 }
 
 /** Comprehensive list of IANA timezones (50+), grouped by region. */
@@ -148,6 +151,16 @@ const CURRENCY_CODES = [
   "HKD",
 ] as const;
 
+/** True when the form can show `value` as a time zone. A chat patch may only set these. */
+export function isOfferedTimezone(value: string): boolean {
+  return TIMEZONE_OPTIONS.some((option) => option.value === value);
+}
+
+/** True when the form can show `value` as a currency. A chat patch may only set these. */
+export function isOfferedCurrency(value: string): boolean {
+  return (CURRENCY_CODES as readonly string[]).includes(value);
+}
+
 /** Try to detect the user's IANA timezone from the browser. */
 export function detectTimezone(): string {
   try {
@@ -177,12 +190,25 @@ export function validateLocationTime(
   return errors;
 }
 
-export function LocationTimeStep({ data, errors, onChange, onValidate }: LocationTimeStepProps) {
+export function LocationTimeStep({
+  data,
+  errors,
+  onChange,
+  onValidate,
+  filled = [],
+}: LocationTimeStepProps) {
   const { t, i18n } = useTranslation();
   const locale = i18n.language;
   // Track the text shown in the Autocomplete input
   const selectedTzLabel = TIMEZONE_OPTIONS.find((o) => o.value === data.ianaTimezone)?.label ?? "";
   const [tzSearch, setTzSearch] = useState(selectedTzLabel);
+  // The box keeps the text being typed, but when the zone is set from outside (the chat) it must
+  // show the new zone. Adjusting state while rendering avoids a remount, which would drop focus.
+  const [shownZone, setShownZone] = useState(data.ianaTimezone);
+  if (shownZone !== data.ianaTimezone) {
+    setShownZone(data.ianaTimezone);
+    if (data.ianaTimezone !== "") setTzSearch(selectedTzLabel);
+  }
 
   const autocompleteOptions: AutocompleteOption[] = useMemo(
     () => TIMEZONE_OPTIONS.map((tz) => ({ value: tz.value, label: tz.label })),
@@ -205,7 +231,10 @@ export function LocationTimeStep({ data, errors, onChange, onValidate }: Locatio
   return (
     <div className={styles.stepContainer}>
       <Stack gap="md">
-        <div className={styles.fieldGroup}>
+        <FilledField
+          filled={filled.includes("ianaTimezone")}
+          label={t("onboarding.locationTime.timezoneLabel")}
+        >
           <Autocomplete
             label={t("onboarding.locationTime.timezoneLabel")}
             placeholder={t("onboarding.locationTime.timezonePlaceholder")}
@@ -229,9 +258,12 @@ export function LocationTimeStep({ data, errors, onChange, onValidate }: Locatio
           <Text variant="caption" color="secondary">
             {t("onboarding.locationTime.timezoneHint")}
           </Text>
-        </div>
+        </FilledField>
 
-        <div className={styles.fieldGroup}>
+        <FilledField
+          filled={filled.includes("currencyCode")}
+          label={t("onboarding.locationTime.currencyLabel")}
+        >
           <Select
             label={t("onboarding.locationTime.currencyLabel")}
             options={currencySelectOptions}
@@ -243,7 +275,7 @@ export function LocationTimeStep({ data, errors, onChange, onValidate }: Locatio
             placeholder={t("onboarding.locationTime.currencyPlaceholder")}
           />
           {errors.currencyCode && <Text className={styles.errorText}>{errors.currencyCode}</Text>}
-        </div>
+        </FilledField>
       </Stack>
     </div>
   );

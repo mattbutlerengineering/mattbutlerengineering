@@ -1,4 +1,10 @@
-import { validateLocationTime, type LocationTimeData } from "./LocationTimeStep.js";
+import { localeRuntime } from "../../i18n/runtime.js";
+import {
+  isOfferedCurrency,
+  isOfferedTimezone,
+  validateLocationTime,
+  type LocationTimeData,
+} from "./LocationTimeStep.js";
 import { validateSettings, type SettingsData } from "./SettingsStep.js";
 
 /**
@@ -49,6 +55,24 @@ function readFields(step: PatchStep, data: unknown): Record<string, string> | nu
   return valid ? Object.fromEntries(entries as [string, string][]) : null;
 }
 
+/**
+ * A value the form cannot show would render blank yet still be saved at Launch, so it is refused
+ * here: the validator only checks a field is present, not that the form offers it.
+ */
+function notOfferedErrors(fields: Record<string, string>): Partial<Record<string, string>> {
+  const t = localeRuntime.i18n.t;
+  const errors: Partial<Record<string, string>> = {};
+  const zone = fields.ianaTimezone;
+  if (zone !== undefined && zone !== "" && !isOfferedTimezone(zone)) {
+    errors.ianaTimezone = t("onboarding.chat.notOffered.ianaTimezone", { value: zone });
+  }
+  const currency = fields.currencyCode;
+  if (currency !== undefined && currency !== "" && !isOfferedCurrency(currency)) {
+    errors.currencyCode = t("onboarding.chat.notOffered.currencyCode", { value: currency });
+  }
+  return errors;
+}
+
 export function applyOnboardingPatch(
   current: OnboardingPatchTarget,
   patch: unknown
@@ -59,7 +83,7 @@ export function applyOnboardingPatch(
 
   if (patch.step === "locationTime") {
     const data: LocationTimeData = { ...current.locationTime, ...fields };
-    const errors = validateLocationTime(data);
+    const errors = { ...validateLocationTime(data), ...notOfferedErrors(fields) };
     return Object.keys(errors).length === 0
       ? { kind: "applied", step: "locationTime", data }
       : { kind: "rejected", step: "locationTime", errors };

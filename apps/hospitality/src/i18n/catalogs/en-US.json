@@ -11,6 +11,42 @@
     "dashboardDocumentTitle": "Dashboard - {{brand}}"
   },
   "onboarding": {
+    "chat": {
+      "heading": "Tell us about your restaurant",
+      "region": "Setup assistant",
+      "filledTag": "Filled from chat",
+      "filledGroup": "{{field}}, filled from chat",
+      "filledAnnouncement": "{{fields}} filled from chat",
+      "fallbackNote": "Let's finish this step with the form.",
+      "rejected": "That doesn't fit this step ({{errors}}), so I left your form as it was.",
+      "tryAgain": "Try chat again",
+      "review": "Review",
+      "reviewLabel": "Review the fields filled from chat",
+      "summary": {
+        "ianaTimezone": "Time zone: {{value}}",
+        "currencyCode": "Currency: {{value}}",
+        "defaultReservationDuration": "Reservation length: {{value}} min",
+        "maxPartySize": "Parties up to {{value}}",
+        "advanceBookingDays_one": "Bookable up to {{count}} day ahead",
+        "advanceBookingDays_other": "Bookable up to {{count}} days ahead",
+        "advanceBookingToday": "Bookable today only"
+      },
+      "notOffered": {
+        "ianaTimezone": "time zone \"{{value}}\" isn't in the list",
+        "currencyCode": "currency \"{{value}}\" isn't in the list"
+      },
+      "suggestion": {
+        "locationTime": "We're in Lisbon and charge euros",
+        "settings": "Parties up to 8, 90 minutes a table, bookable 60 days ahead"
+      },
+      "fields": {
+        "ianaTimezone": "time zone",
+        "currencyCode": "currency",
+        "defaultReservationDuration": "reservation length",
+        "maxPartySize": "largest party",
+        "advanceBookingDays": "days ahead"
+      }
+    },
     "steps": {
       "welcome": {
         "label": "Welcome",

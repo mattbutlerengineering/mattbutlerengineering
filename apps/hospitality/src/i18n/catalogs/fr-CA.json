@@ -11,6 +11,43 @@
     "dashboardDocumentTitle": "Tableau de bord - {{brand}}"
   },
   "onboarding": {
+    "chat": {
+      "heading": "Parlez-nous de votre restaurant",
+      "region": "Assistant de configuration",
+      "filledTag": "Rempli depuis le clavardage",
+      "filledGroup": "{{field}}, rempli depuis le clavardage",
+      "filledAnnouncement": "{{fields}} : rempli depuis le clavardage",
+      "fallbackNote": "Terminons cette étape avec le formulaire.",
+      "rejected": "Cela ne convient pas à cette étape ({{errors}}); j'ai donc laissé votre formulaire tel quel.",
+      "tryAgain": "Réessayer le clavardage",
+      "review": "Vérifier",
+      "reviewLabel": "Vérifier les champs remplis depuis le clavardage",
+      "summary": {
+        "ianaTimezone": "Fuseau horaire : {{value}}",
+        "currencyCode": "Devise : {{value}}",
+        "defaultReservationDuration": "Durée de la réservation : {{value}} min",
+        "maxPartySize": "Groupes jusqu'à {{value}}",
+        "advanceBookingDays_one": "Réservable jusqu'à {{count}} jour à l'avance",
+        "advanceBookingDays_many": "Réservable jusqu'à {{count}} de jours à l'avance",
+        "advanceBookingDays_other": "Réservable jusqu'à {{count}} jours à l'avance",
+        "advanceBookingToday": "Réservable le jour même seulement"
+      },
+      "notOffered": {
+        "ianaTimezone": "le fuseau horaire « {{value}} » n'est pas dans la liste",
+        "currencyCode": "la devise « {{value}} » n'est pas dans la liste"
+      },
+      "suggestion": {
+        "locationTime": "Nous sommes à Lisbonne et nous facturons en euros",
+        "settings": "Groupes jusqu'à 8, 90 minutes par table, réservations 60 jours à l'avance"
+      },
+      "fields": {
+        "ianaTimezone": "fuseau horaire",
+        "currencyCode": "devise",
+        "defaultReservationDuration": "durée de la réservation",
+        "maxPartySize": "plus grand groupe",
+        "advanceBookingDays": "jours à l'avance"
+      }
+    },
     "steps": {
       "welcome": {
         "label": "Bienvenue",
