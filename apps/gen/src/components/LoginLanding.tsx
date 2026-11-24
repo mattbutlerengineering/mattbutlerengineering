@@ -37,7 +37,7 @@ export function LoginLanding() {
   return (
     <RialtoProvider vibe="transacting" theme={theme}>
       <SiteChrome>
-        <main className={styles.landing}>
+        <main id="main-content" className={styles.landing}>
           <Hero
             eyebrow="Generative UI"
             minHeight="auto"
