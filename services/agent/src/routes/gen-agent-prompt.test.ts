@@ -147,6 +147,13 @@ describe("buildAgentSystemPrompt", () => {
     it("asks for dates in plain words in the user's language, never as YYYY-MM-DD", () => {
       expect(prompt).toMatch(/dates in plain words[^.]*never[^.]*YYYY-MM-DD/i);
     });
+
+    // Chat batch 14 (es-MX): prose times came back as 24-hour "21:15".
+    it("asks for times on a 12-hour clock in the user's language, never 24-hour", () => {
+      expect(prompt).toMatch(
+        /times[^.]*12-hour[^.]*9:15 PM[^.]*9:15 p\.m\.[^.]*never[^.]*24-hour/i
+      );
+    });
   });
 
   describe("maps each data shape to the element that shows it", () => {
