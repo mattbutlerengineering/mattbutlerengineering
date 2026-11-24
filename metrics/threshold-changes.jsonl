@@ -54,3 +54,6 @@
 {"timestamp":"2026-11-21T00:00:00.000Z","criterion":"acmm","old_value":1.812,"new_value":1.832,"trigger":"headroom"}
 {"timestamp":"2026-11-22T00:00:00.000Z","criterion":"acmm","old_value":1.832,"new_value":1.853,"trigger":"headroom"}
 {"timestamp":"2026-11-23T00:00:00.000Z","criterion":"acmm","old_value":1.853,"new_value":1.878,"trigger":"headroom"}
+{"timestamp":"2026-11-24T00:00:00.000Z","criterion":"acmm","old_value":1.878,"new_value":1.896,"trigger":"headroom"}
+{"timestamp":"2026-11-24T00:00:00.000Z","criterion":"ci-fix","old_value":1.198,"new_value":1.228,"trigger":"headroom"}
+{"timestamp":"2026-11-24T00:00:00.000Z","criterion":"bug","old_value":1,"new_value":0.95,"trigger":"high-fp-rate"}
