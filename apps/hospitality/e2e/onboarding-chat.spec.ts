@@ -84,7 +84,9 @@ test.describe("Onboarding chat", () => {
     await expect(page.getByRole("log")).toBeVisible();
     await tellTheChat(page, SENTENCE);
     await expect(page.getByRole("spinbutton", { name: /^Largest party/ })).toHaveValue("12");
-    await expect(page.getByRole("spinbutton", { name: /^Days ahead/ })).toHaveValue("60");
+    await expect(
+      page.getByRole("spinbutton", { name: /^How far ahead guests can book/ })
+    ).toHaveValue("60");
     expect(requests[1]?.step).toBe("settings");
     // A fresh conversation per step: nothing from the location step rides along.
     expect(requests[1]?.messages).toHaveLength(1);
