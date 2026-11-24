@@ -21,7 +21,15 @@
       "tryAgain": "Try chat again",
       "review": "Review",
       "reviewLabel": "Review the fields filled from chat",
-      "summaryItem": "{{field}}: {{value}}",
+      "summary": {
+        "ianaTimezone": "Time zone: {{value}}",
+        "currencyCode": "Currency: {{value}}",
+        "defaultReservationDuration": "Reservation length: {{value}} min",
+        "maxPartySize": "Parties up to {{value}}",
+        "advanceBookingDays_one": "Bookable up to {{count}} day ahead",
+        "advanceBookingDays_other": "Bookable up to {{count}} days ahead",
+        "advanceBookingToday": "Bookable today only"
+      },
       "notOffered": {
         "ianaTimezone": "time zone \"{{value}}\" isn't in the list",
         "currencyCode": "currency \"{{value}}\" isn't in the list"

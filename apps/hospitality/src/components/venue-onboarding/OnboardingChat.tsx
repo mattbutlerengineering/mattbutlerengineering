@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
+import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@mbe/auth/react";
 import { streamNDJSON } from "@mbe/api-client/streaming";
@@ -22,8 +23,22 @@ const ONBOARDING_CHAT_API = "/api/gen/onboarding";
 const NO_DOMAIN_CONTEXT = { schemas: [] };
 const NOOP = () => {};
 
-function capitalize(text: string, locale: string): string {
-  return text.charAt(0).toLocaleUpperCase(locale) + text.slice(1);
+/** One filled field as a phrase with its unit, e.g. "Reservation length: 90 min". */
+function summarize({ field, value }: FilledItem, t: TFunction): string {
+  switch (field) {
+    case "ianaTimezone":
+      return t("onboarding.chat.summary.ianaTimezone", { value });
+    case "currencyCode":
+      return t("onboarding.chat.summary.currencyCode", { value });
+    case "defaultReservationDuration":
+      return t("onboarding.chat.summary.defaultReservationDuration", { value });
+    case "maxPartySize":
+      return t("onboarding.chat.summary.maxPartySize", { value });
+    case "advanceBookingDays":
+      return Number(value) === 0
+        ? t("onboarding.chat.summary.advanceBookingToday")
+        : t("onboarding.chat.summary.advanceBookingDays", { count: Number(value) });
+  }
 }
 
 /** A stable getter for the newest `value`, safe to call from callbacks that outlive a render. */
@@ -115,14 +130,7 @@ export function OnboardingChat({
         // On a phone the form is below the fold of the chat, so say what changed right here.
         <div className={styles.summary}>
           <Text variant="caption" color="secondary">
-            {filled
-              .map((item) =>
-                t("onboarding.chat.summaryItem", {
-                  field: capitalize(t(`onboarding.chat.fields.${item.field}`), i18n.language),
-                  value: item.value,
-                })
-              )
-              .join(" · ")}
+            {filled.map((item) => summarize(item, t)).join(" · ")}
           </Text>
           <Button
             variant="secondary"

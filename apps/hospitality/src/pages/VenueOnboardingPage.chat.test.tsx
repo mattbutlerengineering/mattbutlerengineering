@@ -267,6 +267,12 @@ describe("onboarding chat beside the form", () => {
     expect(screen.getByRole("status").textContent).toBe(
       "Reservation length, largest party, and days ahead filled from chat"
     );
+    // The summary says what each number means.
+    expect(
+      screen.getByText(
+        "Reservation length: 120 min · Parties up to 12 · Bookable up to 60 days ahead"
+      )
+    ).toBeTruthy();
   });
 
   it("steps aside on the ceiling line: a calm note, no chat, and the form still works", async () => {

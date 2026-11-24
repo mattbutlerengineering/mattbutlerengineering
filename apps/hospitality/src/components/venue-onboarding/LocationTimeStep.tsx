@@ -151,7 +151,6 @@ const CURRENCY_CODES = [
   "HKD",
 ] as const;
 
-/** Try to detect the user's IANA timezone from the browser. */
 /** True when the form can show `value` as a time zone. A chat patch may only set these. */
 export function isOfferedTimezone(value: string): boolean {
   return TIMEZONE_OPTIONS.some((option) => option.value === value);
@@ -162,6 +161,7 @@ export function isOfferedCurrency(value: string): boolean {
   return (CURRENCY_CODES as readonly string[]).includes(value);
 }
 
+/** Try to detect the user's IANA timezone from the browser. */
 export function detectTimezone(): string {
   try {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;

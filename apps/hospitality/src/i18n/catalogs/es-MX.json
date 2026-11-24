@@ -21,7 +21,16 @@
       "tryAgain": "Probar el chat otra vez",
       "review": "Revisar",
       "reviewLabel": "Revisar los campos completados desde el chat",
-      "summaryItem": "{{field}}: {{value}}",
+      "summary": {
+        "ianaTimezone": "Zona horaria: {{value}}",
+        "currencyCode": "Moneda: {{value}}",
+        "defaultReservationDuration": "Duración de la reservación: {{value}} min",
+        "maxPartySize": "Grupos de hasta {{value}}",
+        "advanceBookingDays_one": "Reservable hasta {{count}} día antes",
+        "advanceBookingDays_many": "Reservable hasta {{count}} de días antes",
+        "advanceBookingDays_other": "Reservable hasta {{count}} días antes",
+        "advanceBookingToday": "Reservable solo para hoy"
+      },
       "notOffered": {
         "ianaTimezone": "la zona horaria \"{{value}}\" no está en la lista",
         "currencyCode": "la moneda \"{{value}}\" no está en la lista"

@@ -156,5 +156,10 @@ export function focusFirstFilledField(reducedMotion: boolean): void {
   const control = mark?.querySelector<HTMLElement>("input, select, button, [role='combobox']");
   if (!mark || !control) return;
   control.focus({ preventScroll: true });
+  // rialto's Autocomplete opens its list when focused with text in it, which would cover the
+  // form the owner came to review. Escape closes it without touching the text.
+  if (control.getAttribute("role") === "combobox") {
+    control.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  }
   mark.scrollIntoView?.({ block: "center", behavior: reducedMotion ? "auto" : "smooth" });
 }

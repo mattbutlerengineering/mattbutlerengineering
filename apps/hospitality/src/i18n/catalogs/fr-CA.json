@@ -21,7 +21,16 @@
       "tryAgain": "Réessayer le clavardage",
       "review": "Vérifier",
       "reviewLabel": "Vérifier les champs remplis depuis le clavardage",
-      "summaryItem": "{{field}} : {{value}}",
+      "summary": {
+        "ianaTimezone": "Fuseau horaire : {{value}}",
+        "currencyCode": "Devise : {{value}}",
+        "defaultReservationDuration": "Durée de la réservation : {{value}} min",
+        "maxPartySize": "Groupes jusqu'à {{value}}",
+        "advanceBookingDays_one": "Réservable jusqu'à {{count}} jour à l'avance",
+        "advanceBookingDays_many": "Réservable jusqu'à {{count}} de jours à l'avance",
+        "advanceBookingDays_other": "Réservable jusqu'à {{count}} jours à l'avance",
+        "advanceBookingToday": "Réservable le jour même seulement"
+      },
       "notOffered": {
         "ianaTimezone": "le fuseau horaire « {{value}} » n'est pas dans la liste",
         "currencyCode": "la devise « {{value}} » n'est pas dans la liste"
