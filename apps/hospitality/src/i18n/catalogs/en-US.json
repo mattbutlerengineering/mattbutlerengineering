@@ -302,6 +302,7 @@
       "settings": "Settings",
       "users": "Users",
       "tonightsService": "Tonight's Service",
+      "night": "The night in numbers",
       "timeline": "Timeline",
       "reservations": "Reservations",
       "waitlist": "Waitlist",
@@ -327,6 +328,7 @@
       "guests": "Guests",
       "waitlist": "Waitlist",
       "briefing": "Tonight's Service",
+      "night": "The night in numbers",
       "floorPlan": "Floor Plan",
       "bookingWidget": "Booking Widget",
       "onboarding": "New Venue",
@@ -3605,6 +3607,22 @@
       "heading": "Nothing on the book for {{date}}.",
       "description": "Change the date, or seat walk-ins from the Timeline.",
       "action": "Open Timeline"
+    }
+  },
+  "night": {
+    "title": "The night in numbers",
+    "description": "How service went, on one screen",
+    "loading": "Loading the night in numbers…",
+    "loaded": "The night in numbers for {{date}} loaded.",
+    "serviceDate": "Service date",
+    "loadError": "Couldn't load the night in numbers.",
+    "covers": "Covers served",
+    "tableTurns": "Table turns",
+    "noShows": "No-shows",
+    "turnedAway": "Turned away",
+    "empty": {
+      "heading": "No seatings were completed on {{date}}.",
+      "description": "Pick another service date to look back."
     }
   },
   "profile": {

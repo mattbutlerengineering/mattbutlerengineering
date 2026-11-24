@@ -358,6 +358,14 @@ describe("briefing, dashboard stats and page-only areas in the prompt", () => {
     expect(prompt).toMatch(/couldn't read the briefing.*never.*no bookings/i);
   });
 
+  it("answers how the night went with get_night_summary, rendered as Stat elements", () => {
+    expect(prompt).toMatch(/how did tonight go.*get_night_summary/);
+    expect(prompt).toMatch(/¿cómo fue la noche\?/);
+    expect(prompt).toMatch(/get_night_summary.*covers, tableTurns and noShows.*Stat/);
+    expect(prompt).toMatch(/turnedAway only when the result includes it/);
+    expect(prompt).toMatch(/couldn't read the numbers.*never report zeros/);
+  });
+
   it("answers the dashboard's headline stats from existing tools", () => {
     expect(prompt).toMatch(/Dashboard stats.*covers from get_briefing.*list_today_reservations/);
     expect(prompt).toMatch(/Dashboard stats.*waitlist.*list_waitlist/);

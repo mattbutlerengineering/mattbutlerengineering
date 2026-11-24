@@ -309,6 +309,7 @@
       "settings": "Paramètres",
       "users": "Utilisateurs",
       "tonightsService": "Service de ce soir",
+      "night": "La soirée en chiffres",
       "timeline": "Chronologie",
       "reservations": "Réservations",
       "waitlist": "Liste d'attente",
@@ -334,6 +335,7 @@
       "guests": "Clients",
       "waitlist": "Liste d'attente",
       "briefing": "Service de ce soir",
+      "night": "La soirée en chiffres",
       "floorPlan": "Plan de salle",
       "bookingWidget": "Widget de réservation",
       "onboarding": "Nouvel établissement",
@@ -3713,6 +3715,22 @@
       "heading": "Rien au livre pour le {{date}}.",
       "description": "Changez la date ou placez des clients sans réservation depuis la Chronologie.",
       "action": "Ouvrir la Chronologie"
+    }
+  },
+  "night": {
+    "title": "La soirée en chiffres",
+    "description": "Le déroulement du service, sur un seul écran",
+    "loading": "Chargement de la soirée en chiffres…",
+    "loaded": "La soirée en chiffres du {{date}} est chargée.",
+    "serviceDate": "Date du service",
+    "loadError": "Impossible de charger la soirée en chiffres.",
+    "covers": "Couverts servis",
+    "tableTurns": "Rotations de table",
+    "noShows": "Absences",
+    "turnedAway": "Clients refusés",
+    "empty": {
+      "heading": "Aucun service n'a été terminé le {{date}}.",
+      "description": "Choisissez une autre date de service pour revenir en arrière."
     }
   },
   "profile": {

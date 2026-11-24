@@ -60,6 +60,104 @@ function entry(fields: Record<string, unknown> = {}) {
   };
 }
 
+describe("get_night_summary chat tool", () => {
+  let log: FastifyBaseLogger;
+  let api: { reservations: { getEndOfServiceSummary: ReturnType<typeof vi.fn> } };
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-11-02T03:00:00.000Z"));
+    log = createMockLogger();
+    api = {
+      reservations: {
+        getEndOfServiceSummary: vi.fn().mockResolvedValue({
+          date: "2026-11-01",
+          venueId: "v1",
+          covers: 84,
+          tableTurns: 31,
+          noShows: 2,
+          turnedAway: null,
+        }),
+      },
+    };
+  });
+
+  afterEach(() => vi.useRealTimers());
+
+  function run(
+    input: Record<string, unknown>,
+    options: { venueId?: string; timeZone?: string } = { venueId: "v1" }
+  ) {
+    const tools = createAgentTools(log, api as never, options);
+    return tools.get_night_summary!.execute!(input as never, toolCtx);
+  }
+
+  it("is a read: not confirm-gated", () => {
+    expect(GEN_WRITE_TOOL_NAMES).not.toContain("get_night_summary");
+  });
+
+  it("reads the venue's own today and returns the figures", async () => {
+    const result = await run({}, { venueId: "v1", timeZone: "America/Los_Angeles" });
+
+    // 03:00Z on Nov 2 is still Nov 1 in Los Angeles.
+    expect(api.reservations.getEndOfServiceSummary).toHaveBeenCalledWith({
+      venueId: "v1",
+      date: "2026-11-01",
+    });
+    expect(result).toEqual({
+      date: "2026-11-01",
+      covers: 84,
+      tableTurns: 31,
+      noShows: 2,
+    });
+  });
+
+  it("reads a given date and never takes the venue from the model", async () => {
+    await run({ date: "2026-10-30", venueId: "other" });
+
+    expect(api.reservations.getEndOfServiceSummary).toHaveBeenCalledWith({
+      venueId: "v1",
+      date: "2026-10-30",
+    });
+  });
+
+  it("includes turned away only once the server reports it", async () => {
+    api.reservations.getEndOfServiceSummary.mockResolvedValue({
+      date: "2026-11-01",
+      venueId: "v1",
+      covers: 10,
+      tableTurns: 4,
+      noShows: 0,
+      turnedAway: 3,
+    });
+
+    expect(await run({})).toMatchObject({ turnedAway: 3 });
+  });
+
+  it("needs a selected venue", async () => {
+    const result = await run({}, {});
+
+    expect(result).toMatchObject({ error: expect.stringContaining("No venue") });
+    expect(api.reservations.getEndOfServiceSummary).not.toHaveBeenCalled();
+  });
+
+  it("refuses an unreadable date without calling the API", async () => {
+    const result = await run({ date: "last night" });
+
+    expect(result).toMatchObject({ rejected: true });
+    expect(api.reservations.getEndOfServiceSummary).not.toHaveBeenCalled();
+  });
+
+  it("never turns a failed read into zeros", async () => {
+    api.reservations.getEndOfServiceSummary.mockRejectedValue(new Error("boom"));
+
+    const result = await run({});
+
+    expect(result).toMatchObject({ unknown: true, error: expect.stringMatching(/couldn't/i) });
+    expect(result).not.toHaveProperty("covers");
+  });
+});
+
 describe("get_briefing chat tool", () => {
   let log: FastifyBaseLogger;
   let api: { briefing: { list: ReturnType<typeof vi.fn> } };

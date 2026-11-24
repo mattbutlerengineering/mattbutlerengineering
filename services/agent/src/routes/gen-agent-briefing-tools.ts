@@ -51,6 +51,36 @@ export function createBriefingTools(
   { venueId, timeZone }: { readonly venueId?: string | undefined; readonly timeZone?: string }
 ): ToolSet {
   return {
+    get_night_summary: tool({
+      description:
+        'Read how the night went: covers served, table turns and no-shows for a service date (counts only). Use it for "how did tonight go" and "how was last night". Defaults to today.',
+      inputSchema: z.object({
+        date: z
+          .string()
+          .optional()
+          .describe("Service date in YYYY-MM-DD format, defaults to today"),
+      }),
+      execute: async ({ date }) => {
+        if (!venueId) return NO_VENUE;
+        const day = date ?? todayIn(timeZone);
+        if (!isRealDate(day)) return { rejected: true, error: UNREADABLE_DATE };
+        log.info({ venueId, date: day }, "get_night_summary tool called");
+        try {
+          const summary = await api.reservations.getEndOfServiceSummary({ venueId, date: day });
+          return {
+            date: summary.date,
+            covers: summary.covers,
+            tableTurns: summary.tableTurns,
+            noShows: summary.noShows,
+            // Null until the Lost Demand Ledger lands; omitted so the model never reports a zero.
+            ...(summary.turnedAway === null ? {} : { turnedAway: summary.turnedAway }),
+          };
+        } catch (err) {
+          log.error({ err, venueId, date: day }, "get_night_summary failed");
+          return readFailure(err, "the night's numbers", { notEmpty: "the night had no guests" });
+        }
+      },
+    }),
     get_briefing: tool({
       description:
         "Read the Briefing page: the day's pending and confirmed seatings in arrival order, with each guest's visits, dietary restrictions, tags and notes. Defaults to today.",
