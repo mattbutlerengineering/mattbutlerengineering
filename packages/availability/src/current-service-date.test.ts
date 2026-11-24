@@ -72,6 +72,20 @@ describe("lastServiceDate", () => {
     expect(last(config, "2026-11-07T09:00:00Z")).toBe("2026-11-06");
   });
 
+  it("skips a closed day: closed Mondays, Tue 10:00 before opening gives Sunday", () => {
+    const closedMondays = {
+      ...dinnerConfig(1380, 1320),
+      assignments: [{ id: "a1", scheduleId: "s1", weekdays: [0, 2, 3, 4, 5, 6], precedence: 0 }],
+    };
+    // 2026-11-03 10:00 PST
+    expect(last(closedMondays, "2026-11-03T18:00:00Z")).toBe("2026-11-01");
+  });
+
+  it("is yesterday, without looping, when nothing is open in the whole window", () => {
+    const closed = { ...dinnerConfig(1380, 1320), assignments: [] };
+    expect(last(closed, "2026-11-07T18:00:00Z")).toBe("2026-11-06");
+  });
+
   it("is yesterday on a day with no services at all", () => {
     const closed = { ...dinnerConfig(1380, 1320), assignments: [] };
     expect(last(closed, "2026-11-07T18:00:00Z")).toBe("2026-11-06");

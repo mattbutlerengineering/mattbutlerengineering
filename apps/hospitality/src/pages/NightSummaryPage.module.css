@@ -35,14 +35,10 @@
   grid-column: 1 / -1;
 }
 
-/* Wide enough, covers take the most room beside the rest. */
+/* Wide enough, covers take two columns of the same auto-fit track list beside the rest. */
 @media (min-width: 40rem) {
-  .figures {
-    grid-template-columns: 2fr repeat(auto-fit, minmax(8rem, 1fr));
-  }
-
   .lead {
-    grid-column: auto;
+    grid-column: span 2;
   }
 }
 

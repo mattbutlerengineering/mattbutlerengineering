@@ -17,14 +17,25 @@ export function currentServiceDate(snapshot: AvailabilitySnapshot, now: Date): s
   return isOpen(yesterday, local.minute + MINUTES_PER_DAY) ? yesterday : local.date;
 }
 
+/** How far back `lastServiceDate` looks for a day with services (a closed day or two is common). */
+const LAST_SERVICE_LOOKBACK_DAYS = 7;
+
 /**
  * The service day a closing summary means: the one that last opened. Until today's first
- * service opens (or when today has none) that is yesterday's, even after its service has
- * closed, which `currentServiceDate` alone would already have rolled forward to today.
+ * service opens (or when today has none) that is the most recent earlier day that has services,
+ * even after its service has closed, which `currentServiceDate` alone would already have rolled
+ * forward to today. A venue closed Mondays asked on Tuesday morning gets Sunday. The search is
+ * bounded to a week; a venue with no services in that window gets yesterday.
  */
 export function lastServiceDate(snapshot: AvailabilitySnapshot, now: Date): string {
   const local = localDateTimeOf(now, snapshot.timezone);
   const opensAts = resolveDay(snapshot, local.date).services.map((s) => s.opensAt);
-  const todayOpened = opensAts.length > 0 && local.minute >= Math.min(...opensAts);
-  return todayOpened ? currentServiceDate(snapshot, now) : addDays(local.date, -1);
+  if (opensAts.length > 0 && local.minute >= Math.min(...opensAts)) {
+    return currentServiceDate(snapshot, now);
+  }
+  for (let back = 1; back <= LAST_SERVICE_LOOKBACK_DAYS; back += 1) {
+    const date = addDays(local.date, -back);
+    if (resolveDay(snapshot, date).services.length > 0) return date;
+  }
+  return addDays(local.date, -1);
 }
