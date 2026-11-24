@@ -2446,6 +2446,12 @@
       ],
       "slots": [
         "children"
+      ],
+      "characterLimits": [
+        {
+          "prop": "children",
+          "max": 120
+        }
       ]
     },
     {
@@ -2504,6 +2510,16 @@
       ],
       "slots": [
         "children"
+      ],
+      "characterLimits": [
+        {
+          "prop": "eyebrow",
+          "max": 40
+        },
+        {
+          "prop": "subtitle",
+          "max": 200
+        }
       ]
     },
     {
@@ -3039,6 +3055,12 @@
       ],
       "slots": [
         "children"
+      ],
+      "characterLimits": [
+        {
+          "prop": "label",
+          "max": 40
+        }
       ]
     },
     {
@@ -3287,6 +3309,16 @@
       ],
       "slots": [
         "children"
+      ],
+      "characterLimits": [
+        {
+          "prop": "breadcrumbLabel",
+          "max": 40
+        },
+        {
+          "prop": "title",
+          "max": 80
+        }
       ]
     },
     {
