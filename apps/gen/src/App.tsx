@@ -19,7 +19,7 @@ function SessionExpiredScreen() {
   const { signIn } = useAuth();
   return (
     <SiteChrome>
-      <main className={styles.chromeMessage}>
+      <main id="main-content" className={styles.chromeMessage}>
         <Stack gap="md" align="center">
           <Text as="h1" variant="display" color="primary">
             Session expired
@@ -55,7 +55,7 @@ export function App() {
     case "error":
       return (
         <SiteChrome>
-          <main className={styles.chromeMessage}>
+          <main id="main-content" className={styles.chromeMessage}>
             <Stack gap="md" align="center">
               <Text as="h1" variant="display" color="primary">
                 Authentication Error
