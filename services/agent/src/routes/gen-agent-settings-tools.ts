@@ -62,8 +62,11 @@ const asBag = (value: unknown): Bag =>
 
 const profile = VenueProfileSchema.shape;
 
+/** Matches Availability → Booking rules' `LIMITS.largestParty` (apps/hospitality booking-rules.ts). */
+const LARGEST_PARTY_MAX = 100;
+
 const SettingsInput = z.object({
-  maxPartySize: z.number().int().min(1).max(500).nullable().optional(),
+  maxPartySize: z.number().int().min(1).max(LARGEST_PARTY_MAX).nullable().optional(),
   phone: z.string().trim().min(1).max(40).nullable().optional(),
   defaultReservationDuration: z.number().int().min(15).max(480).nullable().optional(),
   requirePhone: z.boolean().nullable().optional(),

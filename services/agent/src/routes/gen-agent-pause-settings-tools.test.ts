@@ -364,6 +364,15 @@ describe("pause and settings chat tools", () => {
       expect("phone" in sent).toBe(false);
     });
 
+    // Availability → Booking rules caps largest party at 100; a larger value
+    // saved from chat would leave that form refusing every save.
+    it("refuses a largest party above the Booking rules cap of 100", async () => {
+      const result = await run("update_venue_settings", { maxPartySize: 101 });
+
+      expect(result).toMatchObject({ error: expect.any(String) });
+      noWrites();
+    });
+
     it("refuses an empty change and writes nothing", async () => {
       const result = await run("update_venue_settings", {});
 
