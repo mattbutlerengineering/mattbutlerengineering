@@ -206,6 +206,14 @@ export const generatedSchemas = {
     endIcon: z.string().optional(),
     showOptional: z.boolean().optional(),
   }),
+  Meter: z.object({
+    min: z.number().optional(),
+    max: z.number().optional(),
+    label: z.string().max(40).optional(),
+    variant: z.enum(["accent", "default", "error", "success"]).optional(),
+    showValue: z.boolean().optional(),
+    size: z.enum(["md", "sm"]).optional(),
+  }),
   NavigationMenu: z.object({
     items: z.array(z.object({ label: z.string(), href: z.string().optional(), children: z.array(z.object({ label: z.string(), href: z.string().optional() })).optional() })),
   }),
@@ -221,6 +229,12 @@ export const generatedSchemas = {
     disabledReason: z.string().max(120).optional(),
     showOptional: z.boolean().optional(),
     size: z.enum(["default", "large", "small"]).optional(),
+  }),
+  Pagination: z.object({
+    page: z.number(),
+    totalPages: z.number(),
+    siblingCount: z.number().optional(),
+    ariaLabel: z.string().max(60).optional(),
   }),
   PinInput: z.object({
     length: z.number().optional(),
@@ -241,6 +255,12 @@ export const generatedSchemas = {
     placement: z.enum(["bottom", "left", "right", "top"]).optional(),
     open: z.boolean().optional(),
     solid: z.boolean().optional(),
+  }),
+  Progress: z.object({
+    value: z.number().optional(),
+    label: z.string().max(40).optional(),
+    showValue: z.boolean().optional(),
+    size: z.enum(["lg", "md", "sm"]).optional(),
   }),
   ReservationList: z.object({
     reservations: z.array(z.object({ time: z.string().nullish(), guest: z.string().nullish(), partySize: z.union([z.number(), z.string()]).nullish(), status: z.string().nullish() })),
@@ -308,6 +328,12 @@ export const generatedSchemas = {
     variant: z.enum(["accent", "danger", "neutral", "off", "success", "warning"]).optional(),
     pulse: z.boolean().optional(),
     label: z.string().max(40).optional(),
+  }),
+  Steps: z.object({
+    steps: z.array(z.object({ label: z.string(), description: z.string().optional() })),
+    currentStep: z.number(),
+    orientation: z.enum(["horizontal", "vertical"]).optional(),
+    compact: z.boolean().optional(),
   }),
   Table: z.object({
     columns: z.array(z.object({ key: z.string(), header: z.string(), sortable: z.boolean().optional(), align: z.enum(["left", "center", "right"]).optional(), width: z.string().optional() })),

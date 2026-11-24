@@ -2949,8 +2949,7 @@
       "characterLimits": [
         {
           "prop": "label",
-          "max": 25,
-          "reason": "Gauge label; sits beside or below bar"
+          "max": 40
         }
       ]
     },
@@ -3300,7 +3299,13 @@
           "description": "Accessible name for the nav landmark. Defaults to the locale's \"Pagination\" label — override\nthis when a page renders more than one Pagination instance, since axe's\nlandmark-unique rule requires each nav landmark on a page to have a\ndistinct accessible name."
         }
       ],
-      "slots": []
+      "slots": [],
+      "characterLimits": [
+        {
+          "prop": "ariaLabel",
+          "max": 60
+        }
+      ]
     },
     {
       "name": "PendingAction",
@@ -3493,6 +3498,12 @@
       ],
       "slots": [
         "children"
+      ],
+      "characterLimits": [
+        {
+          "prop": "label",
+          "max": 40
+        }
       ]
     },
     {
