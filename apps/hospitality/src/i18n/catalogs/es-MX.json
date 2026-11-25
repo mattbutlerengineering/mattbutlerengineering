@@ -3460,10 +3460,18 @@
       "invalid": {
         "daysAhead": "Usa un número entero de días de 0 a 730.",
         "noticeHours": "Usa un número entero de horas de 0 a 720.",
-        "largestParty": "Usa un número entero de 1 a 100."
+        "largestParty": "Usa un número entero de 1 a 100.",
+        "pacingCovers": "Usa un número entero de cubiertos de 1 a 1000.",
+        "pacingMinutes": "Usa un número entero de minutos de 5 a 240.",
+        "pacingNeedsCap": "Define un límite para usar una ventana."
       },
       "saved": "Reglas de reserva guardadas",
-      "saveError": "No se pudieron guardar las reglas de reserva"
+      "saveError": "No se pudieron guardar las reglas de reserva",
+      "pacingCovers": "Máximo de cubiertos por ventana",
+      "pacingCoversHint": "Limita cuántos cubiertos pueden empezar en una ventana, para no saturar la cocina.",
+      "pacingMinutes": "Ventana (minutos)",
+      "pacingMinutesDefault": "Intervalo de asientos",
+      "pacingMinutesHint": "Déjalo vacío para usar tu intervalo de asientos."
     },
     "holidayNudge": {
       "line": "{{name}} es el {{date}} y aún no está planeado.",
@@ -4405,7 +4413,7 @@
       },
       "kitchenAwareBooking": {
         "label": "Reservas al ritmo de la cocina",
-        "detail": "Acepta las reservas que la cocina puede atender y conoce la preparación de mañana antes de abrir."
+        "detail": "Define un tope de cubiertos que pueden empezar en cualquier ventana y a los clientes solo se les ofrecen las mesas que la cocina puede atender."
       },
       "headlessVenue": {
         "label": "Restaurante sin pantalla",

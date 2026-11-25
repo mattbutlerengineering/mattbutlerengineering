@@ -12,6 +12,10 @@ export interface BookingRulesForm {
   readonly daysAhead: string;
   readonly noticeHours: string;
   readonly largestParty: string;
+  /** Kitchen pacing, `pacingRules[0]`: most covers that may start in one window. */
+  readonly pacingCovers: string;
+  /** The window in minutes; empty = the seating interval (the engine's default). */
+  readonly pacingMinutes: string;
 }
 
 export type BookingRulesField = keyof BookingRulesForm;
@@ -23,6 +27,8 @@ const LIMITS: Record<BookingRulesField, { readonly min: number; readonly max: nu
   daysAhead: { min: 0, max: 730 },
   noticeHours: { min: 0, max: 720 },
   largestParty: { min: 1, max: 100 },
+  pacingCovers: { min: 1, max: 1000 },
+  pacingMinutes: { min: 5, max: 240 },
 };
 
 const text = (value: unknown) => (typeof value === "number" ? String(value) : "");
@@ -32,18 +38,26 @@ export function toBookingRulesForm(settings: VenueSettings | null | undefined): 
     daysAhead: text(settings?.maxAdvanceBooking),
     noticeHours: text(settings?.minAdvanceBooking),
     largestParty: text(settings?.maxPartySize),
+    pacingCovers: text(settings?.pacingRules?.[0]?.maxCoversPerSlot),
+    pacingMinutes: text(settings?.pacingRules?.[0]?.timeWindowMinutes),
   };
 }
 
 /** Every field that is not a whole number in range, in form order. Empty is allowed: "not set". */
 export function invalidBookingRules(form: BookingRulesForm): readonly BookingRulesField[] {
-  return (Object.keys(LIMITS) as BookingRulesField[]).filter((field) => {
+  const bad = (Object.keys(LIMITS) as BookingRulesField[]).filter((field) => {
     const raw = form[field].trim();
     if (raw === "") return false;
     const n = Number(raw);
     const { min, max } = LIMITS[field];
     return !Number.isInteger(n) || n < min || n > max;
   });
+  // A window means nothing without a cap to apply it to.
+  const windowWithoutCap =
+    form.pacingCovers.trim() === "" &&
+    form.pacingMinutes.trim() !== "" &&
+    !bad.includes("pacingMinutes");
+  return windowWithoutCap ? [...bad, "pacingCovers"] : bad;
 }
 
 /**
@@ -58,11 +72,27 @@ export function withBookingRules(
     maxAdvanceBooking: _a,
     minAdvanceBooking: _b,
     maxPartySize: _c,
+    pacingRules: _d,
     ...rest
   } = settings ?? {};
   const set = (key: string, raw: string) => (raw.trim() === "" ? {} : { [key]: Number(raw) });
+  // Only the first pacing rule is read by the engine; later ones are kept as stored.
+  const later = settings?.pacingRules?.slice(1) ?? [];
+  const first =
+    form.pacingCovers.trim() === ""
+      ? []
+      : [
+          {
+            maxCoversPerSlot: Number(form.pacingCovers),
+            ...(form.pacingMinutes.trim() !== "" && {
+              timeWindowMinutes: Number(form.pacingMinutes),
+            }),
+          },
+        ];
+  const pacingRules = [...first, ...later];
   return {
     ...rest,
+    ...(pacingRules.length > 0 && { pacingRules }),
     ...set("maxAdvanceBooking", form.daysAhead),
     ...set("minAdvanceBooking", form.noticeHours),
     ...set("maxPartySize", form.largestParty),

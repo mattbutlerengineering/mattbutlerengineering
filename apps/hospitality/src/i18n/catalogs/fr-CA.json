@@ -3460,10 +3460,18 @@
       "invalid": {
         "daysAhead": "Indiquez un nombre entier de jours entre 0 et 730.",
         "noticeHours": "Indiquez un nombre entier d’heures entre 0 et 720.",
-        "largestParty": "Indiquez un nombre entier entre 1 et 100."
+        "largestParty": "Indiquez un nombre entier entre 1 et 100.",
+        "pacingCovers": "Utilisez un nombre entier de couverts de 1 à 1000.",
+        "pacingMinutes": "Utilisez un nombre entier de minutes de 5 à 240.",
+        "pacingNeedsCap": "Définissez une limite pour utiliser une plage."
       },
       "saved": "Règles de réservation enregistrées",
-      "saveError": "Impossible d’enregistrer les règles de réservation"
+      "saveError": "Impossible d’enregistrer les règles de réservation",
+      "pacingCovers": "Couverts maximum par plage",
+      "pacingCoversHint": "Limite le nombre de couverts qui peuvent commencer dans une plage, pour ne pas submerger la cuisine.",
+      "pacingMinutes": "Plage (minutes)",
+      "pacingMinutesDefault": "Intervalle de service",
+      "pacingMinutesHint": "Laissez vide pour utiliser votre intervalle de service."
     },
     "holidayNudge": {
       "line": "{{name}} tombe le {{date}} et n’est pas encore planifié.",
@@ -4405,7 +4413,7 @@
       },
       "kitchenAwareBooking": {
         "label": "Réservations au rythme de la cuisine",
-        "detail": "Prenez les réservations que la cuisine peut servir et connaissez la mise en place de demain avant l'ouverture."
+        "detail": "Fixez un plafond de couverts qui peuvent commencer dans une plage et on n'offre aux clients que les tables que la cuisine peut servir."
       },
       "headlessVenue": {
         "label": "Restaurant sans écran",

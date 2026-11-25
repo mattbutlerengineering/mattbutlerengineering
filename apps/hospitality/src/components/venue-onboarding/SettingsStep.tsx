@@ -57,6 +57,8 @@ export function validateSettings(
     daysAhead: data.advanceBookingDays,
     noticeHours: "",
     largestParty: data.maxPartySize,
+    pacingCovers: "",
+    pacingMinutes: "",
   });
   if (invalid.includes("largestParty")) {
     errors.maxPartySize = t("availability.bookingRules.invalid.largestParty");
