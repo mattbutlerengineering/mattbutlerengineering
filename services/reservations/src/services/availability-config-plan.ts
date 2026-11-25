@@ -63,7 +63,14 @@ function withoutDerived(row: unknown): unknown {
   return Object.fromEntries(Object.entries(row).filter(([key]) => key !== "tableIds"));
 }
 
-const sameRow = (a: unknown, b: unknown): boolean =>
+/**
+ * Deliberate twin of `sameEditedRow` in `apps/hospitality/src/components/availability/series-edit.ts`;
+ * do not merge them, they disagree on purpose. This one does not sort `repeat.weekdays` (stored
+ * order is the plan's order), strips a section closure's derived `tableIds` (`withoutDerived`),
+ * and compares recursively with sorted keys (`canonical`). `sameEditedRow` sorts weekdays, treats
+ * null as absent and has no derived field to strip.
+ */
+const samePlannedRow = (a: unknown, b: unknown): boolean =>
   canonical(withoutDerived(a)) === canonical(withoutDerived(b));
 
 export { applyChanges };
@@ -92,7 +99,7 @@ const withoutRange = (r: DateRule) => ({ ...r, startsOn: "", endsOn: null });
  */
 function newlyCoveredShared(rule: DateRule, prior: DateRule | undefined, theirs: DateRule) {
   const shared = sharedDates(rule, theirs);
-  if (!prior || !sameRow(withoutRange(prior), withoutRange(rule))) return shared;
+  if (!prior || !samePlannedRow(withoutRange(prior), withoutRange(rule))) return shared;
   return shared.filter((date) => !coversDate(prior, date));
 }
 
@@ -106,7 +113,7 @@ function editedSchedules(before: AvailabilityConfig, next: AvailabilityConfig): 
     const now = new Map(next[table].map((r) => [r.id, r]));
     for (const id of new Set([...was.keys(), ...now.keys()])) {
       const [a, b] = [was.get(id), now.get(id)];
-      if (a && b && sameRow(a, b)) continue;
+      if (a && b && samePlannedRow(a, b)) continue;
       if (a) touched.add(a.scheduleId);
       if (b) touched.add(b.scheduleId);
     }
@@ -173,8 +180,8 @@ export function resolveScopeConflicts(
 ): AvailabilityConfig {
   const stored = new Map(before.dateRules.map((r) => [r.id, r]));
   const hours = next.dateRules.filter(isHoursRule);
-  const incoming = hours.filter((r) => !stored.has(r.id) || !sameRow(stored.get(r.id), r));
-  const untouched = hours.filter((r) => stored.has(r.id) && sameRow(stored.get(r.id), r));
+  const incoming = hours.filter((r) => !stored.has(r.id) || !samePlannedRow(stored.get(r.id), r));
+  const untouched = hours.filter((r) => stored.has(r.id) && samePlannedRow(stored.get(r.id), r));
   const skipped = new Set(
     next.dateRules.filter((r) => r.kind === "skip").map((r) => `${r.seriesId}@${r.startsOn}`)
   );
@@ -227,7 +234,7 @@ function diffTable<T extends ConfigTable>(
   return {
     create: nextRows.filter((r) => !before.has(r.id)) as AvailabilityConfig[T],
     update: nextRows.filter(
-      (r) => before.has(r.id) && !sameRow(before.get(r.id), r)
+      (r) => before.has(r.id) && !samePlannedRow(before.get(r.id), r)
     ) as AvailabilityConfig[T],
     remove: (stored as Row<T>[]).filter((r) => !after.has(r.id)).map((r) => r.id),
   };

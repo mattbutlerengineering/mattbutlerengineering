@@ -55,8 +55,13 @@ export function nextOccurrence(series: DateRule, from: string): string {
 /**
  * Whether two rows say the same, whichever of them the server wrote: it may spell an absent field
  * as null, order the keys its own way, or sort the weekdays.
+ *
+ * Deliberate twin of `samePlannedRow` in `services/reservations/src/services/availability-config-plan.ts`;
+ * do not merge them, they disagree on purpose. This one sorts `repeat.weekdays`, treats a null field as
+ * absent, and keeps every field (it has no derived `tableIds` to ignore). `samePlannedRow` does not
+ * sort weekdays, strips a section closure's derived `tableIds`, and compares recursively.
  */
-export function sameRow(a: DateRule, b: DateRule): boolean {
+export function sameEditedRow(a: DateRule, b: DateRule): boolean {
   const key = (rule: DateRule) =>
     JSON.stringify(
       Object.entries({ ...rule, repeat: [...(rule.repeat?.weekdays ?? [])].sort((x, y) => x - y) })
