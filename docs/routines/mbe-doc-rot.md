@@ -61,3 +61,5 @@ If nothing is rotten: report that and end. Zero changes is a successful run — 
 - Do not touch docs/adr/** (ADRs are historical records, not living docs) or CHANGELOG files.
 - Do not reformat or restructure docs that are merely ugly. Rot means WRONG, not unpolished.
 ```
+
+**Comment marker (#9428).** Every issue or PR comment this routine posts — claims, verdicts, hand-offs, heartbeats — ends with the hidden marker `<!-- mbe-automation -->` on its own last line, so the stale-human-blocked detector does not read routine comments as human touches. Put it LAST, never first: `heartbeat:` and `reviewed-merge:` comments are parsed by their first line.

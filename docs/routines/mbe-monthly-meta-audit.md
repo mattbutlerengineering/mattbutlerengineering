@@ -28,3 +28,5 @@ Second, independent step (never changes the PR above, its title prefix or its li
 
 Do not merge anything — every change lands as a reviewable PR. Never fetch live-site URLs (no egress to production, issue #2920).
 ```
+
+**Comment marker (#9428).** Every issue or PR comment this routine posts — claims, verdicts, hand-offs, heartbeats — ends with the hidden marker `<!-- mbe-automation -->` on its own last line, so the stale-human-blocked detector does not read routine comments as human touches. Put it LAST, never first: `heartbeat:` and `reviewed-merge:` comments are parsed by their first line.

@@ -69,6 +69,7 @@ import { fileURLToPath } from "node:url";
 import { isAutomationMergeAllowed } from "./merge-queue-eligibility.mjs";
 import { approvePendingRuns } from "./approve-automation-runs.mjs";
 import { AUTOMATION_BRANCH_PREFIX, AUTOMATION_LABEL, hasLabel } from "./lib/automation-pr.mjs";
+import { AUTOMATION_MARKER } from "./lib/automation-marker.mjs";
 
 // Re-exported for existing callers/tests importing these from this module —
 // scripts/lib/automation-pr.mjs is the source of truth (extracted to break
@@ -435,7 +436,7 @@ async function run() {
           "POST",
           `repos/{owner}/{repo}/issues/${number}/comments`,
           "--raw-field",
-          `body=${body}`,
+          `body=${AUTOMATION_MARKER}\n${body}`,
         ],
         { stdio: "inherit" }
       );

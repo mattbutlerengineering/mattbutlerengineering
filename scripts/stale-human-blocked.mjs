@@ -28,6 +28,7 @@ import { execFileSync } from "node:child_process";
 import { createGhClient } from "@mbe/gh-client";
 
 import { append } from "./metrics-store.mjs";
+import { isAutomationComment } from "./lib/automation-marker.mjs";
 
 /** Default staleness threshold, in days. */
 export const STALE_THRESHOLD_DAYS = 14;
@@ -206,7 +207,8 @@ function isBotActor(login) {
  * @returns {string|null} ISO 8601 timestamp, or null if nothing parseable
  */
 export function lastHumanTouchAt(issue, timelineEvents = []) {
-  const isHumanAuthored = (record) => !isBotActor(actorLogin(record));
+  const isHumanAuthored = (record) =>
+    !isBotActor(actorLogin(record)) && !isAutomationComment(record?.body);
 
   const candidates = [
     Date.parse(issue?.createdAt ?? ""),
