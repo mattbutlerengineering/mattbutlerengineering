@@ -73,6 +73,10 @@ export interface SavePrepared {
   inverseMeta?: Record<string, unknown>;
   summary?: string;
   detail?: AvailabilityChangeDetail | null;
+  /** Replaces the plan's affected dates (a one-date reopen links to its day). */
+  range?: { from: string | null; to: string | null };
+  /** Whether guests were told; the column's default when absent. */
+  notifiedGuests?: boolean;
 }
 
 type WritePlan = Extract<SavePlan, { kind: "write" }>;
@@ -89,7 +93,10 @@ interface SaveRequestFields {
    * the caller, which has settled it already (Tonight leaves bookings alone).
    */
   stranded?: "refuse" | "caller";
-  /** Sees the planned write inside the transaction; what it returns overrides the audit row. */
+  /**
+   * Runs once the config rows are written and before the audit row, so it can read what the
+   * write left (outcomes re-keyed onto a new rule); what it returns overrides the audit row.
+   */
   prepare?: (tx: StoreDb, plan: WritePlan) => Promise<SavePrepared> | SavePrepared;
   /** Written to `Venue.operatingHours` in place of the projection of the next config. */
   operatingHours?: Prisma.InputJsonValue | typeof Prisma.DbNull;
@@ -199,7 +206,6 @@ export async function commitSave(
   const request = await resolve(state, { committedVersion: version });
   const plan = await planRequest(tx, state, request, { venueId, now });
   if (plan.kind !== "write") return refuse(plan);
-  const prepared = (await request.prepare?.(tx, plan)) ?? {};
 
   await writeConfigDiff(tx, venueId, plan.diff, {
     actorId,
@@ -208,6 +214,8 @@ export async function commitSave(
   }).catch((error: unknown) => {
     throw error instanceof ConfigRowConflict ? new Refused(conflictIssue(error, plan.next)) : error;
   });
+  const prepared = (await request.prepare?.(tx, plan)) ?? {};
+  const range = prepared.range ?? plan.range;
   const detail = prepared.detail !== undefined ? prepared.detail : request.detail;
   const change = await tx.availabilityChange.create({
     data: {
@@ -218,9 +226,10 @@ export async function commitSave(
       kind: request.kind,
       summary: prepared.summary ?? request.summary ?? plan.summary,
       ...detailData(detail === undefined ? plan.detail : detail),
-      affectedFrom: toDbDate(plan.range.from),
-      affectedTo: toDbDate(plan.range.to),
+      affectedFrom: toDbDate(range.from),
+      affectedTo: toDbDate(range.to),
       inverse: { ...plan.inverse, ...prepared.inverseMeta } as unknown as Prisma.InputJsonValue,
+      ...(prepared.notifiedGuests === undefined ? {} : { notifiedGuests: prepared.notifiedGuests }),
       version,
     },
     select: { id: true },

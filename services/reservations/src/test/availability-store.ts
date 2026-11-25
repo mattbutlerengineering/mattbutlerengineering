@@ -61,7 +61,7 @@ export function availabilityStore(store: Store) {
         ]),
       },
       dateRule: {
-        findMany: vi.fn(async () => store.dateRules.map((r) => ({ ...r, tables: [] }))),
+        findMany: vi.fn(async () => store.dateRules.map((r) => ({ tables: [], ...r }))),
         create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
           store.dateRules = [
             ...store.dateRules,

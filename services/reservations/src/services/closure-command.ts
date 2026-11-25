@@ -1,11 +1,8 @@
 import { randomUUID } from "node:crypto";
-import {
-  currentServiceDate,
-  projectLegacyOperatingHours,
-  stillClosedAfterReopen,
-} from "@mbe/availability";
+import { currentServiceDate, stillClosedAfterReopen } from "@mbe/availability";
 import type {
   AvailabilityChangeOutcome,
+  AvailabilityConfig,
   ClosureAlongside,
   ClosureAction,
   ClosureImpact,
@@ -21,24 +18,19 @@ import type {
 import { STRANDED_ISSUE_DETAIL_MAX } from "@mbe/types";
 import type { Prisma, PrismaClient } from "../generated/prisma/index.js";
 import { setVenueContext } from "../middleware/venue-context.js";
-import { affectedRange, diffConfig, inverseOf } from "./availability-config-plan.js";
 import { carryOutcomes, type CarriedOutcomes } from "./closure-carry-outcomes.js";
 import { givenBackGuests, type GivenBackGuests } from "./closure-given-back.js";
-import { carryByDate, rangeAround, splitIssues } from "./closure-reopen-date.js";
+import { carryByDate, rangeAround } from "./closure-reopen-date.js";
 import { findStrandedReservations } from "./availability-config-checks.js";
 import {
-  conflictIssue,
-  detailData,
   futureBookings,
   loadConfigState,
   refuseSeriesChanged,
-  refuseStale,
-  toDbDate,
   type ConfigState,
   type StoreDb,
 } from "./availability-config.js";
+import { commitSave } from "./availability-commit.js";
 import { closureDetail, reopenedDetail } from "./availability-change-detail.js";
-import { ConfigRowConflict, writeConfigDiff } from "./availability-config-rows.js";
 import { civilDateIn } from "./availability-migration.js";
 import { applyTransitions } from "./closure-apply.js";
 import {
@@ -56,7 +48,12 @@ import {
 } from "./closure-alongside.js";
 import { withAlongside, withClosure } from "./closure-impact.js";
 import { impactInTransaction } from "./closure-impact-store.js";
-import { Refused, type AvailabilityRefusal, type RefusalIssue } from "./availability-refusal.js";
+import {
+  inAvailabilityTransaction,
+  Refused,
+  type AvailabilityRefusal,
+  type RefusalIssue,
+} from "./availability-refusal.js";
 import { prisma } from "./database.js";
 
 /**
@@ -484,20 +481,16 @@ async function preflight(tx: Db, input: CommitInput): Promise<void> {
   if (existing > 0) throw new Refused({ kind: "closure_exists" });
 }
 
-async function commit(tx: Db, input: CommitInput): Promise<Saved> {
-  const { venueId, caller, body, key, now } = input;
-  const { rule } = body;
-  const replayed = await replayOf(tx, input);
-  if (replayed) return replayed;
-  await preflight(tx, input);
-  const cas = await tx.venue.updateMany({
-    where: { id: venueId, availabilityVersion: body.expectedVersion },
-    data: { availabilityVersion: { increment: 1 } },
-  });
-  if (cas.count === 0) throw new Refused(await refuseStale(tx, venueId, body.expectedVersion));
+/** What the save decided from the state it locked: the outcomes and the config they come with. */
+interface Decided {
+  plan: Plan;
+  next: AvailabilityConfig;
+}
 
-  const state = await loadConfigState(tx, venueId, now);
-  if (!state) throw new Refused({ kind: "not_found" });
+/** Refuses what the locked state cannot take, then plans one outcome per affected reservation. */
+async function decide(tx: Db, input: CommitInput, state: ConfigState): Promise<Decided> {
+  const { venueId, caller, body, now } = input;
+  const { rule } = body;
   // A day with no bookings leaves no outcome rows, so the stored rule is the
   // other witness that this id was already saved.
   if (state.stored.dateRules.some((r) => r.id === rule.id)) {
@@ -524,13 +517,19 @@ async function commit(tx: Db, input: CommitInput): Promise<Saved> {
     now
   );
   if (isRefusal(plan)) throw new Refused(plan);
+  return { plan, next: withClosure(state.effective, rule, body.alongside) };
+}
 
-  const next = withClosure(state.effective, rule, body.alongside);
-  const diff = diffConfig(state.stored, next);
-  await writeConfigDiff(tx, venueId, diff, { actorId: caller.actorId, now }).catch((e: unknown) => {
-    throw e instanceof ConfigRowConflict ? new Refused(conflictIssue(e, next)) : e;
-  });
-  const version = body.expectedVersion + 1;
+/** What the audit row's `inverse` and `notifiedGuests` carry beyond the undo data. */
+async function closureAudit(
+  tx: Db,
+  input: CommitInput,
+  state: ConfigState,
+  plan: Plan,
+  version: number
+): Promise<{ meta: ClosureMeta; notifiedGuests: boolean }> {
+  const { venueId, body, key, now } = input;
+  const { rule } = body;
   // A series that grows is saved under a new id: what the old one did follows it (#7984).
   const [replaced] = body.alongside?.remove ?? [];
   const deciding = plan.rows.map((r) => r.reservationId);
@@ -555,7 +554,6 @@ async function commit(tx: Db, input: CommitInput): Promise<Saved> {
     : replacedRule && isPlainClosure(replacedRule)
       ? await carryByDate(tx, venueId, replaced, [rule], deciding)
       : await carryOutcomes(tx, venueId, replaced, rule.id, deciding);
-  const range = affectedRange(state.stored, diff, today);
   const meta: ClosureMeta = {
     ruleId: rule.id,
     idempotencyKey: key,
@@ -573,33 +571,16 @@ async function commit(tx: Db, input: CommitInput): Promise<Saved> {
     ...(givenBack ? { givenBack } : {}),
     counts: plan.counts,
   };
-  const inverse = { ...inverseOf(state.stored, diff, state.operatingHours), closure: meta };
-  const change = await tx.availabilityChange.create({
-    data: {
-      venueId,
-      actorId: caller.actorId,
-      actorName: caller.actorName ?? null,
-      at: now,
-      kind: "closure",
-      summary: describe(rule, plan.counts),
-      ...detailData(closureDetail(rule, plan.counts)),
-      affectedFrom: toDbDate(range.from),
-      affectedTo: toDbDate(range.to),
-      inverse: inverse as unknown as Prisma.InputJsonValue,
-      notifiedGuests: plan.notifiedGuests || givenBack !== null,
-      version,
-    },
-    select: { id: true },
-  });
-  await tx.venue.update({
-    where: { id: venueId },
-    data: { operatingHours: projectLegacyOperatingHours(next) },
-  });
+  return { meta, notifiedGuests: plan.notifiedGuests || givenBack !== null };
+}
+
+/** Writes the outcome rows, then the cancels and moves they decide. */
+async function applyOutcomes(tx: Db, venueId: string, actorId: string, plan: Plan): Promise<void> {
   if (plan.rows.length > 0) await tx.closureOutcome.createMany({ data: plan.rows });
   const applied = await applyTransitions(
     tx,
     venueId,
-    caller.actorId,
+    actorId,
     plan.rows.map((r) => ({
       reservationId: r.reservationId,
       action: r.action,
@@ -622,7 +603,50 @@ async function commit(tx: Db, input: CommitInput): Promise<Saved> {
       ],
     });
   }
-  return savedOf(venueId, meta, change.id, plan.counts);
+}
+
+async function commit(tx: Db, input: CommitInput): Promise<Saved> {
+  const { venueId, caller, body, now } = input;
+  const { rule } = body;
+  const replayed = await replayOf(tx, input);
+  if (replayed) return replayed;
+  await preflight(tx, input);
+  let audited: Awaited<ReturnType<typeof closureAudit>> | undefined;
+  let counts: Plan["counts"] | undefined;
+  const saved = await commitSave(
+    tx,
+    {
+      venueId,
+      actorId: caller.actorId,
+      actorName: caller.actorName ?? null,
+      version: { expected: body.expectedVersion },
+      now,
+    },
+    async (state, { committedVersion }) => {
+      const { plan, next } = await decide(tx, input, state);
+      counts = plan.counts;
+      return {
+        next,
+        // The save never validated the config; the rows it adds are all this command answers for.
+        validate: "touched",
+        // Decided above, with the Manager's answer for every booking the closure touches.
+        stranded: "caller",
+        kind: "closure",
+        summary: describe(rule, plan.counts),
+        detail: closureDetail(rule, plan.counts),
+        prepare: async () => {
+          audited = await closureAudit(tx, input, state, plan, committedVersion);
+          return {
+            inverseMeta: { closure: audited.meta },
+            notifiedGuests: audited.notifiedGuests,
+          };
+        },
+        afterChange: () => applyOutcomes(tx, venueId, caller.actorId, plan),
+      };
+    }
+  );
+  // `commitSave` runs `prepare` and the plan's `resolve` on every save it does not refuse.
+  return savedOf(venueId, audited!.meta, saved.changeId, counts!);
 }
 
 export async function createClosure(
@@ -812,6 +836,56 @@ function upcomingCancelled(db: Db, venueId: string, ruleId: string, now: Date): 
   });
 }
 
+type ReopenInput = {
+  venueId: string;
+  ruleId: string;
+  caller: ClosureCaller;
+  tellCancelledGuests: boolean;
+  now: Date;
+  seen?: ReopenSeen | undefined;
+  /** Reopen only this date of a bounded range; the range's other dates stay closed. */
+  date?: string | undefined;
+};
+
+/** What the reopen answers once the save is through; read by `reopenClosure` after `commitSave`. */
+interface Reopened {
+  notice: ReopenNotice | null;
+  notified: number;
+  stillClosed: ReopenResult["stillClosed"];
+}
+
+/**
+ * Refuses a reopen that is not this caller's, or built from a stale view of the rule, and answers
+ * the config it leaves: the rule and its children removed, the dates a one-date reopen keeps
+ * closed added back as new rules.
+ */
+async function reopenedConfig(
+  db: Db,
+  input: ReopenInput,
+  state: ConfigState,
+  version: number
+): Promise<{ rule: DateRule; keep: DateRule[]; next: ConfigState["stored"] }> {
+  const { venueId, ruleId, caller, now } = input;
+  const rule = state.stored.dateRules.find((r) => r.id === ruleId);
+  if (!rule || !CLOSURE_RULE_KINDS.has(rule.kind)) throw new Refused({ kind: "not_found" });
+  await guard(db, { venueId, caller, rule, now });
+  if (!caller.isManager) await requireAuthor(db, venueId, ruleId, caller.actorId);
+  if (input.seen && ruleChangedSinceSeen(state.stored.dateRules, ruleId, input.seen)) {
+    // The venue is on the version before this transaction's own bump, which is rolled back.
+    throw new Refused(await refuseSeriesChanged(db, venueId, version - 1));
+  }
+  const keep = input.date ? splitFor(input, rule, input.date, state.stored.dateRules) : [];
+  const next = {
+    ...state.stored,
+    // Reopening a series also removes its skips and one-date edits (#7685).
+    dateRules: [
+      ...state.stored.dateRules.filter((r) => r.id !== ruleId && r.seriesId !== ruleId),
+      ...keep,
+    ],
+  };
+  return { rule, keep, next };
+}
+
 /**
  * Removes the rule (a soft delete through the same writer, with its inverse),
  * so the slots return. Guests the closure cancelled stay cancelled. Whether
@@ -826,119 +900,76 @@ function upcomingCancelled(db: Db, venueId: string, ruleId: string, now: Date): 
  * under the venue lock, changing nothing. A caller that sends none (an older client)
  * reopens the rule as it is now. The venue lock is taken before the state is read either way, so
  * the diff and the inverse are exact against the current state.
+ *
+ * The save validates only the rows the reopen creates (`validate: "touched"`): a venue already
+ * holding some other invalid rule must still be able to reopen.
  */
 export async function reopenClosure(
-  input: {
-    venueId: string;
-    ruleId: string;
-    caller: ClosureCaller;
-    tellCancelledGuests: boolean;
-    now: Date;
-    seen?: ReopenSeen | undefined;
-    /** Reopen only this date of a bounded range; the range's other dates stay closed. */
-    date?: string | undefined;
-  },
+  input: ReopenInput,
   client: StoreClient = prisma
 ): Promise<ReopenOutcome> {
-  const { venueId, ruleId, caller, now } = input;
-  try {
-    return await client.$transaction(async (tx) => {
-      await setVenueContext(tx, venueId);
-      const db = tx as unknown as Db;
-      // Take the venue row first, as `commit` does: an in-flight booking holds it FOR SHARE, so
-      // this waits for that commit and the stranded scan below sees the booking (book-slot.ts).
-      // A refusal rolls the bump back with the rest of the transaction.
-      const bumped = await db.venue.update({
-        where: { id: venueId },
-        data: { availabilityVersion: { increment: 1 } },
-        select: { availabilityVersion: true },
-      });
-      const state = await loadConfigState(db, venueId, now);
-      const rule = state?.stored.dateRules.find((r) => r.id === ruleId);
-      if (!state || !rule || !CLOSURE_RULE_KINDS.has(rule.kind)) {
-        throw new Refused({ kind: "not_found" });
-      }
-      await guard(db, { venueId, caller, rule, now });
-      if (!caller.isManager) await requireAuthor(db, venueId, ruleId, caller.actorId);
-      if (input.seen && ruleChangedSinceSeen(state.stored.dateRules, ruleId, input.seen)) {
-        // The venue is on the version before this transaction's own bump, which is rolled back.
-        const current = bumped.availabilityVersion - 1;
-        throw new Refused(await refuseSeriesChanged(db, venueId, current));
-      }
-
-      const keep = input.date ? splitFor(input, rule, input.date, state.stored.dateRules) : [];
-      // What is reopened: the one date, or the whole rule.
-      const reopened = input.date ? { ...rule, startsOn: input.date, endsOn: input.date } : rule;
-      const next = {
-        ...state.stored,
-        // Reopening a series also removes its skips and one-date edits (#7685).
-        dateRules: [
-          ...state.stored.dateRules.filter((r) => r.id !== ruleId && r.seriesId !== ruleId),
-          ...keep,
-        ],
-      };
-      // This path skips the save's validation. Only the rules the split creates are checked: a
-      // venue already holding some other invalid rule must still be able to reopen.
-      const bad = splitIssues(next, keep);
-      if (bad.length > 0) throw new Refused({ kind: "invalid", issues: bad });
-      await refuseStrandingReopen(db, venueId, state, next, now);
-      const diff = diffConfig(state.stored, next);
-      await writeConfigDiff(db, venueId, diff, { actorId: caller.actorId, now });
-      // Each guest follows their date to the rule that still closes it; the reopened date's stay.
-      const carried = await carryByDate(db, venueId, ruleId, keep);
-      await db.venue.update({
-        where: { id: venueId },
-        data: { operatingHours: projectLegacyOperatingHours(next) },
-        select: { id: true },
-      });
-      // A one-date reopen links to its day in History, not to the range it was cut from.
-      const range = input.date
-        ? { from: input.date, to: input.date }
-        : affectedRange(state.stored, diff, civilDateIn(now, state.timezone));
-      const stillClosed = stillClosedAfterReopen(
-        state.stored.dateRules,
-        reopened,
-        civilDateIn(now, state.timezone)
-      );
-      // With every date still closed by another closure there is nothing to rebook, so nobody is
-      // told to (#8006). Only guests whose booking has not started get the notice
-      // (`listNotifiable`); the audit row, Undo and the caller's count agree with who it reaches.
-      const notice: ReopenNotice | null =
-        input.tellCancelledGuests && !stillClosed.everyDate
-          ? { venueId, ruleId, ...(input.date ? { date: input.date } : {}) }
-          : null;
-      const notified = notice ? await upcomingCancelled(db, venueId, ruleId, now) : 0;
-      const change = await db.availabilityChange.create({
-        data: {
-          venueId,
-          actorId: caller.actorId,
-          actorName: caller.actorName ?? null,
-          at: now,
+  const { venueId, caller, now } = input;
+  return inAvailabilityTransaction<ReopenOutcome>(client, venueId, async (tx) => {
+    const db = tx as unknown as Db;
+    let after: Reopened | undefined;
+    // Take the venue row first, as `commit` does: an in-flight booking holds it FOR SHARE, so
+    // this waits for that commit and the stranded scan below sees the booking (book-slot.ts).
+    // A refusal rolls the bump back with the rest of the transaction.
+    const saved = await commitSave(
+      db,
+      {
+        venueId,
+        actorId: caller.actorId,
+        actorName: caller.actorName ?? null,
+        version: { current: true },
+        now,
+      },
+      async (state, { committedVersion }) => {
+        const { rule, keep, next } = await reopenedConfig(db, input, state, committedVersion);
+        // What is reopened: the one date, or the whole rule.
+        const reopened = input.date ? { ...rule, startsOn: input.date, endsOn: input.date } : rule;
+        const today = civilDateIn(now, state.timezone);
+        const stillClosed = stillClosedAfterReopen(state.stored.dateRules, reopened, today);
+        await refuseStrandingReopen(db, venueId, state, next, now);
+        return {
+          next,
+          validate: "touched",
+          // Scanned above, against the config a one-date reopen leaves.
+          stranded: "caller",
           kind: "reopen",
           summary: `Closure reopened (${reopened.startsOn})`,
-          ...detailData(reopenedDetail(reopened)),
-          affectedFrom: toDbDate(range.from),
-          affectedTo: toDbDate(range.to),
-          inverse: {
-            ...inverseOf(state.stored, diff, state.operatingHours),
-            // Undo returns the guests this moved (offered only when the reopen told none).
-            ...(carried ? { closure: { carried } } : {}),
-          } as unknown as Prisma.InputJsonValue,
-          notifiedGuests: notified > 0,
-          version: bumped.availabilityVersion,
-        },
-        select: { id: true },
-      });
-      return {
-        kind: "reopened" as const,
-        result: { version: bumped.availabilityVersion, changeId: change.id, notified, stillClosed },
-        notice,
-      };
-    });
-  } catch (error) {
-    if (error instanceof Refused) return error.outcome as ReopenOutcome;
-    throw error;
-  }
+          detail: reopenedDetail(reopened),
+          prepare: async () => {
+            // Each guest follows their date to the rule that still closes it; the reopened date's stay.
+            const carried = await carryByDate(db, venueId, input.ruleId, keep);
+            // With every date still closed by another closure there is nothing to rebook, so nobody
+            // is told to (#8006). Only guests whose booking has not started get the notice
+            // (`listNotifiable`); the audit row, Undo and the caller's count agree with who it reaches.
+            const notice: ReopenNotice | null =
+              input.tellCancelledGuests && !stillClosed.everyDate
+                ? { venueId, ruleId: input.ruleId, ...(input.date ? { date: input.date } : {}) }
+                : null;
+            const notified = notice ? await upcomingCancelled(db, venueId, input.ruleId, now) : 0;
+            after = { notice, notified, stillClosed };
+            return {
+              // Undo returns the guests this moved (offered only when the reopen told none).
+              ...(carried ? { inverseMeta: { closure: { carried } } } : {}),
+              notifiedGuests: notified > 0,
+              // A one-date reopen links to its day in History, not to the range it was cut from.
+              ...(input.date ? { range: { from: input.date, to: input.date } } : {}),
+            };
+          },
+        };
+      }
+    );
+    // `commitSave` runs `prepare` on every save it does not refuse.
+    const { notice, notified, stillClosed } = after!;
+    return {
+      kind: "reopened" as const,
+      result: { version: saved.version, changeId: saved.changeId, notified, stillClosed },
+      notice,
+    };
+  });
 }
 
 /** The store as a domain-service record, for the `buildApp({ services })` seam. */
