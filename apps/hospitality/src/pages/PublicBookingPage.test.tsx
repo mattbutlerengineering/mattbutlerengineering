@@ -7,6 +7,7 @@ import type { Venue } from "@mbe/types";
 // Mock react-router
 vi.mock("react-router", () => ({
   useParams: vi.fn(),
+  useSearchParams: vi.fn(() => [new URLSearchParams()]),
   Link: ({ to, children }: { to: string; children?: ReactNode }) => <a href={to}>{children}</a>,
 }));
 
@@ -43,12 +44,14 @@ vi.mock("../components/booking-widget/index.js", async () => {
       hasOperatingHours: hasHours,
       maxPartySize,
       phone,
+      memberToken,
       onHoldChange,
     }: {
       venueId: string;
       hasOperatingHours: boolean;
       maxPartySize?: number;
       phone?: string;
+      memberToken?: string;
       onHoldChange?: (info: { holdId: string; sessionId: string | null } | null) => void;
     }) => (
       <div
@@ -57,6 +60,7 @@ vi.mock("../components/booking-widget/index.js", async () => {
         data-has-operating-hours={String(hasHours)}
         data-max-party-size={maxPartySize ?? ""}
         data-phone={phone ?? ""}
+        data-member-token={memberToken ?? ""}
       >
         <button
           data-testid="trigger-hold-change"
@@ -109,7 +113,7 @@ vi.mock("./PublicBookingPage.module.css", () => ({
   },
 }));
 
-import { useParams } from "react-router";
+import { useParams, useSearchParams } from "react-router";
 import { PublicBookingPage } from "./PublicBookingPage.js";
 
 const mockUseParams = vi.mocked(useParams);
@@ -386,6 +390,21 @@ describe("PublicBookingPage", () => {
         const widget = screen.getByTestId("booking-widget");
         expect(widget.getAttribute("data-max-party-size")).toBe("12");
       });
+    });
+
+    it("forwards the member link from ?member= to BookingWidget (#9627)", async () => {
+      vi.mocked(useSearchParams).mockReturnValue([
+        new URLSearchParams("member=signed-token"),
+        vi.fn(),
+      ]);
+      mockGetBySlug.mockResolvedValue(mockVenue);
+      renderPage();
+
+      await waitFor(() => {
+        const widget = screen.getByTestId("booking-widget");
+        expect(widget.getAttribute("data-member-token")).toBe("signed-token");
+      });
+      vi.mocked(useSearchParams).mockReturnValue([new URLSearchParams(), vi.fn()]);
     });
 
     it("forwards the venue phone to BookingWidget", async () => {

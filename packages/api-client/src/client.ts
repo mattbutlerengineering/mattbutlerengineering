@@ -75,6 +75,8 @@ export interface ClientConfig {
   timeout?: number;
   maxRetries?: number;
   onError?: (error: ApiClientError) => void;
+  /** Headers sent on every call (e.g. the booking widget's `x-member-token`); per-call headers win. */
+  defaultHeaders?: Record<string, string>;
 }
 
 export interface RequestOptions extends RequestInit {
@@ -127,6 +129,7 @@ export class ApiClient {
     const headers: Record<string, string> = {
       // Only with a body: Fastify 400s an empty body under a JSON content type.
       ...(options.body != null ? { "Content-Type": "application/json" } : {}),
+      ...this.config.defaultHeaders,
       ...(options.headers as Record<string, string>),
       ...override?.headers,
     };

@@ -1415,6 +1415,9 @@
     "guests_one": "{{count}} guest",
     "guests_other": "{{count}} guests",
     "back": "← Back",
+    "member_banner_one": "Members book {{count}} day early",
+    "member_banner_other": "Members book {{count}} days early",
+    "member_invalid": "This member link isn't active. Showing the dates open to everyone.",
     "estimatedWait": "Estimated wait: ~{{minutes}} min",
     "dateParty": {
       "startDate": "Start Date",

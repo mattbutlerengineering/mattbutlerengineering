@@ -1,6 +1,10 @@
 import type { FastifyPluginAsync, FastifyRequest } from "fastify";
 import { ANY_TIME_MINUTE, limitingReason, type NoSlotSearchKey } from "../services/lost-demand.js";
-import type { PublicAvailabilityDatesResponse, PublicAvailabilityResponse } from "@mbe/types";
+import type {
+  PublicAvailabilityDatesResponse,
+  PublicAvailabilityResponse,
+  PublicMemberStatus,
+} from "@mbe/types";
 import {
   createProblemDetails,
   publicAvailabilityDatesQueryJsonSchema,
@@ -54,6 +58,56 @@ export const publicAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
       request.log.warn({ err: error }, "lost-demand: recorder threw");
     }
   }
+
+  fastify.get<{
+    Params: { slug: string };
+    Reply: { data: PublicMemberStatus } | ReturnType<typeof createProblemDetails>;
+  }>(
+    "/:slug/member",
+    {
+      preHandler: publicRateLimitHook,
+      schema: {
+        summary: "Whether the request's member link opens the early booking window (public)",
+        tags: ["Public"],
+        params: {
+          type: "object",
+          properties: { slug: { type: "string" } },
+          required: ["slug"],
+        },
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              data: {
+                type: "object",
+                properties: { member: { type: "boolean" }, leadDays: { type: "integer" } },
+                required: ["member", "leadDays"],
+              },
+            },
+          },
+        },
+      },
+    },
+    publicVenueScoped(
+      {
+        slug: (request) => request.params.slug,
+        notFound: (slug) => ({
+          title: "Venue Not Found",
+          detail: `No venue found with slug '${slug}'.`,
+        }),
+      },
+      async (request, reply) => {
+        const venue = await venueService.getBySlug(request.params.slug);
+        // Every non-member reading is the same reply, so it never says why a link failed.
+        if (!venue || (await verifiedMember(request, venue.id)) === null) {
+          return reply.send({ data: { member: false, leadDays: 0 } });
+        }
+        return reply.send({
+          data: { member: true, leadDays: venue.settings?.memberLeadDays ?? 0 },
+        });
+      }
+    )
+  );
 
   fastify.get<{
     Params: { slug: string };

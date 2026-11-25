@@ -96,6 +96,7 @@ export function createApiClient(config: {
   timeout?: number;
   maxRetries?: number;
   onError?: (error: ApiClientError) => void;
+  defaultHeaders?: Record<string, string>;
 }) {
   const client = new ApiClient({
     baseUrl: config.baseUrl ?? "",
@@ -104,6 +105,7 @@ export function createApiClient(config: {
     timeout: config.timeout,
     maxRetries: config.maxRetries,
     onError: config.onError,
+    defaultHeaders: config.defaultHeaders,
   });
 
   return {
