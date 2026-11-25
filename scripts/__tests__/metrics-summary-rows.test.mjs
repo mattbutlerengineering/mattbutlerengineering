@@ -82,6 +82,50 @@ describe("buildMutationRow", () => {
   it("returns null when the run measured nothing", () => {
     expect(buildMutationRow(null, { date: "d", commit: "c" })).toBeNull();
   });
+
+  describe("extra per-package reports", () => {
+    const reservations = {
+      thresholds: { high: 80 },
+      files: {
+        "services/reservations/src/transitions/plan.ts": {
+          mutants: [mutant("Killed"), mutant("Survived")],
+        },
+      },
+    };
+
+    it("adds the extra report's packages without touching the overall score", () => {
+      const row = buildMutationRow(report, { date: "d", commit: "c" }, [reservations]);
+      expect(row.mutation_score).toBe(80);
+      expect(row.killed).toBe(4);
+      expect(row.packages).toEqual({
+        "services/users": 66.67,
+        "packages/types": 100,
+        "services/reservations": 50,
+      });
+    });
+
+    it("surfaces the state of an extra report that measured nothing", () => {
+      const brokenTests = {
+        thresholds: { high: 80 },
+        files: { "services/reservations/src/a.ts": { mutants: [mutant("Survived")] } },
+        testsCompleted: 0,
+      };
+      const row = buildMutationRow(report, { date: "d", commit: "c" }, [brokenTests, null]);
+      expect(row.mutation_score).toBe(80);
+      expect(row.packages).toEqual({ "services/users": 66.67, "packages/types": 100 });
+      expect(row.extra_states).toEqual(["harness-broken", "report-missing"]);
+    });
+
+    it("omits extra_states when every extra report was usable", () => {
+      const row = buildMutationRow(report, { date: "d", commit: "c" }, [reservations]);
+      expect(row).not.toHaveProperty("extra_states");
+    });
+
+    it("ignores an unusable extra report and keeps the base row", () => {
+      const row = buildMutationRow(report, { date: "d", commit: "c" }, [null, { files: {} }]);
+      expect(row.packages).toEqual({ "services/users": 66.67, "packages/types": 100 });
+    });
+  });
 });
 
 describe("sensors read the committed summary rows", () => {

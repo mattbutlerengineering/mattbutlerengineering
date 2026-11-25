@@ -217,7 +217,11 @@ async function overflows(page: Page): Promise<string[]> {
       range.selectNodeContents(node);
       const textBox = range.getBoundingClientRect();
       const clip = clippingAncestor(parent);
-      if (textBox.width === 0 || !clip || hiddenOnPurpose(parent)) continue;
+      // The clipping box itself may be the visually-hidden one (LiveStatus wraps its sentence
+      // in a span inside a 1px region), so a clip that small hides on purpose too.
+      if (textBox.width === 0 || !clip || hiddenOnPurpose(parent) || hiddenOnPurpose(clip)) {
+        continue;
+      }
       const box = clip.getBoundingClientRect();
       if (textBox.right < box.left - window.innerWidth) continue;
       if (textBox.right > box.right + 1 || textBox.left < box.left - 1) {
@@ -658,6 +662,71 @@ async function mockGatedRoutes(page: Page, route: string): Promise<void> {
     [
       /\/api\/v1\/venues\/[^/?]+\/availability\/changes(\?.*)?$/,
       { items: [], total: 0, offset: 0 },
+    ],
+    // `night` (#9483): the end-of-service summary, so the figures and their labels are swept.
+    [
+      /\/api\/v1\/reservations\/metrics\/end-of-service\?/,
+      { date: day, venueId: VENUE_ID, covers: 84, tableTurns: 31, noShows: 1, turnedAway: null },
+    ],
+    // `timeline` (#9492): one suggestion, so the collapsed Autopilot panel's heading and count are swept.
+    [
+      /\/api\/v1\/reservations\/metrics\/autopilot-proposals\?/,
+      {
+        date: day,
+        venueId: VENUE_ID,
+        moves: [
+          {
+            id: "offer:w1>tbl_e2e_001",
+            kind: "waitlist_offer",
+            partyLabel: "Kim",
+            partySize: 4,
+            fromTableId: null,
+            fromTableName: null,
+            toTableId: "tbl_e2e_001",
+            toTableName: "Table 1",
+            startTime: `${day}T19:00:00.000Z`,
+            endTime: `${day}T20:30:00.000Z`,
+            reason: "Seat Kim (4) at Table 1",
+          },
+        ],
+      },
+    ],
+    // `home` (#9485): the turned-away heatmap, with timed and no-time counts so the grid, the
+    // hour labels, the weekday headers and the no-time row are all swept.
+    [
+      /\/api\/v1\/reservations\/metrics\/lost-demand\?/,
+      {
+        venueId: VENUE_ID,
+        from: day,
+        to: day,
+        total: 14,
+        cells: [
+          { weekday: 5, hour: 19, searches: 6 },
+          { weekday: 6, hour: 20, searches: 4 },
+        ],
+        anyTime: [{ weekday: 0, searches: 4 }],
+      },
+    ],
+    // `home` (#9577): the add-a-seating estimate under the heatmap, so its picker labels and
+    // result sentences are swept in every locale.
+    [
+      /\/api\/v1\/reservations\/metrics\/lost-demand\/what-if\?/,
+      {
+        venueId: VENUE_ID,
+        from: day,
+        to: day,
+        weekday: 5,
+        minute: 19 * 60 + 30,
+        outcome: "estimated",
+        searches: 6,
+        windowStart: 19 * 60,
+        windowEnd: 20 * 60,
+        minParty: null,
+        maxParty: null,
+        anyTimeSearches: 4,
+        nights: 4,
+        perNight: 1.5,
+      },
     ],
   ];
   for (const [pattern, data] of answers) {

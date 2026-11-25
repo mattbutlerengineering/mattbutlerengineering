@@ -1,3 +1,5 @@
+import { humanizeKey, sensorLabel } from "./sensor-labels.js";
+
 /** Per-size-tier PR stats — `scripts/collect-queue-efficiency.mjs`'s `distribution` map. */
 export interface QueueEfficiencyTierStats {
   readonly count: number;
@@ -107,6 +109,22 @@ export interface AcmmSensor {
 }
 
 /**
+ * `productionHealth` sensor entry shape — see `scripts/sensors-registry.mjs`'s
+ * `productionHealth` registry entry (#9525), which reads the newest snapshot
+ * written by `.github/workflows/production-feedback.yml`.
+ */
+export interface ProductionHealthSensor {
+  readonly available: boolean;
+  readonly collected_at?: string | null;
+  readonly endpoints?: ReadonlyArray<{
+    readonly name?: string;
+    readonly status?: string;
+    readonly http_code?: number | null;
+    readonly latency_ms?: number | null;
+  }>;
+}
+
+/**
  * Matches `buildReport()`'s output in `scripts/build-sensor-report.mjs`
  * exactly. `sensors` is a dynamic map keyed by each registry entry's
  * `reportKey` (or `id`) — only `queueEfficiency`, `reviewBurden`, and `acmm`
@@ -123,6 +141,7 @@ export interface SensorReport {
   readonly sensors: Record<string, unknown> & {
     readonly queueEfficiency?: QueueEfficiencySensor;
     readonly reviewBurden?: ReviewBurdenSensor;
+    readonly productionHealth?: ProductionHealthSensor;
     readonly acmm?: AcmmSensor;
     readonly prCategoryMetrics?: PrCategoryMetrics;
   };
@@ -182,6 +201,19 @@ export interface ReviewBurdenMetrics {
    * unrecorded cause stays unclassified (#5619).
    */
   readonly noFormalReviewStage: boolean;
+}
+
+/** Safe view model for the productionHealth panel — empty when unavailable. */
+export interface ProductionHealthMetrics {
+  readonly available: boolean;
+  readonly collectedAt: string | null;
+  readonly endpoints: ReadonlyArray<{
+    readonly name: string;
+    readonly status: string;
+    readonly httpCode: number | null;
+    readonly latencyMs: number | null;
+  }>;
+  readonly healthyCount: number;
 }
 
 /**
@@ -260,6 +292,7 @@ export interface HealthMetrics {
   readonly regressionLabels: readonly string[];
   readonly queueEfficiency: QueueEfficiencyMetrics;
   readonly reviewBurden: ReviewBurdenMetrics;
+  readonly productionHealth: ProductionHealthMetrics;
   readonly acmm: AcmmMetrics;
   readonly prCategoryBreakdown: PrCategoryBreakdownMetrics;
 }
@@ -281,7 +314,9 @@ function formatRegressionLabel(regression: unknown): string {
   const r = asRecord(regression);
   const sensor = readString(r.sensor);
   const metric = readString(r.metric);
-  return sensor && metric ? `${sensor}.${metric}` : JSON.stringify(regression);
+  return sensor && metric
+    ? `${sensorLabel(sensor)} · ${humanizeKey(metric)}`
+    : JSON.stringify(regression);
 }
 
 /** Extracts the safe view model for the queueEfficiency panel from the raw sensor entry. */
@@ -316,6 +351,27 @@ function normalizeReviewBurden(sensors: Record<string, unknown>): ReviewBurdenMe
     rubberStampRatio: readNumber(reviewBurden.overall_rubber_stamp_ratio),
     reviewCoverage: readString(reviewBurden.review_coverage),
     noFormalReviewStage: reviewBurden.no_formal_review_stage === true,
+  };
+}
+
+/** Extracts the safe view model for the productionHealth panel from the raw sensor entry. */
+function normalizeProductionHealth(sensors: Record<string, unknown>): ProductionHealthMetrics {
+  const productionHealth = asRecord(sensors.productionHealth);
+  const rawEndpoints = Array.isArray(productionHealth.endpoints) ? productionHealth.endpoints : [];
+  const endpoints = rawEndpoints.flatMap((raw) => {
+    const e = asRecord(raw);
+    const name = readString(e.name);
+    const status = readString(e.status);
+    return name && status
+      ? [{ name, status, httpCode: readNumber(e.http_code), latencyMs: readNumber(e.latency_ms) }]
+      : [];
+  });
+
+  return {
+    available: productionHealth.available === true,
+    collectedAt: readString(productionHealth.collected_at),
+    endpoints,
+    healthyCount: endpoints.filter((e) => e.status === "healthy").length,
   };
 }
 
@@ -426,6 +482,7 @@ export function normalizeSensorReport(report: unknown): HealthMetrics {
     regressionLabels: regressions.map(formatRegressionLabel),
     queueEfficiency: normalizeQueueEfficiency(sensors),
     reviewBurden: normalizeReviewBurden(sensors),
+    productionHealth: normalizeProductionHealth(sensors),
     acmm: normalizeAcmm(sensors),
     prCategoryBreakdown: normalizePrCategoryMetrics(sensors),
   };

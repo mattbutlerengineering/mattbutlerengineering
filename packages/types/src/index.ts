@@ -84,7 +84,6 @@ export type {
 export type {
   Guest,
   GuestRiskScore,
-  GuestRiskResult,
   GuestRecognition,
   StaffNote,
   CommunicationPreference,
@@ -131,6 +130,20 @@ export {
   REPEAT_VISIT_THRESHOLD,
 } from "./guest-segment.js";
 
+// Venue onboarding wizard: the closed value sets its pickers offer (#9475)
+export type {
+  OfferedTimezone,
+  OfferedCurrencyCode,
+  RoomTemplateId,
+  RoomSizeId,
+} from "./venue-onboarding.js";
+export {
+  OFFERED_TIMEZONES,
+  OFFERED_CURRENCY_CODES,
+  ROOM_TEMPLATE_IDS,
+  ROOM_SIZE_IDS,
+} from "./venue-onboarding.js";
+
 // Floor plan types
 export type {
   FloorPlan,
@@ -164,6 +177,10 @@ export { toDateString } from "./date.js";
 // Party-fits-table rule (shared by server availability and client seating)
 export type { PartyFitTable } from "./party-fit.js";
 export { partyFitsTable, tableMaxCovers } from "./party-fit.js";
+
+// "Add a seating at X" what-if over the Lost Demand Ledger (#9486)
+export type { CandidateSeating } from "./lost-demand-what-if.js";
+export { busiestTurnedAwaySlot, countWeekday } from "./lost-demand-what-if.js";
 
 // Zod Schemas
 export * from "./schemas/index.js";

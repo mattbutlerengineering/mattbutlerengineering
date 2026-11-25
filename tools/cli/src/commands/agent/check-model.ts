@@ -1,23 +1,25 @@
 import { Command } from "commander";
 import { dirname, join } from "node:path";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import type { TelemetryRow } from "@mbe/agent-core";
 import { routeModelWithReason, estimateIssueTokens } from "@mbe/agent-core";
 import { createGhClient } from "@mbe/gh-client";
 import type { GhClient } from "@mbe/gh-client";
 import { resolveIssueModel } from "../../resolve-issue-model.js";
 
-/** Absolute path to the per-issue queue telemetry log (JSONL). */
-const QUEUE_TELEMETRY_PATH = join(
-  dirname(new URL(import.meta.url).pathname),
-  "..",
-  "..",
-  "..",
-  "..",
-  "..",
-  "metrics",
-  "queue-telemetry.jsonl"
-);
+/** Repo root, five levels up from this compiled module. */
+const REPO_ROOT = join(dirname(new URL(import.meta.url).pathname), "..", "..", "..", "..", "..");
+
+/**
+ * Absolute path to the per-issue queue telemetry log (JSONL): inside the
+ * metrics-data branch checkout (scripts/metrics-data.mjs) when it exists,
+ * else under metrics/. Mirrors `resolvePath()` in scripts/metrics-store.mjs,
+ * which this compiled package cannot import.
+ */
+export function resolveQueueTelemetryPath(root: string = REPO_ROOT): string {
+  const dataDir = join(root, ".metrics-data");
+  return join(existsSync(dataDir) ? dataDir : join(root, "metrics"), "queue-telemetry.jsonl");
+}
 
 /**
  * Read historical queue telemetry rows for token estimation. Fail-soft: a
@@ -27,7 +29,7 @@ const QUEUE_TELEMETRY_PATH = join(
 function loadTelemetryHistory(): TelemetryRow[] {
   let content: string;
   try {
-    content = readFileSync(QUEUE_TELEMETRY_PATH, "utf8");
+    content = readFileSync(resolveQueueTelemetryPath(), "utf8");
   } catch {
     return [];
   }

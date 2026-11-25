@@ -42,7 +42,7 @@ node scripts/record-audit-check.mjs --surface gen:playground --auth-gated "curl 
 ```
 
 The weekly `audit-sweep.yml` run records the same per-surface state automatically in the
-**tracked** `metrics/audit-coverage.jsonl` (auth0 surfaces reachable only at the login page are
+**durable** `.metrics-data/audit-coverage.jsonl` (auth0 surfaces reachable only at the login page are
 `auth-gated`, failures `error`, never-visited `unchecked`); the `auditCoverage` sensor and
 `/ideate` read that, not the gitignored inventory (#8419).
 
@@ -88,6 +88,8 @@ AUDIT_CURL_OPTS=(-sf -A "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWe
 HTTP_STATUS=$(curl -o /dev/null -w "%{http_code}" "${AUDIT_CURL_OPTS[@]}" "$URL")
 [ "$HTTP_STATUS" = "403" ] && echo "ACCESS-RESTRICTED: $URL"
 ```
+
+**Demo venue check (#9508):** `GET /api/v1/venues/by-slug/demo-bistro` (surface `api:reservations:demo-venue`) must return 200. A non-200 means the public demo venue is missing from production: file a `ci-fix`+`audit` issue.
 
 4. Detect regressions (>0.05 drop vs lastScore), create issues (labels: `ci-fix`+`audit`), then persist the result for every surface checked via `node scripts/record-audit-check.mjs --surface "$SURFACE_ID" --performance ... --accessibility ... --best-practices ... --seo ...` (see [Inventory](#inventory)).
 

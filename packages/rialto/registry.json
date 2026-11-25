@@ -1,5 +1,5 @@
 {
-  "version": "3.1.1",
+  "version": "3.1.2",
   "components": [
     {
       "name": "Accordion",
@@ -272,6 +272,20 @@
       ],
       "slots": [
         "children"
+      ],
+      "characterLimits": [
+        {
+          "prop": "emptyText",
+          "max": 60
+        },
+        {
+          "prop": "hint",
+          "max": 120
+        },
+        {
+          "prop": "label",
+          "max": 40
+        }
       ]
     },
     {
@@ -977,8 +991,7 @@
       "characterLimits": [
         {
           "prop": "trigger",
-          "max": 60,
-          "reason": "Collapsible trigger text; single line"
+          "max": 60
         }
       ]
     },
@@ -1167,7 +1180,13 @@
           "description": "Ordered list of group names — ungrouped items appear first. With a query,\ngroups reorder by the strongest match they contain (see `rankCommandMatch`);\nthis order only breaks ties."
         }
       ],
-      "slots": []
+      "slots": [],
+      "characterLimits": [
+        {
+          "prop": "placeholder",
+          "max": 60
+        }
+      ]
     },
     {
       "name": "ComponentRegistry",
@@ -1232,19 +1251,20 @@
       "slots": [],
       "characterLimits": [
         {
+          "prop": "cancelLabel",
+          "max": 24
+        },
+        {
           "prop": "confirmLabel",
-          "max": 20,
-          "reason": "Confirm button text; concise verb"
+          "max": 24
         },
         {
           "prop": "description",
-          "max": 120,
-          "reason": "Confirmation body; explains consequences"
+          "max": 200
         },
         {
           "prop": "title",
-          "max": 60,
-          "reason": "Confirmation heading; clear and direct"
+          "max": 80
         }
       ]
     },
@@ -1636,7 +1656,17 @@
           "required": false
         }
       ],
-      "slots": []
+      "slots": [],
+      "characterLimits": [
+        {
+          "prop": "label",
+          "max": 40
+        },
+        {
+          "prop": "placeholder",
+          "max": 60
+        }
+      ]
     },
     {
       "name": "DateRangeValue",
@@ -1769,6 +1799,12 @@
       ],
       "slots": [
         "children"
+      ],
+      "characterLimits": [
+        {
+          "prop": "disabledReason",
+          "max": 120
+        }
       ]
     },
     {
@@ -2029,6 +2065,121 @@
       ]
     },
     {
+      "name": "FeedbackButton",
+      "description": "A button that opens a \n{@link \nFeedbackDialog \n}\n. Focus returns to the button\nwhen the dialog closes.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [
+        {
+          "name": "label",
+          "type": "string",
+          "required": true,
+          "description": "Visible name of the trigger, e.g. \"Send feedback\"."
+        },
+        {
+          "name": "variant",
+          "type": "\"primary\" | \"secondary\" | \"ghost\" | undefined",
+          "required": false
+        },
+        {
+          "name": "size",
+          "type": "\"sm\" | \"md\" | \"lg\" | undefined",
+          "required": false
+        },
+        {
+          "name": "onSubmit",
+          "type": "(draft: FeedbackDraft) => Promise<{ issueNumber: number; }>",
+          "required": true,
+          "description": "Files the feedback. Reject to show the error state; the draft is kept."
+        },
+        {
+          "name": "labels",
+          "type": "FeedbackDialogLabels",
+          "required": true
+        },
+        {
+          "name": "contextItems",
+          "type": "readonly FeedbackContextItem[]",
+          "required": true,
+          "description": "Auto-attached context, shown to the reporter before they send."
+        },
+        {
+          "name": "describeError",
+          "type": "((error: unknown) => string) | undefined",
+          "required": false,
+          "description": "Friendly failure text for a rejected submit; defaults to `labels.errorBody`."
+        }
+      ],
+      "slots": []
+    },
+    {
+      "name": "FeedbackContextItem",
+      "description": "A line of the \"We'll include\" list, e.g. `{ label: \"Page\", value: \"/timeline\" }`.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [],
+      "slots": []
+    },
+    {
+      "name": "FeedbackDialog",
+      "description": "Modal for reporting a bug or idea. Collects a type, a message (10–2000\ncharacters) and an optional email, lists the context that will be attached,\nand reports the filed issue number. A failed submit keeps the draft and\noffers a retry.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [
+        {
+          "name": "open",
+          "type": "boolean",
+          "required": true
+        },
+        {
+          "name": "onClose",
+          "type": "() => void",
+          "required": true
+        },
+        {
+          "name": "onSubmit",
+          "type": "(draft: FeedbackDraft) => Promise<{ issueNumber: number; }>",
+          "required": true,
+          "description": "Files the feedback. Reject to show the error state; the draft is kept."
+        },
+        {
+          "name": "labels",
+          "type": "FeedbackDialogLabels",
+          "required": true
+        },
+        {
+          "name": "contextItems",
+          "type": "readonly FeedbackContextItem[]",
+          "required": true,
+          "description": "Auto-attached context, shown to the reporter before they send."
+        },
+        {
+          "name": "describeError",
+          "type": "((error: unknown) => string) | undefined",
+          "required": false,
+          "description": "Friendly failure text for a rejected submit; defaults to `labels.errorBody`."
+        }
+      ],
+      "slots": []
+    },
+    {
+      "name": "FeedbackDialogLabels",
+      "description": "Every string the dialog shows. The consumer owns the copy (and its locales).",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [],
+      "slots": []
+    },
+    {
+      "name": "FeedbackDraft",
+      "description": "What the reporter typed. `email` is absent when the field was left blank.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [],
+      "slots": []
+    },
+    {
+      "name": "FeedbackKind",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [],
+      "slots": []
+    },
+    {
       "name": "Fireflies",
       "description": "An ambient canvas backdrop: sparse fireflies on a dusk patio. Each fly\nwanders slowly and pulses on its own beat, flashing bright and fading to\nnothing; the few that glow gold (the accent) are the only warm points, the\nrest are faint text-primary. The pointer draws nearby flies a little closer.\n\nPurely decorative — always `aria-hidden` and never interactive. Colors come\nfrom live theme tokens and re-read on theme change, so it works in light and\ndark without configuration. Under `prefers-reduced-motion` it degrades to a\nstatic gradient poster and no animation loop is ever started.\n\nAn expressive element: use one per view, as the backdrop of a single hero or\nempty-state slot, never stacked with `SilkFlow` or another backdrop.\n\nSizes to its container; give that container `position: relative`.",
       "importPath": "@mattbutlerengineering/rialto",
@@ -2244,7 +2395,7 @@
           "name": "currentApp",
           "type": "\"marketing\" | \"hospitality\" | \"rialto\" | \"gen\"",
           "required": true,
-          "description": "Which app is currently active — drives the active link indicator.\n`\"gen\"` is a sibling app with no nav link of its own, so no link is marked active."
+          "description": "Which app is currently active — drives the active link indicator."
         },
         {
           "name": "currentPath",
@@ -2266,7 +2417,7 @@
         },
         {
           "name": "labels",
-          "type": "Partial<Record<\"marketing\" | \"hospitality\" | \"rialto\", string>> | undefined",
+          "type": "Partial<Record<\"marketing\" | \"hospitality\" | \"rialto\" | \"gen\", string>> | undefined",
           "required": false,
           "description": "Link labels per app, for consumers that localize them. Omitted apps keep the English defaults."
         },
@@ -2416,6 +2567,12 @@
       ],
       "slots": [
         "children"
+      ],
+      "characterLimits": [
+        {
+          "prop": "children",
+          "max": 120
+        }
       ]
     },
     {
@@ -2474,6 +2631,16 @@
       ],
       "slots": [
         "children"
+      ],
+      "characterLimits": [
+        {
+          "prop": "eyebrow",
+          "max": 40
+        },
+        {
+          "prop": "subtitle",
+          "max": 200
+        }
       ]
     },
     {
@@ -2643,7 +2810,21 @@
           "required": false
         }
       ],
-      "slots": []
+      "slots": [],
+      "characterLimits": [
+        {
+          "prop": "error",
+          "max": 120
+        },
+        {
+          "prop": "hint",
+          "max": 120
+        },
+        {
+          "prop": "label",
+          "max": 40
+        }
+      ]
     },
     {
       "name": "Input",
@@ -2893,7 +3074,25 @@
           "description": "Delay in milliseconds before auto-closing the cover."
         }
       ],
-      "slots": []
+      "slots": [],
+      "characterLimits": [
+        {
+          "prop": "activeLabel",
+          "max": 20
+        },
+        {
+          "prop": "coverLabel",
+          "max": 30
+        },
+        {
+          "prop": "idleLabel",
+          "max": 20
+        },
+        {
+          "prop": "label",
+          "max": 40
+        }
+      ]
     },
     {
       "name": "Meter",
@@ -2949,8 +3148,7 @@
       "characterLimits": [
         {
           "prop": "label",
-          "max": 25,
-          "reason": "Gauge label; sits beside or below bar"
+          "max": 25
         }
       ]
     },
@@ -3009,6 +3207,12 @@
       ],
       "slots": [
         "children"
+      ],
+      "characterLimits": [
+        {
+          "prop": "label",
+          "max": 40
+        }
       ]
     },
     {
@@ -3257,6 +3461,16 @@
       ],
       "slots": [
         "children"
+      ],
+      "characterLimits": [
+        {
+          "prop": "breadcrumbLabel",
+          "max": 40
+        },
+        {
+          "prop": "title",
+          "max": 80
+        }
       ]
     },
     {
@@ -3300,7 +3514,13 @@
           "description": "Accessible name for the nav landmark. Defaults to the locale's \"Pagination\" label — override\nthis when a page renders more than one Pagination instance, since axe's\nlandmark-unique rule requires each nav landmark on a page to have a\ndistinct accessible name."
         }
       ],
-      "slots": []
+      "slots": [],
+      "characterLimits": [
+        {
+          "prop": "ariaLabel",
+          "max": 60
+        }
+      ]
     },
     {
       "name": "PendingAction",
@@ -3493,6 +3713,12 @@
       ],
       "slots": [
         "children"
+      ],
+      "characterLimits": [
+        {
+          "prop": "label",
+          "max": 40
+        }
       ]
     },
     {
@@ -4201,6 +4427,12 @@
       ],
       "slots": [
         "children"
+      ],
+      "characterLimits": [
+        {
+          "prop": "announcement",
+          "max": 120
+        }
       ]
     },
     {
@@ -4904,9 +5136,16 @@
       ],
       "characterLimits": [
         {
+          "prop": "disabledReason",
+          "max": 120
+        },
+        {
+          "prop": "hint",
+          "max": 120
+        },
+        {
           "prop": "label",
-          "max": 40,
-          "reason": "Form field label; above textarea"
+          "max": 40
         }
       ]
     },

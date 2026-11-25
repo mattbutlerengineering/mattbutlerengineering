@@ -15,10 +15,12 @@ import {
   type SensorReport,
   type QueueEfficiencyMetrics,
   type ReviewBurdenMetrics,
+  type ProductionHealthMetrics,
   type AcmmMetrics,
   type PrCategoryBreakdownMetrics,
   type PrCategoryBreakdownStats,
 } from "../data/ai-health.js";
+import { describeSensor, sensorLabel } from "../data/sensor-labels.js";
 import { normalizeHealthTrends } from "../data/ai-health-trends.js";
 import { TrendChart } from "../components/TrendChart.js";
 import styles from "./AiHealthPage.module.css";
@@ -56,7 +58,7 @@ function QueueEfficiencyPanel({ queueEfficiency }: { queueEfficiency: QueueEffic
     return (
       <div className={styles.sensorGrid}>
         <div className={styles.sensorRow}>
-          <Text className={styles.sensorName}>queueEfficiency</Text>
+          <Text className={styles.sensorName}>{sensorLabel("queueEfficiency")}</Text>
           <div className={styles.sensorBadge}>
             <Badge color="red" size="sm">
               Unavailable
@@ -128,7 +130,7 @@ function ReviewBurdenPanel({ reviewBurden }: { reviewBurden: ReviewBurdenMetrics
     return (
       <div className={styles.sensorGrid} data-testid="review-burden-panel">
         <div className={styles.sensorRow}>
-          <Text className={styles.sensorName}>reviewBurden</Text>
+          <Text className={styles.sensorName}>{sensorLabel("reviewBurden")}</Text>
           <div className={styles.sensorBadge}>
             <Badge color="red" size="sm">
               Unavailable
@@ -183,12 +185,56 @@ function ReviewBurdenPanel({ reviewBurden }: { reviewBurden: ReviewBurdenMetrics
   );
 }
 
+function ProductionHealthPanel({
+  productionHealth,
+}: {
+  productionHealth: ProductionHealthMetrics;
+}) {
+  if (!productionHealth.available) {
+    return (
+      <div className={styles.sensorGrid} data-testid="production-health-panel">
+        <div className={styles.sensorRow}>
+          <Text className={styles.sensorName}>{sensorLabel("productionHealth")}</Text>
+          <div className={styles.sensorBadge}>
+            <Badge color="red" size="sm">
+              Unavailable
+            </Badge>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div data-testid="production-health-panel">
+      <div className={styles.sensorGrid}>
+        {productionHealth.endpoints.map((endpoint) => (
+          <div key={endpoint.name} className={styles.sensorRow}>
+            <Text className={styles.sensorName}>{endpoint.name}</Text>
+            <div className={styles.sensorBadge}>
+              <Badge color={endpoint.status === "healthy" ? "green" : "red"} size="sm">
+                {endpoint.status}
+              </Badge>
+            </div>
+          </div>
+        ))}
+      </div>
+      <Text className={styles.panelNote}>
+        Last checked{" "}
+        {productionHealth.collectedAt == null
+          ? PLACEHOLDER
+          : formatTimestamp(productionHealth.collectedAt)}
+      </Text>
+    </div>
+  );
+}
+
 function AcmmPanel({ acmm }: { acmm: AcmmMetrics }) {
   if (!acmm.available) {
     return (
       <div className={styles.sensorGrid}>
         <div className={styles.sensorRow}>
-          <Text className={styles.sensorName}>acmm</Text>
+          <Text className={styles.sensorName}>{sensorLabel("acmm")}</Text>
           <div className={styles.sensorBadge}>
             <Badge color="red" size="sm">
               Unavailable
@@ -262,7 +308,7 @@ function PrCategoryBreakdownPanel({ breakdown }: { breakdown: PrCategoryBreakdow
   const body = !breakdown.available ? (
     <div className={styles.sensorGrid}>
       <div className={styles.sensorRow}>
-        <Text className={styles.sensorName}>prCategoryMetrics</Text>
+        <Text className={styles.sensorName}>{sensorLabel("prCategoryMetrics")}</Text>
         <div className={styles.sensorBadge}>
           <Badge color="red" size="sm">
             Unavailable
@@ -469,6 +515,11 @@ export function AiHealthPage() {
       </section>
 
       <section className={styles.section}>
+        <Heading level={2}>Production Health</Heading>
+        <ProductionHealthPanel productionHealth={metrics.productionHealth} />
+      </section>
+
+      <section className={styles.section}>
         <Heading level={2}>PR Categories</Heading>
         <PrCategoryBreakdownPanel breakdown={metrics.prCategoryBreakdown} />
       </section>
@@ -494,7 +545,10 @@ export function AiHealthPage() {
           {metrics.sensorEntries.map(([key, sensor]) => (
             <div key={key} className={styles.sensorRow}>
               <div>
-                <Text className={styles.sensorName}>{key}</Text>
+                <Text className={styles.sensorName}>{sensorLabel(key)}</Text>
+                {describeSensor(key) != null && (
+                  <Text className={styles.statNote}>{describeSensor(key)}</Text>
+                )}
                 {describeSensorGap(sensor) != null && (
                   <Text className={styles.statNote}>{describeSensorGap(sensor)}</Text>
                 )}

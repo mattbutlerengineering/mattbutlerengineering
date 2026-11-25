@@ -139,9 +139,11 @@ pnpm db:migrate:status # Show migration status
 | `ANTHROPIC_API_KEY`          | Yes        | Claude API key                                                  |
 | `MAX_CONCURRENT_SESSIONS`    | No         | Max parallel sessions (default: 5)                              |
 | `GEN_DAILY_CEILING_USD`      | No         | Aggregate `/api/gen/*` spend ceiling per UTC day (default: 0.5) |
+| `GEN_ONBOARDING_CEILING_USD` | No         | Per-user `/api/gen/onboarding` spend ceiling (default: 0.05)    |
 | `GEN_PROVIDER`               | No         | `/api/gen/*` vendor: `anthropic` (default) or `google`          |
 | `GEMINI_API_KEY`             | If google  | Google AI Studio key, read when `GEN_PROVIDER=google`           |
 | `GITHUB_TOKEN`               | Yes        | GitHub PAT for PR creation                                      |
+| `FEEDBACK_GITHUB_TOKEN`      | No         | Fine-grained PAT, Issues write only; unset = feedback 503s      |
 | `GITHUB_WEBHOOK_SECRET`      | No         | HMAC secret for GitHub webhooks                                 |
 | `REMEDIATION_WEBHOOK_SECRET` | No         | HMAC secret for remediation webhooks                            |
 | `REPO_PATH`                  | No         | Repo URL for agent context                                      |

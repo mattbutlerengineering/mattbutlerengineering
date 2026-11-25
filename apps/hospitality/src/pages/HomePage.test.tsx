@@ -34,7 +34,17 @@ import { useDashboardStatsQuery } from "../hooks/useDashboardStatsQuery.js";
 import { useSSEStatus, useSSEEventFeed } from "../hooks/useSSESync.js";
 import { useLapsingGuests, useSendWinBack } from "../hooks/useGuests.js";
 import React from "react";
-import type { Venue, LapsingGuest } from "@mbe/types";
+import { useLostDemand } from "../hooks/useLostDemand.js";
+import type { Venue, LapsingGuest, LostDemand } from "@mbe/types";
+
+const LOST_DEMAND: LostDemand = {
+  venueId: "venue-1",
+  from: "2026-10-05",
+  to: "2026-11-01",
+  total: 0,
+  cells: [],
+  anyTime: [],
+};
 import type { DashboardStats } from "../hooks/useDashboardStatsQuery.js";
 
 vi.mock("@mbe/auth/react", () => ({
@@ -52,6 +62,8 @@ vi.mock("../hooks/useSSESync.js", () => ({
   useSSEEventFeed: vi.fn(),
   useSSESync: vi.fn(() => ({ reconnect: vi.fn() })),
 }));
+
+vi.mock("../hooks/useLostDemand.js", () => ({ useLostDemand: vi.fn() }));
 
 vi.mock("../hooks/useGuests.js", () => ({
   useLapsingGuests: vi.fn(),
@@ -131,6 +143,18 @@ vi.mock("../components/dashboard", () => ({
         </button>
       ))}
     </div>
+  ),
+  TurnedAwayHeatmap: ({ demand }: { demand: LostDemand | null | undefined }) => (
+    <div data-testid="turned-away-heatmap" data-total={demand?.total ?? 0} />
+  ),
+  AddSeatingWhatIf: ({
+    demand,
+    venueId,
+  }: {
+    demand: LostDemand | null | undefined;
+    venueId: string | null;
+  }) => (
+    <div data-testid="add-seating-what-if" data-total={demand?.total ?? 0} data-venue={venueId} />
   ),
   DepositExposureWidget: ({
     depositAtRiskCount,
@@ -250,6 +274,14 @@ describe("HomePage", () => {
       isSuccess: false,
       isError: false,
       error: null,
+    });
+
+    vi.mocked(useLostDemand).mockReturnValue({
+      data: null,
+      isLoading: false,
+      error: null,
+      isPlaceholderData: false,
+      refetch: vi.fn(),
     });
   });
 
@@ -510,6 +542,45 @@ describe("HomePage", () => {
     const banner = screen.getByTestId("error-banner");
     expect(banner.textContent).toContain("Couldn't load lapsing guests.");
     expect(screen.queryByTestId("lapsing-guests-widget")).toBeNull();
+    fireEvent.click(screen.getByText("Retry"));
+    expect(refetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("feeds the turned-away heatmap from useLostDemand for the selected venue", () => {
+    vi.mocked(useVenue).mockReturnValue(venueContextValue(VENUE));
+    vi.mocked(useLostDemand).mockReturnValue({
+      data: { ...LOST_DEMAND, total: 9 },
+      isLoading: false,
+      error: null,
+      isPlaceholderData: false,
+      refetch: vi.fn(),
+    });
+
+    renderPage();
+
+    expect(useLostDemand).toHaveBeenCalledWith({ venueId: "venue-1" });
+    expect(screen.getByTestId("turned-away-heatmap").getAttribute("data-total")).toBe("9");
+    // The what-if reads the same data, beside the heatmap.
+    expect(screen.getByTestId("add-seating-what-if").getAttribute("data-total")).toBe("9");
+  });
+
+  it("shows an actionable error with retry when the turned-away query fails", () => {
+    const refetch = vi.fn();
+    vi.mocked(useLostDemand).mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      error: new Error("boom"),
+      isPlaceholderData: false,
+      refetch,
+    });
+
+    renderPage();
+
+    expect(screen.getByTestId("error-banner").textContent).toContain(
+      "Couldn't load turned-away searches."
+    );
+    expect(screen.queryByTestId("turned-away-heatmap")).toBeNull();
+    expect(screen.queryByTestId("add-seating-what-if")).toBeNull();
     fireEvent.click(screen.getByText("Retry"));
     expect(refetch).toHaveBeenCalledTimes(1);
   });

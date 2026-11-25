@@ -308,6 +308,46 @@ describe("createGenRunner", () => {
       expect(text).toBe("Tonight:  is full.");
     });
 
+    it("scrubs a one-hump catalog component call from the reply (F36)", async () => {
+      vi.mocked(streamText).mockReturnValueOnce({
+        fullStream: mockAsyncIterable([
+          { type: "text-delta", text: "Tonight: Stack(gap=2" },
+          { type: "text-delta", text: ") is full." },
+        ]),
+        usage: Promise.resolve({ inputTokens: 10, outputTokens: 5 }),
+        providerMetadata: Promise.resolve({}),
+      } as never);
+
+      const events: GenStreamEvent[] = [];
+      await runner.run([{ role: "user", content: "hi" }], {}, async (event) => {
+        events.push(event);
+      });
+
+      const text = events.map((e) => (e.type === "text" ? e.content : "")).join("");
+      expect(text).toBe("Tonight:  is full.");
+    });
+
+    it("does not let a call cut off in one step swallow the next step's prose", async () => {
+      vi.mocked(streamText).mockReturnValueOnce({
+        fullStream: mockAsyncIterable([
+          { type: "text-delta", text: "Checking: ReservationList(items=[1" },
+          { type: "finish-step", finishReason: "tool-calls" },
+          { type: "text-delta", text: "Monday has 4 tables free." },
+        ]),
+        usage: Promise.resolve({ inputTokens: 10, outputTokens: 5 }),
+        providerMetadata: Promise.resolve({}),
+      } as never);
+
+      const events: GenStreamEvent[] = [];
+      await runner.run([{ role: "user", content: "hi" }], {}, async (event) => {
+        events.push(event);
+      });
+
+      const text = events.map((e) => (e.type === "text" ? e.content : "")).join("");
+      expect(text).toContain("Monday has 4 tables free.");
+      expect(text).not.toContain("ReservationList(");
+    });
+
     it("adds no break before the first text when an earlier step had none", async () => {
       vi.mocked(streamText).mockReturnValueOnce({
         fullStream: mockAsyncIterable([

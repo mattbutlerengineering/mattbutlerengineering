@@ -69,7 +69,7 @@ import {
  * failed or unreadable check never falls through to the save. The save sends no
  * decisions, so the server also refuses a booking that lands in between.
  */
-async function saveIfNoBookings(
+export async function saveIfNoBookings(
   api: ApiClient,
   venueId: string,
   rule: DateRule,

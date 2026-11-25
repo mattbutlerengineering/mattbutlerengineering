@@ -13,7 +13,13 @@ vi.mock("./useVenues.js", () => ({
 
 import { useBookingRulesUndo } from "./useBookingRulesUndo.js";
 
-const PREVIOUS: BookingRulesForm = { daysAhead: "30", noticeHours: "", largestParty: "12" };
+const PREVIOUS: BookingRulesForm = {
+  daysAhead: "30",
+  noticeHours: "",
+  largestParty: "12",
+  pacingCovers: "",
+  pacingMinutes: "",
+};
 
 /** The venue list as `VenueProvider` caches it. */
 const cacheVenue = (client: QueryClient, settings: VenueSettings | null, id = "venue-1") =>

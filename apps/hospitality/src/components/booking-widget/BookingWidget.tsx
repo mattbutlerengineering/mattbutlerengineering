@@ -98,7 +98,7 @@ export function BookingWidget({
 
   // useBookingFlow owns the availability + Hold effects (slot fetch, Hold
   // create/confirm/release, hold-expiry timer), the venue deposit-config
-  // fetch/mapping, and the Guest-risk → deposit-required gate behind this
+  // fetch/mapping, and the server's deposit-required verdict behind this
   // seam — the widget below is render-by-state + action-forwarding only.
   const { state, data, actions, stepKeys, currentStepIndex } = useBookingFlow({
     api,

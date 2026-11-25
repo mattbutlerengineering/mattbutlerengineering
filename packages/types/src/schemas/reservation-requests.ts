@@ -75,6 +75,11 @@ export const WalkInBodySchema = z
       .describe("ID of an existing guest at this venue to link the walk-in to")
       .optional(),
     guestName: z.string().describe("Guest name (defaults to 'Walk-in')").optional(),
+    waitlistEntryId: z
+      .string()
+      .min(1)
+      .describe("Waitlist entry this walk-in seats; marked seated in the same transaction")
+      .optional(),
     durationMinutes: z
       .number()
       .int()
@@ -470,6 +475,11 @@ export const ListWaitlistQuerySchema = z.object({
 export const PublicAvailabilityQuerySchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   partySize: z.string(),
+  /** The wall-clock time the guest asked for (HH:mm). Only the no-slot ledger reads it. */
+  time: z
+    .string()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+    .optional(),
 });
 
 export const PublicAvailabilityDatesQuerySchema = z.object({
@@ -485,11 +495,6 @@ export const PublicDepositBodySchema = z.object({
 
 export const PublicGuestRecognitionQuerySchema = z.object({
   email: z.email(),
-});
-
-export const PublicGuestRiskQuerySchema = z.object({
-  email: z.string().optional(),
-  phone: z.string().optional(),
 });
 
 export const PublicHoldBodySchema = z.object({

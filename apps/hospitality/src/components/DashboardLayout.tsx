@@ -41,6 +41,7 @@ import { LoadingPage } from "../pages/LoadingPage.js";
 import { describeApiError } from "../lib/describe-api-error.js";
 import { ErrorRetryBanner } from "./ErrorRetryBanner.js";
 import { DashboardSidebar } from "./DashboardSidebar.js";
+import { FeedbackControl } from "./FeedbackControl.js";
 import { LocalePicker } from "./LocalePicker/index.js";
 import { SystemHealthBadge } from "./SystemHealthBadge.js";
 import { availabilityPath } from "./availability/availability-address.js";
@@ -56,6 +57,7 @@ const ROUTE_LABEL_KEYS = {
   guests: "layout.routes.guests",
   waitlist: "layout.routes.waitlist",
   briefing: "layout.routes.briefing",
+  night: "layout.routes.night",
   "floor-plans": "layout.routes.floorPlan",
   availability: "layout.routes.availability",
   menus: "layout.routes.menus",
@@ -362,7 +364,12 @@ function DashboardLayoutInner() {
             isMobileOpen={isMobileMenuOpen}
             onMobileClose={handleMobileClose}
             headerSlot={<VenueSwitcher onNavigate={navigate} />}
-            footerSlot={<LocalePicker variant="sidebar" />}
+            footerSlot={
+              <>
+                <FeedbackControl />
+                <LocalePicker variant="sidebar" />
+              </>
+            }
           />
           <Button type="button" className={styles.commandHint} onClick={() => setPaletteOpen(true)}>
             {/* No aria-label: the name is the visible "<modifier> K Search" (WCAG 2.5.3). The

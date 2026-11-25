@@ -27,6 +27,40 @@ describe("GlobalNav", () => {
     expect(screen.getByRole("link", { name: "Design System" })).toBeTruthy();
   });
 
+  describe("Gen Playground link", () => {
+    it("links to the gen app with a full-page href", () => {
+      render(<GlobalNav currentApp="marketing" />);
+
+      expect(screen.getByRole("link", { name: "Gen Playground" }).getAttribute("href")).toBe(
+        "/gen/"
+      );
+    });
+
+    it("is current only when currentApp is gen", () => {
+      render(<GlobalNav currentApp="gen" />);
+
+      const current = screen
+        .getAllByRole("link")
+        .filter((link) => link.getAttribute("aria-current") === "page");
+      expect(current.map((link) => link.textContent)).toEqual(["Gen Playground"]);
+    });
+
+    it("is not current on another app", () => {
+      render(<GlobalNav currentApp="hospitality" />);
+
+      expect(
+        screen.getByRole("link", { name: "Gen Playground" }).getAttribute("aria-current")
+      ).toBeNull();
+    });
+
+    it("appears in the mobile menu too, and takes a localized label", async () => {
+      render(<GlobalNav currentApp="gen" labels={{ gen: "Atelier Gen" }} />);
+      await userEvent.click(screen.getByRole("button", { name: "Open menu" }));
+
+      expect(screen.getAllByRole("link", { name: "Atelier Gen" })).toHaveLength(2);
+    });
+  });
+
   it("renders the brand link pointing to root", () => {
     render(<GlobalNav currentApp="marketing" />);
 

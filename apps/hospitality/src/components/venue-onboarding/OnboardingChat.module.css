@@ -1,0 +1,27 @@
+.chat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-sm);
+  min-width: 0;
+}
+
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--rialto-space-sm);
+}
+
+/* A bounded box so the log scrolls inside it: on a phone the form stays directly below. */
+.panel {
+  display: flex;
+  flex-direction: column;
+  height: 22rem;
+  max-height: 60dvh;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--rialto-surface-elevated);
+  border-radius: var(--rialto-radius-soft);
+  box-shadow: var(--rialto-shadow-md);
+}

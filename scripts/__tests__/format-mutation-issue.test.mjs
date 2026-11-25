@@ -45,4 +45,20 @@ describe("formatMutationIssue", () => {
     const scored = formatMutationIssue({ ...BASE, state: "scored", score: 55.56 });
     expect(scored.comment).toContain("55.56%");
   });
+
+  it("names the failing scope in the body when one is given", () => {
+    const issue = formatMutationIssue({
+      ...BASE,
+      state: "scored",
+      score: 55.56,
+      scope: "services/reservations",
+    });
+    expect(issue.body).toContain("**Package:** services/reservations");
+    expect(issue.comment).toContain("services/reservations");
+  });
+
+  it("keeps the text unchanged when no scope is given", () => {
+    const issue = formatMutationIssue({ ...BASE, state: "scored", score: 55.56 });
+    expect(issue.body).not.toContain("**Package:**");
+  });
 });

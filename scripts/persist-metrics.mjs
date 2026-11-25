@@ -34,10 +34,12 @@
  */
 
 import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createGhClient } from "@mbe/gh-client";
 import { durableManifest } from "./metrics-store.mjs";
+import { createRunGit, dataDir, pushDataBranch } from "./metrics-data.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -147,9 +149,12 @@ export function buildPrBody(routine, paths) {
  *   branchExists?: (branch: string) => boolean,
  *   runGit: (args: string[]) => void,
  *   runGh: (args: string[]) => void,
+ *   pushData?: (message: string) => { pushed: boolean },
  *   log?: (msg: string) => void,
  * }} options
- * @returns {{ committed: boolean, paths: string[], branch?: string, message?: string }}
+ *   `pushData` commits and pushes the metrics-data checkout (telemetry). It
+ *   runs first; whatever durable files remain on main still go through a PR.
+ * @returns {{ committed: boolean, paths: string[], branch?: string, message?: string, dataPushed?: boolean }}
  */
 export function persistMetrics({
   routine,
@@ -159,18 +164,35 @@ export function persistMetrics({
   branchExists = () => false,
   runGit,
   runGh,
+  pushData,
   log = emit,
 }) {
   assertRoutineName(routine);
+  const message = buildCommitMessage(routine, today);
+  // A failed data push must not also strand main-located files: carry on to
+  // the PR path, then report the push failure at the end.
+  let dataError;
+  let data = {};
+  if (pushData) {
+    try {
+      data = { dataPushed: pushData(message).pushed };
+    } catch (error) {
+      dataError = error;
+      data = { dataPushed: false };
+    }
+  }
+  const finish = (result) => {
+    if (dataError) throw dataError;
+    return result;
+  };
 
   const changed = selectDurableDiffs(paths, listChanged());
   if (changed.length === 0) {
-    log(`[persist-metrics] No durable metrics changed for ${routine} — nothing to commit.`);
-    return { committed: false, paths: [] };
+    log(`[persist-metrics] No durable files on main changed for ${routine}; no PR needed.`);
+    return finish({ committed: false, paths: [], ...data });
   }
 
   const branch = buildBranchName(routine, today);
-  const message = buildCommitMessage(routine, today);
 
   // A prior partial run (e.g. commit failed after the branch was already
   // created — #3985) leaves the branch behind. Reuse it instead of
@@ -195,7 +217,7 @@ export function persistMetrics({
   log(`[persist-metrics] Committed ${changed.length} durable path(s) on ${branch}:`);
   for (const path of changed) log(`  ${path}`);
 
-  return { committed: true, paths: changed, branch, message };
+  return finish({ committed: true, paths: changed, branch, message, ...data });
 }
 
 /**
@@ -271,6 +293,13 @@ function main() {
     paths,
     listChanged,
     branchExists: localBranchExists,
+    // Telemetry lives on the metrics-data branch once its checkout exists
+    // (scripts/metrics-data.mjs); without one, data files are still under
+    // metrics/ and ride the PR below as before.
+    pushData:
+      existsSync(dataDir(ROOT)) && !dryRun
+        ? (message) => pushDataBranch({ root: ROOT, message, runGit: createRunGit(ROOT) })
+        : undefined,
     runGit: dryRun ? announce : (argv) => exec("git", argv),
     runGh: dryRun ? announce : createRunGh(),
   });

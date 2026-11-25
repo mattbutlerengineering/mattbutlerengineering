@@ -8,13 +8,11 @@ import type {
   PublicMenuDetail,
   PublicVenue,
   PublicVenueConfig,
-  GuestRiskResult,
   VenueTeam,
 } from "@mbe/types";
 import {
   PublicVenueSchema,
   PublicVenueConfigSchema,
-  GuestRiskResultSchema,
   VenueTeamSchema,
   toPublicVenueProfile,
 } from "@mbe/types/schemas";
@@ -185,21 +183,6 @@ export function buildDepositEnabledPublicVenueConfigFixture(): PublicVenueConfig
       noShowFeePercent: 100,
     },
   });
-}
-
-/**
- * Default GET /public/v1/venues/:slug/guest-risk response — deposit not
- * required, so it never accidentally forces a deposit on a venue whose general
- * policy is disabled. Every confirm on a deposit-disabled-or-unconfigured
- * venue calls this whenever `guestRiskMatters()` is true (#4111) — which,
- * since VITE_STRIPE_PUBLISHABLE_KEY is now wired into the E2E jobs, is
- * effectively every confirm in the suite except the deposit-enabled-config
- * specs (where the venue's own policy already decides the verdict and this
- * lookup is skipped). Tests exercising the risky-guest override replace this
- * route with their own.
- */
-export function buildGuestRiskFixture(): GuestRiskResult {
-  return GuestRiskResultSchema.parse({ requiresDeposit: false });
 }
 
 /**
@@ -544,6 +527,21 @@ export async function mockApi(page: Page): Promise<SseMock> {
       : jsonResponse(route, "user-me")
   );
   await page.route("**/api/v1/users/me/preferences", (route) => jsonResponse(route, "user-me"));
+
+  // In-app feedback (agent-api). The GitHub call is never reached from a spec:
+  // the status probe says it is available and a submit answers a fixed issue.
+  await page.route("**/api/gen/feedback/status", (route) => jsonOk(route, { available: true }));
+  await page.route("**/api/gen/feedback", (route) =>
+    route.fulfill({
+      status: 201,
+      contentType: "application/json",
+      body: JSON.stringify({
+        success: true,
+        data: { issueNumber: 4242, url: "https://github.com/o/r/issues/4242" },
+        error: null,
+      }),
+    })
+  );
   await page.route("**/api/v1/users?*", (route) => {
     const fixture = JSON.parse(loadFixture("user-me"));
     return route.fulfill({
@@ -893,6 +891,24 @@ export async function mockApi(page: Page): Promise<SseMock> {
     } catch {
       // no body — leave empty
     }
+    // The real route seats the waitlist entry in the walk-in's own transaction (#9606), and
+    // refuses with nothing written when that party is no longer waiting.
+    if (typeof body.waitlistEntryId === "string") {
+      const entry = waitlistEntries.find((e) => e.id === body.waitlistEntryId);
+      if (!entry || (entry.status !== "waiting" && entry.status !== "notified")) {
+        return route.fulfill({
+          status: 409,
+          contentType: "application/json",
+          body: JSON.stringify({
+            type: "urn:mbe:problem:waitlist-entry-not-waiting",
+            title: "Conflict",
+            status: 409,
+            detail: "Waitlist party is no longer waiting",
+          }),
+        });
+      }
+      updateWaitlistEntry(body.waitlistEntryId, { status: "seated" });
+    }
     const first = fixture.data[0] ?? {};
     const tableId = typeof body.tableId === "string" ? body.tableId : (first.tableId as string);
     // A picked returning guest arrives as `guestId`; the service answers with the linked guest's
@@ -928,23 +944,20 @@ export async function mockApi(page: Page): Promise<SseMock> {
   // (useDashboardStatsQuery's DEPOSITS_QUERY_KEY). Two pending/held deposits
   // (depositAtRiskCount) plus one forfeited (noShowExposureCents), matching
   // the shape computeDepositStats expects.
-  // `?reservationId=` is the details surface's single-deposit lookup (getByReservation), which
-  // expects one deposit or null: these reservations have none.
   await page.route("**/api/v1/deposits?*", (route) =>
-    jsonOk(
-      route,
-      new URL(route.request().url()).searchParams.has("reservationId")
-        ? null
-        : buildDepositsFixture(new Date())
-    )
+    jsonOk(route, buildDepositsFixture(new Date()))
   );
+  // The details surface's single-deposit lookup (getStatusByReservation, #9558)
+  // expects one deposit status or null: these reservations have none.
+  await page.route("**/api/v1/reservations/*/deposit-status", (route) => jsonOk(route, null));
 
   // Waitlist
   // Per-context stateful store, empty at session start (unlike reservations,
   // which layers on top of a base fixture). POST adds a "waiting" entry with
-  // the next position; PUT .../seat|notify|cancel transitions it in place so
-  // add -> list -> seat composes across requests instead of every call
-  // returning the same static shape (the stateful-mock gap this class of
+  // the next position; PUT .../notify|cancel and a walk-in carrying its
+  // waitlistEntryId (the walk-in route above reads this store) transition it
+  // in place so add -> list -> seat composes across requests instead of every
+  // call returning the same static shape (the stateful-mock gap this class of
   // Playwright spec is meant to catch).
   const waitlistEntries: Array<Record<string, unknown>> = [];
 
@@ -1063,6 +1076,46 @@ export async function mockApi(page: Page): Promise<SseMock> {
   // The Home dashboard's lapsing-guests widget. Empty by default; specs that render the widget
   // mount their own route after mockApi (locale-sweep, visual).
   await page.route("**/api/v1/guests/lapsing?*", (route) => jsonOk(route, []));
+  // The Home dashboard's turned-away heatmap (#9485): the empty state by default; specs that
+  // render the grid mount their own route after mockApi (locale-sweep, visual).
+  // `from`/`to` must be real service dates: LostDemandSchema rejects "", which turned every
+  // dashboard load into a heatmap error banner (#9583).
+  await page.route("**/api/v1/reservations/metrics/lost-demand?*", (route) =>
+    jsonOk(route, {
+      venueId: "venue_e2e",
+      from: localDay(-27),
+      to: localDay(),
+      total: 0,
+      cells: [],
+      anyTime: [],
+    })
+  );
+  // Its "add a seating" what-if (#9577): hidden on the empty heatmap above, so this only keeps a
+  // stray request off the network. Registered explicitly: the lost-demand glob above does not
+  // match `/lost-demand/what-if?` (Playwright 1.65 reads `?` in a glob as a literal).
+  await page.route("**/api/v1/reservations/metrics/lost-demand/what-if?*", (route) =>
+    jsonOk(route, {
+      venueId: "",
+      from: "2026-01-01",
+      to: "2026-01-28",
+      weekday: 5,
+      minute: 1170,
+      outcome: "estimated",
+      searches: 0,
+      windowStart: 1140,
+      windowEnd: 1200,
+      minParty: null,
+      maxParty: null,
+      anyTimeSearches: 0,
+      nights: 4,
+      perNight: 0,
+    })
+  );
+  // The Timeline's Autopilot panel (#9492): no suggestions by default, so it renders nothing.
+  await page.route("**/api/v1/reservations/metrics/autopilot-proposals?*", (route) =>
+    // A real service date: AutopilotProposalsSchema rejects "", and the panel hides read errors.
+    jsonOk(route, { date: localDay(), venueId: "ven_e2e_001", moves: [] })
+  );
   await page.route("**/api/v1/guests/find-or-create", (route) => {
     const guests = JSON.parse(loadFixture("guests-list"));
     return jsonOk(route, guests.data[0]);
@@ -1313,17 +1366,6 @@ export async function mockApi(page: Page): Promise<SseMock> {
     return jsonOk(route, PUBLIC_HOLD);
   });
   await page.route("**/public/v1/venues/*/holds", (route) => jsonOk(route, PUBLIC_HOLD));
-
-  // Guest risk — confirmReservation calls this whenever guestRiskMatters()
-  // is true (venueSlug + stripePublishableKey present and the venue's own
-  // deposit policy is disabled), which is now every confirm in the suite
-  // outside deposit-enabled-config.spec.ts (#4111). Without a default here
-  // the request falls through unmocked; on a real backend (e2e.yml) that's
-  // harmless, but e2e-screenshots.yml has none, so the Vite proxy 502s and
-  // the retry delay blows every other spec's assertion timeouts.
-  await page.route("**/public/v1/venues/*/guest-risk*", (route) =>
-    jsonOk(route, buildGuestRiskFixture())
-  );
 
   // Intercept the SSE stream request so the app's SseClient (built on
   // @microsoft/fetch-event-source, which requires an Authorization header

@@ -55,11 +55,11 @@ Run the feedback collector to update per-category acceptance rates:
 node scripts/collect-ai-issue-feedback.mjs
 ```
 
-This queries closed AI-created issues, classifies each as accepted/rejected/wontfix, and writes per-category rates + budgets to `metrics/ai-issue-feedback.json`. The budgets are used in Step 3 to cap issue creation for categories with high rejection rates (>40% rejected = budget halved).
+This queries closed AI-created issues, classifies each as accepted/rejected/wontfix, and writes per-category rates + budgets to `.metrics-data/ai-issue-feedback.json`. The budgets are used in Step 3 to cap issue creation for categories with high rejection rates (>40% rejected = budget halved).
 
 ### Step 3: Triage Regressions
 
-Read the sensor report from `metrics/sensor-report.json` and the issue feedback budgets from `metrics/ai-issue-feedback.json`. For each regression in the `regressions` array:
+Read the sensor report from `metrics/sensor-report.json` and the issue feedback budgets from `.metrics-data/ai-issue-feedback.json`. For each regression in the `regressions` array:
 
 1. **Check category budget** — read `budgets.<category>` from the feedback file. If the budget for that regression's label category is 0, skip. Default budget is 3 if no feedback data exists.
 
@@ -80,7 +80,7 @@ Read the sensor report from `metrics/sensor-report.json` and the issue feedback 
      --body "## Regression Detected\n\n**Sensor:** <sensor>\n**Metric:** <metric>\n**Current:** <value>\n**Previous:** <value>\n**Delta:** <delta>\n**Severity:** <high|medium>\n\n## Acceptance Criteria\n\n- [ ] <metric> returns to previous level or better\n- [ ] Verified by next learning loop run\n\n_Detected by [learning-loop](../.claude/skills/learning-loop/SKILL.md) sensor report_"
    ```
 
-5. **Max issues per run** — use the per-category budget from `metrics/ai-issue-feedback.json` (default 3). Prioritize high severity over medium. Never exceed the budget for any single category.
+5. **Max issues per run** — use the per-category budget from `.metrics-data/ai-issue-feedback.json` (default 3). Prioritize high severity over medium. Never exceed the budget for any single category.
 
 ### Step 4: Analyze Session Logs (Weekly)
 
@@ -104,7 +104,7 @@ Check if today is the configured skill-extraction day (default: Friday). If so:
 
 ### Step 5: Threshold Self-Tuning
 
-Read the verification log at `metrics/verifications.jsonl` (last 30 days):
+Read the verification log at `.metrics-data/verifications.jsonl` (last 30 days):
 
 1. Compute **false positive rate**: issues closed as `wontfix` or `invalid` / total issues created by learning loop
 2. Compute **fix effectiveness rate**: verified fixes / total verifications
@@ -160,7 +160,7 @@ Or invoke manually: `/learning-loop`
 
 ## Guardrails
 
-- Max issues per category governed by `metrics/ai-issue-feedback.json` budgets (default 3, halved when rejection rate >40%)
+- Max issues per category governed by `.metrics-data/ai-issue-feedback.json` budgets (default 3, halved when rejection rate >40%)
 - Max 2 skill proposals per run
 - Deduplication: always check open issues before creating
 - Reopened issues get `ready` label for implement-queue pickup

@@ -13,8 +13,10 @@
  * overwrite each other).
  *
  * Run: tools/mutation-testing/node_modules/.bin/stryker run stryker.reservations.config.mjs
- * Not yet wired into .github/workflows/mutation-testing.yml: whether it runs
- * as a second step or its own scheduled job is an open decision on #9333.
+ * Wired into .github/workflows/mutation-testing.yml as a second step of the
+ * same job (#9597), which shares the Prisma client cache restored there. The
+ * step is continue-on-error and reports to its own artifact and summary, so a
+ * reservations failure never changes the services/users result.
  */
 import usersConfig from "./stryker.config.mjs";
 
@@ -22,8 +24,10 @@ export default {
   ...usersConfig,
 
   mutate: [
-    "services/reservations/src/services/*.ts",
-    "!services/reservations/src/services/*.test.ts",
+    // Narrowed to the transition logic and the deposit services so one run
+    // fits the workflow's 30-minute window (#9616).
+    "services/reservations/src/services/deposit.ts",
+    "services/reservations/src/services/deposit-state-machine.ts",
     "services/reservations/src/transitions/*.ts",
     "!services/reservations/src/transitions/*.test.ts",
   ],
@@ -33,14 +37,19 @@ export default {
   ignorePatterns: [
     ...usersConfig.ignorePatterns.filter(
       (pattern) =>
-        pattern !== "services/reservations/**" && pattern !== "services/users/node_modules/**"
+        pattern !== "services/reservations/**" &&
+        pattern !== "services/users/node_modules/**" &&
+        // The reservations tests import the generated Prisma client, which the
+        // sandbox must therefore carry (the workflow restores it before the run).
+        pattern !== "**/generated/**"
     ),
     "services/users/**",
     "services/reservations/node_modules/**",
   ],
 
   vitest: {
-    configFile: "services/reservations/vitest.config.ts",
+    // Narrowed config: only the tests for the mutated files (#9616).
+    configFile: "services/reservations/vitest.stryker.config.ts",
     related: false,
     dir: "services/reservations",
   },

@@ -2,6 +2,8 @@ import { describe, test, expect, vi } from "vitest";
 import {
   CLOUD_BOOTSTRAP_COMMANDS,
   runCloudSessionBootstrap,
+  runMetricsDataPull,
+  runMetricsDataPush,
   shouldBootstrapCloudSession,
 } from "../cloud-session-bootstrap.mjs";
 
@@ -89,5 +91,73 @@ describe("runCloudSessionBootstrap", () => {
     expect(result).toEqual({ ran: true, ok: false });
     expect(exec).toHaveBeenCalledTimes(1);
     expect(log.mock.calls.at(-1)[0]).toContain("boom");
+  });
+});
+
+describe("runMetricsDataPull", () => {
+  test("pulls the metrics-data checkout in a cloud session", () => {
+    const pull = vi.fn();
+    expect(
+      runMetricsDataPull({ env: { CLAUDE_CODE_REMOTE: "true" }, pull, log: () => {} })
+    ).toEqual({ ran: true, ok: true });
+    expect(pull).toHaveBeenCalledOnce();
+  });
+
+  test("does nothing in a local session", () => {
+    const pull = vi.fn();
+    expect(runMetricsDataPull({ env: {}, pull, log: () => {} })).toEqual({ ran: false, ok: true });
+    expect(pull).not.toHaveBeenCalled();
+  });
+
+  test("logs and reports a failed pull without throwing", () => {
+    const log = vi.fn();
+    const pull = () => {
+      throw new Error("couldn't find remote ref metrics-data");
+    };
+    expect(runMetricsDataPull({ env: { CLAUDE_CODE_REMOTE: "true" }, pull, log })).toEqual({
+      ran: true,
+      ok: false,
+    });
+    expect(log.mock.calls.flat().join("\n")).toMatch(/metrics-data\.mjs pull/);
+  });
+});
+
+describe("runMetricsDataPush (Stop-hook safety net)", () => {
+  test("pushes unpushed metric rows in a cloud session that has a checkout", () => {
+    const push = vi.fn(() => ({ pushed: true, attempts: 1 }));
+    expect(
+      runMetricsDataPush({
+        env: { CLAUDE_CODE_REMOTE: "true" },
+        hasCheckout: true,
+        push,
+        log: () => {},
+      })
+    ).toEqual({ ran: true, ok: true });
+    expect(push).toHaveBeenCalledWith(expect.stringMatching(/^chore\(metrics\): cloud session /));
+  });
+
+  test("does nothing locally or without a checkout", () => {
+    const push = vi.fn();
+    expect(runMetricsDataPush({ env: {}, hasCheckout: true, push, log: () => {} }).ran).toBe(false);
+    expect(
+      runMetricsDataPush({
+        env: { CLAUDE_CODE_REMOTE: "true" },
+        hasCheckout: false,
+        push,
+        log: () => {},
+      }).ran
+    ).toBe(false);
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  test("logs a failed push without throwing", () => {
+    const log = vi.fn();
+    const push = () => {
+      throw new Error("rejected");
+    };
+    expect(
+      runMetricsDataPush({ env: { CLAUDE_CODE_REMOTE: "true" }, hasCheckout: true, push, log })
+    ).toEqual({ ran: true, ok: false });
+    expect(log).toHaveBeenCalled();
   });
 });

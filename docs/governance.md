@@ -8,28 +8,29 @@ The `main` branch enforces the following protections:
 
 ### Required Status Checks
 
-All PRs must pass these checks before merge:
+The only check GitHub requires on `main` is `CI Gate`. `strict` is off, so a PR that is behind `main` can still merge. Measured 2026-11-22 from `required_status_checks`.
 
-| Check               | Source                | Purpose                           |
-| ------------------- | --------------------- | --------------------------------- |
-| **Lint**            | `ci.yml`              | ESLint across workspace           |
-| **Typecheck**       | `ci.yml`              | TypeScript compilation            |
-| **Test**            | `ci.yml`              | Vitest suite (unit + integration) |
-| **Security Scan**   | `ci.yml` / Semgrep    | SAST via Semgrep rules            |
-| **Tier Classifier** | `tier-classifier.yml` | Risk tier label assignment        |
+| Check       | Source   | Purpose                                                                  |
+| ----------- | -------- | ------------------------------------------------------------------------ |
+| **CI Gate** | `ci.yml` | Aggregates lint, typecheck, test, security scan and tier classifier jobs |
+
+`codecov/patch` and the Hospitality E2E job run on PRs but are advisory.
 
 ### Merge Rules
 
-- **Require pull request reviews:** at least 1 approving review
-- **Require status checks to pass:** all checks listed above
-- **Require linear history:** squash merges preferred
-- **Require signed commits:** recommended but not enforced
-- **No force pushes** to `main`
-- **No deletions** of `main`
+Measured from the live protection settings on 2026-11-22:
 
-### Merge Queue
+- **Require pull request reviews:** not enforced by GitHub. The review gate runs in the agent loop (`reviewer` agent verdict comment) before any merge.
+- **Require status checks to pass:** `CI Gate` only.
+- **Require linear history:** off. Squash merges are the convention.
+- **Require signed commits:** off.
+- **Force pushes** to `main`: blocked.
+- **Deletions** of `main`: blocked.
+- **Enforce for admins:** off.
 
-A merge queue (`merge-queue.yml`) is enabled for verified PRs. PRs that pass all status checks enter the queue and are merged in order, preventing merge conflicts from concurrent approvals.
+### Auto-Merge
+
+This personal-account repo has no GitHub merge queue. `merge-queue.yml` enables auto-merge (`gh pr merge --auto --squash`) once a `tier:*` label lands, and GitHub merges on a green `CI Gate`. It does not rebase PRs.
 
 ## CODEOWNERS
 

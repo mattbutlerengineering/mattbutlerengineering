@@ -5,12 +5,72 @@
     "globalNav": {
       "marketing": "Inicio",
       "hospitality": "Hospitalidad",
-      "rialto": "Sistema de diseño"
+      "rialto": "Sistema de diseño",
+      "gen": "Laboratorio Gen"
     },
     "copyright": "© {{year}} {{brand}}",
     "dashboardDocumentTitle": "Panel - {{brand}}"
   },
   "onboarding": {
+    "chat": {
+      "heading": "Cuéntanos sobre tu restaurante",
+      "region": "Asistente de configuración",
+      "filledTag": "Completado desde el chat",
+      "filledGroup": "{{field}}, completado desde el chat",
+      "filledAnnouncement": "{{fields}}: completado desde el chat",
+      "fallbackNote": "Terminemos este paso con el formulario.",
+      "rejected": "Eso no encaja en este paso ({{errors}}), así que dejé tu formulario como estaba.",
+      "tryAgain": "Probar el chat otra vez",
+      "review": "Revisar",
+      "reviewLabel": "Revisar los campos completados desde el chat",
+      "summary": {
+        "ianaTimezone": "Zona horaria: {{value}}",
+        "currencyCode": "Moneda: {{value}}",
+        "defaultReservationDuration": "Duración de la reservación: {{value}} min",
+        "maxPartySize": "Grupos de hasta {{value}}",
+        "advanceBookingDays_one": "Reservable hasta {{count}} día antes",
+        "advanceBookingDays_many": "Reservable hasta {{count}} de días antes",
+        "advanceBookingDays_other": "Reservable hasta {{count}} días antes",
+        "advanceBookingToday": "Reservable solo para hoy",
+        "serviceName": "Servicio: {{value}}",
+        "opens": "Abre a las {{value}}",
+        "closes": "Cierra a las {{value}}",
+        "lastSeating": "Última mesa a las {{value}}",
+        "days": "Abierto: {{value}}",
+        "templateId": "Salón: {{value}}",
+        "roomSize": "Tamaño: {{value}}"
+      },
+      "floorPlanEdited": "Cambiaste esta distribución a mano, así que la dejé como estaba. Elige otro salón de la lista para empezar de nuevo.",
+      "notOffered": {
+        "ianaTimezone": "la zona horaria \"{{value}}\" no está en la lista",
+        "currencyCode": "la moneda \"{{value}}\" no está en la lista",
+        "time": "\"{{value}}\" no es una hora de 24 horas como 17:30",
+        "days": "\"{{value}}\" no es una lista de días como mon,tue,fri",
+        "serviceName": "el servicio necesita un nombre",
+        "templateId": "el salón \"{{value}}\" no está disponible",
+        "roomSize": "el tamaño \"{{value}}\" no está disponible"
+      },
+      "suggestion": {
+        "locationTime": "Estamos en Lisboa y cobramos en euros",
+        "settings": "Grupos de hasta 8, 90 minutos por mesa, reservas con 60 días de anticipación",
+        "hours": "Cena de martes a sábado, de 5 a 10:30",
+        "floorPlan": "Un bistró informal, un poco más grande que acogedor"
+      },
+      "fields": {
+        "ianaTimezone": "zona horaria",
+        "currencyCode": "moneda",
+        "defaultReservationDuration": "duración de la reservación",
+        "maxPartySize": "grupo más grande",
+        "advanceBookingDays": "días de anticipación",
+        "serviceName": "nombre del servicio",
+        "opens": "hora de apertura",
+        "closes": "hora de cierre",
+        "lastSeating": "última mesa",
+        "days": "días de apertura",
+        "templateId": "distribución del salón",
+        "roomSize": "tamaño del salón"
+      }
+    },
     "steps": {
       "welcome": {
         "label": "Bienvenida",
@@ -309,6 +369,7 @@
       "settings": "Configuración",
       "users": "Usuarios",
       "tonightsService": "Servicio de esta noche",
+      "night": "La noche en números",
       "timeline": "Cronología",
       "reservations": "Reservas",
       "waitlist": "Lista de espera",
@@ -334,6 +395,7 @@
       "guests": "Clientes",
       "waitlist": "Lista de espera",
       "briefing": "Servicio de esta noche",
+      "night": "La noche en números",
       "floorPlan": "Plano de sala",
       "bookingWidget": "Widget de reservas",
       "onboarding": "Nuevo local",
@@ -685,6 +747,34 @@
       "sendWinBack": "Enviar invitación para volver",
       "sendWinBackTo": "Enviar invitación para volver a {{name}}"
     },
+    "turnedAway": {
+      "title": "Sin mesa disponible",
+      "empty": "No se rechazó a ningún invitado en los últimos 28 días.",
+      "summary_one": "{{count}} búsqueda no encontró mesa en los últimos 28 días.",
+      "summary_many": "{{count}} de búsquedas no encontraron mesa en los últimos 28 días.",
+      "summary_other": "{{count}} búsquedas no encontraron mesa en los últimos 28 días.",
+      "tableLabel": "Búsquedas sin mesa por día de la semana y hora",
+      "anyTime": "Sin hora indicada",
+      "anyTimeNote": "Los invitados de la última fila no indicaron hora y no encontraron mesa ese día, por eso se cuentan solo por día de la semana, nunca en una hora.",
+      "loadFailed": "No se pudieron cargar las búsquedas sin mesa."
+    },
+    "whatIf": {
+      "title": "Agregar un turno a las…",
+      "day": "Día",
+      "time": "Hora",
+      "estimate_one": "Estimación: cerca de {{count, number}} búsqueda de los últimos 28 días sin mesa a menos de 30 minutos de las {{time}} un {{weekday}}, unas {{perNight, number}} por noche. Un turno entonces pudo haberla reservado.",
+      "estimate_many": "Estimación: cerca de {{count, number}} de búsquedas de los últimos 28 días sin mesa a menos de 30 minutos de las {{time}} un {{weekday}}, unas {{perNight, number}} por noche. Un turno entonces pudo haberlas reservado.",
+      "estimate_other": "Estimación: cerca de {{count, number}} búsquedas de los últimos 28 días sin mesa a menos de 30 minutos de las {{time}} un {{weekday}}, unas {{perNight, number}} por noche. Un turno entonces pudo haberlas reservado.",
+      "none": "Estimación: ninguna búsqueda sin mesa de los últimos 28 días pidió una hora cercana a las {{time}} un {{weekday}} que este turno pudiera atender, así que no habría captado ninguna.",
+      "anyTime_one": "{{count, number}} búsqueda más un {{weekday}} no indicó hora y no encontró mesa. No está en esta cuenta.",
+      "anyTime_many": "{{count, number}} de búsquedas más un {{weekday}} no indicaron hora y no encontraron mesa. No están en esta cuenta.",
+      "anyTime_other": "{{count, number}} búsquedas más un {{weekday}} no indicaron hora y no encontraron mesa. No están en esta cuenta.",
+      "closed": "No das servicio el {{weekday}}, así que no hay a qué agregarle un turno.",
+      "alreadyOffered": "Las {{time}} ya se pueden reservar un {{weekday}}, o ninguna mesa cabe a los grupos que buscaron, así que agregarlas no cambiaría nada.",
+      "blocked": "Un turno a las {{time}} un {{weekday}} chocaría con otro servicio o rompería una regla. Cambia tu horario primero para probarlo.",
+      "loadFailed": "No se pudo estimar este turno.",
+      "note": "Una estimación basada en búsquedas pasadas, no un pronóstico."
+    },
     "deposit": {
       "title": "Exposición de depósitos",
       "atRisk": "Depósitos en riesgo",
@@ -900,6 +990,34 @@
       "cancel": "Cancelar",
       "seatNow": "Sentar ahora",
       "seating": "Sentando…"
+    },
+    "autopilot": {
+      "heading": "Piloto automático",
+      "toggleName_one": "Piloto automático: {{count}} sugerencia",
+      "toggleName_many": "Piloto automático: {{count}} de sugerencias",
+      "toggleName_other": "Piloto automático: {{count}} sugerencias",
+      "intro": "Nada se mueve hasta que lo apruebes.",
+      "reseat": "Mover a {{party}} ({{size}}) de {{from}} a {{to}}",
+      "offer": "Sentar a {{party}} ({{size}}) en {{to}}",
+      "reseatWhy": "Libera {{from}} para un grupo en espera.",
+      "offerWhy": "{{to}} está libre y les queda bien.",
+      "approve": "Aprobar",
+      "approveFor": "Aprobar la sugerencia para {{party}}",
+      "offerNotice": "Los sienta ahora. No se puede deshacer.",
+      "reseatDone": "Se movió a {{party}} a {{to}}",
+      "offerDone": "Se sentó a {{party}} en {{to}}",
+      "alreadySeated": "{{party}} ya estaba sentado.",
+      "undo": "Deshacer",
+      "undoReseatDone": "Se devolvió a {{party}} a {{from}}",
+      "undoFailed": "No se pudo devolver a {{party}}. No se cambió nada.",
+      "stale": "Esa sugerencia ya no aplica, así que no se movió nada. La lista se actualizó.",
+      "applyFailed": "No se pudo hacer ese movimiento. No se cambió nada.",
+      "dismissMove": "Descartar",
+      "dismissMoveFor": "Descartar la sugerencia para {{party}}",
+      "dismissNight": "Descartar por esta noche",
+      "ghostLabel": "Sugerido: {{party}}",
+      "partyFallback": "Grupo de {{size}}",
+      "listLabel": "Movimientos sugeridos"
     }
   },
   "onMyWayBadge": {
@@ -1276,7 +1394,7 @@
       "cancelling": "Cancelando…",
       "selectTable": "Selecciona una mesa.",
       "theTable": "la mesa",
-      "splitFailure": "Se sentó en {{table}}, pero la lista de espera no se actualizó. Actualiza para ordenarla.",
+      "alreadySeated": "{{name}} ya estaba sentado.",
       "notNotified": "No se notificó.",
       "notRemoved": "No se quitó.",
       "notSeated": "No se sentó."
@@ -1656,6 +1774,8 @@
       "end_tonight_change": "Terminar un cambio de esta noche",
       "undo_availability_change": "Deshacer un cambio de disponibilidad",
       "close_dates": "Cerrar en ciertas fechas",
+      "close_repeating_days": "Cerrar en días de la semana repetidos",
+      "set_regular_hours": "Cambiar el horario regular",
       "set_special_hours": "Definir horario especial para una fecha",
       "reopen_closure": "Reabrir un cierre",
       "add_guest": "Agregar un cliente",
@@ -1668,9 +1788,19 @@
       "remove_from_waitlist": "Quitar de la lista de espera",
       "set_menu_item_availability": "Marcar un platillo como agotado o disponible",
       "update_menu_item": "Cambiar un platillo del menú",
+      "create_menu": "Crear un menú",
+      "reorder_menu_sections": "Reordenar las secciones de un menú",
+      "reorder_menu_items": "Reordenar los platillos de una sección",
       "activate_floor_plan": "Cambiar el plano activo",
       "seat_reservation": "Sentar a un grupo con reserva",
       "mark_no_show": "Marcar como no presentado",
+      "approve_autopilot_move": "Aprobar un movimiento del piloto automático",
+      "pause_online_booking": "Pausar las reservas en línea",
+      "resume_online_booking": "Reanudar las reservas en línea",
+      "pause_tables": "Pausar mesas",
+      "resume_tables": "Volver a abrir mesas a reservas",
+      "update_venue_settings": "Cambiar la configuración del local",
+      "update_venue_profile": "Cambiar el perfil del local",
       "fields": {
         "guestName": "Cliente",
         "partySize": "Personas",
@@ -1705,6 +1835,8 @@
         "menu": "Menú",
         "item": "Platillo",
         "section": "Sección",
+        "sections": "Nuevo orden",
+        "items": "Nuevo orden",
         "availability": "Disponibilidad",
         "price": "Precio",
         "description": "Descripción",
@@ -1714,7 +1846,20 @@
         "lastSeating": "Último asiento",
         "closesAt": "Cierra",
         "tellCancelledGuests": "Avisar a los clientes cancelados",
-        "scope": "Se aplica a"
+        "scope": "Se aplica a",
+        "weekdays": "Días de la semana",
+        "until": "Hasta",
+        "message": "Mensaje para los clientes",
+        "maxPartySize": "Grupo más grande",
+        "defaultReservationDuration": "Duración de la reserva (minutos)",
+        "requirePhone": "Pedir teléfono",
+        "requireEmail": "Pedir correo electrónico",
+        "confirmationEmailEnabled": "Correos de confirmación",
+        "reminderEmailEnabled": "Correos de recordatorio",
+        "type": "Tipo",
+        "cuisines": "Cocinas",
+        "website": "Sitio web",
+        "party": "Grupo"
       },
       "yesNo": {
         "yes": "Sí",
@@ -1725,6 +1870,7 @@
         "service": "Un solo servicio"
       },
       "untilReopened": "Hasta que se reabra",
+      "cleared": "Borrado",
       "menuAvailability": {
         "sold_out": "Agotado",
         "available": "Disponible"
@@ -3314,10 +3460,18 @@
       "invalid": {
         "daysAhead": "Usa un número entero de días de 0 a 730.",
         "noticeHours": "Usa un número entero de horas de 0 a 720.",
-        "largestParty": "Usa un número entero de 1 a 100."
+        "largestParty": "Usa un número entero de 1 a 100.",
+        "pacingCovers": "Usa un número entero de cubiertos de 1 a 1000.",
+        "pacingMinutes": "Usa un número entero de minutos de 5 a 240.",
+        "pacingNeedsCap": "Define un límite para usar una ventana."
       },
       "saved": "Reglas de reserva guardadas",
-      "saveError": "No se pudieron guardar las reglas de reserva"
+      "saveError": "No se pudieron guardar las reglas de reserva",
+      "pacingCovers": "Máximo de cubiertos por ventana",
+      "pacingCoversHint": "Limita cuántos cubiertos pueden empezar en una ventana, para no saturar la cocina.",
+      "pacingMinutes": "Ventana (minutos)",
+      "pacingMinutesDefault": "Intervalo de asientos",
+      "pacingMinutesHint": "Déjalo vacío para usar tu intervalo de asientos."
     },
     "holidayNudge": {
       "line": "{{name}} es el {{date}} y aún no está planeado.",
@@ -3710,6 +3864,25 @@
       "heading": "No hay nada en el libro para {{date}}.",
       "description": "Cambia la fecha o asigna mesa a clientes sin reserva desde la Línea de tiempo.",
       "action": "Abrir Línea de tiempo"
+    }
+  },
+  "night": {
+    "title": "La noche en números",
+    "description": "Cómo salió el servicio, en una sola pantalla",
+    "loading": "Cargando la noche en números…",
+    "loaded": "La noche en números del {{date}} se cargó.",
+    "serviceDate": "Fecha de servicio",
+    "previous": "Noche anterior",
+    "next": "Noche siguiente",
+    "hoursUnknown": "No se pudo leer tu horario, así que se muestra el día calendario. Elige otra fecha si lo necesitas.",
+    "loadError": "No se pudo cargar la noche en números.",
+    "covers": "Cubiertos servidos",
+    "tableTurns": "Rotaciones de mesa",
+    "noShows": "Ausencias",
+    "turnedAway": "Rechazados",
+    "empty": {
+      "heading": "No se atendió ninguna mesa el {{date}}.",
+      "description": "Elige otra fecha de servicio para mirar atrás."
     }
   },
   "profile": {
@@ -4212,7 +4385,7 @@
       },
       "tonightAutopilot": {
         "label": "Piloto automático de la noche",
-        "detail": "Un asistente que observa la sala y propone por sí mismo los cambios de mesa y los mensajes a comensales."
+        "detail": "Observa la sala y sugiere los cambios de mesa y los grupos en espera por sentar. Apruebas un movimiento con un toque, y un cambio de mesa se puede deshacer."
       },
       "guestSignals": {
         "label": "Voy tarde, o ya llegué",
@@ -4232,7 +4405,7 @@
       },
       "lostDemandLedger": {
         "label": "Registro de demanda perdida",
-        "detail": "Cada reserva que no pudiste aceptar, para ver cuánto te costó una noche llena."
+        "detail": "Cada búsqueda que no encontró mesa, por día y hora, y una estimación de lo que habría captado un nuevo turno."
       },
       "guestPassport": {
         "label": "Pasaporte del comensal",
@@ -4240,7 +4413,7 @@
       },
       "kitchenAwareBooking": {
         "label": "Reservas al ritmo de la cocina",
-        "detail": "Acepta las reservas que la cocina puede atender y conoce la preparación de mañana antes de abrir."
+        "detail": "Define un tope de cubiertos que pueden empezar en cualquier ventana y a los clientes solo se les ofrecen las mesas que la cocina puede atender."
       },
       "headlessVenue": {
         "label": "Restaurante sin pantalla",
@@ -4319,5 +4492,38 @@
       "email": "Cuéntale a Matt de tu restaurante",
       "open": "Abrir tu restaurante"
     }
+  },
+  "feedback": {
+    "open": "Enviar comentarios",
+    "title": "Enviar comentarios",
+    "typeLabel": "¿Qué tipo de comentario es?",
+    "types": {
+      "bug": "Error",
+      "idea": "Idea",
+      "other": "Otro"
+    },
+    "messageLabel": "Tu mensaje",
+    "messageHint": "Mínimo 10 caracteres.",
+    "messageTooShort": "Escribe al menos 10 caracteres.",
+    "emailLabel": "Correo para dar seguimiento",
+    "emailHint": "Opcional. Nunca se publica.",
+    "emailInvalid": "Ingresa un correo válido.",
+    "contextHeading": "Incluiremos:",
+    "context": {
+      "app": "App",
+      "page": "Página",
+      "screen": "Pantalla",
+      "version": "Versión",
+      "user": "ID de usuario"
+    },
+    "submit": "Enviar",
+    "submitting": "Enviando",
+    "cancel": "Cancelar",
+    "done": "Listo",
+    "retry": "Reintentar",
+    "errorTitle": "No pudimos enviar tus comentarios",
+    "errorBody": "Tu mensaje sigue aquí. Revisa tu conexión e inténtalo de nuevo.",
+    "successTitle": "Gracias, lo recibimos",
+    "successBody": "Registrado como la incidencia #{{number}}."
   }
 }

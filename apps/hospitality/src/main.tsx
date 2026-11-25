@@ -148,6 +148,9 @@ const ChatPage = lazy(() => import("./pages/ChatPage.js").then((m) => ({ default
 const BriefingPage = lazy(() =>
   import("./pages/BriefingPage.js").then((m) => ({ default: m.BriefingPage }))
 );
+const NightSummaryPage = lazy(() =>
+  import("./pages/NightSummaryPage.js").then((m) => ({ default: m.NightSummaryPage }))
+);
 const NotFoundPage = lazy(() =>
   import("./pages/NotFoundPage.js").then((m) => ({ default: m.NotFoundPage }))
 );
@@ -324,6 +327,14 @@ const router = createBrowserRouter(
               element: (
                 <Suspense fallback={<LoadingPage />}>
                   <BriefingPage />
+                </Suspense>
+              ),
+            },
+            {
+              path: "night",
+              element: (
+                <Suspense fallback={<LoadingPage />}>
+                  <NightSummaryPage />
                 </Suspense>
               ),
             },

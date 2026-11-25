@@ -12,6 +12,7 @@ const CHAT_PAGES = new Set([
   "guests",
   "waitlist",
   "briefing",
+  "night",
   "floor-plans",
   "availability",
   "menus",
@@ -20,7 +21,7 @@ const CHAT_PAGES = new Set([
 ]);
 
 /** Pages whose `?date=` names the day on screen. */
-const DATED_PAGES = new Set(["timeline", "reservations", "briefing"]);
+const DATED_PAGES = new Set(["timeline", "reservations", "briefing", "night"]);
 
 const RECORD_ID = /^[\w-]{1,64}$/;
 const CALENDAR_DATE = /^\d{4}-\d{2}-\d{2}$/;

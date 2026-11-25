@@ -12,7 +12,7 @@
  */
 
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { resolveDataFile } from "../../../scripts/metrics-store.mjs";
 
 export const COLD_START_PATH = "metrics/acmm-cold-start.json";
 
@@ -35,7 +35,7 @@ export const COLD_START_PATH = "metrics/acmm-cold-start.json";
  * @returns {ColdStartRecord | null}
  */
 export function loadLatestColdStart(cwd) {
-  const p = join(cwd, COLD_START_PATH);
+  const p = resolveDataFile("acmm-cold-start.json", { root: cwd });
   if (!existsSync(p)) return null;
   try {
     const parsed = JSON.parse(readFileSync(p, "utf-8"));

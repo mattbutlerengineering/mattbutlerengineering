@@ -1839,6 +1839,77 @@ describe("reviewBurden sensor (#5530)", () => {
   });
 });
 
+describe("productionHealth sensor (#9525)", () => {
+  let tmpDir;
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  const sensor = () => SENSORS.find((s) => s.id === "productionHealth");
+  const row = (timestamp, status = "healthy") =>
+    JSON.stringify({
+      timestamp,
+      endpoints: [
+        { name: "marketing-site", url: "https://x.test", http_code: 200, latency_ms: 288, status },
+      ],
+    });
+  const dirOf = () => {
+    tmpDir = mkdtempSync(join(tmpdir(), "production-health-sensor-"));
+    const dir = join(tmpDir, "metrics", "production-health");
+    mkdirSync(dir, { recursive: true });
+    return dir;
+  };
+
+  it("reads the last row of the lexicographically-last dated file", () => {
+    const dir = dirOf();
+    writeFileSync(join(dir, "2026-11-21.jsonl"), row("2026-11-21T01:00:00Z") + "\n");
+    writeFileSync(
+      join(dir, "2026-11-22.jsonl"),
+      row("2026-11-22T01:00:00Z") + "\n" + row("2026-11-22T23:14:52Z", "degraded") + "\n"
+    );
+
+    expect(sensor().category).toBe("quality");
+    expect(sensor().collect({ root: tmpDir })).toEqual({
+      available: true,
+      collected_at: "2026-11-22T23:14:52Z",
+      endpoints: [{ name: "marketing-site", status: "degraded", http_code: 200, latency_ms: 288 }],
+    });
+  });
+
+  it("reads from the metrics-data checkout when one exists", () => {
+    tmpDir = mkdtempSync(join(tmpdir(), "production-health-sensor-"));
+    const dir = join(tmpDir, ".metrics-data", "production-health");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "2026-11-25.jsonl"), row("2026-11-25T06:00:00Z") + "\n");
+    expect(sensor().collect({ root: tmpDir }).collected_at).toBe("2026-11-25T06:00:00Z");
+  });
+
+  it("is unavailable when the directory is empty", () => {
+    dirOf();
+    expect(sensor().collect({ root: tmpDir })).toEqual({ available: false });
+  });
+
+  it("is unavailable when the directory is missing", () => {
+    tmpDir = mkdtempSync(join(tmpdir(), "production-health-sensor-"));
+    expect(sensor().collect({ root: tmpDir })).toEqual({ available: false });
+  });
+
+  it("formats a display line with healthy count", () => {
+    const line = sensor().format(
+      {
+        available: true,
+        endpoints: [
+          { name: "a", status: "healthy" },
+          { name: "b", status: "degraded" },
+        ],
+      },
+      "productionHealth"
+    );
+    expect(line).toContain("1/2");
+  });
+});
+
 describe("queueEfficiency summary line — cost coverage (#6941)", () => {
   const format = SENSORS.find((s) => s.id === "queueEfficiency").format;
   const data = (sub) => ({ composite: 0.7, baseline: null, sub_metrics: sub });

@@ -92,6 +92,14 @@ const ACTION_TITLES = [
   "close_dates",
   "set_special_hours",
   "reopen_closure",
+  "close_repeating_days",
+  "set_regular_hours",
+  "pause_online_booking",
+  "resume_online_booking",
+  "pause_tables",
+  "resume_tables",
+  "update_venue_settings",
+  "update_venue_profile",
   "add_guest",
   "update_guest",
   "add_guest_note",
@@ -102,9 +110,13 @@ const ACTION_TITLES = [
   "remove_from_waitlist",
   "set_menu_item_availability",
   "update_menu_item",
+  "create_menu",
+  "reorder_menu_sections",
+  "reorder_menu_items",
   "activate_floor_plan",
   "seat_reservation",
   "mark_no_show",
+  "approve_autopilot_move",
 ] as const;
 
 const ACTION_FIELDS = [
@@ -141,6 +153,8 @@ const ACTION_FIELDS = [
   "menu",
   "item",
   "section",
+  "sections",
+  "items",
   "availability",
   "price",
   "description",
@@ -151,6 +165,19 @@ const ACTION_FIELDS = [
   "closesAt",
   "tellCancelledGuests",
   "scope",
+  "weekdays",
+  "until",
+  "message",
+  "maxPartySize",
+  "defaultReservationDuration",
+  "requirePhone",
+  "requireEmail",
+  "confirmationEmailEnabled",
+  "reminderEmailEnabled",
+  "type",
+  "cuisines",
+  "website",
+  "party",
 ] as const;
 
 const TABLE_STATUSES = {
@@ -195,11 +222,15 @@ const SCOPES = {
 /** A closure with no end date is confirmed as this word, not as a date. */
 const OPEN_END = { "until reopened": "chat.actions.untilReopened" } as const;
 
+/** A settings or profile value the change removes (null) is confirmed as this word, never "null". */
+const CLEARED = "chat.actions.cleared";
+
 type ChatActionKey =
   | `chat.actions.${(typeof ACTION_TITLES)[number]}`
   | (typeof YES_NO)[keyof typeof YES_NO]
   | (typeof SCOPES)[keyof typeof SCOPES]
   | (typeof OPEN_END)[keyof typeof OPEN_END]
+  | typeof CLEARED
   | `chat.actions.fields.${(typeof ACTION_FIELDS)[number]}`
   | (typeof TABLE_STATUSES)[keyof typeof TABLE_STATUSES]
   | (typeof TONIGHT_CHANGES)[keyof typeof TONIGHT_CHANGES]
@@ -217,6 +248,11 @@ const VALUE_KEYS: Readonly<Record<string, Readonly<Record<string, ChatActionKey>
   tellCancelledGuests: YES_NO,
   scope: SCOPES,
   to: OPEN_END,
+  until: OPEN_END,
+  requirePhone: YES_NO,
+  requireEmail: YES_NO,
+  confirmationEmailEnabled: YES_NO,
+  reminderEmailEnabled: YES_NO,
 };
 
 const CALENDAR_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -226,7 +262,7 @@ const isRealDate = (value: string): boolean => {
 };
 const WALL_TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 // `from` and `to` carry a time for a Tonight window and a date for a reopened closure.
-const DATE_FIELDS: ReadonlySet<string> = new Set(["date", "endDate", "from", "to"]);
+const DATE_FIELDS: ReadonlySet<string> = new Set(["date", "endDate", "from", "to", "until"]);
 const TIME_FIELDS: ReadonlySet<string> = new Set([
   "startTime",
   "endTime",
@@ -238,7 +274,8 @@ const TIME_FIELDS: ReadonlySet<string> = new Set([
   "closesAt",
 ]);
 
-const HIDDEN_FIELD = "readAs";
+/** Tokens and ids the server checks, not something the Host decides. */
+const HIDDEN_FIELDS: ReadonlySet<string> = new Set(["readAs", "moveId"]);
 
 /** A tool's YYYY-MM-DD date or HH:MM wall time as people read it; anything else as sent. */
 function formatWhen(key: string, value: string, locale?: string): string {
@@ -274,10 +311,10 @@ export function describeChatAction(
     title: hasTitle
       ? t(`chat.actions.${action.toolName}` as ChatActionKey)
       : action.toolName.replace(/_/g, " "),
-    // `readAs` is a token the server checks, not something the Host decides: it stays in the
-    // input that is sent on confirm, and is not shown.
+    // `readAs` and `moveId` are checked by the server, not decided by the Host: they stay in the
+    // input that is sent on confirm, and are not shown.
     details: Object.entries(action.toolInput)
-      .filter(([key]) => key !== HIDDEN_FIELD)
+      .filter(([key]) => !HIDDEN_FIELDS.has(key))
       .map(([key, raw]) => {
         const value = Array.isArray(raw) ? raw.join(", ") : String(raw);
         const statusKey = valueKey(key, value);
@@ -290,7 +327,7 @@ export function describeChatAction(
         const hasLabel = ACTION_FIELDS.includes(key as (typeof ACTION_FIELDS)[number]);
         return {
           label: hasLabel ? t(`chat.actions.fields.${key}` as ChatActionKey) : key,
-          value: shown,
+          value: raw === null ? t(CLEARED) : shown,
         };
       }),
   };

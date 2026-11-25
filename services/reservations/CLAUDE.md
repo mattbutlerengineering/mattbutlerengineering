@@ -233,6 +233,7 @@ pnpm db:push           # Push schema (dev only)
 pnpm db:migrate        # Create + apply migrations
 pnpm db:migrate:deploy # Apply migrations (production)
 pnpm db:migrate:status # Show migration status
+pnpm db:seed-demo-venue # Idempotently seed the public demo venue (slug `demo-bistro`)
 pnpm db:studio         # Open Prisma Studio
 ```
 
@@ -245,3 +246,7 @@ Required: `DATABASE_URL`. Required in prod: `AUTH_AUTHORITY`, `AUTH_AUDIENCE`, `
 - [SSE Documentation](../../apps/hospitality/docs/ARCHITECTURE.md#pattern-3-real-time-sse)
 - [Cross-Service Flows](../../docs/CROSS-SERVICE-FLOWS.md)
 - [API Versioning](../../docs/API-VERSIONING.md)
+
+## Public demo venue
+
+Canonical slug: **`demo-bistro`** (`DEMO_VENUE_SLUG` in `src/services/demo-venue.ts`; `GET /api/v1/venues/by-slug/demo-bistro`). The migrate image carries only the Prisma CLI, so the seeder is a documented one-shot, not part of `migrate.sh`. Seed or reseed (idempotent, existing rows untouched) against the target database after migrations: `node --conditions production dist/scripts/seed-demo-venue.js` (dev: `pnpm db:seed-demo-venue`). Failure is logged as a JSON line and exits 1.

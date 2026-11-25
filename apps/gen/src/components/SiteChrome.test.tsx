@@ -48,7 +48,7 @@ describe("SiteChrome", () => {
     render(<SiteChrome>body</SiteChrome>);
     expect(screen.getByRole("button", { name: "Engineering" })).toBeDefined();
     const header = within(screen.getByRole("navigation", { name: "Global" }));
-    for (const label of ["Metrics", "Shipped", "Status", "AI health", "ACMM", "Gen"]) {
+    for (const label of ["Metrics", "Shipped", "Status", "AI health", "ACMM"]) {
       expect(header.getByRole("link", { name: label })).toBeDefined();
     }
   });

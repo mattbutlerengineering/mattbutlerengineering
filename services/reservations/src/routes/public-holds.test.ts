@@ -34,6 +34,10 @@ vi.mock("../services/venue.js", () => ({
 vi.mock("../services/confirm-hold.js", () => ({
   confirmHold: vi.fn(),
 }));
+vi.mock("../services/manage-rebook-deps.js", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  rebookRequiresDeposit: vi.fn().mockResolvedValue(false),
+}));
 vi.mock("../services/database.js", async () => {
   const { createMockDatabaseService } = await import("@mbe/database/testing");
   return createMockDatabaseService();
@@ -54,6 +58,7 @@ vi.mock("jose", () => ({
 import { venueService } from "../services/venue.js";
 import { confirmHold } from "../services/confirm-hold.js";
 import { resolveVenueId } from "../services/resolve-venue.js";
+import { rebookRequiresDeposit } from "../services/manage-rebook-deps.js";
 import { resetRateLimitState, MAX_ACTIVE_HOLDS } from "../middleware/public-rate-limit.js";
 
 const mockVenue = {
@@ -591,6 +596,69 @@ describe("POST /public/v1/venues/:slug/holds/:holdId/confirm", () => {
       originHost: null,
       locale: "en-US",
     });
+  });
+
+  it.each([
+    [true, "a risky or deposit-policy booking"],
+    [false, "an ordinary booking"],
+  ])("answers depositRequired=%s for %s, decided from the submitted contact", async (verdict) => {
+    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
+    vi.mocked(confirmHold).mockResolvedValueOnce({ success: true, reservation: mockReservation });
+    vi.mocked(rebookRequiresDeposit).mockResolvedValueOnce(verdict);
+
+    const response = await app.inject({
+      method: "POST",
+      url: CONFIRM_URL,
+      headers: { "x-session-id": "sess_1" },
+      payload: {
+        guestName: "Ada Lovelace",
+        guestEmail: "ada@example.com",
+        guestPhone: "+15550001",
+      },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.json().depositRequired).toBe(verdict);
+    expect(rebookRequiresDeposit).toHaveBeenCalledWith("venue_1", {
+      guestEmail: "ada@example.com",
+      guestPhone: "+15550001",
+    });
+  });
+
+  it("still confirms with depositRequired=false when the deposit check fails after booking", async () => {
+    // The reservation is committed and its email queued before the check runs, so a failed read
+    // must not turn a real booking into an error the guest cannot retry (the hold is consumed).
+    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
+    vi.mocked(confirmHold).mockResolvedValueOnce({ success: true, reservation: mockReservation });
+    vi.mocked(rebookRequiresDeposit).mockRejectedValueOnce(new Error("pool exhausted"));
+
+    const response = await app.inject({
+      method: "POST",
+      url: CONFIRM_URL,
+      headers: { "x-session-id": "sess_1" },
+      payload: { guestName: "Ada Lovelace", guestEmail: "ada@example.com" },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.json().depositRequired).toBe(false);
+  });
+
+  it("does not evaluate the deposit when the booking is refused", async () => {
+    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
+    vi.mocked(confirmHold).mockResolvedValueOnce({
+      success: false,
+      error: "gone",
+      errorCode: "NOT_FOUND",
+    });
+
+    await app.inject({
+      method: "POST",
+      url: CONFIRM_URL,
+      headers: { "x-session-id": "sess_1" },
+      payload: { guestName: "Ada Lovelace", guestEmail: "ada@example.com" },
+    });
+
+    expect(rebookRequiresDeposit).not.toHaveBeenCalled();
   });
 
   it.each([

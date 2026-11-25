@@ -58,7 +58,12 @@ export const SCENES: readonly Scene[] = [
   {
     id: "doors",
     time: "17:00",
-    claims: [shipped("publicBooking"), shipped("pauseBooking"), shipped("openSign")],
+    claims: [
+      shipped("publicBooking"),
+      shipped("pauseBooking"),
+      shipped("openSign"),
+      shipped("kitchenAwareBooking"),
+    ],
   },
   {
     id: "rush",
@@ -68,14 +73,14 @@ export const SCENES: readonly Scene[] = [
   {
     id: "assistant",
     time: "20:10",
-    claims: [shipped("assistantActions"), shipped("confirmUndo"), concept("tonightAutopilot")],
+    claims: [shipped("assistantActions"), shipped("confirmUndo"), shipped("tonightAutopilot")],
   },
   {
     id: "guest",
     time: "21:00",
     claims: [shipped("guestSignals"), shipped("invitation"), shipped("manageLink")],
   },
-  { id: "close", time: "23:30", claims: [concept("nightInNumbers"), concept("lostDemandLedger")] },
+  { id: "close", time: "23:30", claims: [shipped("nightInNumbers"), shipped("lostDemandLedger")] },
   { id: "roadmap", time: "00:00", claims: [] },
   { id: "morning", time: "07:00", claims: [] },
 ];
@@ -83,7 +88,6 @@ export const SCENES: readonly Scene[] = [
 /** Roadmap ideas, each from the weekly notes in `docs/ideas/`. */
 export const ROADMAP: readonly Claim[] = [
   concept("guestPassport"),
-  concept("kitchenAwareBooking"),
   concept("headlessVenue"),
   concept("regularsClub"),
 ];

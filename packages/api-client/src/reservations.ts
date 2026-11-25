@@ -6,8 +6,19 @@ import type {
   CreateReservationRequest,
   UpdateReservationRequest,
   WalkInRequest,
+  AutopilotProposals,
+  EndOfServiceSummary,
+  LostDemand,
+  LostDemandWhatIf,
 } from "@mbe/types";
-import { ReservationSchema, ReservationStatusSchema, paginatedResponseSchema } from "@mbe/types";
+import {
+  ReservationSchema,
+  ReservationStatusSchema,
+  autopilotProposalsEndpoints,
+  endOfServiceEndpoints,
+  lostDemandEndpoints,
+  paginatedResponseSchema,
+} from "@mbe/types";
 import type { ApiClient, PerRequestOptions, QueryParams } from "./client.js";
 
 export interface ListReservationsParams {
@@ -210,6 +221,56 @@ const RESERVATION_BASE_PATH = "/api/v1/reservations";
 
 export class ReservationsClient {
   constructor(private client: ApiClient) {}
+
+  /**
+   * Moves Autopilot suggests for a service date (read-only; nothing is applied). Omit `date`
+   * for the venue's current service date.
+   */
+  async getAutopilotProposals(params: {
+    venueId: string;
+    date?: string;
+  }): Promise<AutopilotProposals> {
+    return (await this.client.call(autopilotProposalsEndpoints.get, { query: params })).data;
+  }
+
+  /**
+   * End-of-service summary for a venue's service date (counts only). Omit
+   * `date` for today in the venue's own time zone.
+   */
+  async getEndOfServiceSummary(params: {
+    venueId: string;
+    date?: string;
+  }): Promise<EndOfServiceSummary> {
+    return (await this.client.call(endOfServiceEndpoints.get, { query: params })).data;
+  }
+
+  /**
+   * Turned-away searches by weekday and hour (counts only). Omit `from`/`to`
+   * for the last 28 days ending today in the venue's own time zone.
+   */
+  async getLostDemand(params: {
+    venueId: string;
+    from?: string;
+    to?: string;
+  }): Promise<LostDemand> {
+    return (await this.client.call(lostDemandEndpoints.get, { query: params })).data;
+  }
+
+  /**
+   * Estimate how many turned-away searches a new seating (weekday + `HH:MM` time)
+   * would have served. Read-only; an estimate, never a forecast.
+   */
+  async getLostDemandWhatIf(params: {
+    venueId: string;
+    weekday: number;
+    time: string;
+    minParty?: number;
+    maxParty?: number;
+    from?: string;
+    to?: string;
+  }): Promise<LostDemandWhatIf> {
+    return (await this.client.call(lostDemandEndpoints.whatIf, { query: params })).data;
+  }
 
   /**
    * List reservations with optional filters

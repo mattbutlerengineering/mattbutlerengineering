@@ -47,6 +47,12 @@ import { fileURLToPath } from "node:url";
 // so resolution is independent of the caller's cwd.
 const DEFAULT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const METRICS_DIRNAME = "metrics";
+/**
+ * Checkout of the orphan `metrics-data` branch (scripts/metrics-data.mjs).
+ * Telemetry resolves here once it exists, so a write is a direct push to the
+ * data branch rather than a PR to main.
+ */
+export const DATA_DIRNAME = ".metrics-data";
 
 /**
  * Registry: logical metric name → on-disk file + format (+ optional weekly rollup).
@@ -257,6 +263,46 @@ export function applyDurableGitignoreBlock(content, block = renderDurableGitigno
   return content.replace(existing, block);
 }
 
+/**
+ * Durable metrics that stay on main even with a data checkout: CI reads them
+ * as gate inputs, so they must be versioned with the code they gate.
+ * `ai-antipattern-baselines` feeds the antipattern ratchet; the ui-quality
+ * ledger feeds `regen --check` and the visual e2e route lists.
+ */
+export const REPO_LOCATED = new Set([
+  "ai-antipattern-baselines",
+  "ui-quality-ledger",
+  // The ui-quality routine keeps its loop state on its own `ui-quality/ledger`
+  // branch and stages these paths under metrics/ by name
+  // (docs/routines/mbe-ui-quality.md). They move only when that flow does.
+  "ui-quality-runs",
+  "ui-quality-ratings",
+  "ui-quality-calibrations",
+  "ui-quality-findings",
+]);
+
+/** EXTERNAL files with no live writer; they are not copied to the data branch. */
+const RETIRED_EXTERNAL = new Set(["last-audit.json"]);
+
+/** @param {{ durable?: boolean }} entry @param {string} name */
+function isDataMetric(name, entry) {
+  return Boolean(entry.durable) && !REPO_LOCATED.has(name);
+}
+
+/**
+ * Repo-relative `metrics/...` paths that belong on the data branch, sorted.
+ * Directory entries keep their trailing slash.
+ *
+ * @returns {string[]}
+ */
+export function dataManifest() {
+  const fromRegistry = Object.entries(METRICS)
+    .filter(([name, entry]) => isDataMetric(name, entry))
+    .flatMap(([, entry]) => [entry.file, ...(entry.weekly ? [entry.weekly] : [])]);
+  const external = Object.keys(EXTERNAL).filter((file) => !RETIRED_EXTERNAL.has(file));
+  return [...fromRegistry, ...external].map((file) => `${METRICS_DIRNAME}/${file}`).sort();
+}
+
 // ---------------------------------------------------------------------------
 // Registry lookup + path resolution
 // ---------------------------------------------------------------------------
@@ -289,7 +335,31 @@ export function metricsDir(root = DEFAULT_ROOT) {
  * @returns {string}
  */
 export function resolvePath(name, { root = DEFAULT_ROOT } = {}) {
-  return join(metricsDir(root), entryFor(name).file);
+  return join(dirFor(name, root), entryFor(name).file);
+}
+
+/**
+ * Absolute path of a data file that has no METRICS entry (an EXTERNAL file or
+ * directory such as `production-health`): inside the data checkout when it
+ * exists, else under `metrics/`.
+ * @param {string} relative — path relative to the metrics root
+ * @param {{ root?: string }} [opts]
+ * @returns {string}
+ */
+export function resolveDataFile(relative, { root = DEFAULT_ROOT } = {}) {
+  const dataDir = resolve(root, DATA_DIRNAME);
+  return join(existsSync(dataDir) ? dataDir : metricsDir(root), relative);
+}
+
+/**
+ * The data checkout for telemetry when it exists, else `metrics/`. Gate
+ * inputs and non-durable snapshots always resolve to `metrics/`.
+ * @param {string} name
+ * @param {string} root
+ */
+function dirFor(name, root) {
+  const dataDir = resolve(root, DATA_DIRNAME);
+  return isDataMetric(name, entryFor(name)) && existsSync(dataDir) ? dataDir : metricsDir(root);
 }
 
 /**
@@ -303,7 +373,7 @@ export function resolveWeeklyPath(name, { root = DEFAULT_ROOT } = {}) {
   if (!entry.weekly) {
     throw new Error(`Metric "${name}" has no weekly variant.`);
   }
-  return join(metricsDir(root), entry.weekly);
+  return join(dirFor(name, root), entry.weekly);
 }
 
 // ---------------------------------------------------------------------------
@@ -362,7 +432,7 @@ function parseJsonl(content) {
  */
 export function read(name, { root = DEFAULT_ROOT, readFile = defaultReadFile } = {}) {
   const entry = entryFor(name);
-  const content = readFile(join(metricsDir(root), entry.file));
+  const content = readFile(resolvePath(name, { root }));
   if (content == null) return null;
   if (entry.format === "jsonl") return parseJsonl(content);
   return JSON.parse(content);
@@ -410,7 +480,7 @@ export function readWeekly(name, { root = DEFAULT_ROOT, readFile = defaultReadFi
  */
 export function write(name, data, { root = DEFAULT_ROOT, writeFile = defaultWriteFile } = {}) {
   const entry = entryFor(name);
-  const filePath = join(metricsDir(root), entry.file);
+  const filePath = resolvePath(name, { root });
   if (entry.format === "jsonl") {
     const rows = Array.isArray(data) ? data : [];
     const content = rows.map((row) => JSON.stringify(row)).join("\n") + (rows.length ? "\n" : "");
@@ -462,7 +532,7 @@ export function append(name, entry, opts = {}) {
     appendFile = defaultAppendFile,
   } = opts;
   const meta = entryFor(name);
-  const filePath = join(metricsDir(root), meta.file);
+  const filePath = resolvePath(name, { root });
 
   if (meta.format === "jsonl") {
     appendFile(filePath, JSON.stringify(entry) + "\n");

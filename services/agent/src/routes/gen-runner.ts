@@ -3,7 +3,9 @@ import { genLanguageModel, genProviderOptions, type GenProviderId } from "./gen-
 // Permission policy sourced from agent-core — not duplicated here (security requirement)
 import { GEN_BLOCKED_TOOLS, genIsBashCommandBlocked } from "@mbe/agent-core";
 import { genSystemInstructions } from "./gen-stream.js";
+import { PROPOSE_PATCH_TOOL } from "./gen-onboarding-tools.js";
 import { completeJsonElements } from "./gen-json-elements.js";
+import { catalog } from "@mbe/rialto-catalog/catalog";
 import { createComponentCallScrubber } from "./gen-text-scrub.js";
 
 // ── Public types ──────────────────────────────────────────────────────
@@ -21,6 +23,11 @@ export type GenStreamEvent =
       readonly type: "tool_status";
       readonly tool: string;
       readonly status: "running" | "complete";
+    }
+  | {
+      /** A validated, client-applied onboarding patch (no server write); `patch` is `{ step, data }`. */
+      readonly type: "onboarding_patch";
+      readonly patch: unknown;
     }
   | {
       readonly type: "permission_denied";
@@ -75,6 +82,14 @@ export const GEN_WRITE_TOOL_NAMES = [
   "close_dates",
   "set_special_hours",
   "reopen_closure",
+  "close_repeating_days",
+  "set_regular_hours",
+  "pause_online_booking",
+  "resume_online_booking",
+  "pause_tables",
+  "resume_tables",
+  "update_venue_settings",
+  "update_venue_profile",
   "add_guest",
   "update_guest",
   "add_guest_note",
@@ -85,9 +100,13 @@ export const GEN_WRITE_TOOL_NAMES = [
   "remove_from_waitlist",
   "set_menu_item_availability",
   "update_menu_item",
+  "create_menu",
+  "reorder_menu_sections",
+  "reorder_menu_items",
   "activate_floor_plan",
   "seat_reservation",
   "mark_no_show",
+  "approve_autopilot_move",
 ] as const;
 
 const GEN_WRITE_TOOLS: ReadonlySet<string> = new Set(GEN_WRITE_TOOL_NAMES);
@@ -154,7 +173,7 @@ export function createGenRunner(config: GenRunnerConfig): GenRunner {
       let renderEmitted = 0;
       let trackingRender = false;
       // F36: a model that writes a component call as prose must not show it.
-      const scrubber = createComponentCallScrubber();
+      const scrubber = createComponentCallScrubber({ knownNames: catalogComponentNames() });
       // Gemini sometimes answers a forced call with several parallel calls that
       // repeat element keys (2 of 6 live runs, 2026-11-12); only the first is rendered.
       let firstRenderId: string | undefined;
@@ -195,6 +214,13 @@ export function createGenRunner(config: GenRunnerConfig): GenRunner {
           stepEnded = false;
           await onEvent({ type: "text", content });
         } else if (event.type === "finish-step" && event.finishReason !== "length") {
+          // A call cut off in this step must not swallow the next step's prose.
+          const tail = scrubber.reset();
+          if (tail !== "") {
+            const content = textSoFar && stepEnded ? `\n\n${tail}` : tail;
+            textSoFar = true;
+            await onEvent({ type: "text", content });
+          }
           stepEnded = true;
         } else if (event.type === "tool-call") {
           if (event.toolName === "render_component") {
@@ -206,6 +232,10 @@ export function createGenRunner(config: GenRunnerConfig): GenRunner {
           await handleToolCall(event, onEvent, already);
           if (event.toolName === "render_component") trackingRender = false;
         } else if (event.type === "tool-result") {
+          if (event.toolName === PROPOSE_PATCH_TOOL) {
+            const out = event.output as { ok?: boolean; patch?: unknown } | undefined;
+            if (out?.ok === true) await onEvent({ type: "onboarding_patch", patch: out.patch });
+          }
           await onEvent({
             type: "tool_status",
             tool: event.toolName,
@@ -249,6 +279,12 @@ export function createGenRunner(config: GenRunnerConfig): GenRunner {
       }
     },
   };
+}
+
+/** Catalog component names, for scrubbing one-hump calls like `Calendar(`. Test mocks may omit them. */
+function catalogComponentNames(): string[] {
+  const data = (catalog as { data?: { components?: Record<string, unknown> } }).data;
+  return Object.keys(data?.components ?? {});
 }
 
 function isJsonRender(config: Pick<GenRunnerConfig, "provider" | "toolChoice">): boolean {

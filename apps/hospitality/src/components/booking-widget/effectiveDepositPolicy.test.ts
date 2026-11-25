@@ -1,9 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  effectiveDepositPolicy,
-  guestRiskMatters,
-  provisionalDepositRequired,
-} from "./effectiveDepositPolicy.js";
+import { effectiveDepositPolicy, provisionalDepositRequired } from "./effectiveDepositPolicy.js";
 import type { DepositConfig } from "@mbe/types";
 
 function makeConfig(overrides: Partial<DepositConfig> = {}): DepositConfig {
@@ -26,38 +22,38 @@ describe("effectiveDepositPolicy", () => {
       depositConfig: config,
       venueSlug: "the-oak-table",
       stripePublishableKey: "pk_test_abc",
-      guestIsRisky: false,
+      serverRequiresDeposit: false,
     });
     expect(result).toEqual(config);
   });
 
-  it("returns null when config is disabled and the guest is not risky", () => {
+  it("returns null when config is disabled and the server does not require one", () => {
     const result = effectiveDepositPolicy({
       depositConfig: makeConfig({ enabled: false }),
       venueSlug: "the-oak-table",
       stripePublishableKey: "pk_test_abc",
-      guestIsRisky: false,
+      serverRequiresDeposit: false,
     });
     expect(result).toBeNull();
   });
 
-  it("overrides a disabled config when the guest is risky (risky-guest override)", () => {
+  it("overrides a disabled config when the server requires one (risky-guest override)", () => {
     const config = makeConfig({ enabled: false });
     const result = effectiveDepositPolicy({
       depositConfig: config,
       venueSlug: "the-oak-table",
       stripePublishableKey: "pk_test_abc",
-      guestIsRisky: true,
+      serverRequiresDeposit: true,
     });
     expect(result).toEqual(config);
   });
 
-  it("returns null when the publishable key is missing, even if enabled and risky", () => {
+  it("returns null when the publishable key is missing, even if enabled and server-required", () => {
     const result = effectiveDepositPolicy({
       depositConfig: makeConfig({ enabled: true }),
       venueSlug: "the-oak-table",
       stripePublishableKey: undefined,
-      guestIsRisky: true,
+      serverRequiresDeposit: true,
     });
     expect(result).toBeNull();
   });
@@ -67,7 +63,7 @@ describe("effectiveDepositPolicy", () => {
       depositConfig: makeConfig({ enabled: true }),
       venueSlug: undefined,
       stripePublishableKey: "pk_test_abc",
-      guestIsRisky: false,
+      serverRequiresDeposit: false,
     });
     expect(result).toBeNull();
   });
@@ -77,7 +73,7 @@ describe("effectiveDepositPolicy", () => {
       depositConfig: null,
       venueSlug: "the-oak-table",
       stripePublishableKey: "pk_test_abc",
-      guestIsRisky: true,
+      serverRequiresDeposit: true,
     });
     expect(result).toBeNull();
   });
@@ -88,7 +84,7 @@ describe("effectiveDepositPolicy", () => {
       depositConfig: config,
       venueSlug: "the-oak-table",
       stripePublishableKey: "pk_test_abc",
-      guestIsRisky: false,
+      serverRequiresDeposit: false,
     });
     expect(result?.depositType).toBe("per_person");
     expect(result?.amountCents).toBe(1000);
@@ -100,34 +96,10 @@ describe("effectiveDepositPolicy", () => {
       depositConfig: config,
       venueSlug: "the-oak-table",
       stripePublishableKey: "pk_test_abc",
-      guestIsRisky: false,
+      serverRequiresDeposit: false,
     });
     expect(result?.depositType).toBe("flat");
     expect(result?.amountCents).toBe(2500);
-  });
-});
-
-describe("guestRiskMatters", () => {
-  it("is true when the venue's general policy is disabled and Stripe is configured", () => {
-    expect(guestRiskMatters(makeConfig({ enabled: false }), "the-oak-table", "pk_test_abc")).toBe(
-      true
-    );
-  });
-
-  it("is false when the venue's general policy is already enabled (risk can't change the outcome)", () => {
-    expect(guestRiskMatters(makeConfig({ enabled: true }), "the-oak-table", "pk_test_abc")).toBe(
-      false
-    );
-  });
-
-  it("is false when venueSlug is missing", () => {
-    expect(guestRiskMatters(makeConfig({ enabled: false }), undefined, "pk_test_abc")).toBe(false);
-  });
-
-  it("is false when the Stripe publishable key is missing", () => {
-    expect(guestRiskMatters(makeConfig({ enabled: false }), "the-oak-table", undefined)).toBe(
-      false
-    );
   });
 });
 

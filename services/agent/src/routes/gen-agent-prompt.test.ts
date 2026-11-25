@@ -76,7 +76,19 @@ describe("buildAgentSystemPrompt", () => {
     expect(prompt).toMatch(
       /list_tonight_changes .*before .*end_tonight_change .*undo_availability_change/i
     );
-    expect(prompt).toMatch(/schedules.*Availability page/i);
+    expect(prompt).toMatch(/finish it on the Availability page/i);
+  });
+
+  // #9477: regular hours and repeating closures are chat writes, not refusals.
+  it("offers regular hours and repeating closures instead of sending them to the page", () => {
+    const prompt = buildAgentSystemPrompt({ venueId: "v", now: NOW, catalogPrompt: "CATALOG" });
+    const confirmLine = prompt.split("\n").find((line) => /Confirm or Cancel button/.test(line));
+
+    expect(confirmLine).toMatch(/regular hours/);
+    expect(prompt).toMatch(/close_repeating_days/);
+    expect(prompt).toMatch(/set_regular_hours/);
+    expect(prompt).not.toMatch(/Regular schedules and service hours stay on the Availability page/);
+    expect(prompt).toMatch(/adding or removing services.*stay on the Availability page/);
   });
 
   // #7929: closures and special hours on later dates, and reopening.
@@ -89,12 +101,11 @@ describe("buildAgentSystemPrompt", () => {
     expect(prompt).toMatch(/set_special_hours/);
     expect(prompt).toMatch(/list_closures .*before .*reopen_closure/i);
     expect(prompt).toMatch(/affects bookings.*Availability page/i);
-    expect(prompt).toMatch(/regular schedules and service hours.*Availability page/i);
     expect(prompt).toMatch(/scope whole_venue only when the user asked to close the whole venue/);
     expect(prompt).toMatch(/Neither takes today.*change_tonight_availability/);
     expect(prompt).toMatch(/full from and to span.*scope/);
     expect(prompt).toMatch(
-      /special hours, repeating closures and booking or table pauses are changed on the Availability page/
+      /special hours and repeating closures are changed on the Availability page/
     );
     expect(prompt).toMatch(/countsUnavailable never state how many/);
     expect(prompt).toMatch(
@@ -122,6 +133,17 @@ describe("buildAgentSystemPrompt", () => {
       expect(prompt).toMatch(/reservation res-42/);
       expect(prompt).toMatch(/"this reservation"/);
       expect(prompt).toMatch(/2026-10-30/);
+    });
+
+    it("names the night page and the date it shows", () => {
+      const prompt = buildAgentSystemPrompt({
+        ...base,
+        page: "night",
+        focusDate: "2026-11-06",
+      });
+
+      expect(prompt).toMatch(/chat open on the Night in numbers page/);
+      expect(prompt).toMatch(/2026-11-06/);
     });
 
     it("says nothing about a page when none was sent", () => {
@@ -320,7 +342,11 @@ describe("menus in the prompt", () => {
 
     expect(confirmLine).toMatch(/menu items/);
     expect(prompt).toMatch(/set_menu_item_availability/);
-    expect(prompt).toMatch(/Creating, deleting or reordering.*Menus page/);
+    expect(prompt).toMatch(/create_menu/);
+    expect(prompt).toMatch(/reorder_menu_sections/);
+    expect(prompt).toMatch(/reorder_menu_items/);
+    expect(prompt).not.toMatch(/Creating, deleting or reordering/);
+    expect(prompt).toMatch(/Deleting menus, sections or items stays on the Menus page/);
     expect(prompt).not.toMatch(/can't manage deposits or menus/);
   });
 });
@@ -347,14 +373,71 @@ describe("briefing, dashboard stats and page-only areas in the prompt", () => {
     expect(prompt).toMatch(/couldn't read the briefing.*never.*no bookings/i);
   });
 
+  it("answers what to move tonight with get_autopilot_suggestions, suggestions only", () => {
+    expect(prompt).toMatch(/anything I should move tonight.*get_autopilot_suggestions/);
+    expect(prompt).toMatch(/get_autopilot_suggestions.*suggestions only.*never move anyone/s);
+    expect(prompt).toMatch(/couldn't read the Autopilot suggestions.*never say there is nothing/);
+  });
+
+  it("applies a suggested move only through approve_autopilot_move, on the host's say-so", () => {
+    expect(prompt).toMatch(/approve_autopilot_move.*moveId.*get_autopilot_suggestions/s);
+    expect(prompt).toMatch(/approve_autopilot_move.*only when the host asks/s);
+    expect(prompt).toMatch(/approve_autopilot_move.*no longer suggested/s);
+  });
+
+  it("answers when guests are turned away with get_turned_away_demand, never as zeros", () => {
+    expect(prompt).toMatch(/when are we turning people away.*get_turned_away_demand/);
+    expect(prompt).toMatch(/get_turned_away_demand.*anyTime.*no time/s);
+    expect(prompt).toMatch(/couldn't read the turned-away numbers.*never report zeros/);
+  });
+
+  it("answers a what-if seating with estimate_added_seating, always as an estimate", () => {
+    expect(prompt).toMatch(/what if I added a 9:30 seating on Fridays.*estimate_added_seating/);
+    expect(prompt).toMatch(/estimate_added_seating.*estimate.*never.*promise/s);
+  });
+
+  it("answers how the night went with get_night_summary, rendered as Stat elements", () => {
+    expect(prompt).toMatch(/how did tonight go.*get_night_summary/);
+    expect(prompt).toMatch(/¿cómo fue la noche\?/);
+    expect(prompt).toMatch(/get_night_summary.*covers, tableTurns and noShows.*Stat/);
+    expect(prompt).toMatch(/turnedAway only when the result includes it/);
+    expect(prompt).toMatch(/couldn't read the numbers.*never report zeros/);
+  });
+
   it("answers the dashboard's headline stats from existing tools", () => {
     expect(prompt).toMatch(/Dashboard stats.*covers from get_briefing.*list_today_reservations/);
     expect(prompt).toMatch(/Dashboard stats.*waitlist.*list_waitlist/);
     expect(prompt).toMatch(/Dashboard stats.*lapsing guests.*list_lapsing_guests/);
   });
 
-  it("keeps settings on the Settings page", () => {
-    expect(prompt).toMatch(/preferences, venue profile and team roles.*Settings page/);
+  it("no longer sends pauses, settings or the venue profile to their pages", () => {
+    expect(prompt).not.toMatch(/preferences, venue profile and team roles/);
+    expect(prompt).not.toMatch(/booking or table pauses are changed on the Availability page/);
+    for (const name of [
+      "pause_online_booking",
+      "resume_online_booking",
+      "pause_tables",
+      "resume_tables",
+      "get_venue_settings",
+      "update_venue_settings",
+      "update_venue_profile",
+    ]) {
+      expect(prompt).toContain(name);
+    }
+  });
+
+  it("lists pauses and settings among the confirmed changes and says how to undo them", () => {
+    const confirmLine = prompt.split("\n").find((line) => /Confirm or Cancel button/.test(line));
+
+    expect(confirmLine).toMatch(/pauses/);
+    expect(confirmLine).toMatch(/settings/);
+    expect(prompt).toMatch(/resume_online_booking.*undo/is);
+    expect(prompt).toMatch(/previous values/);
+  });
+
+  it("keeps team and roles on the Settings page, with no tool for them", () => {
+    expect(prompt).toMatch(/Team members and roles.*Settings page/);
+    expect(prompt).toMatch(/no tool for (the )?team/i);
   });
 
   it("keeps the booking widget on its page", () => {

@@ -96,7 +96,7 @@ vi.mock("../hooks/useWaitlist.js", () => ({
   useCreateWaitlistEntry: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useNotifyWaitlistEntry: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useCancelWaitlistEntry: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  useSeatWaitlistEntry: () => ({ mutateAsync: vi.fn() }),
+  useRefreshWaitlist: () => vi.fn(),
 }));
 vi.mock("../hooks/useApiClient.js", () => ({ useApiClient: () => ({ reservations: {} }) }));
 vi.mock("../hooks/useStaffBookingCheck.js", () => ({

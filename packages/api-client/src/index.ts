@@ -20,7 +20,7 @@ export { FloorPlanSectionsClient } from "./floor-plan-sections.js";
 export { MenusClient } from "./menus.js";
 export type { MenuWithSections } from "./menus.js";
 export { DepositsClient, type CreateDepositRequest, type DepositTransition } from "./deposits.js";
-export { PublicVenueClient, type GetGuestRiskParams } from "./public-venue.js";
+export { PublicVenueClient } from "./public-venue.js";
 export { WaitlistClient } from "./waitlist.js";
 export {
   BriefingClient,
@@ -43,6 +43,13 @@ export {
   type CreateSessionRequest,
   type ListSessionsParams,
 } from "./agent-sessions.js";
+export {
+  FeedbackClient,
+  type FeedbackType,
+  type FeedbackContext,
+  type SubmitFeedbackRequest,
+  type SubmittedFeedback,
+} from "./feedback.js";
 export type { SystemHealth, ServiceHealth } from "./health.js";
 export { HealthClient } from "./health.js";
 export type {
@@ -77,6 +84,7 @@ import { AvailabilityClient, HoldsClient } from "./availability.js";
 import { BriefingClient } from "./briefing.js";
 import { DepositsClient } from "./deposits.js";
 import { HealthClient } from "./health.js";
+import { FeedbackClient } from "./feedback.js";
 /**
  * Create a configured API client for the MBE platform
  */
@@ -116,5 +124,6 @@ export function createApiClient(config: {
     briefing: new BriefingClient(client),
     deposits: new DepositsClient(client),
     health: new HealthClient(client),
+    feedback: new FeedbackClient(client),
   };
 }

@@ -43,6 +43,11 @@ export function ProjectsSection() {
               </motion.div>
             ))}
           </motion.div>
+
+          <Text variant="body" color="secondary">
+            Want to see the booking flow as a guest?{" "}
+            <a href="/hospitality/book/demo-bistro">Book a table at the demo restaurant</a>
+          </Text>
         </Stack>
       </div>
     </section>

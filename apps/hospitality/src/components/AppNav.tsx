@@ -31,6 +31,7 @@ export function AppNav({ host, theme, onThemeToggle }: AppNavProps) {
           marketing: t("shell.globalNav.marketing"),
           hospitality: t("shell.globalNav.hospitality"),
           rialto: t("shell.globalNav.rialto"),
+          gen: t("shell.globalNav.gen"),
         }}
       />
     );

@@ -13,6 +13,13 @@ export interface PropDef {
   [key: string]: unknown;
 }
 
+interface ManifestProp {
+  name: string;
+  type: string;
+  required: boolean;
+  description?: string;
+}
+
 /**
  * Look up prop metadata for a component from the compiled rialto manifest.
  *
@@ -27,7 +34,9 @@ export function usePropsFromManifest(componentName: string): PropDef[] {
   const entry = manifest.components.find((c) => c.name === componentName);
   if (!entry) return [];
 
-  return entry.props.map((p) => ({
+  // Widen the JSON-inferred prop union: props without JSDoc carry no `description` key.
+  const props: readonly ManifestProp[] = entry.props;
+  return props.map((p) => ({
     name: p.name,
     type: p.type.replace(/\s*\|\s*undefined$/, ""),
     description: p.description ?? "",

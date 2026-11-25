@@ -60,6 +60,356 @@ function entry(fields: Record<string, unknown> = {}) {
   };
 }
 
+// Every day: one Dinner service 22:00 to 02:00 (past midnight).
+const lateConfig = {
+  schedules: [{ id: "s1", name: "Regular", kind: "regular", isRegular: true }],
+  venueServices: [{ id: "v1", name: "Dinner", position: 0 }],
+  scheduleServices: [
+    {
+      id: "ss1",
+      scheduleId: "s1",
+      venueServiceId: "v1",
+      opensAt: 1320,
+      lastSeatingAt: 1500,
+      closesAt: 1560,
+      seating: { version: 1, interval: 15 },
+      bookingTypes: ["online", "phone"],
+      weekdays: [],
+      dayHours: { version: 1, sets: [] },
+    },
+  ],
+  assignments: [{ id: "a1", scheduleId: "s1", weekdays: [0, 1, 2, 3, 4, 5, 6], precedence: 0 }],
+  dateRules: [],
+};
+
+describe("get_night_summary chat tool", () => {
+  let log: FastifyBaseLogger;
+  let api: {
+    reservations: { getEndOfServiceSummary: ReturnType<typeof vi.fn> };
+    availability: { getConfig: ReturnType<typeof vi.fn> };
+  };
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    // Nov 1 23:00 PST, inside that evening's service.
+    vi.setSystemTime(new Date("2026-11-02T07:00:00.000Z"));
+    log = createMockLogger();
+    api = {
+      availability: { getConfig: vi.fn().mockResolvedValue({ config: lateConfig, version: 1 }) },
+      reservations: {
+        getEndOfServiceSummary: vi.fn().mockResolvedValue({
+          date: "2026-11-01",
+          venueId: "v1",
+          covers: 84,
+          tableTurns: 31,
+          noShows: 2,
+          turnedAway: null,
+        }),
+      },
+    };
+  });
+
+  afterEach(() => vi.useRealTimers());
+
+  function run(
+    input: Record<string, unknown>,
+    options: { venueId?: string; timeZone?: string } = { venueId: "v1" }
+  ) {
+    const tools = createAgentTools(log, api as never, options);
+    return tools.get_night_summary!.execute!(input as never, toolCtx);
+  }
+
+  it("is a read: not confirm-gated", () => {
+    expect(GEN_WRITE_TOOL_NAMES).not.toContain("get_night_summary");
+  });
+
+  it("reads the service day after midnight, not the calendar day", async () => {
+    // 09:00Z on Nov 7 is Sat 01:00 PST: Friday's 22:00-02:00 service is still on.
+    vi.setSystemTime(new Date("2026-11-07T09:00:00.000Z"));
+
+    await run({}, { venueId: "v1", timeZone: "America/Los_Angeles" });
+
+    expect(api.reservations.getEndOfServiceSummary).toHaveBeenCalledWith({
+      venueId: "v1",
+      date: "2026-11-06",
+    });
+  });
+
+  it("reads the last night when asked before tonight opens", async () => {
+    // Sat 10:00 PST: Friday's service has closed, tonight's has not opened.
+    vi.setSystemTime(new Date("2026-11-07T18:00:00.000Z"));
+
+    await run({}, { venueId: "v1", timeZone: "America/Los_Angeles" });
+
+    expect(api.reservations.getEndOfServiceSummary).toHaveBeenCalledWith({
+      venueId: "v1",
+      date: "2026-11-06",
+    });
+  });
+
+  it("never guesses the calendar day when the hours can't be read", async () => {
+    api.availability.getConfig.mockRejectedValue(new Error("boom"));
+
+    const result = await run({}, { venueId: "v1", timeZone: "America/Los_Angeles" });
+
+    expect(result).toMatchObject({ unknown: true, error: expect.stringMatching(/couldn't/i) });
+    expect(api.reservations.getEndOfServiceSummary).not.toHaveBeenCalled();
+  });
+
+  it("does not read the hours when the user names the date", async () => {
+    await run({ date: "2026-10-30" }, { venueId: "v1", timeZone: "America/Los_Angeles" });
+
+    expect(api.availability.getConfig).not.toHaveBeenCalled();
+  });
+
+  it("reads the venue's own service day and returns the figures", async () => {
+    const result = await run({}, { venueId: "v1", timeZone: "America/Los_Angeles" });
+
+    // Nov 1 23:00 PST is inside that evening's service.
+    expect(api.reservations.getEndOfServiceSummary).toHaveBeenCalledWith({
+      venueId: "v1",
+      date: "2026-11-01",
+    });
+    expect(result).toEqual({
+      date: "2026-11-01",
+      covers: 84,
+      tableTurns: 31,
+      noShows: 2,
+    });
+  });
+
+  it("reads a given date and never takes the venue from the model", async () => {
+    await run({ date: "2026-10-30", venueId: "other" });
+
+    expect(api.reservations.getEndOfServiceSummary).toHaveBeenCalledWith({
+      venueId: "v1",
+      date: "2026-10-30",
+    });
+  });
+
+  it("includes turned away only once the server reports it", async () => {
+    api.reservations.getEndOfServiceSummary.mockResolvedValue({
+      date: "2026-11-01",
+      venueId: "v1",
+      covers: 10,
+      tableTurns: 4,
+      noShows: 0,
+      turnedAway: 3,
+    });
+
+    expect(await run({ date: "2026-11-01" })).toMatchObject({ turnedAway: 3 });
+  });
+
+  it("needs a selected venue", async () => {
+    const result = await run({}, {});
+
+    expect(result).toMatchObject({ error: expect.stringContaining("No venue") });
+    expect(api.reservations.getEndOfServiceSummary).not.toHaveBeenCalled();
+  });
+
+  it("refuses an unreadable date without calling the API", async () => {
+    const result = await run({ date: "last night" });
+
+    expect(result).toMatchObject({ rejected: true });
+    expect(api.reservations.getEndOfServiceSummary).not.toHaveBeenCalled();
+  });
+
+  it("never turns a failed read into zeros", async () => {
+    api.reservations.getEndOfServiceSummary.mockRejectedValue(new Error("boom"));
+
+    const result = await run({ date: "2026-11-01" });
+
+    expect(result).toMatchObject({ unknown: true, error: expect.stringMatching(/couldn't/i) });
+    expect(result).not.toHaveProperty("covers");
+  });
+});
+
+describe("get_turned_away_demand chat tool", () => {
+  let log: FastifyBaseLogger;
+  let api: { reservations: { getLostDemand: ReturnType<typeof vi.fn> } };
+
+  const report = {
+    venueId: "v1",
+    from: "2026-10-05",
+    to: "2026-11-01",
+    total: 14,
+    cells: [
+      { weekday: 5, hour: 19, searches: 6 },
+      { weekday: 6, hour: 20, searches: 4 },
+      { weekday: 5, hour: 20, searches: 1 },
+    ],
+    anyTime: [{ weekday: 0, searches: 3 }],
+  };
+
+  beforeEach(() => {
+    log = createMockLogger();
+    api = { reservations: { getLostDemand: vi.fn().mockResolvedValue(report) } };
+  });
+
+  function run(
+    input: Record<string, unknown>,
+    options: { venueId?: string; timeZone?: string } = { venueId: "v1" }
+  ) {
+    const tools = createAgentTools(log, api as never, options);
+    return tools.get_turned_away_demand!.execute!(input as never, toolCtx);
+  }
+
+  it("is a read: not confirm-gated", () => {
+    expect(GEN_WRITE_TOOL_NAMES).not.toContain("get_turned_away_demand");
+  });
+
+  it("pins the venue and passes only a valid window", async () => {
+    await run({ venueId: "other", from: "2026-10-05", to: "2026-11-01" });
+
+    expect(api.reservations.getLostDemand).toHaveBeenCalledWith({
+      venueId: "v1",
+      from: "2026-10-05",
+      to: "2026-11-01",
+    });
+  });
+
+  it("names the busiest weekday and hour, busiest first, with any-time misses apart", async () => {
+    const result = await run({});
+
+    expect(api.reservations.getLostDemand).toHaveBeenCalledWith({ venueId: "v1" });
+    expect(result).toEqual({
+      from: "2026-10-05",
+      to: "2026-11-01",
+      total: 14,
+      busiest: [
+        { weekday: "Friday", hour: "19:00", searches: 6 },
+        { weekday: "Saturday", hour: "20:00", searches: 4 },
+        { weekday: "Friday", hour: "20:00", searches: 1 },
+      ],
+      noTimeNamed: [{ weekday: "Sunday", searches: 3 }],
+    });
+  });
+
+  it("says plainly when nobody was turned away", async () => {
+    api.reservations.getLostDemand.mockResolvedValue({
+      ...report,
+      total: 0,
+      cells: [],
+      anyTime: [],
+    });
+
+    expect(await run({})).toMatchObject({ total: 0, busiest: [], noTimeNamed: [] });
+  });
+
+  it("needs a selected venue", async () => {
+    expect(await run({}, {})).toMatchObject({ error: expect.stringContaining("No venue") });
+    expect(api.reservations.getLostDemand).not.toHaveBeenCalled();
+  });
+
+  it("refuses an unreadable date without calling the API", async () => {
+    expect(await run({ from: "last week" })).toMatchObject({ rejected: true });
+    expect(api.reservations.getLostDemand).not.toHaveBeenCalled();
+  });
+
+  it("never turns a failed read into zeros", async () => {
+    api.reservations.getLostDemand.mockRejectedValue(new Error("boom"));
+
+    const result = await run({});
+
+    expect(result).toMatchObject({ unknown: true, error: expect.stringMatching(/couldn't/i) });
+    expect(result).not.toHaveProperty("total");
+  });
+});
+
+describe("estimate_added_seating chat tool", () => {
+  let log: FastifyBaseLogger;
+  let api: { reservations: { getLostDemandWhatIf: ReturnType<typeof vi.fn> } };
+
+  const answer = {
+    venueId: "v1",
+    from: "2026-10-05",
+    to: "2026-11-01",
+    weekday: 5,
+    minute: 21 * 60 + 30,
+    outcome: "estimated",
+    searches: 8,
+    windowStart: 1260,
+    windowEnd: 1320,
+    minParty: null,
+    maxParty: null,
+    anyTimeSearches: 3,
+    nights: 4,
+    perNight: 2,
+  };
+
+  beforeEach(() => {
+    log = createMockLogger();
+    api = { reservations: { getLostDemandWhatIf: vi.fn().mockResolvedValue(answer) } };
+  });
+
+  function run(
+    input: Record<string, unknown>,
+    options: { venueId?: string; timeZone?: string } = { venueId: "v1" }
+  ) {
+    const tools = createAgentTools(log, api as never, options);
+    return tools.estimate_added_seating!.execute!(input as never, toolCtx);
+  }
+
+  it("is a read: not confirm-gated", () => {
+    expect(GEN_WRITE_TOOL_NAMES).not.toContain("estimate_added_seating");
+  });
+
+  it("asks the same endpoint as the card, pinned to the selected venue", async () => {
+    const result = await run({ weekday: "Friday", time: "21:30" });
+
+    expect(api.reservations.getLostDemandWhatIf).toHaveBeenCalledWith({
+      venueId: "v1",
+      weekday: 5,
+      time: "21:30",
+    });
+    expect(result).toEqual({
+      estimate: true,
+      outcome: "estimated",
+      weekday: "Friday",
+      time: "21:30",
+      from: "2026-10-05",
+      to: "2026-11-01",
+      searches: 8,
+      nights: 4,
+      perNight: 2,
+      noTimeNamed: 3,
+    });
+  });
+
+  it.each(["closed", "already_offered", "blocked"])("gives no number when %s", async (outcome) => {
+    api.reservations.getLostDemandWhatIf.mockResolvedValue({ ...answer, outcome, searches: 0 });
+
+    const result = await run({ weekday: "Friday", time: "21:30" });
+
+    expect(result).toMatchObject({ outcome });
+    expect(result).not.toHaveProperty("searches");
+    expect(result).not.toHaveProperty("perNight");
+  });
+
+  it("refuses a weekday or time it cannot read without calling the API", async () => {
+    expect(await run({ weekday: "Someday", time: "21:30" })).toMatchObject({ rejected: true });
+    expect(await run({ weekday: "Friday", time: "9:30 at night" })).toMatchObject({
+      rejected: true,
+    });
+    expect(api.reservations.getLostDemandWhatIf).not.toHaveBeenCalled();
+  });
+
+  it("needs a selected venue", async () => {
+    expect(await run({ weekday: "Friday", time: "21:30" }, {})).toMatchObject({
+      error: expect.stringContaining("No venue"),
+    });
+  });
+
+  it("never turns a failed read into zeros", async () => {
+    api.reservations.getLostDemandWhatIf.mockRejectedValue(new Error("boom"));
+
+    const result = await run({ weekday: "Friday", time: "21:30" });
+
+    expect(result).toMatchObject({ unknown: true });
+    expect(result).not.toHaveProperty("searches");
+  });
+});
+
 describe("get_briefing chat tool", () => {
   let log: FastifyBaseLogger;
   let api: { briefing: { list: ReturnType<typeof vi.fn> } };

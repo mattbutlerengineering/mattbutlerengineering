@@ -4,6 +4,7 @@ import { Stack, Input, Button } from "@mattbutlerengineering/rialto";
 import { localeRuntime } from "../../i18n/runtime.js";
 import { invalidBookingRules } from "../availability/booking-rules.js";
 import { SETTINGS_DEFAULTS as DEFAULTS } from "./settings-defaults.js";
+import { FilledField } from "./FilledField";
 import styles from "./venue-onboarding.module.css";
 
 export interface SettingsData {
@@ -30,6 +31,8 @@ interface SettingsStepProps {
   onValidate?: () => void;
   /** Advances the wizard to the next step. Wired to the "Use recommended settings" action. */
   onAdvance: () => void;
+  /** Fields the chat just filled; each is marked in the form. */
+  filled?: readonly string[];
 }
 
 /**
@@ -54,6 +57,8 @@ export function validateSettings(
     daysAhead: data.advanceBookingDays,
     noticeHours: "",
     largestParty: data.maxPartySize,
+    pacingCovers: "",
+    pacingMinutes: "",
   });
   if (invalid.includes("largestParty")) {
     errors.maxPartySize = t("availability.bookingRules.invalid.largestParty");
@@ -65,7 +70,14 @@ export function validateSettings(
   return errors;
 }
 
-export function SettingsStep({ data, errors, onChange, onValidate, onAdvance }: SettingsStepProps) {
+export function SettingsStep({
+  data,
+  errors,
+  onChange,
+  onValidate,
+  onAdvance,
+  filled = [],
+}: SettingsStepProps) {
   const { t } = useTranslation();
   const handleUseRecommended = () => {
     onChange(RECOMMENDED_SETTINGS);
@@ -78,52 +90,67 @@ export function SettingsStep({ data, errors, onChange, onValidate, onAdvance }: 
         {t("onboarding.settings.useRecommended")}
       </Button>
       <Stack gap="md">
-        <Input
+        <FilledField
+          filled={filled.includes("defaultReservationDuration")}
           label={t("onboarding.settings.durationLabel")}
-          type="number"
-          value={data.defaultReservationDuration}
-          onChange={(e) => onChange({ ...data, defaultReservationDuration: e.target.value })}
-          onBlur={onValidate}
-          placeholder={t("onboarding.settings.defaultPlaceholder", {
-            value: DEFAULTS.defaultReservationDuration,
-          })}
-          error={errors.defaultReservationDuration !== undefined}
-          hint={
-            errors.defaultReservationDuration ??
-            t("onboarding.settings.durationHint", { value: DEFAULTS.defaultReservationDuration })
-          }
-          showOptional
-        />
+        >
+          <Input
+            label={t("onboarding.settings.durationLabel")}
+            type="number"
+            value={data.defaultReservationDuration}
+            onChange={(e) => onChange({ ...data, defaultReservationDuration: e.target.value })}
+            onBlur={onValidate}
+            placeholder={t("onboarding.settings.defaultPlaceholder", {
+              value: DEFAULTS.defaultReservationDuration,
+            })}
+            error={errors.defaultReservationDuration !== undefined}
+            hint={
+              errors.defaultReservationDuration ??
+              t("onboarding.settings.durationHint", { value: DEFAULTS.defaultReservationDuration })
+            }
+            showOptional
+          />
+        </FilledField>
 
-        <Input
+        <FilledField
+          filled={filled.includes("maxPartySize")}
           label={t("availability.bookingRules.largestParty")}
-          type="number"
-          value={data.maxPartySize}
-          onChange={(e) => onChange({ ...data, maxPartySize: e.target.value })}
-          onBlur={onValidate}
-          placeholder={t("onboarding.settings.defaultPlaceholder", {
-            value: DEFAULTS.maxPartySize,
-          })}
-          error={errors.maxPartySize !== undefined}
-          hint={
-            errors.maxPartySize ??
-            t("onboarding.settings.maxPartyHint", { value: DEFAULTS.maxPartySize })
-          }
-          showOptional
-        />
+        >
+          <Input
+            label={t("availability.bookingRules.largestParty")}
+            type="number"
+            value={data.maxPartySize}
+            onChange={(e) => onChange({ ...data, maxPartySize: e.target.value })}
+            onBlur={onValidate}
+            placeholder={t("onboarding.settings.defaultPlaceholder", {
+              value: DEFAULTS.maxPartySize,
+            })}
+            error={errors.maxPartySize !== undefined}
+            hint={
+              errors.maxPartySize ??
+              t("onboarding.settings.maxPartyHint", { value: DEFAULTS.maxPartySize })
+            }
+            showOptional
+          />
+        </FilledField>
 
-        <Input
+        <FilledField
+          filled={filled.includes("advanceBookingDays")}
           label={t("availability.bookingRules.daysAhead")}
-          type="number"
-          value={data.advanceBookingDays}
-          onChange={(e) => onChange({ ...data, advanceBookingDays: e.target.value })}
-          onBlur={onValidate}
-          // Blank sets no window: the service then lets guests book any date ahead.
-          placeholder={t("onboarding.settings.advanceNoLimit")}
-          error={errors.advanceBookingDays !== undefined}
-          hint={errors.advanceBookingDays ?? t("onboarding.settings.advanceHint")}
-          showOptional
-        />
+        >
+          <Input
+            label={t("availability.bookingRules.daysAhead")}
+            type="number"
+            value={data.advanceBookingDays}
+            onChange={(e) => onChange({ ...data, advanceBookingDays: e.target.value })}
+            onBlur={onValidate}
+            // Blank sets no window: the service then lets guests book any date ahead.
+            placeholder={t("onboarding.settings.advanceNoLimit")}
+            error={errors.advanceBookingDays !== undefined}
+            hint={errors.advanceBookingDays ?? t("onboarding.settings.advanceHint")}
+            showOptional
+          />
+        </FilledField>
       </Stack>
     </div>
   );

@@ -5,8 +5,14 @@ import {
   guestRecognitionJsonSchema,
   publicGuestRecognitionQueryJsonSchema,
 } from "@mbe/types";
-import { recognizeGuest } from "../services/guest-recognition.js";
 import { publicVenueScoped } from "./public-venue-scope.js";
+
+const UNRECOGNIZED: GuestRecognition = {
+  recognized: false,
+  firstName: null,
+  visitCount: 0,
+  hasPreferences: false,
+};
 
 export const publicGuestRecognitionRoutes: FastifyPluginAsync = async (fastify) => {
   const { venueService } = fastify.services;
@@ -26,7 +32,7 @@ export const publicGuestRecognitionRoutes: FastifyPluginAsync = async (fastify) 
       schema: {
         summary: "Recognize a guest by email (public)",
         description:
-          "Read-only lookup that returns limited guest info for the booking widget. No auth required. Rate-limited to 10 req/min per IP.",
+          "Booking-widget recognition. Always answers unrecognized until the caller proves they own the email. No auth required. Rate-limited to 10 req/min per IP.",
         tags: ["Public"],
         params: {
           type: "object",
@@ -64,9 +70,10 @@ export const publicGuestRecognitionRoutes: FastifyPluginAsync = async (fastify) 
           .send(createProblemDetails(404, "Not Found", `No venue found with slug '${slug}'.`));
       }
 
-      const recognition = await recognizeGuest(venue.id, email);
-
-      return reply.send({ data: recognition });
+      // An unauthenticated caller has not proved they own `email`, so answering would tell anyone
+      // whether that person is a guest here, their first name and how often they come. Always
+      // answer "not recognized" until recognition sits behind proof of the address.
+      return reply.send({ data: UNRECOGNIZED });
     })
   );
 };

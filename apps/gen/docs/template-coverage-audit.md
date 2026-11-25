@@ -2,14 +2,12 @@
 
 ## Catalog reality check (#7421)
 
-Everything below measures prompt **wording** against all 88 rialto components. The
-generator can only use the components in the AI catalog (`catalog.componentNames` from
-`@mbe/rialto-catalog/catalog`): Accordion, Alert, AppBar, AspectRatio, Avatar, Badge,
-Banner, BarChart, Breadcrumb, Button, Card, Checkbox, Combobox, DataList, DataTable,
-DepartureBoard, Dialog, Divider, Drawer, DropdownMenu, EmptyState, Footer, GuestCards,
-Handshake, IconButton, Input, NavigationMenu, Odometer, PinInput, Popover,
-ReservationList, ScrollArea, Select, Sidebar, Skeleton, Stack, Stat, StatusLED, Table,
-Tabs, Tag, Text, Timeline, TimeSlots, Toggle, Tooltip. Anything else the model
+Everything below measures prompt **wording** against the rialto components (88 when this audit
+was last regenerated; 97 exist today). The generator can only use the components in the AI
+catalog (`catalog.componentNames` from `@mbe/rialto-catalog/catalog`), which after the catalog
+widening (#9331) is **82 of 97** (15 uncataloged: Chalkboard, Champagne, Constellation, Contour,
+DustMotes, Ember, Fireflies, FlipDot, Letterboard, NeonSign, SilkFlow, SplitFlap, Steam,
+TapeChart, WatchLoader): Accordion, Alert, AppBar, AspectRatio, Autocomplete, Avatar, Badge, Banner, BarChart, Breadcrumb, Button, Calendar, Card, ChatPanel, Checkbox, Collapsible, Combobox, CommandPalette, ConfirmDialog, ContextMenu, DataList, DataTable, DatePicker, DateRange, DateRangePicker, DepartureBoard, Dialog, DisabledTooltip, Divider, Drawer, DropdownMenu, EmptyState, ErrorBoundary, Footer, Form, FormField, GlobalNav, GuestCards, Handshake, Heading, Hero, HoverCard, IconButton, ImageUpload, Input, InputGroup, Kbd, MasterOverride, Meter, Navbar, NavigationMenu, NumberInput, PageHeader, Pagination, PinInput, Popover, Progress, ReservationList, ScrollArea, SegmentedControl, Select, Sidebar, Skeleton, Slider, SplitScreenExit, Stack, Stat, StatusLED, Steps, Table, Tabs, Tag, Text, TextArea, ThemeToggle, TimePicker, TimeSlots, Timeline, Toast, Toggle, Tooltip, Tree. Anything else the model
 improvises renders as a silent SeamFallback placeholder, so a "covered" row below for an
 off-catalog component (Calendar, charts, ...) is not real coverage.
 

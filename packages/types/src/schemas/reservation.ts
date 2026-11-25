@@ -102,3 +102,27 @@ export const DepositSchema = z.object({
   createdAt: z.string(),
   updatedAt: z.string(),
 });
+
+/**
+ * The venue-member view of a deposit (`GET /reservations/:id/deposit-status`,
+ * #9558): an explicit allowlist. No deposit id, reservation id, `stripe*` key,
+ * client secret or card data ever belongs here. The newer fields are optional
+ * for the same rolling-deploy skew as `DepositSchema`.
+ */
+export const DepositStatusViewSchema = z.object({
+  status: DepositStatusSchema,
+  amountCents: z.number().int(),
+  currency: z.string(),
+  heldAt: z.string().nullable(),
+  appliedAt: z.string().nullable(),
+  refundedAt: z.string().nullable(),
+  forfeitedAt: z.string().nullable(),
+  uncollectableAt: z.string().nullable().optional(),
+  postCaptureRefundCents: z.number().int().nullable().optional(),
+  // Planned refund owed back to the guest for a `partial_refunded` deposit (not the full
+  // amount). Written before the Stripe refund is confirmed (deposit.ts refundPartial), so
+  // never present it as money already returned.
+  refundAmountCents: z.number().int().nullable().optional(),
+});
+
+export type DepositStatusView = z.infer<typeof DepositStatusViewSchema>;

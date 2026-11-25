@@ -290,14 +290,106 @@ describe("describeChatAction waitlist actions", () => {
   });
 });
 
+// #9479: pauses and venue settings, as the confirm bar shows them.
+describe("describeChatAction pauses and settings", () => {
+  const t = (key: string) => `t:${key}`;
+  const describeIn = (toolName: string, toolInput: Record<string, unknown>) =>
+    describeChatAction({ actionId: "c", toolName, toolInput }, t, () => undefined, "en-US");
+
+  it.each([
+    "pause_online_booking",
+    "resume_online_booking",
+    "pause_tables",
+    "resume_tables",
+    "update_venue_settings",
+    "update_venue_profile",
+  ])("titles %s", (toolName) => {
+    expect(describeIn(toolName, {}).title).toBe(`t:chat.actions.${toolName}`);
+  });
+
+  it("words a pause with no end, its message, and the tables", () => {
+    expect(
+      describeIn("pause_tables", { tables: ["Patio 1", "Patio 2"], until: "until reopened" })
+        .details
+    ).toEqual([
+      { label: "t:chat.actions.fields.tables", value: "Patio 1, Patio 2" },
+      { label: "t:chat.actions.fields.until", value: "t:chat.actions.untilReopened" },
+    ]);
+    expect(
+      describeIn("pause_online_booking", { until: "2026-12-05", message: "Back soon" }).details
+    ).toEqual([
+      { label: "t:chat.actions.fields.until", value: "Saturday, Dec 5" },
+      { label: "t:chat.actions.fields.message", value: "Back soon" },
+    ]);
+  });
+
+  it("words settings: labels, yes or no, and a cleared value", () => {
+    expect(
+      describeIn("update_venue_settings", {
+        maxPartySize: 8,
+        requirePhone: true,
+        phone: null,
+        reminderEmailEnabled: false,
+      }).details
+    ).toEqual([
+      { label: "t:chat.actions.fields.maxPartySize", value: "8" },
+      { label: "t:chat.actions.fields.requirePhone", value: "t:chat.actions.yesNo.yes" },
+      { label: "t:chat.actions.fields.phone", value: "t:chat.actions.cleared" },
+      { label: "t:chat.actions.fields.reminderEmailEnabled", value: "t:chat.actions.yesNo.no" },
+    ]);
+  });
+
+  it("labels profile fields", () => {
+    const { details } = describeIn("update_venue_profile", {
+      name: "Sorrel Kitchen",
+      type: "casual",
+      cuisines: ["Italian", "Pizza"],
+      website: "https://sorrel.example",
+      description: "Wood-fired",
+    });
+
+    expect(details.map((d) => d.label)).toEqual([
+      "t:chat.actions.fields.name",
+      "t:chat.actions.fields.type",
+      "t:chat.actions.fields.cuisines",
+      "t:chat.actions.fields.website",
+      "t:chat.actions.fields.description",
+    ]);
+    expect(details[2]!.value).toBe("Italian, Pizza");
+  });
+});
+
 // #7928: menu actions, as the confirm bar shows them.
 describe("describeChatAction menu actions", () => {
   const t = (key: string) => `t:${key}`;
 
-  it.each(["set_menu_item_availability", "update_menu_item"])("titles %s", (toolName) => {
+  it.each([
+    "set_menu_item_availability",
+    "update_menu_item",
+    "create_menu",
+    "reorder_menu_sections",
+    "reorder_menu_items",
+  ])("titles %s", (toolName) => {
     expect(
       describeChatAction({ actionId: "c", toolName, toolInput: {} }, t, () => undefined).title
     ).toBe(`t:chat.actions.${toolName}`);
+  });
+
+  it("shows a new section or item order as a list under its label (#9478)", () => {
+    const { details } = describeChatAction(
+      {
+        actionId: "c2",
+        toolName: "reorder_menu_sections",
+        toolInput: { menu: "Dinner", sections: ["Desserts", "Starters"] },
+      },
+      t,
+      () => undefined
+    );
+
+    expect(details).toEqual([
+      { label: "t:chat.actions.fields.menu", value: "Dinner" },
+      { label: "t:chat.actions.fields.sections", value: "Desserts, Starters" },
+    ]);
   });
 
   it("shows the availability in words and labels the item's fields", () => {
@@ -361,6 +453,44 @@ describe("describeChatAction closure actions", () => {
       { label: "t:chat.actions.fields.date", value: "Thursday, Dec 24" },
       { label: "t:chat.actions.fields.endDate", value: "Saturday, Dec 26" },
     ]);
+  });
+
+  // #9477: a repeating closure and a regular-hours change state exactly what changes.
+  it("states a repeating closure's weekdays and span", () => {
+    const { title, details } = describeIn("close_repeating_days", {
+      scope: "whole_venue",
+      weekdays: ["Monday", "Friday"],
+      from: "2027-01-05",
+      to: "2027-01-26",
+    });
+
+    expect(title).toBe("t:chat.actions.close_repeating_days");
+    expect(details).toEqual([
+      { label: "t:chat.actions.fields.scope", value: "t:chat.actions.scopes.whole_venue" },
+      { label: "t:chat.actions.fields.weekdays", value: "Monday, Friday" },
+      { label: "t:chat.actions.fields.from", value: "Tuesday, Jan 5" },
+      { label: "t:chat.actions.fields.to", value: "Tuesday, Jan 26" },
+    ]);
+  });
+
+  it("states a regular-hours change as the service, days and times", () => {
+    const { title, details } = describeIn("set_regular_hours", {
+      service: "Dinner",
+      weekdays: ["Saturday"],
+      opensAt: "17:00",
+      lastSeating: "21:30",
+      closesAt: "23:00",
+    });
+
+    expect(title).toBe("t:chat.actions.set_regular_hours");
+    expect(details.map((d) => d.label)).toEqual([
+      "t:chat.actions.fields.service",
+      "t:chat.actions.fields.weekdays",
+      "t:chat.actions.fields.opensAt",
+      "t:chat.actions.fields.lastSeating",
+      "t:chat.actions.fields.closesAt",
+    ]);
+    expect(details[2]!.value).toMatch(/5:00/);
   });
 
   it("states a whole-venue close on the confirm bar", () => {
@@ -462,6 +592,29 @@ describe("describeChatAction floor plan actions", () => {
 
     expect(title).toBe("t:chat.actions.activate_floor_plan");
     expect(details).toEqual([{ label: "t:chat.actions.fields.floorPlan", value: "Patio" }]);
+  });
+});
+
+// #9493: approving an Autopilot move shows who and where, never the move's id.
+describe("describeChatAction autopilot approval", () => {
+  const t = (key: string) => `t:${key}`;
+
+  it("titles the move and shows its party and table, hiding the id", () => {
+    const approve = describeChatAction(
+      {
+        actionId: "c1",
+        toolName: "approve_autopilot_move",
+        toolInput: { moveId: "reseat:r1>t2", party: "Ana", to: "Two-top" },
+      },
+      t,
+      () => undefined
+    );
+
+    expect(approve.title).toBe("t:chat.actions.approve_autopilot_move");
+    expect(approve.details).toEqual([
+      { label: "t:chat.actions.fields.party", value: "Ana" },
+      { label: "t:chat.actions.fields.to", value: "Two-top" },
+    ]);
   });
 });
 

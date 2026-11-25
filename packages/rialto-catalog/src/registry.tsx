@@ -25,6 +25,11 @@
 import { defineRegistry } from "@json-render/react";
 import {
   Accordion,
+  Autocomplete,
+  Collapsible,
+  DateRangePicker,
+  InputGroup,
+  TextArea,
   Alert,
   AppBar,
   AspectRatio,
@@ -37,23 +42,40 @@ import {
   Card,
   Checkbox,
   Combobox,
+  CommandPalette,
+  ConfirmDialog,
+  ContextMenu,
   DataList,
   DataTable,
   DepartureBoard,
   Dialog,
+  DisabledTooltip,
   Divider,
   Drawer,
   DropdownMenu,
   EmptyState,
+  ErrorBoundary,
   Footer,
+  GlobalNav,
   GuestCards,
   Handshake,
+  Heading,
+  Hero,
+  HoverCard,
   IconButton,
+  ImageUpload,
   Input,
+  Kbd,
+  MasterOverride,
+  Meter,
+  Navbar,
   NavigationMenu,
   NumberInput,
+  PageHeader,
   PinInput,
+  Pagination,
   Popover,
+  Progress,
   ReservationList,
   ScrollArea,
   SegmentedControl,
@@ -61,19 +83,24 @@ import {
   Sidebar,
   Skeleton,
   Slider,
+  SplitScreenExit,
   Stack,
   Stat,
   StatusLED,
+  Steps,
   Table,
   Tabs,
   Tag,
   Text,
+  ThemeToggle,
   Timeline,
   TimeSlots,
   Toggle,
+  Tree,
   Tooltip,
 } from "@mattbutlerengineering/rialto";
 import type {
+  DateRangeValue,
   DepartureBoardProps,
   GuestCard,
   ReservationListRow,
@@ -85,7 +112,14 @@ import type {
 import { catalog } from "./catalog.js";
 import { catalogMeta } from "./generated-catalog.js";
 import { generatedSchemas } from "./generated-schemas.js";
-import { Children, useState, type ComponentProps, type CSSProperties, type ReactNode } from "react";
+import {
+  Children,
+  useEffect,
+  useState,
+  type ComponentProps,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 
 const TIMELINE_STATUSES: ReadonlySet<string> = new Set([
   "completed",
@@ -148,7 +182,8 @@ function slotOr(children: ReactNode, words: unknown): ReactNode {
   return Children.count(children) > 0 ? children : (words as ReactNode);
 }
 
-type MenuEntries = ComponentProps<typeof DropdownMenu>["items"];
+type MenuEntries = ComponentProps<typeof DropdownMenu>["items"] &
+  ComponentProps<typeof ContextMenu>["items"];
 
 /** Spec entries as menu entries; an item with a blank label reads as missing and is dropped. */
 function toMenuEntries(entries: readonly MenuEntrySpec[], onSelect: () => void): MenuEntries {
@@ -244,10 +279,107 @@ function NumberInputAdapter({ props, emit }: AdapterArgs<NumberInputSpecProps>) 
   );
 }
 
+interface DateRangePickerSpecProps {
+  min?: string;
+  max?: string;
+  locale?: string;
+  label?: string;
+  placeholder?: string;
+  placement?: "top" | "bottom" | "left" | "right";
+}
+
+/** DateRangePicker is fully controlled, so the picked range is held here. */
+function DateRangePickerAdapter({ props, emit }: AdapterArgs<DateRangePickerSpecProps>) {
+  const [value, setValue] = useState<DateRangeValue>({ start: null, end: null });
+  return (
+    <DateRangePicker
+      {...props}
+      value={value}
+      onChange={(next) => {
+        setValue(next);
+        emit("change");
+      }}
+    />
+  );
+}
+
+interface TextAreaSpecProps {
+  label?: string;
+  hint?: string;
+  error?: boolean;
+  autoResize?: boolean;
+  maxLength?: number;
+  disabledReason?: string;
+  showOptional?: boolean;
+}
+
+interface AutocompleteSpecProps {
+  label?: string;
+  hint?: string;
+  options: { value: string; label: string }[];
+  emptyText?: string;
+  showOptional?: boolean;
+}
+
+interface CollapsibleSpecProps {
+  trigger: string;
+  open?: boolean;
+  defaultOpen?: boolean;
+  disabled?: boolean;
+  headingTag?: "h2" | "h3" | "h4" | "h5" | "h6";
+}
+
 interface SegmentedControlSpecProps {
   segments: { id: string; label: string; disabled?: boolean }[];
   value?: string;
   size?: "sm" | "md";
+}
+
+type MasterOverrideSpecProps = Omit<ComponentProps<typeof MasterOverride>, "onChange">;
+
+/** MasterOverride is fully controlled; hold `on` here or the switch never moves. */
+function MasterOverrideAdapter({ props, emit }: AdapterArgs<MasterOverrideSpecProps>) {
+  const [on, setOn] = useState<boolean>(props.on);
+  return (
+    <MasterOverride
+      {...props}
+      on={on}
+      onChange={(next) => {
+        setOn(next);
+        emit("change");
+      }}
+    />
+  );
+}
+
+type ImageUploadSpecProps = Omit<
+  ComponentProps<typeof ImageUpload>,
+  "onChange" | "onValidationError"
+>;
+
+/** ImageUpload previews only from `value`; hold a local preview URL and validation error here. */
+function ImageUploadAdapter({ props, emit }: AdapterArgs<ImageUploadSpecProps>) {
+  const [preview, setPreview] = useState<string | undefined>(props.value);
+  const [error, setError] = useState<string | undefined>(props.error);
+  useEffect(
+    () => () => {
+      if (preview?.startsWith("blob:")) URL.revokeObjectURL(preview);
+    },
+    [preview]
+  );
+  return (
+    <ImageUpload
+      {...props}
+      value={preview}
+      error={error}
+      onChange={(file) => {
+        setError(undefined);
+        setPreview(file ? URL.createObjectURL(file) : undefined);
+        emit("change");
+      }}
+      onValidationError={setError}
+    />
+  );
 }
 
 /** SegmentedControl is fully controlled, so the selected id is held here. */
@@ -260,6 +392,28 @@ function SegmentedControlAdapter({ props, emit }: AdapterArgs<SegmentedControlSp
       value={value}
       onChange={(next) => {
         setValue(next);
+        emit("change");
+      }}
+    />
+  );
+}
+
+interface PaginationSpecProps {
+  page: number;
+  totalPages: number;
+  siblingCount?: number;
+  ariaLabel?: string;
+}
+
+/** Pagination is fully controlled, so the current page is held here. */
+function PaginationAdapter({ props, emit }: AdapterArgs<PaginationSpecProps>) {
+  const [page, setPage] = useState<number>(props.page);
+  return (
+    <Pagination
+      {...props}
+      page={page}
+      onChange={(next) => {
+        setPage(next);
         emit("change");
       }}
     />
@@ -753,6 +907,101 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
         )
       ),
 
+      // Overlays: `open` is host-supplied (a spec has no state store); the user's choice is
+      // emitted as an event. HoverCard and ContextMenu open from their trigger, uncontrolled.
+      ConfirmDialog: typed(
+        ({
+          props,
+          emit,
+        }: AdapterArgs<{
+          open: boolean;
+          title: string;
+          description?: string;
+          confirmLabel?: string;
+          cancelLabel?: string;
+          variant?: "default" | "destructive";
+        }>) => (
+          <ConfirmDialog
+            {...props}
+            onConfirm={() => emit("confirm")}
+            onCancel={() => emit("cancel")}
+          />
+        )
+      ),
+
+      CommandPalette: typed(
+        ({
+          props,
+          emit,
+        }: AdapterArgs<{
+          open: boolean;
+          items: { id: string; label: string; group?: string; shortcut?: string[] }[];
+          placeholder?: string;
+        }>) => (
+          <CommandPalette
+            open={props.open}
+            onOpenChange={(next) => {
+              if (!next) emit("close");
+            }}
+            placeholder={props.placeholder}
+            items={props.items.map((item) => ({ ...item, onSelect: () => emit("select") }))}
+          />
+        )
+      ),
+
+      HoverCard: typed(
+        ({
+          props,
+          children,
+        }: AdapterArgs<{
+          content?: string;
+          placement?: "top" | "bottom";
+          openDelay?: number;
+          closeDelay?: number;
+        }>) => (
+          <HoverCard {...props} content={props.content ?? null}>
+            <span>{children}</span>
+          </HoverCard>
+        )
+      ),
+
+      ContextMenu: typed(({ props, children, emit }: AdapterArgs<{ items: MenuEntrySpec[] }>) => (
+        <ContextMenu items={toMenuEntries(props.items, () => emit("select"))}>
+          <div>{children}</div>
+        </ContextMenu>
+      )),
+
+      // System and utility. Host state (theme, active) comes from the spec; actions are events.
+      ErrorBoundary: typed(({ children }: AdapterArgs<Record<string, never>>) => (
+        <ErrorBoundary>{children}</ErrorBoundary>
+      )),
+
+      ThemeToggle: typed(({ props, emit }: AdapterArgs<{ theme: "light" | "dark" }>) => (
+        <ThemeToggle theme={props.theme} onToggle={() => emit("toggle")} />
+      )),
+
+      DisabledTooltip: typed(
+        ({ props, children }: AdapterArgs<{ disabled?: boolean; disabledReason?: string }>) => (
+          <DisabledTooltip disabled={props.disabled} disabledReason={props.disabledReason}>
+            {children}
+          </DisabledTooltip>
+        )
+      ),
+
+      SplitScreenExit: typed(
+        ({ props, children, emit }: AdapterArgs<{ active: boolean; announcement?: string }>) => (
+          <SplitScreenExit
+            active={props.active}
+            announcement={props.announcement}
+            onExitComplete={() => emit("exitComplete")}
+          >
+            {children}
+          </SplitScreenExit>
+        )
+      ),
+
+      Kbd: typed(({ props }: AdapterArgs<{ children: string }>) => <Kbd>{props.children}</Kbd>),
+
       Tooltip: typed(
         ({
           props,
@@ -811,6 +1060,30 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
         <NumberInputAdapter props={props} emit={emit} />
       )),
 
+      DateRangePicker: typed(({ props, emit }: AdapterArgs<DateRangePickerSpecProps>) => (
+        <DateRangePickerAdapter props={props} emit={emit} />
+      )),
+
+      TextArea: typed(({ props }: AdapterArgs<TextAreaSpecProps>) => <TextArea {...props} />),
+
+      Autocomplete: typed(({ props, emit }: AdapterArgs<AutocompleteSpecProps>) => (
+        <Autocomplete
+          label={props.label}
+          hint={props.hint}
+          options={props.options}
+          emptyText={props.emptyText}
+          showOptional={props.showOptional}
+          onChange={() => emit("change")}
+          onSelect={() => emit("select")}
+        />
+      )),
+
+      InputGroup: ({ children }: { children?: ReactNode }) => <InputGroup>{children}</InputGroup>,
+
+      Collapsible: typed(({ props, children }: AdapterArgs<CollapsibleSpecProps>) => (
+        <Collapsible {...props}>{children}</Collapsible>
+      )),
+
       SegmentedControl: typed(({ props, emit }: AdapterArgs<SegmentedControlSpecProps>) => (
         <SegmentedControlAdapter props={props} emit={emit} />
       )),
@@ -830,6 +1103,57 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
           disabled?: boolean;
           disabledReason?: string;
         }>) => <Slider {...props} onChange={() => emit("change")} />
+      ),
+
+      Pagination: typed(({ props, emit }: AdapterArgs<PaginationSpecProps>) => (
+        <PaginationAdapter props={props} emit={emit} />
+      )),
+
+      Progress: typed(
+        ({
+          props,
+        }: AdapterArgs<{
+          value?: number;
+          label?: string;
+          showValue?: boolean;
+          size?: "sm" | "md" | "lg";
+        }>) => <Progress {...props} />
+      ),
+
+      MasterOverride: typed(({ props, emit }: AdapterArgs<MasterOverrideSpecProps>) => (
+        <MasterOverrideAdapter props={props} emit={emit} />
+      )),
+
+      ImageUpload: typed(({ props, emit }: AdapterArgs<ImageUploadSpecProps>) => (
+        <ImageUploadAdapter props={props} emit={emit} />
+      )),
+      Tree: typed(({ props, emit }: AdapterArgs<Omit<ComponentProps<typeof Tree>, "onSelect">>) => (
+        <Tree {...props} onSelect={() => emit("select")} />
+      )),
+
+      Meter: typed(
+        ({
+          props,
+        }: AdapterArgs<{
+          value?: number | null;
+          min?: number;
+          max?: number;
+          label?: string;
+          variant?: "default" | "accent" | "success" | "error";
+          showValue?: boolean;
+          size?: "sm" | "md";
+        }>) => <Meter {...props} value={props.value ?? null} />
+      ),
+
+      Steps: typed(
+        ({
+          props,
+        }: AdapterArgs<{
+          steps: { label: string; description?: string }[];
+          currentStep: number;
+          orientation?: "horizontal" | "vertical";
+          compact?: boolean;
+        }>) => <Steps {...props} />
       ),
 
       Table: ({ props }: any) => (
@@ -1033,6 +1357,62 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
       ),
 
       Footer: ({ props, children }: any) => <Footer variant={props.variant}>{children}</Footer>,
+
+      // Navigation and page structure (#9519). Slot-like props (logo, actions, meta, footer)
+      // arrive as plain text from a spec, which is a valid node.
+      Navbar: typed(({ props }: AdapterArgs<ComponentProps<typeof Navbar>>) => (
+        <Navbar
+          logo={props.logo}
+          user={props.user}
+          links={props.links}
+          footer={props.footer}
+          label={props.label}
+        />
+      )),
+
+      GlobalNav: typed(({ props }: AdapterArgs<ComponentProps<typeof GlobalNav>>) => (
+        <GlobalNav
+          currentApp={props.currentApp}
+          currentPath={props.currentPath}
+          theme={props.theme}
+          mobileMenuOpen={props.mobileMenuOpen}
+        />
+      )),
+
+      PageHeader: typed(({ props, children }: AdapterArgs<ComponentProps<typeof PageHeader>>) => (
+        <PageHeader
+          title={props.title}
+          breadcrumbs={props.breadcrumbs}
+          breadcrumbLabel={props.breadcrumbLabel}
+          actions={props.actions}
+          meta={props.meta}
+        >
+          {children}
+        </PageHeader>
+      )),
+
+      Heading: typed(({ props, children }: AdapterArgs<ComponentProps<typeof Heading>>) => (
+        <Heading
+          level={props.level}
+          size={props.size}
+          color={props.color}
+          align={props.align}
+          truncate={props.truncate}
+        >
+          {slotOr(children, props.children)}
+        </Heading>
+      )),
+
+      Hero: typed(({ props }: AdapterArgs<ComponentProps<typeof Hero>>) => (
+        <Hero
+          eyebrow={props.eyebrow}
+          title={props.title}
+          subtitle={props.subtitle}
+          actions={props.actions}
+          minHeight={props.minHeight}
+          showDivider={props.showDivider}
+        />
+      )),
     })
   ),
 

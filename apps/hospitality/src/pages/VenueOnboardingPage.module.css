@@ -8,6 +8,33 @@
   max-width: 64rem;
 }
 
+/* Chat steps (#9474): room for the chat beside the form. */
+.wizardContainerChat {
+  max-width: 64rem;
+}
+
+/* Chat first, form directly below on a phone; side by side once there is room. Both columns
+   take min-width 0 so a long time-zone label cannot push the page sideways. */
+.chatLayoutHost {
+  container-type: inline-size;
+  width: 100%;
+}
+
+.chatLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--rialto-space-lg);
+  align-items: start;
+}
+
+/* Split by the width the layout really has (the brand panel takes its share of the viewport),
+   not by the viewport: each column then keeps room for a form field or a chat message. */
+@container (min-width: 46rem) {
+  .chatLayout {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
 /* The vertical rail in the brand panel is the desktop progress view; hide the
    condensed horizontal indicator there to avoid a duplicate. */
 @media (min-width: 768px) {

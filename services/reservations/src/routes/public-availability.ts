@@ -1,4 +1,5 @@
-import type { FastifyPluginAsync } from "fastify";
+import type { FastifyPluginAsync, FastifyRequest } from "fastify";
+import { ANY_TIME_MINUTE, type NoSlotSearchKey } from "../services/lost-demand.js";
 import type { PublicAvailabilityDatesResponse, PublicAvailabilityResponse } from "@mbe/types";
 import {
   createProblemDetails,
@@ -16,12 +17,46 @@ const MAX_DATES_RANGE_DAYS = 60;
 /** Dates ignore party size, so the listing asks the engine as a party of two. */
 const DATES_LISTING_PARTY_SIZE = 2;
 
+/**
+ * The minute (since local midnight) the guest asked for that had no slot, or
+ * `ANY_TIME_MINUTE` when no time was named and the whole day had none; `null`
+ * when the search was served. Slot times are `YYYY-MM-DDTHH:mm:ss` local.
+ */
+function missedMinute(open: ReadonlyArray<{ time: string }>, time: string | undefined) {
+  if (time === undefined) return open.length === 0 ? ANY_TIME_MINUTE : null;
+  const [hours, minutes] = time.split(":").map(Number);
+  const requested = (hours ?? 0) * 60 + (minutes ?? 0);
+  const served = open.some(
+    (s) => Number(s.time.slice(11, 13)) * 60 + Number(s.time.slice(14, 16)) === requested
+  );
+  return served ? null : requested;
+}
+
 export const publicAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
-  const { availabilityService, venueService } = fastify.services;
+  const { availabilityService, venueService, lostDemandService } = fastify.services;
+
+  /** Never slows or fails the guest's response: errors are logged, not thrown. */
+  function recordLostDemand(search: NoSlotSearchKey, request: FastifyRequest): void {
+    const sessionHeader = request.headers["x-session-id"];
+    const signals = {
+      sessionId: typeof sessionHeader === "string" && sessionHeader ? sessionHeader : undefined,
+      ip: request.ip,
+      userAgent: request.headers["user-agent"],
+    };
+    try {
+      void Promise.resolve(
+        lostDemandService.recordNoSlotSearch(search, signals, request.log)
+      ).catch((error: unknown) =>
+        request.log.warn({ err: error }, "lost-demand: recorder rejected")
+      );
+    } catch (error) {
+      request.log.warn({ err: error }, "lost-demand: recorder threw");
+    }
+  }
 
   fastify.get<{
     Params: { slug: string };
-    Querystring: { date: string; partySize: string };
+    Querystring: { date: string; partySize: string; time?: string };
     Reply: PublicAvailabilityResponse | ReturnType<typeof createProblemDetails>;
   }>(
     "/:slug/availability",
@@ -51,7 +86,7 @@ export const publicAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
       },
       async (request, reply) => {
         const { slug } = request.params;
-        const { date, partySize } = request.query;
+        const { date, partySize, time } = request.query;
 
         // ADR-026 §3.3 item 3: resolve via the SECURITY DEFINER function, then
         // run the rest of the lookup (venue re-fetch + slot generation) inside
@@ -81,7 +116,20 @@ export const publicAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
           { logger: request.log }
         );
 
-        return reply.send({ data: slots.filter((s) => s.available), ...notices });
+        const open = slots.filter((s) => s.available);
+
+        // Fire-and-forget: a closed or paused day is not turned-away demand.
+        if (!notices.closure && !notices.bookingPaused) {
+          const requestedMinute = missedMinute(open, time);
+          if (requestedMinute !== null) {
+            recordLostDemand(
+              { venueId: venue.id, date, requestedMinute, partySize: partySizeResult.value },
+              request
+            );
+          }
+        }
+
+        return reply.send({ data: open, ...notices });
       }
     )
   );

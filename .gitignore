@@ -112,6 +112,7 @@ test-results/
 # Stryker mutation testing artifacts
 .stryker-tmp/
 reports/mutation/
+reports/mutation-reservations/
 # Durable runtime telemetry (#3645). The block below is DERIVED from the
 # `durable` flags in scripts/metrics-store.mjs — edit the registry, then run
 # `node scripts/metrics-store.mjs --sync-gitignore`. Drift is a test failure
@@ -173,6 +174,9 @@ storybook-static
 
 # Playwright MCP browser session artifacts
 .playwright-mcp/
+
+# Checkout of the orphan metrics-data branch (scripts/metrics-data.mjs)
+/.metrics-data/
 
 # AI-generated plan/spec docs (superpowers artifacts)
 docs/superpowers/plans/

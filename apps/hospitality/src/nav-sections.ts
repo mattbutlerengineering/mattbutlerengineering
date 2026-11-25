@@ -112,6 +112,7 @@ function buildOperationalSections(isAdmin: boolean, t: TFunction): readonly NavS
   const PRIMARY: NavSection = {
     items: [
       route("briefing", t("nav.items.tonightsService"), "/briefing"),
+      route("night", t("nav.items.night"), "/night"),
       route("timeline", t("nav.items.timeline"), "/timeline"),
       route("reservations", t("nav.items.reservations"), "/reservations"),
       route("waitlist", t("nav.items.waitlist"), "/waitlist"),

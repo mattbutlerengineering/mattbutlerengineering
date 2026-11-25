@@ -32,20 +32,16 @@ export function isEngineeringPageCurrent(pathname: string, href: string): boolea
 }
 
 /**
- * The "Engineering" dropdown for GlobalNav. Gen is a sibling app (served at the
- * edge, full page load) rather than an engineering dashboard, so it is listed
- * but never marked current.
+ * The "Engineering" dropdown for GlobalNav. Gen is a sibling app with its own
+ * top-level GlobalNav item, so it is not repeated here.
  */
 export function engineeringMenu(pathname: string): EngineeringMenu {
   return {
     label: "Engineering",
-    items: [
-      ...ENGINEERING_PAGES.map((page) => ({
-        ...page,
-        current: isEngineeringPageCurrent(pathname, page.href),
-      })),
-      { label: "Gen", href: "/gen/" },
-    ],
+    items: ENGINEERING_PAGES.map((page) => ({
+      ...page,
+      current: isEngineeringPageCurrent(pathname, page.href),
+    })),
   };
 }
 

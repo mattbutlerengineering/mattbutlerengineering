@@ -25,12 +25,28 @@ jobs:
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile
       - run: pnpm build --filter @mbe/gh-client...
+      - name: Check out metrics-data
+        # Telemetry lives on the orphan metrics-data branch, not main
+        # (scripts/metrics-data.mjs). metrics-store reads and writes it in .metrics-data/.
+        run: node scripts/metrics-data.mjs pull
+
       - name: Generate PR metrics
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/pr-metrics.mjs
       - name: Generate dashboard metrics
         run: node scripts/generate-metrics-json.mjs
+      - name: Push metrics to metrics-data
+        # A direct push: no PR, no CI run (no workflow triggers on this
+        # branch), and a rejected push rebases and retries instead of
+        # resetting a fixed branch and dropping the earlier row.
+        env:
+          GIT_AUTHOR_NAME: "github-actions[bot]"
+          GIT_AUTHOR_EMAIL: "41898282+github-actions[bot]@users.noreply.github.com"
+          GIT_COMMITTER_NAME: "github-actions[bot]"
+          GIT_COMMITTER_EMAIL: "41898282+github-actions[bot]@users.noreply.github.com"
+        run: 'node scripts/metrics-data.mjs push -m "chore(metrics): pr acceptance"'
+
       - name: Open PR with updated metrics
         id: create-pr
         uses: peter-evans/create-pull-request@3ffccacd46053766916f087ce41d627c0b8cf2d1 # v8.1.3
@@ -58,7 +74,6 @@ jobs:
           branch: automation/pr-acceptance-metrics
           delete-branch: true
           add-paths: |
-            metrics/pr-acceptance.json
             apps/marketing/public/metrics.json
           labels: auto-merge
       - name: Dispatch CI on the automation branch

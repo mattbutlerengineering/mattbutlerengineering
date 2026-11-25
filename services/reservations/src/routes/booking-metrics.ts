@@ -1,17 +1,210 @@
 import type { FastifyPluginAsync } from "fastify";
 import type { ProblemDetails } from "@mbe/types";
-import { createProblemDetails } from "@mbe/types";
+import {
+  autopilotProposalsEndpoints,
+  createProblemDetails,
+  endOfServiceEndpoints,
+  lostDemandEndpoints,
+} from "@mbe/types";
 import { requireAuth } from "@mbe/auth/fastify";
+import { registerEndpoint } from "@mbe/service-bootstrap";
 import { validateDateString } from "@mbe/database";
 import { venueScoped } from "./venue-scope.js";
 import { bookingMetricsService, type DailyBookingMetrics } from "../services/booking-metrics.js";
+import { autopilotProposalsService } from "../services/autopilot-proposals.js";
+import { lostDemandWhatIfService } from "../services/lost-demand-what-if.js";
+import { endOfServiceSummaryService } from "../services/end-of-service-summary.js";
+import {
+  MAX_WINDOW_DAYS,
+  defaultWindowStart,
+  lostDemandReportService,
+  windowDays,
+} from "../services/lost-demand-report.js";
 
 /** Today's date as YYYY-MM-DD (UTC), the default window when no `date` is given. */
 function todayDateString(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+/** Why a lost-demand window is unusable, or null when it is a real range of at most 92 days. */
+function windowProblem(from: string, to: string): string | null {
+  const invalid = [validateDateString(from), validateDateString(to)].find((r) => !r.valid);
+  if (invalid && !invalid.valid) return invalid.error;
+  const days = windowDays(from, to);
+  return days < 1 || days > MAX_WINDOW_DAYS
+    ? `from must not be after to, and the window may span at most ${MAX_WINDOW_DAYS} days`
+    : null;
+}
+
 export const bookingMetricsRoutes: FastifyPluginAsync = async (fastify) => {
+  // End-of-service summary (#9482): counts only, for the venue's own service date.
+  registerEndpoint(fastify, endOfServiceEndpoints.get, {
+    docs: {
+      summary: "Get the end-of-service summary",
+      operationId: "getEndOfServiceSummary",
+      description:
+        "Counts-only summary for one service date at a venue: covers (party sizes of completed " +
+        "reservations), table turns (completed seatings) and no-shows. `turnedAway` is null until " +
+        "the Lost Demand Ledger fills it. The date is the venue's service day and defaults to " +
+        "today in the venue's own time zone. Never returns a reservation id or any guest detail. " +
+        "Requires venue membership.",
+      tags: ["Metrics"],
+      security: [{ bearerAuth: [] }],
+    },
+    preHandler: requireAuth,
+    handler: venueScoped(
+      {
+        venue: {
+          from: "query",
+          field: "venueId",
+          missing: "venueId query parameter is required",
+        },
+      },
+      async (request, reply, { venueId }) => {
+        const date =
+          request.query.date ?? (await endOfServiceSummaryService.defaultServiceDate(venueId));
+        const dateResult = validateDateString(date);
+        if (!dateResult.valid) {
+          return reply.code(400).send(createProblemDetails(400, "Bad Request", dateResult.error));
+        }
+        return { data: await endOfServiceSummaryService.getSummary({ venueId, date }) };
+      }
+    ),
+  });
+
+  // Autopilot proposals (#9492): read-only suggestions for tonight; nothing here applies a move.
+  registerEndpoint(fastify, autopilotProposalsEndpoints.get, {
+    docs: {
+      summary: "Get tonight's Autopilot proposals",
+      operationId: "getAutopilotProposals",
+      description:
+        "Up to three moves the rule-based engine suggests for the venue's current service date: " +
+        "reseating a booked party or offering a table to a waiting party, each with a plain " +
+        "reason. Suggestions only; nothing is applied. Requires venue membership.",
+      tags: ["Metrics"],
+      security: [{ bearerAuth: [] }],
+    },
+    preHandler: requireAuth,
+    handler: venueScoped(
+      {
+        venue: {
+          from: "query",
+          field: "venueId",
+          missing: "venueId query parameter is required",
+        },
+      },
+      async (request, reply, { venueId }) => {
+        const { date } = request.query;
+        if (date !== undefined) {
+          const dateResult = validateDateString(date);
+          if (!dateResult.valid) {
+            return reply.code(400).send(createProblemDetails(400, "Bad Request", dateResult.error));
+          }
+        }
+        // No date: the service resolves the venue's current service date (ADR-029), not the calendar day.
+        return {
+          data: await autopilotProposalsService.getProposals({
+            venueId,
+            ...(date === undefined ? {} : { date }),
+          }),
+        };
+      }
+    ),
+  });
+
+  // Turned-away demand by weekday and hour (#9485): counts only, from the Lost Demand Ledger.
+  registerEndpoint(fastify, lostDemandEndpoints.get, {
+    docs: {
+      summary: "Get turned-away demand by weekday and hour",
+      operationId: "getLostDemand",
+      description:
+        "Counts of public availability searches that found no slot, bucketed by the venue-local " +
+        "weekday of the service date and the hour of the requested time. Searches that named no " +
+        "time are returned separately as `anyTime`, by weekday, and are never placed in an hour. " +
+        "The window defaults to the last 28 days ending today in the venue's own time zone and may " +
+        `span at most ${MAX_WINDOW_DAYS} days. Counts only: no guest, session or IP. ` +
+        "Requires venue membership.",
+      tags: ["Metrics"],
+      security: [{ bearerAuth: [] }],
+    },
+    preHandler: requireAuth,
+    handler: venueScoped(
+      {
+        venue: {
+          from: "query",
+          field: "venueId",
+          missing: "venueId query parameter is required",
+        },
+      },
+      async (request, reply, { venueId }) => {
+        const to = request.query.to ?? (await lostDemandReportService.defaultWindow(venueId)).to;
+        const from = request.query.from ?? defaultWindowStart(to);
+        const invalid = windowProblem(from, to);
+        if (invalid) return reply.code(400).send(createProblemDetails(400, "Bad Request", invalid));
+        return { data: await lostDemandReportService.getLostDemand({ venueId, from, to }) };
+      }
+    ),
+  });
+
+  // "Add a seating at X" what-if (#9486): read-only, an estimate from the same ledger.
+  registerEndpoint(fastify, lostDemandEndpoints.whatIf, {
+    docs: {
+      summary: "Estimate the turned-away searches a new seating would have served",
+      operationId: "getLostDemandWhatIf",
+      description:
+        "Previews an unsaved candidate seating (weekday and time) through the availability preview " +
+        "and counts the recorded no-slot searches on that weekday that asked for a time within 30 " +
+        "minutes of it, for party sizes a table fits. An estimate, not a forecast: a search is not " +
+        "a booking. Whole-day misses are returned as `anyTimeSearches` and never added to the count. " +
+        "Writes nothing; availability is unchanged. Requires venue membership.",
+      tags: ["Metrics"],
+      security: [{ bearerAuth: [] }],
+    },
+    preHandler: requireAuth,
+    handler: venueScoped(
+      {
+        venue: {
+          from: "query",
+          field: "venueId",
+          missing: "venueId query parameter is required",
+        },
+      },
+      async (request, reply, { venueId }) => {
+        const { weekday, time, minParty, maxParty } = request.query;
+        if (minParty !== undefined && maxParty !== undefined && minParty > maxParty) {
+          return reply
+            .code(400)
+            .send(createProblemDetails(400, "Bad Request", "minParty must not exceed maxParty"));
+        }
+        const { from, to } = request.query;
+        // One-sided windows would skip the length check (from=2000-01-01 scans decades), so the
+        // window is either both bounds, validated, or neither (the service's 28-day default).
+        if (Boolean(from) !== Boolean(to)) {
+          return reply
+            .code(400)
+            .send(createProblemDetails(400, "Bad Request", "from and to must be given together"));
+        }
+        if (from && to) {
+          const invalid = windowProblem(from, to);
+          if (invalid)
+            return reply.code(400).send(createProblemDetails(400, "Bad Request", invalid));
+        }
+        const [hours = 0, minutes = 0] = time.split(":").map(Number);
+        const estimate = await lostDemandWhatIfService.estimate({
+          venueId,
+          weekday,
+          minute: hours * 60 + minutes,
+          ...(minParty !== undefined ? { minParty } : {}),
+          ...(maxParty !== undefined ? { maxParty } : {}),
+          ...(from ? { from } : {}),
+          ...(to ? { to } : {}),
+          now: new Date(),
+        });
+        return { data: estimate };
+      }
+    ),
+  });
+
   fastify.get<{
     Querystring: { date?: string; venueId?: string };
     Reply: { data: DailyBookingMetrics } | ProblemDetails;

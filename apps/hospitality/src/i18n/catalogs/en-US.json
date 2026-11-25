@@ -5,12 +5,71 @@
     "globalNav": {
       "marketing": "Home",
       "hospitality": "Hospitality",
-      "rialto": "Design System"
+      "rialto": "Design System",
+      "gen": "Gen Playground"
     },
     "copyright": "© {{year}} {{brand}}",
     "dashboardDocumentTitle": "Dashboard - {{brand}}"
   },
   "onboarding": {
+    "chat": {
+      "heading": "Tell us about your restaurant",
+      "region": "Setup assistant",
+      "filledTag": "Filled from chat",
+      "filledGroup": "{{field}}, filled from chat",
+      "filledAnnouncement": "{{fields}} filled from chat",
+      "fallbackNote": "Let's finish this step with the form.",
+      "rejected": "That doesn't fit this step ({{errors}}), so I left your form as it was.",
+      "tryAgain": "Try chat again",
+      "review": "Review",
+      "reviewLabel": "Review the fields filled from chat",
+      "summary": {
+        "ianaTimezone": "Time zone: {{value}}",
+        "currencyCode": "Currency: {{value}}",
+        "defaultReservationDuration": "Reservation length: {{value}} min",
+        "maxPartySize": "Parties up to {{value}}",
+        "advanceBookingDays_one": "Bookable up to {{count}} day ahead",
+        "advanceBookingDays_other": "Bookable up to {{count}} days ahead",
+        "advanceBookingToday": "Bookable today only",
+        "serviceName": "Service: {{value}}",
+        "opens": "Opens {{value}}",
+        "closes": "Closes {{value}}",
+        "lastSeating": "Last seating {{value}}",
+        "days": "Open {{value}}",
+        "templateId": "Room: {{value}}",
+        "roomSize": "Size: {{value}}"
+      },
+      "floorPlanEdited": "You've changed this layout by hand, so I left it as it was. Pick another room from the list to start over.",
+      "notOffered": {
+        "ianaTimezone": "time zone \"{{value}}\" isn't in the list",
+        "currencyCode": "currency \"{{value}}\" isn't in the list",
+        "time": "\"{{value}}\" isn't a 24-hour time like 17:30",
+        "days": "\"{{value}}\" isn't a list of days like mon,tue,fri",
+        "serviceName": "the service needs a name",
+        "templateId": "room layout \"{{value}}\" isn't offered",
+        "roomSize": "room size \"{{value}}\" isn't offered"
+      },
+      "suggestion": {
+        "locationTime": "We're in Lisbon and charge euros",
+        "settings": "Parties up to 8, 90 minutes a table, bookable 60 days ahead",
+        "hours": "Dinner Tuesday to Saturday, 5 to 10:30",
+        "floorPlan": "A casual bistro, a bit bigger than cozy"
+      },
+      "fields": {
+        "ianaTimezone": "time zone",
+        "currencyCode": "currency",
+        "defaultReservationDuration": "reservation length",
+        "maxPartySize": "largest party",
+        "advanceBookingDays": "days ahead",
+        "serviceName": "service name",
+        "opens": "opening time",
+        "closes": "closing time",
+        "lastSeating": "last seating",
+        "days": "open days",
+        "templateId": "room layout",
+        "roomSize": "room size"
+      }
+    },
     "steps": {
       "welcome": {
         "label": "Welcome",
@@ -302,6 +361,7 @@
       "settings": "Settings",
       "users": "Users",
       "tonightsService": "Tonight's Service",
+      "night": "The night in numbers",
       "timeline": "Timeline",
       "reservations": "Reservations",
       "waitlist": "Waitlist",
@@ -327,6 +387,7 @@
       "guests": "Guests",
       "waitlist": "Waitlist",
       "briefing": "Tonight's Service",
+      "night": "The night in numbers",
       "floorPlan": "Floor Plan",
       "bookingWidget": "Booking Widget",
       "onboarding": "New Venue",
@@ -668,6 +729,31 @@
       "sendWinBack": "Send win-back",
       "sendWinBackTo": "Send win-back to {{name}}"
     },
+    "turnedAway": {
+      "title": "Turned away",
+      "empty": "No guests were turned away in the last 28 days.",
+      "summary_one": "{{count}} search found no table in the last 28 days.",
+      "summary_other": "{{count}} searches found no table in the last 28 days.",
+      "tableLabel": "Turned-away searches by weekday and hour",
+      "anyTime": "No time given",
+      "anyTimeNote": "Guests in the last row named no time and found no table that day, so they are counted by weekday only, never in an hour.",
+      "loadFailed": "Couldn't load turned-away searches."
+    },
+    "whatIf": {
+      "title": "Add a seating at…",
+      "day": "Day",
+      "time": "Time",
+      "estimate_one": "Estimate: about {{count, number}} search in the last 28 days that found no table within 30 minutes of {{time}} on a {{weekday}}, roughly {{perNight, number}} a night. A seating then might have booked it.",
+      "estimate_other": "Estimate: about {{count, number}} searches in the last 28 days that found no table within 30 minutes of {{time}} on a {{weekday}}, roughly {{perNight, number}} a night. A seating then might have booked them.",
+      "none": "Estimate: no turned-away searches in the last 28 days asked for a time near {{time}} on a {{weekday}} that this seating could seat, so it would not have caught any.",
+      "anyTime_one": "{{count, number}} more search on a {{weekday}} named no time and found no table. It is not in this count.",
+      "anyTime_other": "{{count, number}} more searches on a {{weekday}} named no time and found no table. They are not in this count.",
+      "closed": "You have no service on {{weekday}}, so there is nothing to add a seating to.",
+      "alreadyOffered": "{{time}} is already bookable on a {{weekday}}, or no table fits the parties who searched, so adding it would change nothing.",
+      "blocked": "A seating at {{time}} on a {{weekday}} would run into another service or break a rule. Change your hours first to try it.",
+      "loadFailed": "Couldn't estimate this seating.",
+      "note": "An estimate from past searches, not a forecast."
+    },
     "deposit": {
       "title": "Deposit Exposure",
       "atRisk": "Deposits at risk",
@@ -881,6 +967,33 @@
       "cancel": "Cancel",
       "seatNow": "Seat now",
       "seating": "Seating…"
+    },
+    "autopilot": {
+      "heading": "Autopilot",
+      "toggleName_one": "Autopilot: {{count}} suggestion",
+      "toggleName_other": "Autopilot: {{count}} suggestions",
+      "intro": "Nothing moves until you approve it.",
+      "reseat": "Move {{party}} ({{size}}) from {{from}} to {{to}}",
+      "offer": "Seat {{party}} ({{size}}) at {{to}}",
+      "reseatWhy": "Frees {{from}} for a waiting party.",
+      "offerWhy": "{{to}} is free and fits them.",
+      "approve": "Approve",
+      "approveFor": "Approve the suggestion for {{party}}",
+      "offerNotice": "Seats them now. This can't be undone.",
+      "reseatDone": "Moved {{party}} to {{to}}",
+      "offerDone": "Seated {{party}} at {{to}}",
+      "alreadySeated": "{{party}} was already seated.",
+      "undo": "Undo",
+      "undoReseatDone": "Moved {{party}} back to {{from}}",
+      "undoFailed": "Couldn't put {{party}} back. Nothing was changed.",
+      "stale": "That suggestion no longer holds, so nothing was moved. The list is updated.",
+      "applyFailed": "Couldn't make that move. Nothing was changed.",
+      "dismissMove": "Dismiss",
+      "dismissMoveFor": "Dismiss the suggestion for {{party}}",
+      "dismissNight": "Dismiss for tonight",
+      "ghostLabel": "Suggested: {{party}}",
+      "partyFallback": "Party of {{size}}",
+      "listLabel": "Suggested moves"
     }
   },
   "onMyWayBadge": {
@@ -1249,7 +1362,7 @@
       "cancelling": "Cancelling…",
       "selectTable": "Please select a table.",
       "theTable": "the table",
-      "splitFailure": "Seated at {{table}}, but the waitlist didn't update. Refresh to tidy up.",
+      "alreadySeated": "{{name}} was already seated.",
       "notNotified": "Not notified.",
       "notRemoved": "Not removed.",
       "notSeated": "Not seated."
@@ -1624,6 +1737,8 @@
       "end_tonight_change": "End a Tonight change",
       "undo_availability_change": "Undo an availability change",
       "close_dates": "Close on dates",
+      "close_repeating_days": "Close on repeating weekdays",
+      "set_regular_hours": "Change regular hours",
       "set_special_hours": "Set special hours for a date",
       "reopen_closure": "Reopen a closure",
       "add_guest": "Add a guest",
@@ -1636,9 +1751,19 @@
       "remove_from_waitlist": "Remove from the waitlist",
       "set_menu_item_availability": "Mark a menu item sold out or available",
       "update_menu_item": "Change a menu item",
+      "create_menu": "Create a menu",
+      "reorder_menu_sections": "Reorder a menu's sections",
+      "reorder_menu_items": "Reorder a section's items",
       "activate_floor_plan": "Switch the active floor plan",
       "seat_reservation": "Seat a booked party",
       "mark_no_show": "Mark a no-show",
+      "approve_autopilot_move": "Approve an Autopilot move",
+      "pause_online_booking": "Pause online booking",
+      "resume_online_booking": "Resume online booking",
+      "pause_tables": "Pause tables",
+      "resume_tables": "Put tables back in booking",
+      "update_venue_settings": "Change venue settings",
+      "update_venue_profile": "Change the venue profile",
       "fields": {
         "guestName": "Guest",
         "partySize": "Party size",
@@ -1673,6 +1798,8 @@
         "menu": "Menu",
         "item": "Item",
         "section": "Section",
+        "sections": "New order",
+        "items": "New order",
         "availability": "Availability",
         "price": "Price",
         "description": "Description",
@@ -1682,7 +1809,20 @@
         "lastSeating": "Last seating",
         "closesAt": "Closes",
         "tellCancelledGuests": "Tell cancelled guests",
-        "scope": "Applies to"
+        "scope": "Applies to",
+        "weekdays": "Weekdays",
+        "until": "Until",
+        "message": "Message to guests",
+        "maxPartySize": "Largest party",
+        "defaultReservationDuration": "Booking length (minutes)",
+        "requirePhone": "Require a phone number",
+        "requireEmail": "Require an email",
+        "confirmationEmailEnabled": "Confirmation emails",
+        "reminderEmailEnabled": "Reminder emails",
+        "type": "Type",
+        "cuisines": "Cuisines",
+        "website": "Website",
+        "party": "Party"
       },
       "yesNo": {
         "yes": "Yes",
@@ -1693,6 +1833,7 @@
         "service": "One service"
       },
       "untilReopened": "Until reopened",
+      "cleared": "Cleared",
       "menuAvailability": {
         "sold_out": "Sold out",
         "available": "Available"
@@ -3223,10 +3364,18 @@
       "invalid": {
         "daysAhead": "Use a whole number of days from 0 to 730.",
         "noticeHours": "Use a whole number of hours from 0 to 720.",
-        "largestParty": "Use a whole number from 1 to 100."
+        "largestParty": "Use a whole number from 1 to 100.",
+        "pacingCovers": "Use a whole number of covers from 1 to 1000.",
+        "pacingMinutes": "Use a whole number of minutes from 5 to 240.",
+        "pacingNeedsCap": "Set a cap to use a window."
       },
       "saved": "Booking rules saved",
-      "saveError": "Couldn't save booking rules"
+      "saveError": "Couldn't save booking rules",
+      "pacingCovers": "Most covers per window",
+      "pacingCoversHint": "Caps how many covers can start in one window, so the kitchen isn't swamped.",
+      "pacingMinutes": "Window (minutes)",
+      "pacingMinutesDefault": "Seating interval",
+      "pacingMinutesHint": "Leave empty to use your seating interval."
     },
     "holidayNudge": {
       "line": "{{name}} is {{date}} and isn't planned yet.",
@@ -3602,6 +3751,25 @@
       "heading": "Nothing on the book for {{date}}.",
       "description": "Change the date, or seat walk-ins from the Timeline.",
       "action": "Open Timeline"
+    }
+  },
+  "night": {
+    "title": "The night in numbers",
+    "description": "How service went, on one screen",
+    "loading": "Loading the night in numbers…",
+    "loaded": "The night in numbers for {{date}} loaded.",
+    "serviceDate": "Service date",
+    "previous": "Previous night",
+    "next": "Next night",
+    "hoursUnknown": "Couldn't read your hours, so this shows the calendar day. Pick another date if you need to.",
+    "loadError": "Couldn't load the night in numbers.",
+    "covers": "Covers served",
+    "tableTurns": "Table turns",
+    "noShows": "No-shows",
+    "turnedAway": "Turned away",
+    "empty": {
+      "heading": "No seatings were completed on {{date}}.",
+      "description": "Pick another service date to look back."
     }
   },
   "profile": {
@@ -4102,7 +4270,7 @@
       },
       "tonightAutopilot": {
         "label": "Tonight Autopilot",
-        "detail": "An assistant that watches the room and proposes the reseats and guest messages itself."
+        "detail": "Watches the room and suggests the reseats and waitlist seatings. You approve a move in one tap, and a reseat can be undone."
       },
       "guestSignals": {
         "label": "Running late, or here",
@@ -4122,7 +4290,7 @@
       },
       "lostDemandLedger": {
         "label": "Lost Demand Ledger",
-        "detail": "Every booking you could not take, so you can see what a full night cost you."
+        "detail": "Every search that found no table, by weekday and hour, and an estimate of what a new seating would have caught."
       },
       "guestPassport": {
         "label": "Guest Passport",
@@ -4130,7 +4298,7 @@
       },
       "kitchenAwareBooking": {
         "label": "Kitchen-Aware Booking",
-        "detail": "Take the bookings the kitchen can cook, and know tomorrow's prep before the doors open."
+        "detail": "Set a cap on covers starting in any window, and guests are only offered the tables the kitchen can pace."
       },
       "headlessVenue": {
         "label": "Headless Venue",
@@ -4209,5 +4377,38 @@
       "email": "Tell Matt about your venue",
       "open": "Open your venue"
     }
+  },
+  "feedback": {
+    "open": "Send feedback",
+    "title": "Send feedback",
+    "typeLabel": "What kind of feedback is this?",
+    "types": {
+      "bug": "Bug",
+      "idea": "Idea",
+      "other": "Other"
+    },
+    "messageLabel": "Your message",
+    "messageHint": "At least 10 characters.",
+    "messageTooShort": "Write at least 10 characters.",
+    "emailLabel": "Email for follow-up",
+    "emailHint": "Optional. It is never posted publicly.",
+    "emailInvalid": "Enter a valid email address.",
+    "contextHeading": "We'll include:",
+    "context": {
+      "app": "App",
+      "page": "Page",
+      "screen": "Screen",
+      "version": "Version",
+      "user": "User ID"
+    },
+    "submit": "Send",
+    "submitting": "Sending",
+    "cancel": "Cancel",
+    "done": "Done",
+    "retry": "Try again",
+    "errorTitle": "We couldn't send your feedback",
+    "errorBody": "Your message is still here. Check your connection and try again.",
+    "successTitle": "Thanks, we got it",
+    "successBody": "Filed as issue #{{number}}."
   }
 }
