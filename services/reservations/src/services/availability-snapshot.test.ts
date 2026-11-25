@@ -170,6 +170,22 @@ describe("loadAvailabilitySnapshot", () => {
     expect(snapshot.tables.map((t) => t.id)).toEqual(["t1"]);
   });
 
+  it("reads the column's `{}` default as no rules, and keeps a service's pacing", async () => {
+    const pacing = { version: 1, pacing: { covers: 8, windowMinutes: 30 } };
+    const { db } = fakeDb({
+      scheduleServices: [
+        { ...goodScheduleService, id: "plain", rules: {} },
+        { ...goodScheduleService, id: "paced", rules: pacing },
+      ],
+    });
+    const { snapshot } = await loadAvailabilitySnapshot("v1", "2026-11-05", "2026-11-05", now, {
+      db,
+    });
+    const [plain, paced] = snapshot.config.scheduleServices;
+    expect(plain).not.toHaveProperty("rules");
+    expect(paced?.rules).toEqual(pacing);
+  });
+
   it("loads a schedule service with an unknown seating version as closed, with a warning", async () => {
     const { db } = fakeDb({
       scheduleServices: [{ ...goodScheduleService, seating: { version: 2, interval: 15 } }],

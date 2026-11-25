@@ -86,6 +86,21 @@ export const RepeatSchema = z.object({
   weekdays: z.array(WeekdayIndexSchema).min(1),
 });
 
+/**
+ * Per-service value rules, stored in `schedule_services.rules`. Additive: a row saved before it
+ * (`{}`) parses as no rules. `pacing` caps covers seated per `windowMinutes` for that service; the
+ * venue cap and Tonight still apply, so it can only lower what a service accepts.
+ */
+export const ServiceRulesSchema = z.strictObject({
+  version: z.literal(1).optional(),
+  pacing: z
+    .strictObject({
+      covers: z.number().int().min(1),
+      windowMinutes: z.number().int().min(1).max(240),
+    })
+    .optional(),
+});
+
 const ServiceHoursFields = {
   opensAt: OpeningMinuteSchema,
   lastSeatingAt: MinuteSchema,
@@ -156,6 +171,8 @@ export const ScheduleServiceSchema = z.object({
   weekdays: z.array(WeekdayIndexSchema).default([]),
   /** Other hours on some weekdays; absent reads as no sets, so stored rows and old inverses parse. */
   dayHours: DayHoursSchema.default({ version: 1, sets: [] }),
+  /** Per-service rules; absent reads as none, so stored rows and old inverses parse. */
+  rules: ServiceRulesSchema.optional(),
 });
 
 export const ScheduleAssignmentSchema = z.object({
@@ -220,6 +237,7 @@ export const AvailabilityConfigSchema = z.object({
 });
 
 export type DayHoursSet = z.infer<typeof DayHoursSetSchema>;
+export type ServiceRules = z.infer<typeof ServiceRulesSchema>;
 export type DayHours = z.infer<typeof DayHoursSchema>;
 export type Seating = z.infer<typeof SeatingSchema>;
 export type AvailabilityWindow = z.infer<typeof WindowSchema>;

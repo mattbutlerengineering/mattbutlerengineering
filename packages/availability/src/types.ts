@@ -18,6 +18,8 @@ export interface ResolvedService extends Pick<
   /** `null` for a service from special hours. */
   scheduleServiceId: string | null;
   name: string;
+  /** This service's own pacing cap (covers per window); the venue cap and Tonight still apply. */
+  pacing?: { covers: number; windowMinutes: number };
 }
 
 export const WEEKDAYS = [

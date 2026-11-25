@@ -64,6 +64,7 @@ function toResolved(
     closesAt: service.closesAt,
     seating: service.seating,
     bookingTypes: service.bookingTypes,
+    ...("rules" in service && service.rules?.pacing ? { pacing: service.rules.pacing } : {}),
   };
 }
 

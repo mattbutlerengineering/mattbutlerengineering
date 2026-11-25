@@ -133,7 +133,9 @@ export function checkTableConflict(
 
 /**
  * Covers starting in the pacing window, plus this party, against the cap: the
- * venue's first pacing rule, lowered by `coverCap` (Tonight) when given.
+ * venue's first pacing rule, lowered by `coverCap` (Tonight) when given. A
+ * `servicePacing` cap is checked on its own window besides, so a service can
+ * only lower what the venue accepts.
  */
 export function checkPacingForSlot(
   startTime: Date,
@@ -142,23 +144,31 @@ export function checkPacingForSlot(
   reservations: readonly ReservationSlim[],
   holds: readonly HoldSlim[],
   now: Date,
-  coverCap?: number
+  coverCap?: number,
+  servicePacing?: { covers: number; windowMinutes: number }
 ): boolean {
+  const fits = (cap: number, windowMinutes: number): boolean => {
+    const windowEnd = new Date(startTime.getTime() + windowMinutes * MS_PER_MINUTE);
+    const inWindow = (s: { startTime: Date }) =>
+      s.startTime >= startTime && s.startTime < windowEnd;
+    const reservationCovers = reservations
+      .filter(inWindow)
+      .reduce((sum, r) => sum + r.partySize, 0);
+    const holdCovers = holds
+      .filter((h) => h.expiresAt > now && inWindow(h))
+      .reduce((sum, h) => sum + h.partySize, 0);
+    return reservationCovers + holdCovers + partySize <= cap;
+  };
+
   const rule = settings?.pacingRules?.[0];
   const cap = Math.min(rule?.maxCoversPerSlot ?? Infinity, coverCap ?? Infinity);
-  if (cap === Infinity) return true;
-
   const windowMinutes =
     rule?.timeWindowMinutes ?? settings?.slotIntervalMinutes ?? DEFAULT_SLOT_INTERVAL;
-  const windowEnd = new Date(startTime.getTime() + windowMinutes * MS_PER_MINUTE);
-  const inWindow = (s: { startTime: Date }) => s.startTime >= startTime && s.startTime < windowEnd;
-
-  const reservationCovers = reservations.filter(inWindow).reduce((sum, r) => sum + r.partySize, 0);
-  const holdCovers = holds
-    .filter((h) => h.expiresAt > now && inWindow(h))
-    .reduce((sum, h) => sum + h.partySize, 0);
-
-  return reservationCovers + holdCovers + partySize <= cap;
+  const venueOk = cap === Infinity || fits(cap, windowMinutes);
+  return (
+    venueOk &&
+    (servicePacing === undefined || fits(servicePacing.covers, servicePacing.windowMinutes))
+  );
 }
 
 export function selectBestTable<T extends TableCandidate>(
