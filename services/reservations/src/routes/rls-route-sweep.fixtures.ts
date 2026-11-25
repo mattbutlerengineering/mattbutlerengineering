@@ -2258,6 +2258,17 @@ const reservationEventFixtures: Record<string, RouteFixture> = {
   ),
 };
 
+// Read-only member deposit status (#9558): reservationA owns depositA and
+// reservationB has none, so the venue-B leg proves the denial happens before
+// any deposit read, and the venue-A legs prove the deposit RLS policy admits it.
+const reservationDepositStatusFixtures: Record<string, RouteFixture> = {
+  "GET /api/v1/reservations/:id/deposit-status": okEntityRead(
+    (id) => `/api/v1/reservations/${id}/deposit-status`,
+    (ctx) => ctx.reservationA,
+    (ctx) => ctx.reservationB
+  ),
+};
+
 const bookingMetricsFixtures: Record<string, RouteFixture> = {
   "GET /api/v1/reservations/metrics/daily": okScopedByQuery(
     "/api/v1/reservations/metrics/daily",
@@ -2366,5 +2377,6 @@ export const FIXTURES: Record<string, RouteFixture> = {
   ...briefingFixtures,
   ...bookingMetricsFixtures,
   ...reservationEventFixtures,
+  ...reservationDepositStatusFixtures,
   ...depositFixtures,
 };
