@@ -133,6 +133,10 @@ describe("User routes — authorization branches", () => {
         payload: { ...nonAdminPayload, email: undefined },
         protectedHeader: { alg: "RS256" },
       } as never);
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({ ok: false, status: 401, json: async () => ({}) })
+      );
 
       const response = await app.inject({
         method: "GET",
@@ -141,6 +145,7 @@ describe("User routes — authorization branches", () => {
       });
 
       expect(response.statusCode).toBe(401);
+      vi.unstubAllGlobals();
     });
   });
 
@@ -188,6 +193,10 @@ describe("User routes — authorization branches", () => {
         payload: { ...nonAdminPayload, email: undefined },
         protectedHeader: { alg: "RS256" },
       } as never);
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({ ok: false, status: 401, json: async () => ({}) })
+      );
 
       const response = await app.inject({
         method: "PATCH",
@@ -197,6 +206,7 @@ describe("User routes — authorization branches", () => {
       });
 
       expect(response.statusCode).toBe(401);
+      vi.unstubAllGlobals();
     });
 
     it("returns 401 when non-admin user not found in database (update, identity unresolvable)", async () => {
@@ -248,6 +258,10 @@ describe("User routes — authorization branches", () => {
         payload: { ...nonAdminPayload, email: undefined },
         protectedHeader: { alg: "RS256" },
       } as never);
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({ ok: false, status: 401, json: async () => ({}) })
+      );
 
       const response = await app.inject({
         method: "DELETE",
@@ -256,6 +270,7 @@ describe("User routes — authorization branches", () => {
       });
 
       expect(response.statusCode).toBe(401);
+      vi.unstubAllGlobals();
     });
 
     it("returns 404 when deleting a non-existent user", async () => {
@@ -291,11 +306,15 @@ describe("User routes — authorization branches", () => {
   // ── GET /api/v1/users/me — edge cases ────────────────────────────
 
   describe("GET /api/v1/users/me — edge cases", () => {
-    it("returns 401 when auth user has no email", async () => {
+    it("returns 401 when auth user has no email and userinfo has none either", async () => {
       vi.mocked(jwtVerify).mockResolvedValueOnce({
         payload: { ...nonAdminPayload, email: undefined },
         protectedHeader: { alg: "RS256" },
       } as never);
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({ ok: false, status: 401, json: async () => ({}) })
+      );
 
       const response = await app.inject({
         method: "GET",
@@ -306,6 +325,46 @@ describe("User routes — authorization branches", () => {
       expect(response.statusCode).toBe(401);
       const body = JSON.parse(response.body);
       expect(body.title).toBe("Unauthorized");
+      vi.unstubAllGlobals();
+    });
+
+    // Auth0 access tokens scoped to a custom API audience never carry profile
+    // claims (ADR-010) — only the ID token does — so a real production token
+    // always has `email: undefined` here. /me falls back to the OIDC
+    // userinfo endpoint (same bearer token) to recover it (#9563).
+    it("falls back to the userinfo endpoint when the token has no email claim", async () => {
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: { ...nonAdminPayload, email: undefined, email_verified: undefined },
+        protectedHeader: { alg: "RS256" },
+      } as never);
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          email: "test@example.com",
+          email_verified: true,
+          name: "Test User",
+          picture: "https://example.com/pic.jpg",
+        }),
+      });
+      vi.stubGlobal("fetch", fetchMock);
+      const provisionedUser = makeUser({ email: "test@example.com" });
+      vi.mocked(userService.findOrCreate).mockResolvedValueOnce(provisionedUser);
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/api/v1/users/me",
+        headers: { authorization: "Bearer valid-token" },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(fetchMock).toHaveBeenCalledWith(
+        "https://test.auth0.com/userinfo",
+        expect.objectContaining({ headers: { Authorization: "Bearer valid-token" } })
+      );
+      expect(userService.findOrCreate).toHaveBeenCalledWith(
+        expect.objectContaining({ email: "test@example.com" })
+      );
+      vi.unstubAllGlobals();
     });
 
     // Identity here is keyed on the JWT email (findOrCreate upsert), so an
@@ -363,11 +422,15 @@ describe("User routes — authorization branches", () => {
       expect(body.data.preferences.theme).toBe("dark");
     });
 
-    it("returns 401 when auth user has no email", async () => {
+    it("returns 401 when auth user has no email and userinfo has none either", async () => {
       vi.mocked(jwtVerify).mockResolvedValueOnce({
         payload: { ...nonAdminPayload, email: undefined },
         protectedHeader: { alg: "RS256" },
       } as never);
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({ ok: false, status: 401, json: async () => ({}) })
+      );
 
       const response = await app.inject({
         method: "PATCH",
@@ -377,6 +440,39 @@ describe("User routes — authorization branches", () => {
       });
 
       expect(response.statusCode).toBe(401);
+      vi.unstubAllGlobals();
+    });
+
+    it("falls back to the userinfo endpoint when the token has no email claim", async () => {
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: { ...nonAdminPayload, email: undefined, email_verified: undefined },
+        protectedHeader: { alg: "RS256" },
+      } as never);
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: async () => ({ email: "test@example.com", email_verified: true }),
+        })
+      );
+      const updatedUser = makeUser({
+        email: "test@example.com",
+        preferences: { theme: "dark", emailNotifications: true, marketingEmails: false },
+      });
+      vi.mocked(userService.updatePreferencesByEmail).mockResolvedValueOnce(updatedUser);
+
+      const response = await app.inject({
+        method: "PATCH",
+        url: "/api/v1/users/me/preferences",
+        headers: { authorization: "Bearer valid-token" },
+        payload: { theme: "dark" },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(userService.updatePreferencesByEmail).toHaveBeenCalledWith("test@example.com", {
+        theme: "dark",
+      });
+      vi.unstubAllGlobals();
     });
 
     it.each([

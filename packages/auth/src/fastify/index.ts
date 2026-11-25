@@ -7,6 +7,8 @@ export {
 } from "./plugin.js";
 export type { AuthPluginOptions, JwtVerifier } from "./plugin.js";
 export type { AuthUser } from "../types/index.js";
+export { fetchUserInfoClaims, resolveProfileClaims } from "./userinfo-fallback.js";
+export type { ProfileClaims } from "./userinfo-fallback.js";
 export { requireOwnershipOrAdmin } from "./ownership.js";
 export type { OwnerResolver, AuthorizationContext, OwnershipOptions } from "./ownership.js";
 export {
