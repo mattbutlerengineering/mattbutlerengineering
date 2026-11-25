@@ -27,11 +27,15 @@ export const LostDemandCellSchema = z.object({
   /** Venue-local hour of the requested time, 0-23. */
   hour: z.number().int().min(0).max(23),
   searches: z.number().int().min(1),
+  /** Of `searches`, those refused by pacing (#9622). Omitted when none, and on older rows. */
+  pacing: z.number().int().min(1).optional(),
 });
 
 const LostDemandAnyTimeSchema = z.object({
   weekday: WeekdaySchema,
   searches: z.number().int().min(1),
+  /** Of `searches`, those refused by pacing (#9622). Omitted when none. */
+  pacing: z.number().int().min(1).optional(),
 });
 
 /**

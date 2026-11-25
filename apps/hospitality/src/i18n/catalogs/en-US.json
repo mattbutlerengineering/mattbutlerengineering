@@ -737,6 +737,10 @@
       "tableLabel": "Turned-away searches by weekday and hour",
       "anyTime": "No time given",
       "anyTimeNote": "Guests in the last row named no time and found no table that day, so they are counted by weekday only, never in an hour.",
+      "pacingFilter": "Refused by pacing only",
+      "pacingEmpty": "No searches were refused by pacing in the last 28 days.",
+      "pacingSummary_one": "{{count}} search was refused by pacing in the last 28 days.",
+      "pacingSummary_other": "{{count}} searches were refused by pacing in the last 28 days.",
       "loadFailed": "Couldn't load turned-away searches."
     },
     "whatIf": {

@@ -756,6 +756,11 @@
       "tableLabel": "Búsquedas sin mesa por día de la semana y hora",
       "anyTime": "Sin hora indicada",
       "anyTimeNote": "Los invitados de la última fila no indicaron hora y no encontraron mesa ese día, por eso se cuentan solo por día de la semana, nunca en una hora.",
+      "pacingFilter": "Solo rechazadas por ritmo de reservas",
+      "pacingEmpty": "Ninguna búsqueda fue rechazada por el ritmo de reservas en los últimos 28 días.",
+      "pacingSummary_one": "{{count}} búsqueda fue rechazada por el ritmo de reservas en los últimos 28 días.",
+      "pacingSummary_many": "{{count}} de búsquedas fueron rechazadas por el ritmo de reservas en los últimos 28 días.",
+      "pacingSummary_other": "{{count}} búsquedas fueron rechazadas por el ritmo de reservas en los últimos 28 días.",
       "loadFailed": "No se pudieron cargar las búsquedas sin mesa."
     },
     "whatIf": {
