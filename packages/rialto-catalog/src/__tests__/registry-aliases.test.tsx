@@ -104,6 +104,14 @@ const ALIAS_CASES: readonly AliasCase[] = [
     expectText: "Parity Text",
   },
   {
+    component: "Heading",
+    alias: "text",
+    canonical: "children",
+    value: "Parity Heading Text",
+    base: {},
+    expectText: "Parity Heading Text",
+  },
+  {
     component: "Badge",
     alias: "label",
     canonical: "children",

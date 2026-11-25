@@ -38,12 +38,12 @@ describe("service-night structure", () => {
     expect(new Set(claimIds).size).toBe(claimIds.length);
   });
 
-  it("marks every roadmap idea, the assistant follow-up and the night summary as concepts", () => {
+  it("marks every roadmap idea and the unbuilt follow-ups as concepts, and the night summary as shipped", () => {
     expect(ROADMAP.length).toBeGreaterThan(0);
     expect(ROADMAP.every((idea) => idea.status === "concept")).toBe(true);
     const byId = new Map(SCENES.flatMap((scene) => scene.claims).map((c) => [c.id, c.status]));
     expect(byId.get("tonightAutopilot")).toBe("concept");
-    expect(byId.get("nightInNumbers")).toBe("concept");
+    expect(byId.get("nightInNumbers")).toBe("shipped");
     expect(byId.get("lostDemandLedger")).toBe("concept");
   });
 

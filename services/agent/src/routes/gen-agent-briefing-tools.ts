@@ -2,6 +2,7 @@ import { tool } from "ai";
 import type { ToolSet } from "ai";
 import { z } from "zod";
 import type { FastifyBaseLogger } from "fastify";
+import { lastServiceDate } from "@mbe/availability";
 import { NO_VENUE, localTimeIn, readFailure, todayIn, type ApiClient } from "./gen-tool-support.js";
 
 /**
@@ -45,12 +46,62 @@ function seatingOf(entry: BriefingEntry, timeZone: string | undefined) {
   };
 }
 
+/**
+ * The service day "tonight" or "last night" means: the one that last opened, from the venue's own
+ * hours. After midnight that is still yesterday's. Throws when the hours or the time zone are
+ * unavailable: the caller must report that, never fall back to the calendar day.
+ */
+async function lastNightOf(
+  api: ApiClient,
+  venueId: string,
+  timeZone: string | undefined
+): Promise<string> {
+  if (!timeZone) throw new Error("The venue's time zone is unknown");
+  const { config } = await api.availability.getConfig(venueId);
+  return lastServiceDate({ timezone: timeZone, config }, new Date());
+}
+
 export function createBriefingTools(
   log: FastifyBaseLogger,
   api: ApiClient,
   { venueId, timeZone }: { readonly venueId?: string | undefined; readonly timeZone?: string }
 ): ToolSet {
   return {
+    get_night_summary: tool({
+      description:
+        'Read how the night went: covers served, table turns and no-shows for a service date (counts only). Use it for "how did tonight go" and "how was last night". Defaults to today.',
+      inputSchema: z.object({
+        date: z
+          .string()
+          .optional()
+          .describe(
+            "Service date in YYYY-MM-DD format. Omit for the service night that last opened (still last night's after midnight)"
+          ),
+      }),
+      execute: async ({ date }) => {
+        if (!venueId) return NO_VENUE;
+        if (date !== undefined && !isRealDate(date)) {
+          return { rejected: true, error: UNREADABLE_DATE };
+        }
+        log.info({ venueId, date }, "get_night_summary tool called");
+        let day = date ?? "";
+        try {
+          day = date ?? (await lastNightOf(api, venueId, timeZone));
+          const summary = await api.reservations.getEndOfServiceSummary({ venueId, date: day });
+          return {
+            date: summary.date,
+            covers: summary.covers,
+            tableTurns: summary.tableTurns,
+            noShows: summary.noShows,
+            // Null until the Lost Demand Ledger lands; omitted so the model never reports a zero.
+            ...(summary.turnedAway === null ? {} : { turnedAway: summary.turnedAway }),
+          };
+        } catch (err) {
+          log.error({ err, venueId, date: day }, "get_night_summary failed");
+          return readFailure(err, "the night's numbers", { notEmpty: "the night had no guests" });
+        }
+      },
+    }),
     get_briefing: tool({
       description:
         "Read the Briefing page: the day's pending and confirmed seatings in arrival order, with each guest's visits, dietary restrictions, tags and notes. Defaults to today.",

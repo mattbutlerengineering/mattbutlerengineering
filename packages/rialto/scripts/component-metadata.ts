@@ -148,12 +148,6 @@ export const characterLimits: CharacterLimit[] = [
     reason: "Keyboard shortcut text; very compact",
   },
   {
-    component: "Meter",
-    prop: "label",
-    max: 25,
-    reason: "Gauge label; sits beside or below bar",
-  },
-  {
     component: "Radio",
     prop: "label",
     max: 30,

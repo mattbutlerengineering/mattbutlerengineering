@@ -1180,7 +1180,13 @@
           "description": "Ordered list of group names — ungrouped items appear first. With a query,\ngroups reorder by the strongest match they contain (see `rankCommandMatch`);\nthis order only breaks ties."
         }
       ],
-      "slots": []
+      "slots": [],
+      "characterLimits": [
+        {
+          "prop": "placeholder",
+          "max": 60
+        }
+      ]
     },
     {
       "name": "ComponentRegistry",
@@ -1245,19 +1251,20 @@
       "slots": [],
       "characterLimits": [
         {
+          "prop": "cancelLabel",
+          "max": 24
+        },
+        {
           "prop": "confirmLabel",
-          "max": 20,
-          "reason": "Confirm button text; concise verb"
+          "max": 24
         },
         {
           "prop": "description",
-          "max": 120,
-          "reason": "Confirmation body; explains consequences"
+          "max": 200
         },
         {
           "prop": "title",
-          "max": 60,
-          "reason": "Confirmation heading; clear and direct"
+          "max": 80
         }
       ]
     },
@@ -1792,6 +1799,12 @@
       ],
       "slots": [
         "children"
+      ],
+      "characterLimits": [
+        {
+          "prop": "disabledReason",
+          "max": 120
+        }
       ]
     },
     {
@@ -2439,6 +2452,12 @@
       ],
       "slots": [
         "children"
+      ],
+      "characterLimits": [
+        {
+          "prop": "children",
+          "max": 120
+        }
       ]
     },
     {
@@ -2497,6 +2516,16 @@
       ],
       "slots": [
         "children"
+      ],
+      "characterLimits": [
+        {
+          "prop": "eyebrow",
+          "max": 40
+        },
+        {
+          "prop": "subtitle",
+          "max": 200
+        }
       ]
     },
     {
@@ -2972,8 +3001,7 @@
       "characterLimits": [
         {
           "prop": "label",
-          "max": 25,
-          "reason": "Gauge label; sits beside or below bar"
+          "max": 25
         }
       ]
     },
@@ -3032,6 +3060,12 @@
       ],
       "slots": [
         "children"
+      ],
+      "characterLimits": [
+        {
+          "prop": "label",
+          "max": 40
+        }
       ]
     },
     {
@@ -3280,6 +3314,16 @@
       ],
       "slots": [
         "children"
+      ],
+      "characterLimits": [
+        {
+          "prop": "breadcrumbLabel",
+          "max": 40
+        },
+        {
+          "prop": "title",
+          "max": 80
+        }
       ]
     },
     {
@@ -3323,7 +3367,13 @@
           "description": "Accessible name for the nav landmark. Defaults to the locale's \"Pagination\" label — override\nthis when a page renders more than one Pagination instance, since axe's\nlandmark-unique rule requires each nav landmark on a page to have a\ndistinct accessible name."
         }
       ],
-      "slots": []
+      "slots": [],
+      "characterLimits": [
+        {
+          "prop": "ariaLabel",
+          "max": 60
+        }
+      ]
     },
     {
       "name": "PendingAction",
@@ -3516,6 +3566,12 @@
       ],
       "slots": [
         "children"
+      ],
+      "characterLimits": [
+        {
+          "prop": "label",
+          "max": 40
+        }
       ]
     },
     {
@@ -4224,6 +4280,12 @@
       ],
       "slots": [
         "children"
+      ],
+      "characterLimits": [
+        {
+          "prop": "announcement",
+          "max": 120
+        }
       ]
     },
     {

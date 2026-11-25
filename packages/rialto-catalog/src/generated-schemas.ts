@@ -110,6 +110,22 @@ export const generatedSchemas = {
     loadingText: z.string().optional(),
     emptyText: z.string().optional(),
   }),
+  CommandPalette: z.object({
+    open: z.boolean(),
+    items: z.array(z.object({ id: z.string(), label: z.string().max(60), group: z.string().max(40).optional(), shortcut: z.array(z.string().max(8)).optional() })),
+    placeholder: z.string().max(60).optional(),
+  }),
+  ConfirmDialog: z.object({
+    open: z.boolean(),
+    title: z.string().max(80),
+    description: z.string().max(200).optional(),
+    confirmLabel: z.string().max(24).optional(),
+    cancelLabel: z.string().max(24).optional(),
+    variant: z.enum(["default", "destructive"]).optional(),
+  }),
+  ContextMenu: z.object({
+    items: z.array(z.object({ type: z.enum(["item", "divider", "label"]).optional(), id: z.string().optional(), label: z.string().max(40).optional(), shortcut: z.string().max(12).optional(), disabled: z.boolean().optional(), destructive: z.boolean().optional() })),
+  }),
   DataList: z.object({
     items: z.array(z.object({ label: z.string(), value: z.string() })),
     orientation: z.enum(["horizontal", "vertical"]).optional(),
@@ -163,6 +179,10 @@ export const generatedSchemas = {
     footer: z.string().optional(),
     role: z.enum(["alertdialog", "dialog"]).optional(),
   }),
+  DisabledTooltip: z.object({
+    disabled: z.boolean().optional(),
+    disabledReason: z.string().max(120).optional(),
+  }),
   Divider: z.object({
     orientation: z.enum(["horizontal", "vertical"]).optional(),
     label: z.string().max(20).optional(),
@@ -191,6 +211,9 @@ export const generatedSchemas = {
     variant: z.enum(["elevated", "flat"]).optional(),
     size: z.enum(["md", "sm"]).optional(),
   }),
+  ErrorBoundary: z.object({
+    fallback: z.string().optional(),
+  }),
   Footer: z.object({
     variant: z.enum(["minimal", "rich"]).optional(),
     logo: z.string().optional(),
@@ -203,6 +226,12 @@ export const generatedSchemas = {
   FormField: z.object({
     name: z.string(),
   }),
+  GlobalNav: z.object({
+    currentApp: z.enum(["gen", "hospitality", "marketing", "rialto"]),
+    currentPath: z.string().optional(),
+    theme: z.enum(["dark", "light"]).optional(),
+    mobileMenuOpen: z.boolean().optional(),
+  }),
   GuestCards: z.object({
     guests: z.array(z.object({ name: z.string().nullish(), visits: z.union([z.number(), z.string()]).nullish(), risk: z.string().nullish(), tags: z.unknown().optional() })),
   }),
@@ -213,6 +242,28 @@ export const generatedSchemas = {
     lane: z.number().optional(),
     size: z.enum(["lg", "md", "sm"]).optional(),
     showLabels: z.boolean().optional(),
+  }),
+  Heading: z.object({
+    level: z.number().int().min(1).max(6).optional(),
+    size: z.number().int().min(1).max(6).optional(),
+    color: z.enum(["accent", "error", "on-accent", "primary", "secondary", "success", "tertiary", "warning"]).optional(),
+    align: z.enum(["center", "left", "right"]).optional(),
+    truncate: z.boolean().optional(),
+    children: z.string(),
+  }),
+  Hero: z.object({
+    eyebrow: z.string().max(40).optional(),
+    title: z.string(),
+    subtitle: z.string().max(200).optional(),
+    actions: z.string().optional(),
+    minHeight: z.string().optional(),
+    showDivider: z.boolean().optional(),
+  }),
+  HoverCard: z.object({
+    content: z.string().optional(),
+    placement: z.enum(["bottom", "top"]).optional(),
+    openDelay: z.number().optional(),
+    closeDelay: z.number().optional(),
   }),
   IconButton: z.object({
     icon: z.string().optional(),
@@ -230,6 +281,25 @@ export const generatedSchemas = {
     showOptional: z.boolean().optional(),
   }),
   InputGroup: z.object({}),
+  Kbd: z.object({
+    children: z.string().max(12),
+  }),
+  Meter: z.object({
+    value: z.number().nullable(),
+    min: z.number().optional(),
+    max: z.number().optional(),
+    label: z.string().max(25).optional(),
+    variant: z.enum(["accent", "default", "error", "success"]).optional(),
+    showValue: z.boolean().optional(),
+    size: z.enum(["md", "sm"]).optional(),
+  }),
+  Navbar: z.object({
+    logo: z.string().optional(),
+    user: z.object({ name: z.string(), email: z.string().optional() }).optional(),
+    links: z.array(z.object({ id: z.string(), label: z.string(), href: z.string().optional(), badge: z.number().optional(), children: z.array(z.object({ id: z.string(), label: z.string(), href: z.string().optional() })).optional() })),
+    footer: z.string().optional(),
+    label: z.string().max(40).optional(),
+  }),
   NavigationMenu: z.object({
     items: z.array(z.object({ label: z.string(), href: z.string().optional(), children: z.array(z.object({ label: z.string(), href: z.string().optional() })).optional() })),
   }),
@@ -245,6 +315,19 @@ export const generatedSchemas = {
     disabledReason: z.string().max(120).optional(),
     showOptional: z.boolean().optional(),
     size: z.enum(["default", "large", "small"]).optional(),
+  }),
+  PageHeader: z.object({
+    title: z.string().max(80),
+    breadcrumbs: z.array(z.object({ label: z.string(), href: z.string().optional() })).optional(),
+    breadcrumbLabel: z.string().max(40).optional(),
+    actions: z.string().optional(),
+    meta: z.string().optional(),
+  }),
+  Pagination: z.object({
+    page: z.number(),
+    totalPages: z.number(),
+    siblingCount: z.number().optional(),
+    ariaLabel: z.string().max(60).optional(),
   }),
   PinInput: z.object({
     length: z.number().optional(),
@@ -265,6 +348,12 @@ export const generatedSchemas = {
     placement: z.enum(["bottom", "left", "right", "top"]).optional(),
     open: z.boolean().optional(),
     solid: z.boolean().optional(),
+  }),
+  Progress: z.object({
+    value: z.number().optional(),
+    label: z.string().max(40).optional(),
+    showValue: z.boolean().optional(),
+    size: z.enum(["lg", "md", "sm"]).optional(),
   }),
   ReservationList: z.object({
     reservations: z.array(z.object({ time: z.string().nullish(), guest: z.string().nullish(), partySize: z.union([z.number(), z.string()]).nullish(), status: z.string().nullish() })),
@@ -314,6 +403,10 @@ export const generatedSchemas = {
     disabledReason: z.string().max(120).optional(),
     "aria-label": z.string().optional(),
   }),
+  SplitScreenExit: z.object({
+    active: z.boolean(),
+    announcement: z.string().max(120).optional(),
+  }),
   Stack: z.object({
     direction: z.enum(["column", "row"]).optional(),
     gap: z.enum(["2xl", "2xs", "3xl", "lg", "md", "sm", "xl", "xs"]).optional(),
@@ -332,6 +425,12 @@ export const generatedSchemas = {
     variant: z.enum(["accent", "danger", "neutral", "off", "success", "warning"]).optional(),
     pulse: z.boolean().optional(),
     label: z.string().max(40).optional(),
+  }),
+  Steps: z.object({
+    steps: z.array(z.object({ label: z.string(), description: z.string().optional() })),
+    currentStep: z.number(),
+    orientation: z.enum(["horizontal", "vertical"]).optional(),
+    compact: z.boolean().optional(),
   }),
   Table: z.object({
     columns: z.array(z.object({ key: z.string(), header: z.string(), sortable: z.boolean().optional(), align: z.enum(["left", "center", "right"]).optional(), width: z.string().optional() })),
@@ -367,6 +466,9 @@ export const generatedSchemas = {
     maxLength: z.number().optional(),
     disabledReason: z.string().max(120).optional(),
     showOptional: z.boolean().optional(),
+  }),
+  ThemeToggle: z.object({
+    theme: z.enum(["dark", "light"]),
   }),
   TimePicker: z.object({
     step: z.number().optional(),

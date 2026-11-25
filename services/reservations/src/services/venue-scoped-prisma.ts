@@ -36,6 +36,7 @@ export const RLS_MODELS: ReadonlySet<string> = new Set([
   "venueHolidayDecision",
   "closureOutcome",
   "guestWinBack",
+  "noSlotSearch",
   "reservationInvite",
   "reservationRsvp",
 ]);

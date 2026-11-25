@@ -131,6 +131,20 @@ export {
   REPEAT_VISIT_THRESHOLD,
 } from "./guest-segment.js";
 
+// Venue onboarding wizard: the closed value sets its pickers offer (#9475)
+export type {
+  OfferedTimezone,
+  OfferedCurrencyCode,
+  RoomTemplateId,
+  RoomSizeId,
+} from "./venue-onboarding.js";
+export {
+  OFFERED_TIMEZONES,
+  OFFERED_CURRENCY_CODES,
+  ROOM_TEMPLATE_IDS,
+  ROOM_SIZE_IDS,
+} from "./venue-onboarding.js";
+
 // Floor plan types
 export type {
   FloorPlan,

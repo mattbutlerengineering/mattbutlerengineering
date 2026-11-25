@@ -680,6 +680,47 @@ describe("AiHealthPage", () => {
     });
   });
 
+  describe("Production Health panel (#9527)", () => {
+    const withProductionHealth = {
+      ...MOCK_REPORT,
+      sensors: {
+        ...MOCK_REPORT.sensors,
+        productionHealth: {
+          available: true,
+          collected_at: "2026-11-24T06:00:00.000Z",
+          endpoints: [
+            { name: "api-health", status: "healthy", http_code: 200, latency_ms: 120 },
+            { name: "marketing-site", status: "down", http_code: 503, latency_ms: null },
+          ],
+        },
+      },
+    };
+
+    it("renders each endpoint's name, status and last-checked time when available", async () => {
+      mockFetch.mockResolvedValue({ ok: true, json: async () => withProductionHealth });
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText("Production Health")).toBeInTheDocument();
+      });
+      const panel = within(screen.getByTestId("production-health-panel"));
+      expect(panel.getByText("api-health")).toBeInTheDocument();
+      expect(panel.getByText("marketing-site")).toBeInTheDocument();
+      expect(panel.getByText("healthy")).toBeInTheDocument();
+      expect(panel.getByText("down")).toBeInTheDocument();
+      expect(panel.getByText(/Last checked/)).toBeInTheDocument();
+    });
+
+    it("degrades to an Unavailable row when the sensor is missing", async () => {
+      mockFetch.mockResolvedValue({ ok: true, json: async () => MOCK_REPORT });
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText("Production Health")).toBeInTheDocument();
+      });
+      const panel = within(screen.getByTestId("production-health-panel"));
+      expect(panel.getByText("Unavailable")).toBeInTheDocument();
+    });
+  });
+
   describe("PR Categories panel (#5902)", () => {
     const withCategories = {
       ...MOCK_REPORT,

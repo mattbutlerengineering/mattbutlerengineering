@@ -11,6 +11,65 @@
     "dashboardDocumentTitle": "Panel - {{brand}}"
   },
   "onboarding": {
+    "chat": {
+      "heading": "Cuéntanos sobre tu restaurante",
+      "region": "Asistente de configuración",
+      "filledTag": "Completado desde el chat",
+      "filledGroup": "{{field}}, completado desde el chat",
+      "filledAnnouncement": "{{fields}}: completado desde el chat",
+      "fallbackNote": "Terminemos este paso con el formulario.",
+      "rejected": "Eso no encaja en este paso ({{errors}}), así que dejé tu formulario como estaba.",
+      "tryAgain": "Probar el chat otra vez",
+      "review": "Revisar",
+      "reviewLabel": "Revisar los campos completados desde el chat",
+      "summary": {
+        "ianaTimezone": "Zona horaria: {{value}}",
+        "currencyCode": "Moneda: {{value}}",
+        "defaultReservationDuration": "Duración de la reservación: {{value}} min",
+        "maxPartySize": "Grupos de hasta {{value}}",
+        "advanceBookingDays_one": "Reservable hasta {{count}} día antes",
+        "advanceBookingDays_many": "Reservable hasta {{count}} de días antes",
+        "advanceBookingDays_other": "Reservable hasta {{count}} días antes",
+        "advanceBookingToday": "Reservable solo para hoy",
+        "serviceName": "Servicio: {{value}}",
+        "opens": "Abre a las {{value}}",
+        "closes": "Cierra a las {{value}}",
+        "lastSeating": "Última mesa a las {{value}}",
+        "days": "Abierto: {{value}}",
+        "templateId": "Salón: {{value}}",
+        "roomSize": "Tamaño: {{value}}"
+      },
+      "floorPlanEdited": "Cambiaste esta distribución a mano, así que la dejé como estaba. Elige otro salón de la lista para empezar de nuevo.",
+      "notOffered": {
+        "ianaTimezone": "la zona horaria \"{{value}}\" no está en la lista",
+        "currencyCode": "la moneda \"{{value}}\" no está en la lista",
+        "time": "\"{{value}}\" no es una hora de 24 horas como 17:30",
+        "days": "\"{{value}}\" no es una lista de días como mon,tue,fri",
+        "serviceName": "el servicio necesita un nombre",
+        "templateId": "el salón \"{{value}}\" no está disponible",
+        "roomSize": "el tamaño \"{{value}}\" no está disponible"
+      },
+      "suggestion": {
+        "locationTime": "Estamos en Lisboa y cobramos en euros",
+        "settings": "Grupos de hasta 8, 90 minutos por mesa, reservas con 60 días de anticipación",
+        "hours": "Cena de martes a sábado, de 5 a 10:30",
+        "floorPlan": "Un bistró informal, un poco más grande que acogedor"
+      },
+      "fields": {
+        "ianaTimezone": "zona horaria",
+        "currencyCode": "moneda",
+        "defaultReservationDuration": "duración de la reservación",
+        "maxPartySize": "grupo más grande",
+        "advanceBookingDays": "días de anticipación",
+        "serviceName": "nombre del servicio",
+        "opens": "hora de apertura",
+        "closes": "hora de cierre",
+        "lastSeating": "última mesa",
+        "days": "días de apertura",
+        "templateId": "distribución del salón",
+        "roomSize": "tamaño del salón"
+      }
+    },
     "steps": {
       "welcome": {
         "label": "Bienvenida",
@@ -309,6 +368,7 @@
       "settings": "Configuración",
       "users": "Usuarios",
       "tonightsService": "Servicio de esta noche",
+      "night": "La noche en números",
       "timeline": "Cronología",
       "reservations": "Reservas",
       "waitlist": "Lista de espera",
@@ -334,6 +394,7 @@
       "guests": "Clientes",
       "waitlist": "Lista de espera",
       "briefing": "Servicio de esta noche",
+      "night": "La noche en números",
       "floorPlan": "Plano de sala",
       "bookingWidget": "Widget de reservas",
       "onboarding": "Nuevo local",
@@ -1670,9 +1731,18 @@
       "remove_from_waitlist": "Quitar de la lista de espera",
       "set_menu_item_availability": "Marcar un platillo como agotado o disponible",
       "update_menu_item": "Cambiar un platillo del menú",
+      "create_menu": "Crear un menú",
+      "reorder_menu_sections": "Reordenar las secciones de un menú",
+      "reorder_menu_items": "Reordenar los platillos de una sección",
       "activate_floor_plan": "Cambiar el plano activo",
       "seat_reservation": "Sentar a un grupo con reserva",
       "mark_no_show": "Marcar como no presentado",
+      "pause_online_booking": "Pausar las reservas en línea",
+      "resume_online_booking": "Reanudar las reservas en línea",
+      "pause_tables": "Pausar mesas",
+      "resume_tables": "Volver a abrir mesas a reservas",
+      "update_venue_settings": "Cambiar la configuración del local",
+      "update_venue_profile": "Cambiar el perfil del local",
       "fields": {
         "guestName": "Cliente",
         "partySize": "Personas",
@@ -1707,6 +1777,8 @@
         "menu": "Menú",
         "item": "Platillo",
         "section": "Sección",
+        "sections": "Nuevo orden",
+        "items": "Nuevo orden",
         "availability": "Disponibilidad",
         "price": "Precio",
         "description": "Descripción",
@@ -1717,7 +1789,18 @@
         "closesAt": "Cierra",
         "tellCancelledGuests": "Avisar a los clientes cancelados",
         "scope": "Se aplica a",
-        "weekdays": "Días de la semana"
+        "weekdays": "Días de la semana",
+        "until": "Hasta",
+        "message": "Mensaje para los clientes",
+        "maxPartySize": "Grupo más grande",
+        "defaultReservationDuration": "Duración de la reserva (minutos)",
+        "requirePhone": "Pedir teléfono",
+        "requireEmail": "Pedir correo electrónico",
+        "confirmationEmailEnabled": "Correos de confirmación",
+        "reminderEmailEnabled": "Correos de recordatorio",
+        "type": "Tipo",
+        "cuisines": "Cocinas",
+        "website": "Sitio web"
       },
       "yesNo": {
         "yes": "Sí",
@@ -1728,6 +1811,7 @@
         "service": "Un solo servicio"
       },
       "untilReopened": "Hasta que se reabra",
+      "cleared": "Borrado",
       "menuAvailability": {
         "sold_out": "Agotado",
         "available": "Disponible"
@@ -3713,6 +3797,25 @@
       "heading": "No hay nada en el libro para {{date}}.",
       "description": "Cambia la fecha o asigna mesa a clientes sin reserva desde la Línea de tiempo.",
       "action": "Abrir Línea de tiempo"
+    }
+  },
+  "night": {
+    "title": "La noche en números",
+    "description": "Cómo salió el servicio, en una sola pantalla",
+    "loading": "Cargando la noche en números…",
+    "loaded": "La noche en números del {{date}} se cargó.",
+    "serviceDate": "Fecha de servicio",
+    "previous": "Noche anterior",
+    "next": "Noche siguiente",
+    "hoursUnknown": "No se pudo leer tu horario, así que se muestra el día calendario. Elige otra fecha si lo necesitas.",
+    "loadError": "No se pudo cargar la noche en números.",
+    "covers": "Cubiertos servidos",
+    "tableTurns": "Rotaciones de mesa",
+    "noShows": "Ausencias",
+    "turnedAway": "Rechazados",
+    "empty": {
+      "heading": "No se atendió ninguna mesa el {{date}}.",
+      "description": "Elige otra fecha de servicio para mirar atrás."
     }
   },
   "profile": {

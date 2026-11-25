@@ -263,6 +263,11 @@ export function formatCurrencyName(currency: string, locale: string = LOCALE): s
   return new Intl.DisplayNames(locale, { type: "currency" }).of(code) ?? code;
 }
 
+/** A whole count in the locale's digits and grouping (1,284 / 1 284). */
+export function formatCount(count: number, locale: string = LOCALE): string {
+  return new Intl.NumberFormat(locale).format(count);
+}
+
 /**
  * Format a YYYY-MM-DD date string in the locale's numeric short form
  * (en-US "03/15/2024", en-GB "15/03/2024").

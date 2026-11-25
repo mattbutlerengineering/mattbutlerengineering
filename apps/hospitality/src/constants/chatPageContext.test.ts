@@ -37,6 +37,13 @@ describe("chatPageContext", () => {
     });
   });
 
+  it("sends the night the night-in-numbers page shows", () => {
+    expect(chatPageContext("/night", "?date=2026-11-06")).toEqual({
+      page: "night",
+      focusDate: "2026-11-06",
+    });
+  });
+
   it("leaves out pages the agent doesn't know and values that don't fit", () => {
     expect(chatPageContext("/chat", "")).toEqual({});
     expect(chatPageContext("/admin", "")).toEqual({});

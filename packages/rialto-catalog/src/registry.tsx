@@ -42,23 +42,38 @@ import {
   Card,
   Checkbox,
   Combobox,
+  CommandPalette,
+  ConfirmDialog,
+  ContextMenu,
   DataList,
   DataTable,
   DepartureBoard,
   Dialog,
+  DisabledTooltip,
   Divider,
   Drawer,
   DropdownMenu,
   EmptyState,
+  ErrorBoundary,
   Footer,
+  GlobalNav,
   GuestCards,
   Handshake,
+  Heading,
+  Hero,
+  HoverCard,
   IconButton,
   Input,
+  Kbd,
+  Meter,
+  Navbar,
   NavigationMenu,
   NumberInput,
+  PageHeader,
   PinInput,
+  Pagination,
   Popover,
+  Progress,
   ReservationList,
   ScrollArea,
   SegmentedControl,
@@ -66,13 +81,16 @@ import {
   Sidebar,
   Skeleton,
   Slider,
+  SplitScreenExit,
   Stack,
   Stat,
   StatusLED,
+  Steps,
   Table,
   Tabs,
   Tag,
   Text,
+  ThemeToggle,
   Timeline,
   TimeSlots,
   Toggle,
@@ -154,7 +172,8 @@ function slotOr(children: ReactNode, words: unknown): ReactNode {
   return Children.count(children) > 0 ? children : (words as ReactNode);
 }
 
-type MenuEntries = ComponentProps<typeof DropdownMenu>["items"];
+type MenuEntries = ComponentProps<typeof DropdownMenu>["items"] &
+  ComponentProps<typeof ContextMenu>["items"];
 
 /** Spec entries as menu entries; an item with a blank label reads as missing and is dropped. */
 function toMenuEntries(entries: readonly MenuEntrySpec[], onSelect: () => void): MenuEntries {
@@ -316,6 +335,28 @@ function SegmentedControlAdapter({ props, emit }: AdapterArgs<SegmentedControlSp
       value={value}
       onChange={(next) => {
         setValue(next);
+        emit("change");
+      }}
+    />
+  );
+}
+
+interface PaginationSpecProps {
+  page: number;
+  totalPages: number;
+  siblingCount?: number;
+  ariaLabel?: string;
+}
+
+/** Pagination is fully controlled, so the current page is held here. */
+function PaginationAdapter({ props, emit }: AdapterArgs<PaginationSpecProps>) {
+  const [page, setPage] = useState<number>(props.page);
+  return (
+    <Pagination
+      {...props}
+      page={page}
+      onChange={(next) => {
+        setPage(next);
         emit("change");
       }}
     />
@@ -809,6 +850,101 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
         )
       ),
 
+      // Overlays: `open` is host-supplied (a spec has no state store); the user's choice is
+      // emitted as an event. HoverCard and ContextMenu open from their trigger, uncontrolled.
+      ConfirmDialog: typed(
+        ({
+          props,
+          emit,
+        }: AdapterArgs<{
+          open: boolean;
+          title: string;
+          description?: string;
+          confirmLabel?: string;
+          cancelLabel?: string;
+          variant?: "default" | "destructive";
+        }>) => (
+          <ConfirmDialog
+            {...props}
+            onConfirm={() => emit("confirm")}
+            onCancel={() => emit("cancel")}
+          />
+        )
+      ),
+
+      CommandPalette: typed(
+        ({
+          props,
+          emit,
+        }: AdapterArgs<{
+          open: boolean;
+          items: { id: string; label: string; group?: string; shortcut?: string[] }[];
+          placeholder?: string;
+        }>) => (
+          <CommandPalette
+            open={props.open}
+            onOpenChange={(next) => {
+              if (!next) emit("close");
+            }}
+            placeholder={props.placeholder}
+            items={props.items.map((item) => ({ ...item, onSelect: () => emit("select") }))}
+          />
+        )
+      ),
+
+      HoverCard: typed(
+        ({
+          props,
+          children,
+        }: AdapterArgs<{
+          content?: string;
+          placement?: "top" | "bottom";
+          openDelay?: number;
+          closeDelay?: number;
+        }>) => (
+          <HoverCard {...props} content={props.content ?? null}>
+            <span>{children}</span>
+          </HoverCard>
+        )
+      ),
+
+      ContextMenu: typed(({ props, children, emit }: AdapterArgs<{ items: MenuEntrySpec[] }>) => (
+        <ContextMenu items={toMenuEntries(props.items, () => emit("select"))}>
+          <div>{children}</div>
+        </ContextMenu>
+      )),
+
+      // System and utility. Host state (theme, active) comes from the spec; actions are events.
+      ErrorBoundary: typed(({ children }: AdapterArgs<Record<string, never>>) => (
+        <ErrorBoundary>{children}</ErrorBoundary>
+      )),
+
+      ThemeToggle: typed(({ props, emit }: AdapterArgs<{ theme: "light" | "dark" }>) => (
+        <ThemeToggle theme={props.theme} onToggle={() => emit("toggle")} />
+      )),
+
+      DisabledTooltip: typed(
+        ({ props, children }: AdapterArgs<{ disabled?: boolean; disabledReason?: string }>) => (
+          <DisabledTooltip disabled={props.disabled} disabledReason={props.disabledReason}>
+            {children}
+          </DisabledTooltip>
+        )
+      ),
+
+      SplitScreenExit: typed(
+        ({ props, children, emit }: AdapterArgs<{ active: boolean; announcement?: string }>) => (
+          <SplitScreenExit
+            active={props.active}
+            announcement={props.announcement}
+            onExitComplete={() => emit("exitComplete")}
+          >
+            {children}
+          </SplitScreenExit>
+        )
+      ),
+
+      Kbd: typed(({ props }: AdapterArgs<{ children: string }>) => <Kbd>{props.children}</Kbd>),
+
       Tooltip: typed(
         ({
           props,
@@ -910,6 +1046,46 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
           disabled?: boolean;
           disabledReason?: string;
         }>) => <Slider {...props} onChange={() => emit("change")} />
+      ),
+
+      Pagination: typed(({ props, emit }: AdapterArgs<PaginationSpecProps>) => (
+        <PaginationAdapter props={props} emit={emit} />
+      )),
+
+      Progress: typed(
+        ({
+          props,
+        }: AdapterArgs<{
+          value?: number;
+          label?: string;
+          showValue?: boolean;
+          size?: "sm" | "md" | "lg";
+        }>) => <Progress {...props} />
+      ),
+
+      Meter: typed(
+        ({
+          props,
+        }: AdapterArgs<{
+          value?: number | null;
+          min?: number;
+          max?: number;
+          label?: string;
+          variant?: "default" | "accent" | "success" | "error";
+          showValue?: boolean;
+          size?: "sm" | "md";
+        }>) => <Meter {...props} value={props.value ?? null} />
+      ),
+
+      Steps: typed(
+        ({
+          props,
+        }: AdapterArgs<{
+          steps: { label: string; description?: string }[];
+          currentStep: number;
+          orientation?: "horizontal" | "vertical";
+          compact?: boolean;
+        }>) => <Steps {...props} />
       ),
 
       Table: ({ props }: any) => (
@@ -1113,6 +1289,62 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
       ),
 
       Footer: ({ props, children }: any) => <Footer variant={props.variant}>{children}</Footer>,
+
+      // Navigation and page structure (#9519). Slot-like props (logo, actions, meta, footer)
+      // arrive as plain text from a spec, which is a valid node.
+      Navbar: typed(({ props }: AdapterArgs<ComponentProps<typeof Navbar>>) => (
+        <Navbar
+          logo={props.logo}
+          user={props.user}
+          links={props.links}
+          footer={props.footer}
+          label={props.label}
+        />
+      )),
+
+      GlobalNav: typed(({ props }: AdapterArgs<ComponentProps<typeof GlobalNav>>) => (
+        <GlobalNav
+          currentApp={props.currentApp}
+          currentPath={props.currentPath}
+          theme={props.theme}
+          mobileMenuOpen={props.mobileMenuOpen}
+        />
+      )),
+
+      PageHeader: typed(({ props, children }: AdapterArgs<ComponentProps<typeof PageHeader>>) => (
+        <PageHeader
+          title={props.title}
+          breadcrumbs={props.breadcrumbs}
+          breadcrumbLabel={props.breadcrumbLabel}
+          actions={props.actions}
+          meta={props.meta}
+        >
+          {children}
+        </PageHeader>
+      )),
+
+      Heading: typed(({ props, children }: AdapterArgs<ComponentProps<typeof Heading>>) => (
+        <Heading
+          level={props.level}
+          size={props.size}
+          color={props.color}
+          align={props.align}
+          truncate={props.truncate}
+        >
+          {slotOr(children, props.children)}
+        </Heading>
+      )),
+
+      Hero: typed(({ props }: AdapterArgs<ComponentProps<typeof Hero>>) => (
+        <Hero
+          eyebrow={props.eyebrow}
+          title={props.title}
+          subtitle={props.subtitle}
+          actions={props.actions}
+          minHeight={props.minHeight}
+          showDivider={props.showDivider}
+        />
+      )),
     })
   ),
 

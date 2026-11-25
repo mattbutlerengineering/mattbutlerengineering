@@ -290,14 +290,106 @@ describe("describeChatAction waitlist actions", () => {
   });
 });
 
+// #9479: pauses and venue settings, as the confirm bar shows them.
+describe("describeChatAction pauses and settings", () => {
+  const t = (key: string) => `t:${key}`;
+  const describeIn = (toolName: string, toolInput: Record<string, unknown>) =>
+    describeChatAction({ actionId: "c", toolName, toolInput }, t, () => undefined, "en-US");
+
+  it.each([
+    "pause_online_booking",
+    "resume_online_booking",
+    "pause_tables",
+    "resume_tables",
+    "update_venue_settings",
+    "update_venue_profile",
+  ])("titles %s", (toolName) => {
+    expect(describeIn(toolName, {}).title).toBe(`t:chat.actions.${toolName}`);
+  });
+
+  it("words a pause with no end, its message, and the tables", () => {
+    expect(
+      describeIn("pause_tables", { tables: ["Patio 1", "Patio 2"], until: "until reopened" })
+        .details
+    ).toEqual([
+      { label: "t:chat.actions.fields.tables", value: "Patio 1, Patio 2" },
+      { label: "t:chat.actions.fields.until", value: "t:chat.actions.untilReopened" },
+    ]);
+    expect(
+      describeIn("pause_online_booking", { until: "2026-12-05", message: "Back soon" }).details
+    ).toEqual([
+      { label: "t:chat.actions.fields.until", value: "Saturday, Dec 5" },
+      { label: "t:chat.actions.fields.message", value: "Back soon" },
+    ]);
+  });
+
+  it("words settings: labels, yes or no, and a cleared value", () => {
+    expect(
+      describeIn("update_venue_settings", {
+        maxPartySize: 8,
+        requirePhone: true,
+        phone: null,
+        reminderEmailEnabled: false,
+      }).details
+    ).toEqual([
+      { label: "t:chat.actions.fields.maxPartySize", value: "8" },
+      { label: "t:chat.actions.fields.requirePhone", value: "t:chat.actions.yesNo.yes" },
+      { label: "t:chat.actions.fields.phone", value: "t:chat.actions.cleared" },
+      { label: "t:chat.actions.fields.reminderEmailEnabled", value: "t:chat.actions.yesNo.no" },
+    ]);
+  });
+
+  it("labels profile fields", () => {
+    const { details } = describeIn("update_venue_profile", {
+      name: "Sorrel Kitchen",
+      type: "casual",
+      cuisines: ["Italian", "Pizza"],
+      website: "https://sorrel.example",
+      description: "Wood-fired",
+    });
+
+    expect(details.map((d) => d.label)).toEqual([
+      "t:chat.actions.fields.name",
+      "t:chat.actions.fields.type",
+      "t:chat.actions.fields.cuisines",
+      "t:chat.actions.fields.website",
+      "t:chat.actions.fields.description",
+    ]);
+    expect(details[2]!.value).toBe("Italian, Pizza");
+  });
+});
+
 // #7928: menu actions, as the confirm bar shows them.
 describe("describeChatAction menu actions", () => {
   const t = (key: string) => `t:${key}`;
 
-  it.each(["set_menu_item_availability", "update_menu_item"])("titles %s", (toolName) => {
+  it.each([
+    "set_menu_item_availability",
+    "update_menu_item",
+    "create_menu",
+    "reorder_menu_sections",
+    "reorder_menu_items",
+  ])("titles %s", (toolName) => {
     expect(
       describeChatAction({ actionId: "c", toolName, toolInput: {} }, t, () => undefined).title
     ).toBe(`t:chat.actions.${toolName}`);
+  });
+
+  it("shows a new section or item order as a list under its label (#9478)", () => {
+    const { details } = describeChatAction(
+      {
+        actionId: "c2",
+        toolName: "reorder_menu_sections",
+        toolInput: { menu: "Dinner", sections: ["Desserts", "Starters"] },
+      },
+      t,
+      () => undefined
+    );
+
+    expect(details).toEqual([
+      { label: "t:chat.actions.fields.menu", value: "Dinner" },
+      { label: "t:chat.actions.fields.sections", value: "Desserts, Starters" },
+    ]);
   });
 
   it("shows the availability in words and labels the item's fields", () => {

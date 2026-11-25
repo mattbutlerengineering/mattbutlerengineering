@@ -105,7 +105,7 @@ describe("buildAgentSystemPrompt", () => {
     expect(prompt).toMatch(/Neither takes today.*change_tonight_availability/);
     expect(prompt).toMatch(/full from and to span.*scope/);
     expect(prompt).toMatch(
-      /special hours, repeating closures and booking or table pauses are changed on the Availability page/
+      /special hours and repeating closures are changed on the Availability page/
     );
     expect(prompt).toMatch(/countsUnavailable never state how many/);
     expect(prompt).toMatch(
@@ -133,6 +133,17 @@ describe("buildAgentSystemPrompt", () => {
       expect(prompt).toMatch(/reservation res-42/);
       expect(prompt).toMatch(/"this reservation"/);
       expect(prompt).toMatch(/2026-10-30/);
+    });
+
+    it("names the night page and the date it shows", () => {
+      const prompt = buildAgentSystemPrompt({
+        ...base,
+        page: "night",
+        focusDate: "2026-11-06",
+      });
+
+      expect(prompt).toMatch(/chat open on the Night in numbers page/);
+      expect(prompt).toMatch(/2026-11-06/);
     });
 
     it("says nothing about a page when none was sent", () => {
@@ -331,7 +342,11 @@ describe("menus in the prompt", () => {
 
     expect(confirmLine).toMatch(/menu items/);
     expect(prompt).toMatch(/set_menu_item_availability/);
-    expect(prompt).toMatch(/Creating, deleting or reordering.*Menus page/);
+    expect(prompt).toMatch(/create_menu/);
+    expect(prompt).toMatch(/reorder_menu_sections/);
+    expect(prompt).toMatch(/reorder_menu_items/);
+    expect(prompt).not.toMatch(/Creating, deleting or reordering/);
+    expect(prompt).toMatch(/Deleting menus, sections or items stays on the Menus page/);
     expect(prompt).not.toMatch(/can't manage deposits or menus/);
   });
 });
@@ -358,14 +373,48 @@ describe("briefing, dashboard stats and page-only areas in the prompt", () => {
     expect(prompt).toMatch(/couldn't read the briefing.*never.*no bookings/i);
   });
 
+  it("answers how the night went with get_night_summary, rendered as Stat elements", () => {
+    expect(prompt).toMatch(/how did tonight go.*get_night_summary/);
+    expect(prompt).toMatch(/¿cómo fue la noche\?/);
+    expect(prompt).toMatch(/get_night_summary.*covers, tableTurns and noShows.*Stat/);
+    expect(prompt).toMatch(/turnedAway only when the result includes it/);
+    expect(prompt).toMatch(/couldn't read the numbers.*never report zeros/);
+  });
+
   it("answers the dashboard's headline stats from existing tools", () => {
     expect(prompt).toMatch(/Dashboard stats.*covers from get_briefing.*list_today_reservations/);
     expect(prompt).toMatch(/Dashboard stats.*waitlist.*list_waitlist/);
     expect(prompt).toMatch(/Dashboard stats.*lapsing guests.*list_lapsing_guests/);
   });
 
-  it("keeps settings on the Settings page", () => {
-    expect(prompt).toMatch(/preferences, venue profile and team roles.*Settings page/);
+  it("no longer sends pauses, settings or the venue profile to their pages", () => {
+    expect(prompt).not.toMatch(/preferences, venue profile and team roles/);
+    expect(prompt).not.toMatch(/booking or table pauses are changed on the Availability page/);
+    for (const name of [
+      "pause_online_booking",
+      "resume_online_booking",
+      "pause_tables",
+      "resume_tables",
+      "get_venue_settings",
+      "update_venue_settings",
+      "update_venue_profile",
+    ]) {
+      expect(prompt).toContain(name);
+    }
+  });
+
+  it("lists pauses and settings among the confirmed changes and says how to undo them", () => {
+    const confirmLine = prompt.split("\n").find((line) => /Confirm or Cancel button/.test(line));
+
+    expect(confirmLine).toMatch(/pauses/);
+    expect(confirmLine).toMatch(/settings/);
+    expect(prompt).toMatch(/resume_online_booking.*undo/is);
+    expect(prompt).toMatch(/previous values/);
+  });
+
+  it("keeps team and roles on the Settings page, with no tool for them", () => {
+    expect(prompt).toMatch(/Team members and roles.*Settings page/);
+    expect(prompt).toMatch(/no tool for (the )?team/i);
   });
 
   it("keeps the booking widget on its page", () => {

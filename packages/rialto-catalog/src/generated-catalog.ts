@@ -103,6 +103,23 @@ export const catalogMeta: Record<string, CatalogMeta> = {
       "Editable, filterable listbox for picking from many options. Always provide a label and options array. Use for single selection with type-ahead, or set multiple for tag-style multi-select with removable chips. Supports async/loading and empty states announced to screen readers. Prefer over Select when users benefit from typing to filter a long list.",
     charLimits: { label: 40 },
   },
+  CommandPalette: {
+    name: "CommandPalette",
+    description:
+      "Searchable command palette for jumping to pages or running actions by typing. Use for staff shortcuts across a busy service. Give items each with an id and short label, optionally grouped, and a placeholder.",
+    charLimits: { placeholder: 60 },
+  },
+  ConfirmDialog: {
+    name: "ConfirmDialog",
+    description:
+      "Confirmation dialog that asks the user to approve or cancel an action before it happens. Use for cancelling a booking, removing a guest or any step that is hard to undo. Give a short question as title, optional description, and set variant to destructive for irreversible actions.",
+    charLimits: { title: 80, description: 200, confirmLabel: 24, cancelLabel: 24 },
+  },
+  ContextMenu: {
+    name: "ContextMenu",
+    description:
+      "Right-click menu of actions attached to an element, such as a reservation or table. Use for secondary actions like edit, move or cancel. Give items with short labels; mark risky ones destructive.",
+  },
   DataList: {
     name: "DataList",
     description:
@@ -144,6 +161,13 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     slots: ["default"],
     charLimits: { title: 60, description: 120 },
   },
+  DisabledTooltip: {
+    name: "DisabledTooltip",
+    description:
+      "Wraps a control and explains why it is unavailable. Set disabled=true and give disabledReason a short sentence such as why a table cannot be booked; with no reason it renders its child unchanged.",
+    slots: ["default"],
+    charLimits: { disabledReason: 120 },
+  },
   Divider: {
     name: "Divider",
     description:
@@ -170,6 +194,12 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     charLimits: { heading: 50, description: 300 },
     aliases: { title: "heading" },
   },
+  ErrorBoundary: {
+    name: "ErrorBoundary",
+    description:
+      "Safety wrapper that catches a rendering error in the content inside it and shows a calm fallback instead of a blank page. Wrap any section that loads data or renders something that could fail. It has no text of its own to write.",
+    slots: ["default"],
+  },
   Footer: {
     name: "Footer",
     description:
@@ -189,6 +219,11 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     description:
       "Wraps a single field control (Input, TextArea, NumberInput, Select, or Combobox) and connects it to the enclosing Form's validation state.",
   },
+  GlobalNav: {
+    name: "GlobalNav",
+    description:
+      "Top bar that moves between the Mattbutler apps with a theme toggle. Use once at the top of a page. Set currentApp to the app being shown so its link is marked current.",
+  },
   GuestCards: {
     name: "GuestCards",
     description:
@@ -199,6 +234,25 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     description:
       "Instrument showing a multi-party exchange such as an OIDC sign-in, webhook confirmation, or device pairing: named stations joined by legs with a credential pulse travelling along the active one. Set stations to 2+ unique short names in order, state=idle, negotiating (default), settled or failed, and lane to the index of the active leg (0 = first to second station). aria-label is required and names the exchange (e.g. 'Verifying your sign-in'). Pair it with Text, Badge or DataList for per-station results.",
     charLimits: { "aria-label": 80 },
+  },
+  Heading: {
+    name: "Heading",
+    description:
+      "Section heading. Use level to set the document outline (1 for the page title, 2 for sections, 3 below that) and size when the look should differ from the level. Put its words in text (required unless it holds child elements).",
+    slots: ["default"],
+    charLimits: { children: 120 },
+    aliases: { text: "children" },
+  },
+  Hero: {
+    name: "Hero",
+    description:
+      "Large opening section for a landing page, with a small eyebrow label, a big title, a subtitle and action buttons. Use once at the top of a marketing page. Keep title to one short line and subtitle to one or two sentences.",
+    charLimits: { eyebrow: 40, subtitle: 200 },
+  },
+  HoverCard: {
+    name: "HoverCard",
+    description:
+      "Rich preview card that opens when a trigger is hovered or focused. Use to show extra detail about a guest, table or reservation without leaving the page. Pass a short trigger element as children and the preview as content.",
   },
   IconButton: {
     name: "IconButton",
@@ -217,6 +271,23 @@ export const catalogMeta: Record<string, CatalogMeta> = {
       "Joins adjacent form controls into one visual row, for example a search Input beside a submit Button. Use only to pair related controls; place the controls as children.",
     slots: ["default"],
   },
+  Kbd: {
+    name: "Kbd",
+    description:
+      "Keyboard key cap for showing one key, such as Esc or K, inside help text or a hint. Put the key name in children.",
+  },
+  Meter: {
+    name: "Meter",
+    description:
+      "Gauge showing a measured value within a known range, such as table occupancy or deposit goal. Unlike Progress it is not a task. Give value, min and max, a short label, and a variant (success, error) to signal good or bad.",
+    charLimits: { label: 25 },
+  },
+  Navbar: {
+    name: "Navbar",
+    description:
+      "Side navigation panel with a link list, user block and footer. Use for the main menu of a staff app. Give each link a short label and an href; nest links as children for sub-sections.",
+    charLimits: { label: 40 },
+  },
   NavigationMenu: {
     name: "NavigationMenu",
     description:
@@ -228,6 +299,18 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     description:
       "Numeric field with stepper buttons. Use for counts and amounts such as party size, quantity, or price. Always give a label and a starting value; set min and max to bound it, and step (e.g. 0.5) to allow decimals.",
     charLimits: { label: 40, hint: 120, disabledReason: 120 },
+  },
+  PageHeader: {
+    name: "PageHeader",
+    description:
+      "Page masthead with a title, optional breadcrumb trail, badges beside the title and action buttons. Use once at the top of a page. Keep title short and put the main actions in actions.",
+    charLimits: { title: 80, breadcrumbLabel: 40 },
+  },
+  Pagination: {
+    name: "Pagination",
+    description:
+      "Page navigation for long lists or tables, such as reservations or guests. Give page (starting at 1) and totalPages; use siblingCount to control how many neighbouring page numbers show.",
+    charLimits: { ariaLabel: 60 },
   },
   PinInput: {
     name: "PinInput",
@@ -241,6 +324,12 @@ export const catalogMeta: Record<string, CatalogMeta> = {
       "Click-to-open floating panel anchored to a trigger button; it opens from that trigger (there is no open prop to set). Set trigger to the trigger button label (e.g. 'Pick a time') and put the panel body as children — text, Inputs, or a short list of Buttons. Use for small contextual choices or details that should not take permanent space; use Dialog for anything that needs the user attention. title is an optional panel heading; placement is bottom (default), top, left or right.",
     slots: ["default"],
     charLimits: { title: 60 },
+  },
+  Progress: {
+    name: "Progress",
+    description:
+      "Progress bar for a task or flow that has a known or unknown duration, such as a booking import or an upload. Give a value from 0 to 100 for determinate progress, or omit it for an indeterminate bar. Add a short label saying what is in progress.",
+    charLimits: { label: 40 },
   },
   ReservationList: {
     name: "ReservationList",
@@ -280,6 +369,13 @@ export const catalogMeta: Record<string, CatalogMeta> = {
       "Draggable single-value range control. Use to pick a number within a known range where precision matters less than feel, such as volume, brightness, or a budget. Provide a label, min, max, and defaultValue; set showValue to display the current number.",
     charLimits: { label: 40, disabledReason: 120 },
   },
+  SplitScreenExit: {
+    name: "SplitScreenExit",
+    description:
+      "Closing transition that splits the screen in two and reveals what is behind it. Set active=true when a finished flow, such as a confirmed booking, should exit. Give announcement a short sentence for screen readers.",
+    slots: ["default"],
+    charLimits: { announcement: 120 },
+  },
   Stack: {
     name: "Stack",
     description:
@@ -297,6 +393,11 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     description:
       "A coloured status light with a label, such as a table's state. Use variant=success for free/available, variant=warning for needs attention (e.g. dirty), variant=danger for occupied or blocked, variant=accent for ready, variant=neutral or off otherwise. Always set label so the status is readable without colour.",
     charLimits: { label: 40 },
+  },
+  Steps: {
+    name: "Steps",
+    description:
+      "Step indicator for a multi-step flow such as booking, checkout or onboarding. Give the ordered steps, each with a short label and optional description, and currentStep as a zero-based index of the active step.",
   },
   Table: {
     name: "Table",
@@ -329,6 +430,11 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     description:
       "Multi-line text field. Use for free-form input such as special requests, allergies, notes, or messages. Always give a label; add a hint for guidance and set maxLength when input must be bounded.",
     charLimits: { label: 40, hint: 120, disabledReason: 120 },
+  },
+  ThemeToggle: {
+    name: "ThemeToggle",
+    description:
+      "Sun/moon icon button that switches between light and dark mode. Set theme to light or dark to match the current mode. Place it once, in the app bar or settings area.",
   },
   TimePicker: {
     name: "TimePicker",
