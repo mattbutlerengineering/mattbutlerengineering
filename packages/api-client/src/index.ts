@@ -14,6 +14,7 @@ export {
   type ListGuestsParams,
   type SearchGuestsParams,
   type FindOrCreateGuestRequest,
+  type InviteMemberRequest,
 } from "./guests.js";
 export { FloorPlansClient } from "./floor-plans.js";
 export { FloorPlanSectionsClient } from "./floor-plan-sections.js";

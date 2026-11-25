@@ -286,6 +286,10 @@ export const AddGuestNoteBodySchema = z.object({
   text: z.string().min(1).describe("Note text"),
 });
 
+export const MembersQuerySchema = z.object({
+  venueId: z.string().describe("Venue ID"),
+});
+
 export const LapsingGuestsQuerySchema = z.object({
   venueId: z.string().describe("Venue ID to scan"),
 });

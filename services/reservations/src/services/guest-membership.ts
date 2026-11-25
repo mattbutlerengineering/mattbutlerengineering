@@ -25,6 +25,7 @@ export function listMembers(input: { venueId: string; status?: "ACTIVE" | "REVOK
     prisma.guestMembership.findMany({
       where: { venueId, ...(status ? { status } : {}) },
       orderBy: { invitedAt: "desc" },
+      include: { guest: { select: { name: true, email: true } } },
     })
   );
 }

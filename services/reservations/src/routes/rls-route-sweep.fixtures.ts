@@ -6,6 +6,7 @@ import {
   ClosureSummariesSchema,
   autopilotProposalsEndpoints,
   endOfServiceEndpoints,
+  guestsEndpoints,
   lostDemandEndpoints,
 } from "@mbe/types";
 
@@ -467,6 +468,20 @@ async function createDisposableEmailedGuest(ctx: SweepContext, venueId: string):
     },
   });
   return extractId(res);
+}
+
+/** An invited Regulars Club member in `venueId`; resolves to the guest id. */
+async function createDisposableMember(ctx: SweepContext, venueId: string): Promise<string> {
+  const res = await asAdmin(ctx, {
+    method: "POST",
+    url: guestsEndpoints.inviteMember.path,
+    payload: {
+      venueId,
+      name: `RLS Sweep Member ${randomUUID()}`,
+      email: `sweep-${randomUUID()}@example.invalid`,
+    },
+  });
+  return (JSON.parse(res.body) as { data: { guestId: string } }).data.guestId;
 }
 
 /** Creates a disposable floor plan in `venueId` via the already-proven create route. */
@@ -1944,6 +1959,22 @@ const guestFixtures: Record<string, RouteFixture> = {
   ),
   // The guest has an email, so the route claims the send (guest_win_backs, FORCE RLS), calls the
   // notification port (an accepting stub, so it is a real no-network 200) and records the send.
+  "GET /api/v1/guests/members": okScopedByQuery(guestsEndpoints.listMembers.path),
+  "POST /api/v1/guests/members": okCreateByBody(guestsEndpoints.inviteMember.path, (venueId) => ({
+    venueId,
+    name: `RLS Sweep Member ${randomUUID()}`,
+    email: `sweep-${randomUUID()}@example.invalid`,
+  })),
+  // The member is invited first through the proven invite route, so there is an active
+  // membership to revoke.
+  "POST /api/v1/guests/:id/revoke-membership": okEntityMutation(
+    createDisposableMember,
+    (id) => ({
+      method: "POST",
+      url: guestsEndpoints.revokeMember.path.replace(":id", id),
+    }),
+    (ctx) => ctx.guestB
+  ),
   "POST /api/v1/guests/:id/win-back": okEntityMutation(
     createDisposableEmailedGuest,
     (id) => ({ method: "POST", url: `/api/v1/guests/${id}/win-back` }),

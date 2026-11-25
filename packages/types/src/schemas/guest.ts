@@ -65,3 +65,26 @@ export const LapsingGuestSchema = z.object({
 
 /** POST /api/v1/guests/:id/win-back result. */
 export const WinBackResultSchema = z.object({ sent: z.boolean() });
+
+/** One Regulars Club member of a venue (GET /api/v1/guests/members). */
+export const GuestMemberSchema = z.object({
+  id: z.string(),
+  guestId: z.string(),
+  guestName: z.string(),
+  guestEmail: z.string().nullable(),
+  tier: z.enum(["REGULAR"]),
+  status: z.enum(["ACTIVE", "REVOKED"]),
+  invitedAt: z.string(),
+  revokedAt: z.string().nullable(),
+});
+export type GuestMember = z.infer<typeof GuestMemberSchema>;
+
+/** POST /api/v1/guests/members body. */
+export const InviteMemberBodySchema = z.object({
+  venueId: z.string().describe("Venue ID"),
+  email: z.email().describe("Email the member link is sent to"),
+  name: z.string().min(1).describe("Guest name, used only when no guest has this email yet"),
+});
+
+/** POST /api/v1/guests/:id/revoke-membership result. */
+export const RevokeMemberResultSchema = z.object({ revoked: z.boolean() });

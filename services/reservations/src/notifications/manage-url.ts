@@ -22,6 +22,17 @@ function managePathFor(origin: string): string {
 }
 
 /**
+ * The Regulars Club member link (#9626): the venue's public booking widget with the signed
+ * member token as `member`. eat-sheet.com serves hospitality at its root, everything else
+ * under `/hospitality`, as for the manage link.
+ */
+export function buildMemberUrl(baseUrl: string, venueSlug: string, token: string): string {
+  const origin = baseUrl.replace(/\/+$/, "");
+  const prefix = managePathFor(origin) === EAT_SHEET_MANAGE_PATH ? "" : "/hospitality";
+  return `${origin}${prefix}/book/${encodeURIComponent(venueSlug)}?member=${encodeURIComponent(token)}`;
+}
+
+/**
  * The only place a guest manage link is built. `baseUrl` is the web origin
  * (MANAGE_BASE_URL, or eat-sheet.com's own origin for a booking made there);
  * `rebook` is an optional slot id for one-tap rebooking.

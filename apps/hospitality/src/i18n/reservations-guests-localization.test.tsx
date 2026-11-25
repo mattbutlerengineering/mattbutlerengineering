@@ -98,6 +98,11 @@ vi.mock("../hooks/useWaitlist.js", () => ({
   useCancelWaitlistEntry: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useRefreshWaitlist: () => vi.fn(),
 }));
+vi.mock("../hooks/useRegularsClub.js", () => ({
+  useMembers: () => ({ data: [], isLoading: false, error: null }),
+  useInviteMember: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useRevokeMember: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}));
 vi.mock("../hooks/useApiClient.js", () => ({ useApiClient: () => ({ reservations: {} }) }));
 vi.mock("../hooks/useStaffBookingCheck.js", () => ({
   useStaffBookingCheck: () => ({ phase: "idle", verdict: null }),
@@ -181,6 +186,10 @@ describe("reservations and guests in es-MX", () => {
     expect(screen.getByText("Mostrando 1 de 40 clientes")).toBeInTheDocument();
     expect(screen.getByText("Página 1 de 4")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Página siguiente" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Club de clientes frecuentes" })
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Enviar invitación" })).toBeInTheDocument();
   });
 
   it("translates the guest table rows", () => {
