@@ -4,7 +4,8 @@ import pg from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { CONFLICT_CHANGES_MAX } from "@mbe/types";
 import { PrismaClient } from "../generated/prisma/index.js";
-import { getAvailabilityConfig, saveAvailabilityConfig } from "./availability-config.js";
+import { getAvailabilityConfig } from "./availability-config.js";
+import { saveAvailabilityConfig } from "./availability-commit.js";
 
 /**
  * Real-Postgres proof for #8093: a version-conflict names every change between the draft's version

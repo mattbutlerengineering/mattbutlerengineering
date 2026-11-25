@@ -4,7 +4,8 @@ import pg from "pg";
 import { PrismaPg } from "@prisma/adapter-pg";
 import type { DateRule } from "@mbe/types";
 import { PrismaClient } from "../generated/prisma/index.js";
-import { getAvailabilityConfig, saveAvailabilityConfig } from "./availability-config.js";
+import { getAvailabilityConfig } from "./availability-config.js";
+import { saveAvailabilityConfig } from "./availability-commit.js";
 import { createClosure } from "./closure-command.js";
 
 /**

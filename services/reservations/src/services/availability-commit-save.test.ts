@@ -1,11 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import type { AvailabilityConfig, DateRule } from "@mbe/types";
-import type { ConfigState, SaveRequest } from "./availability-config.js";
+import type { ConfigState } from "./availability-config.js";
+import type { SaveRequest } from "./availability-commit.js";
 import { availabilityStore, type Store } from "../test/availability-store.js";
 
 vi.mock("./database.js", () => ({ prisma: {} }));
 
-const { commitSave } = await import("./availability-config.js");
+const { commitSave } = await import("./availability-commit.js");
 
 const NOW = new Date("2026-10-25T19:00:00.000Z");
 const WHO = { venueId: "v", actorId: "mgr-1", now: NOW };
