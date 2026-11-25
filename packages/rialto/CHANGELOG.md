@@ -1,5 +1,25 @@
 # @mattbutlerengineering/rialto
 
+## 3.1.2
+
+### Patch Changes
+
+- [#9529](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9529) [`d95e7e4`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/d95e7e48c4df5e7642c05c36946c70fdc64e5c8d) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add AI catalog metadata for TextArea, Autocomplete, DateRangePicker, InputGroup and Collapsible.
+
+- [#9556](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9556) [`29be982`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/29be982819b13d385fcc762c8acf8d1afe13110f) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add catalog metadata for MasterOverride, ChatPanel, ImageUpload and Tree so AI generation can use them.
+
+- [#9546](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9546) [`ed775cb`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/ed775cbce5cd51d8b9fb3e6bfc7f4c96bc2f1698) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add catalog metadata for Navbar, GlobalNav, PageHeader, Heading and Hero so AI generation can use them.
+
+- [#9581](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9581) [`4bcd0f0`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/4bcd0f0ee1357acc78ecfe18ccdc2a14f224bd1b) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Catalog generator now emits `z.union([z.literal(n), ...])` for numeric-literal union props (e.g. `weekStartsOn`, `headingLevel`) instead of silently dropping them. Heading's `level`/`size` no longer need a hand-written catalog override — the generator now derives their schema from the `HeadingLevel` type directly.
+
+- [#9539](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9539) [`9525d41`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/9525d41f51a205f02e1977d3379064fe3ae3a5ff) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add catalog metadata for ConfirmDialog, HoverCard, ContextMenu and CommandPalette so AI generation can use them.
+
+- [#9534](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9534) [`e741ee5`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/e741ee5f710363de2678a033723a11c9a15c94c1) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add catalog metadata for Progress, Meter, Steps and Pagination so AI generation can use them.
+
+- [#9552](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9552) [`b51a8be`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/b51a8be7e189709ceba8aaf1752d4dc082395e7c) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add catalog metadata for ErrorBoundary, ThemeToggle, DisabledTooltip, SplitScreenExit and Kbd so AI generation can use them.
+
+- [#9566](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9566) [`fa1efbb`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/fa1efbbb5eab5f27c0552f1045bd608cb97b1179) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Heading catalog now validates `level` and `size` (integers 1 to 6), so generated specs cannot render an out-of-range heading such as `<h7>`. Navbar catalog description no longer advertises a search field the catalog does not expose.
+
 ## 3.1.1
 
 ### Patch Changes
