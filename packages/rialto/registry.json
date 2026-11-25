@@ -2065,6 +2065,121 @@
       ]
     },
     {
+      "name": "FeedbackButton",
+      "description": "A button that opens a \n{@link \nFeedbackDialog \n}\n. Focus returns to the button\nwhen the dialog closes.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [
+        {
+          "name": "label",
+          "type": "string",
+          "required": true,
+          "description": "Visible name of the trigger, e.g. \"Send feedback\"."
+        },
+        {
+          "name": "variant",
+          "type": "\"primary\" | \"secondary\" | \"ghost\" | undefined",
+          "required": false
+        },
+        {
+          "name": "size",
+          "type": "\"sm\" | \"md\" | \"lg\" | undefined",
+          "required": false
+        },
+        {
+          "name": "onSubmit",
+          "type": "(draft: FeedbackDraft) => Promise<{ issueNumber: number; }>",
+          "required": true,
+          "description": "Files the feedback. Reject to show the error state; the draft is kept."
+        },
+        {
+          "name": "labels",
+          "type": "FeedbackDialogLabels",
+          "required": true
+        },
+        {
+          "name": "contextItems",
+          "type": "readonly FeedbackContextItem[]",
+          "required": true,
+          "description": "Auto-attached context, shown to the reporter before they send."
+        },
+        {
+          "name": "describeError",
+          "type": "((error: unknown) => string) | undefined",
+          "required": false,
+          "description": "Friendly failure text for a rejected submit; defaults to `labels.errorBody`."
+        }
+      ],
+      "slots": []
+    },
+    {
+      "name": "FeedbackContextItem",
+      "description": "A line of the \"We'll include\" list, e.g. `{ label: \"Page\", value: \"/timeline\" }`.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [],
+      "slots": []
+    },
+    {
+      "name": "FeedbackDialog",
+      "description": "Modal for reporting a bug or idea. Collects a type, a message (10–2000\ncharacters) and an optional email, lists the context that will be attached,\nand reports the filed issue number. A failed submit keeps the draft and\noffers a retry.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [
+        {
+          "name": "open",
+          "type": "boolean",
+          "required": true
+        },
+        {
+          "name": "onClose",
+          "type": "() => void",
+          "required": true
+        },
+        {
+          "name": "onSubmit",
+          "type": "(draft: FeedbackDraft) => Promise<{ issueNumber: number; }>",
+          "required": true,
+          "description": "Files the feedback. Reject to show the error state; the draft is kept."
+        },
+        {
+          "name": "labels",
+          "type": "FeedbackDialogLabels",
+          "required": true
+        },
+        {
+          "name": "contextItems",
+          "type": "readonly FeedbackContextItem[]",
+          "required": true,
+          "description": "Auto-attached context, shown to the reporter before they send."
+        },
+        {
+          "name": "describeError",
+          "type": "((error: unknown) => string) | undefined",
+          "required": false,
+          "description": "Friendly failure text for a rejected submit; defaults to `labels.errorBody`."
+        }
+      ],
+      "slots": []
+    },
+    {
+      "name": "FeedbackDialogLabels",
+      "description": "Every string the dialog shows. The consumer owns the copy (and its locales).",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [],
+      "slots": []
+    },
+    {
+      "name": "FeedbackDraft",
+      "description": "What the reporter typed. `email` is absent when the field was left blank.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [],
+      "slots": []
+    },
+    {
+      "name": "FeedbackKind",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [],
+      "slots": []
+    },
+    {
       "name": "Fireflies",
       "description": "An ambient canvas backdrop: sparse fireflies on a dusk patio. Each fly\nwanders slowly and pulses on its own beat, flashing bright and fading to\nnothing; the few that glow gold (the accent) are the only warm points, the\nrest are faint text-primary. The pointer draws nearby flies a little closer.\n\nPurely decorative — always `aria-hidden` and never interactive. Colors come\nfrom live theme tokens and re-read on theme change, so it works in light and\ndark without configuration. Under `prefers-reduced-motion` it degrades to a\nstatic gradient poster and no animation loop is ever started.\n\nAn expressive element: use one per view, as the backdrop of a single hero or\nempty-state slot, never stacked with `SilkFlow` or another backdrop.\n\nSizes to its container; give that container `position: relative`.",
       "importPath": "@mattbutlerengineering/rialto",

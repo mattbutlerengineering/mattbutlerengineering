@@ -190,6 +190,10 @@
       "types": "./dist/lib/components/ErrorBoundary/index.d.ts",
       "import": "./dist/lib/components/ErrorBoundary/index.js"
     },
+    "./FeedbackDialog": {
+      "types": "./dist/lib/components/FeedbackDialog/index.d.ts",
+      "import": "./dist/lib/components/FeedbackDialog/index.js"
+    },
     "./Fireflies": {
       "types": "./dist/lib/components/Fireflies/index.d.ts",
       "import": "./dist/lib/components/Fireflies/index.js"

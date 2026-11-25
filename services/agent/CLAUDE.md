@@ -143,6 +143,7 @@ pnpm db:migrate:status # Show migration status
 | `GEN_PROVIDER`               | No         | `/api/gen/*` vendor: `anthropic` (default) or `google`          |
 | `GEMINI_API_KEY`             | If google  | Google AI Studio key, read when `GEN_PROVIDER=google`           |
 | `GITHUB_TOKEN`               | Yes        | GitHub PAT for PR creation                                      |
+| `FEEDBACK_GITHUB_TOKEN`      | No         | Fine-grained PAT, Issues write only; unset = feedback 503s      |
 | `GITHUB_WEBHOOK_SECRET`      | No         | HMAC secret for GitHub webhooks                                 |
 | `REMEDIATION_WEBHOOK_SECRET` | No         | HMAC secret for remediation webhooks                            |
 | `REPO_PATH`                  | No         | Repo URL for agent context                                      |

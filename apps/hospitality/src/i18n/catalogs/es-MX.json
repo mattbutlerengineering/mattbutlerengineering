@@ -4484,5 +4484,38 @@
       "email": "Cuéntale a Matt de tu restaurante",
       "open": "Abrir tu restaurante"
     }
+  },
+  "feedback": {
+    "open": "Enviar comentarios",
+    "title": "Enviar comentarios",
+    "typeLabel": "¿Qué tipo de comentario es?",
+    "types": {
+      "bug": "Error",
+      "idea": "Idea",
+      "other": "Otro"
+    },
+    "messageLabel": "Tu mensaje",
+    "messageHint": "Mínimo 10 caracteres.",
+    "messageTooShort": "Escribe al menos 10 caracteres.",
+    "emailLabel": "Correo para dar seguimiento",
+    "emailHint": "Opcional. Nunca se publica.",
+    "emailInvalid": "Ingresa un correo válido.",
+    "contextHeading": "Incluiremos:",
+    "context": {
+      "app": "App",
+      "page": "Página",
+      "screen": "Pantalla",
+      "version": "Versión",
+      "user": "ID de usuario"
+    },
+    "submit": "Enviar",
+    "submitting": "Enviando",
+    "cancel": "Cancelar",
+    "done": "Listo",
+    "retry": "Reintentar",
+    "errorTitle": "No pudimos enviar tus comentarios",
+    "errorBody": "Tu mensaje sigue aquí. Revisa tu conexión e inténtalo de nuevo.",
+    "successTitle": "Gracias, lo recibimos",
+    "successBody": "Registrado como la incidencia #{{number}}."
   }
 }

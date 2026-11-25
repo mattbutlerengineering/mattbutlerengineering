@@ -10,6 +10,7 @@ import { genUiRoutes } from "./routes/gen-ui.js";
 import { genSpecsRoutes } from "./routes/gen-specs.js";
 import { genAgentRoutes } from "./routes/gen-agent.js";
 import { genOnboardingRoutes } from "./routes/gen-onboarding.js";
+import { feedbackRoutes } from "./routes/feedback.js";
 import { db } from "./services/database.js";
 
 /**
@@ -45,6 +46,7 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   await fastify.register(genSpecsRoutes);
   await fastify.register(genAgentRoutes);
   await fastify.register(genOnboardingRoutes);
+  await fastify.register(feedbackRoutes);
 
   return fastify;
 }
