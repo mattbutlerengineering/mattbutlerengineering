@@ -25,6 +25,7 @@ import {
 } from "../middleware/public-rate-limit.js";
 import { guestActor } from "../services/reservation-events.js";
 import { gateProblem } from "../services/assert-bookable.js";
+import { rebookRequiresDeposit } from "../services/manage-rebook-deps.js";
 import { resolveOriginHost } from "../config/host-brand.js";
 
 const SESSION_ID_HEADER = "x-session-id";
@@ -325,7 +326,24 @@ export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
         // active-hold cap — same bookkeeping the release path does.
         decrementHoldCount(ip);
 
-        return reply.status(201).send({ data: withoutGuestLink(result.reservation), manageToken });
+        // Whether this booking needs a deposit is decided here, from the
+        // contact just submitted. It is the only place a caller learns it, and
+        // only for the booking they are making (no standalone lookup).
+        // The booking is already committed, so a failed read must not become a 500 the guest
+        // cannot retry (the hold is consumed). Fall back to no deposit, as the widget did before.
+        let depositRequired = false;
+        try {
+          depositRequired = await rebookRequiresDeposit(venueId, {
+            guestEmail: guestEmail ?? null,
+            guestPhone: guestPhone ?? null,
+          });
+        } catch (error) {
+          request.log.error({ err: error, venueId }, "deposit check failed after hold confirm");
+        }
+
+        return reply
+          .status(201)
+          .send({ data: withoutGuestLink(result.reservation), manageToken, depositRequired });
       }
     )
   );

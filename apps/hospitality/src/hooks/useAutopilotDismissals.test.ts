@@ -42,6 +42,23 @@ describe("useAutopilotDismissals", () => {
     expect(b.result.current.nightDismissed).toBe(false);
   });
 
+  it("a hold from an earlier render keeps dismissals made since (stale closure)", () => {
+    const { result } = renderHook(() => useAutopilotDismissals("v1", "2026-06-19"));
+    // Captured before the dismissals below, as an in-flight approval's callback would be.
+    const staleHold = result.current.holdEntry;
+    act(() => result.current.dismissMove("m1"));
+    act(() => result.current.dismissNight());
+    act(() => staleHold("w1"));
+
+    expect(result.current.isEntryHeld("w1")).toBe(true);
+    expect(result.current.isMoveDismissed("m1")).toBe(true);
+    expect(result.current.nightDismissed).toBe(true);
+    const stored = JSON.parse(
+      window.localStorage.getItem("mbe-autopilot-dismissed:v1:2026-06-19") ?? "{}"
+    );
+    expect(stored).toEqual({ night: true, moves: ["m1"], entries: ["w1"] });
+  });
+
   it("still works for the session when storage throws", () => {
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
       throw new Error("quota");

@@ -981,6 +981,7 @@
       "offerNotice": "Seats them now. This can't be undone.",
       "reseatDone": "Moved {{party}} to {{to}}",
       "offerDone": "Seated {{party}} at {{to}}",
+      "alreadySeated": "{{party}} was already seated.",
       "undo": "Undo",
       "undoReseatDone": "Moved {{party}} back to {{from}}",
       "undoFailed": "Couldn't put {{party}} back. Nothing was changed.",

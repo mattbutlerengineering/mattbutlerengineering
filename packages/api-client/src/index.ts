@@ -20,7 +20,7 @@ export { FloorPlanSectionsClient } from "./floor-plan-sections.js";
 export { MenusClient } from "./menus.js";
 export type { MenuWithSections } from "./menus.js";
 export { DepositsClient, type CreateDepositRequest, type DepositTransition } from "./deposits.js";
-export { PublicVenueClient, type GetGuestRiskParams } from "./public-venue.js";
+export { PublicVenueClient } from "./public-venue.js";
 export { WaitlistClient } from "./waitlist.js";
 export {
   BriefingClient,

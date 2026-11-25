@@ -1005,6 +1005,7 @@
       "offerNotice": "Los sienta ahora. No se puede deshacer.",
       "reseatDone": "Se movió a {{party}} a {{to}}",
       "offerDone": "Se sentó a {{party}} en {{to}}",
+      "alreadySeated": "{{party}} ya estaba sentado.",
       "undo": "Deshacer",
       "undoReseatDone": "Se devolvió a {{party}} a {{from}}",
       "undoFailed": "No se pudo devolver a {{party}}. No se cambió nada.",

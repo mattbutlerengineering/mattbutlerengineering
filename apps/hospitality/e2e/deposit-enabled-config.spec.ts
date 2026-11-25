@@ -1,5 +1,5 @@
 import { test, expect } from "./fixtures.js";
-import { buildDepositEnabledPublicVenueConfigFixture } from "./api-mocks.js";
+import { buildDepositEnabledPublicVenueConfigFixture, loadFixture } from "./api-mocks.js";
 import { pickBookingDate } from "./booking-date.js";
 import { localDay } from "./local-day.js";
 
@@ -174,6 +174,19 @@ test.describe("Booking widget deposit step — deposit-enabled venue", () => {
             expiresAt: new Date(Date.now() + 600_000).toISOString(),
             createdAt: new Date().toISOString(),
           },
+        }),
+      })
+    );
+
+    // The server decides the deposit at confirm time and says so in the
+    // confirm response; this venue's policy requires one.
+    await mockedPage.route("**/public/v1/venues/*/holds/*/confirm", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: JSON.parse(loadFixture("reservations-list")).data[0],
+          depositRequired: true,
         }),
       })
     );

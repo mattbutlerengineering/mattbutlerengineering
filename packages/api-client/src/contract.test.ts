@@ -8,7 +8,6 @@ import {
   ReservationSchema as ZodReservationSchema,
   TableSchema as ZodTableSchema,
   PublicVenueConfigSchema,
-  GuestRiskResultSchema,
   GuestRecognitionSchema,
   WaitlistJoinResultSchema,
   VenueTeamSchema,
@@ -22,7 +21,6 @@ import {
   reservationJsonSchema as ServiceReservationSchema,
   tableJsonSchema as ServiceTableSchema,
   publicVenueConfigJsonSchema as ServicePublicVenueConfigSchema,
-  guestRiskResultJsonSchema as ServiceGuestRiskResultSchema,
   guestRecognitionJsonSchema as ServiceGuestRecognitionSchema,
   waitlistJoinResultJsonSchema as ServiceWaitlistJoinResultSchema,
   venueTeamResponseJsonSchema as ServiceVenueTeamSchema,
@@ -104,15 +102,6 @@ describe("API Client ↔ Service Schema Contracts", () => {
         zodKeys(PublicVenueConfigSchema),
         jsonSchemaKeys(ServicePublicVenueConfigSchema)
       );
-    });
-
-    it("GuestRiskResult schema properties match between @mbe/types and reservations service", () => {
-      const zod = zodKeys(GuestRiskResultSchema);
-      const json = jsonSchemaKeys(ServiceGuestRiskResultSchema);
-      assertKeysMatch("GuestRiskResult", zod, json);
-      expect([...zod].sort()).toEqual(["requiresDeposit"]);
-      expect(zod.has("riskScore")).toBe(false);
-      expect(json.has("riskScore")).toBe(false);
     });
 
     it("GuestRecognition schema properties match between @mbe/types and reservations service", () => {

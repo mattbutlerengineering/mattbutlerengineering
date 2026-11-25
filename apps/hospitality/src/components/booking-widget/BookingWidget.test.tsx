@@ -181,7 +181,6 @@ describe("BookingWidget", () => {
       getPublicConfig: vi.fn(),
     },
     publicVenue: {
-      guestRisk: vi.fn(),
       depositIntent: vi.fn(),
     },
   };
@@ -313,13 +312,8 @@ describe("BookingWidget", () => {
   });
 
   it("shows payment step for risky guest even when venue has no deposit policy", async () => {
-    // Guest-risk lookup now goes through the typed api.publicVenue.guestRisk() client method.
-    mockApi.publicVenue.guestRisk.mockResolvedValue({
-      requiresDeposit: true,
-    });
-
-    // Venue config — deposit enabled with amount (required for payment step) —
-    // now goes through the typed api.venues.getPublicConfig() client method.
+    // The server decides the deposit from the submitted contact and says so
+    // in the confirm response (depositRequired below); the policy is off.
     mockApi.venues.getPublicConfig.mockResolvedValue({
       name: "The Oak Table",
       slug: "the-oak-table",
@@ -328,7 +322,7 @@ describe("BookingWidget", () => {
       operatingHours: null,
       settings: {},
       deposit: {
-        enabled: true,
+        enabled: false,
         depositType: "flat",
         amountCents: 5000,
         freeCancellationHours: null,
@@ -375,83 +369,13 @@ describe("BookingWidget", () => {
         partySize: 2,
       },
       manageToken: "tok_test123",
+      depositRequired: true,
     });
 
     fireEvent.click(screen.getByText("Complete Reservation"));
 
     // Should go to Payment step (not skip to Confirmation)
     await waitFor(() => expect(screen.getByText("Payment")).toBeDefined());
-  });
-
-  it("does not call the guest-risk endpoint when Stripe is not configured", async () => {
-    // Regression test (review retry): the guest-risk lookup carries PII
-    // (email/phone) and must only fire when the venue's Stripe integration is
-    // actually configured (venueSlug + stripePublishableKey), matching
-    // effectiveDepositPolicy's own gating. It must never fire just because the
-    // venue's deposit policy happens to be disabled.
-    mockApi.publicVenue.guestRisk.mockResolvedValue({
-      requiresDeposit: true,
-    });
-
-    mockApi.venues.getPublicConfig.mockResolvedValue({
-      name: "The Oak Table",
-      slug: "the-oak-table",
-      ianaTimezone: "America/New_York",
-      currencyCode: "USD",
-      operatingHours: null,
-      settings: {},
-      deposit: {
-        enabled: false,
-        depositType: null,
-        amountCents: null,
-        freeCancellationHours: null,
-        lateCancellationFeePercent: null,
-        noShowFeePercent: null,
-      },
-    });
-
-    // venueSlug is set but stripePublishableKey is deliberately omitted
-    // (defaults to "" — Stripe not configured for this venue).
-    render(<BookingWidget venueId="v1" venueSlug="the-oak-table" />);
-
-    const dateInput = screen.getByLabelText("Date");
-    fireEvent.change(dateInput, { target: { value: FUTURE_DATE } });
-
-    mockApi.availability.getPublicAvailability.mockResolvedValue({
-      data: [{ time: "2026-05-20T18:00:00", available: true }],
-    });
-    fireEvent.click(screen.getByText("Find Available Times"));
-
-    await waitFor(() => expect(screen.getByText("Time")).toBeDefined());
-    mockApi.holds.createForVenue.mockResolvedValue({
-      hold: { id: "hold-1", expiresAt: new Date(Date.now() + 600000).toISOString() },
-    });
-    fireEvent.click(await screen.findByText(/6:00 PM/i));
-
-    await waitFor(() => expect(screen.getByText("Details")).toBeDefined());
-    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Some Guest" } });
-    fireEvent.change(screen.getByLabelText("Email"), {
-      target: { value: "guest@example.com" },
-    });
-
-    mockApi.holds.confirmForVenue.mockResolvedValue({
-      reservation: {
-        id: "res-789",
-        status: "CONFIRMED",
-        date: "2026-05-20",
-        startTime: "2026-05-20T18:00:00.000Z",
-        endTime: "2026-05-20T20:00:00.000Z",
-        partySize: 2,
-      },
-      manageToken: "tok_test123",
-    });
-
-    fireEvent.click(screen.getByText("Complete Reservation"));
-
-    // Deposit disabled + Stripe unconfigured → straight to Confirmation.
-    await waitFor(() => expect(screen.getByText("Reservation Confirmed!")).toBeDefined());
-
-    expect(mockApi.publicVenue.guestRisk).not.toHaveBeenCalled();
   });
 
   it("shows the charged TOTAL (base × partySize) as the authorized amount for per_person deposits", async () => {
@@ -563,10 +487,6 @@ describe("BookingWidget", () => {
       getElement: vi.fn().mockReturnValue({ mount: vi.fn() }),
     } as unknown as ReturnType<typeof useElements>);
 
-    mockApi.publicVenue.guestRisk.mockResolvedValue({
-      requiresDeposit: true,
-    });
-
     mockApi.venues.getPublicConfig.mockResolvedValue({
       name: "The Oak Table",
       slug: "the-oak-table",
@@ -624,6 +544,7 @@ describe("BookingWidget", () => {
         partySize: 2,
       },
       manageToken: "tok_test123",
+      depositRequired: true,
     });
 
     fireEvent.click(screen.getByText("Complete Reservation"));
@@ -648,10 +569,6 @@ describe("BookingWidget", () => {
     // ConfirmationView must not render cancellation terms for a booking
     // where no deposit was actually required, even though depositConfig
     // itself is non-null.
-    mockApi.publicVenue.guestRisk.mockResolvedValue({
-      requiresDeposit: false,
-    });
-
     mockApi.venues.getPublicConfig.mockResolvedValue({
       name: "The Oak Table",
       slug: "the-oak-table",
@@ -703,6 +620,7 @@ describe("BookingWidget", () => {
         partySize: 2,
       },
       manageToken: "tok_test123",
+      depositRequired: false,
     });
 
     fireEvent.click(screen.getByText("Complete Reservation"));

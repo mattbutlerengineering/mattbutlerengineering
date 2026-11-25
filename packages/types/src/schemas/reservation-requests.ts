@@ -497,11 +497,6 @@ export const PublicGuestRecognitionQuerySchema = z.object({
   email: z.email(),
 });
 
-export const PublicGuestRiskQuerySchema = z.object({
-  email: z.string().optional(),
-  phone: z.string().optional(),
-});
-
 export const PublicHoldBodySchema = z.object({
   date: ServiceDateSchema,
   startTime: z.string().min(1),

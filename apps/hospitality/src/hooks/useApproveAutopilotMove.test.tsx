@@ -47,9 +47,10 @@ const offer: AutopilotMove = {
 };
 
 let outcome: ApproveOutcome | null = null;
+const onSplit = vi.fn();
 
 function Approve({ move }: { readonly move: AutopilotMove }) {
-  const { approve, pendingMoveId } = useApproveAutopilotMove("v1", "2026-06-19");
+  const { approve, pendingMoveId } = useApproveAutopilotMove("v1", "2026-06-19", onSplit);
   return (
     <>
       <button
@@ -86,6 +87,7 @@ function renderApprove(move: AutopilotMove) {
 describe("useApproveAutopilotMove", () => {
   beforeEach(() => {
     outcome = null;
+    onSplit.mockReset();
     for (const fn of [
       api.reservations.getAutopilotProposals,
       api.reservations.update,
@@ -186,6 +188,20 @@ describe("useApproveAutopilotMove", () => {
     ).toBeInTheDocument();
     expect(api.waitlist.seat).not.toHaveBeenCalled();
     expect(outcome).toBe("failed");
+  });
+
+  it("says the party was already seated, holds them here and refreshes, when another device got there first", async () => {
+    api.reservations.walkIn.mockRejectedValue({
+      category: "conflict",
+      problemDetails: { type: "urn:mbe:problem:waitlist-entry-not-waiting", detail: "x" },
+      message: "conflict",
+    });
+    const { invalidate } = renderApprove(offer);
+
+    expect(await screen.findByText("Kim was already seated.")).toBeInTheDocument();
+    expect(onSplit).toHaveBeenCalledWith("w1");
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["autopilot-proposals"] });
+    expect(outcome).toBe("stale");
   });
 
   it("reports a failed write and leaves the move on the list", async () => {

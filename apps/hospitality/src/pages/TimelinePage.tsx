@@ -473,7 +473,8 @@ function LiveTimelinePage() {
   const autopilot = useTonightAutopilot(selectedVenueId, selectedDate, isToday);
   const { approve: approveAutopilotMove, pendingMoveId: approvingMoveId } = useApproveAutopilotMove(
     selectedVenueId,
-    selectedDate
+    selectedDate,
+    autopilot.holdWaitlistEntry
   );
   // The panel unmounts when dismissed for the night, so focus moves to the grid it sat above.
   function handleDismissAutopilotMove(moveId: string) {

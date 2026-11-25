@@ -1,5 +1,4 @@
 import type {
-  GuestRiskResult,
   GuestRecognition,
   WaitlistJoinRequest,
   WaitlistJoinResult,
@@ -8,19 +7,13 @@ import type {
   DepositPaymentIntent,
 } from "@mbe/types";
 import {
-  GuestRiskResultSchema,
   GuestRecognitionSchema,
   WaitlistJoinResultSchema,
   WaitlistEstimateSchema,
   DepositPaymentIntentSchema,
 } from "@mbe/types";
 import { z } from "zod";
-import type { ApiClient, QueryParams } from "./client.js";
-
-export interface GetGuestRiskParams {
-  email?: string;
-  phone?: string;
-}
+import type { ApiClient } from "./client.js";
 
 /**
  * Unauthenticated endpoints backing the embeddable public booking widget,
@@ -29,18 +22,6 @@ export interface GetGuestRiskParams {
  */
 export class PublicVenueClient {
   constructor(private client: ApiClient) {}
-
-  /**
-   * Whether this guest must pay a deposit, by email or phone.
-   * Unwraps `{ data }` and parses `GuestRiskResultSchema`.
-   */
-  async guestRisk(slug: string, params: GetGuestRiskParams): Promise<GuestRiskResult> {
-    return this.client.getOne<GuestRiskResult>(
-      `/public/v1/venues/${slug}/guest-risk`,
-      params as unknown as QueryParams,
-      GuestRiskResultSchema
-    );
-  }
 
   /**
    * Recognize a returning guest by email for a venue.
