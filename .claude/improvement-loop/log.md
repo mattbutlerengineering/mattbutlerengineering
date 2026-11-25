@@ -1222,3 +1222,27 @@ No `blocker: no-browser` (Chromium resolved at `/opt/pw-browsers/chromium_headle
 ### Skipped Issues
 
 0 skipped after max retries (`agent-skip` label: empty).
+
+## 2026-11-25 — mbe-ui-quality
+
+State: `state.mjs checkout` exit 0, `source: branch` (`ui-quality/ledger` @ `b0326d7f`, merged `origin/main` `0efe7a4d`, `resolved: ["metrics/ui-quality-ledger.jsonl"]` — one conflict resolved by rule, none by hand). All three app builds succeeded — no `unreachable:build` rows.
+
+**Routes:** 40 due (34 rialto-web, 6 marketing, 0 hospitality), 40 captured, 40 audited. 27 rows `unreachable:auth` (all hospitality authenticated routes), never captured — the hospitality capture run reported "no hospitality routes planned" and was skipped, as expected. Unjudged: 0. Dropped tells: 0.
+
+**Coverage before this fire: 100%** (141/141, `coverage.mjs` exit 0 — no breach).
+
+**Findings:** mechanical 0, judged 0. All 40 routes judged clean against the rubric's judged tells (rubric v1, 10 judged tells); both viewports (1280x720 and 375x812) were opened for every route — 80 images. `detect.mjs mechanical` exited 0 with six `out of inventory` notes (every marketing route links `/gen/`, mount `/gen` → `apps/gen`) — correctly no finding. Across all 40 captures the manifests carried 0 axe violations, 0 `pageerror`s and 0 failed requests, consistent with the 0 mechanical findings. Judgement notes: `components/chalkboard` was judged _not_ `agent-built/unrequested-dark-theme` — a daily-specials blackboard is a deliberate dark scene, which the rubric explicitly permits. The marketing home "Projects" row is three side-by-side cards but each carries a real stack list, a real description and a live link, so it is not `agent-built/three-feature-card-row`; `components/typography` confirms the display face is Bricolage Grotesque, not Inter, so `agent-built/inter-headline` cannot apply anywhere in rialto-web.
+
+Several real layout defects were seen that the rubric has no judged tell for, so none was filed (the judge may name listed tell ids only): at 375px the `components/chalkboard` panel overflows its right gutter, and the `Copy JSX` button overlaps the page description on every `examples/*` route; `components/card` and `components/textarea` truncate their content partway down the mobile page, leaving ~1700px of blank canvas below; `components/toggle` renders its "Default on" switch in the off position; `components/toast` stretches its "Start Session" primary button to the full content width. Recorded here rather than inventing tells — promoting any of them needs a human rubric bump.
+
+**Calibration stamp: `stale`.** `calibration-status --model-id claude-opus-5` returned exit 3 (`stale`) — the only calibration trigger. `rate.mjs pairs --calibration` then exited 2: `docs/ui-quality/calibration.json` still has no labelled pairs (the placeholder set; a human labels >= 10 pairs once at the Verify stage). Logged, not retried. The re-asked `calibration-status` was still exit 3 (`stale`), so this is a stale stamp calibration could not clear — agent-built findings stay suppressed by design. Rating proceeded: 12 pairs over 2 apps judged and recorded (`rate.mjs record` exit 0 — marketing 1.25, rialto-web 1.67).
+
+**Filing:** no rubric migration needed (every findings-ledger key is `r1`, rubric_version 1). 37 distinct issue numbers resolved — all 37 `closed`. The labelled-issue set was read with `mcp__github__list_issues` (labels `ui-quality`, both states, `perPage: 100`): 40 issues, `hasNextPage: false`, `totalCount: 40`, complete in one page, all closed; the 3 beyond the findings ledger are the historical `ui-quality: filing blocked by unknown labelled issues` escalation issues (#7477, #7908, #8959), all closed. **Note:** `mcp__github__search_issues` does not exist in this sandbox, so the label-scoped `list_issues` call was used in its place; it returns the same `{number, title, state}` set with verifiable full pagination, so the plan's completeness guard is still satisfied. `findings.mjs plan --calibration-status stale` exited 0 with **no actions, 0 seeds, no escalation file**. Issues created 0, reopened 0, commented 0. Seeds 0.
+
+**Fix PR: none** — the plan carried no `fix_pr_candidate` (there were no findings to fix).
+
+**P1 SLA:** 0 open `ui-quality:p1` issues; `p1-age.mjs --escalate` exit 0, 0 of 0 older than 7 days, 0 escalation actions. 0 breaches escalated.
+
+Checkpoint `chore(ui-quality): checkpoint 2026-11-25` committed and pushed to `ui-quality/ledger` (`c67e66db2`). `ledger.mjs record` exit 0: due 40, audited 40, unreachable auth 27 / build 0, unjudged 0, dropped_tells 0.
+
+No `blocker: no-browser` (Chromium resolved at `/opt/pw-browsers/chromium_headless_shell-1243/...`), no stopped filing, no pipeline bug. A clean fire: everything due was captured and judged, and nothing the rubric names was found.
