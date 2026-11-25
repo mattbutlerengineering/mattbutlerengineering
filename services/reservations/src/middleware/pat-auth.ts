@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import type { JwtVerifier } from "@mbe/auth/fastify";
 import { ACCESS_TOKENS_PREFIX, createProblemDetails } from "@mbe/types";
 import { isAccessToken } from "../services/access-token.js";
@@ -34,11 +34,9 @@ export function createPatAwareVerifier(
  * revoke tokens), whatever the route.
  */
 export function registerPatReadOnlyGuard(fastify: FastifyInstance): void {
-  fastify.addHook("onRequest", async (request, reply) => {
-    if (request.user?.raw[PAT_CLAIM] !== true) return;
-    const path = request.url.split("?")[0] ?? "";
-    if (READ_METHODS.has(request.method) && !path.startsWith(ACCESS_TOKENS_PREFIX)) return;
-    return reply
+  const isPat = (request: FastifyRequest): boolean => request.user?.raw[PAT_CLAIM] === true;
+  const forbid = (reply: FastifyReply) =>
+    reply
       .code(403)
       .send(
         createProblemDetails(
@@ -48,5 +46,16 @@ export function registerPatReadOnlyGuard(fastify: FastifyInstance): void {
           TOKEN_READ_ONLY_PROBLEM
         )
       );
+
+  fastify.addHook("onRequest", async (request, reply) => {
+    if (isPat(request) && !READ_METHODS.has(request.method)) return forbid(reply);
+  });
+
+  // The route's own pattern, known only after routing: a percent-encoded URL
+  // (`/me/%74okens`) still matches the route but not a raw-URL prefix test.
+  fastify.addHook("preHandler", async (request, reply) => {
+    if (isPat(request) && request.routeOptions.url?.startsWith(ACCESS_TOKENS_PREFIX)) {
+      return forbid(reply);
+    }
   });
 }

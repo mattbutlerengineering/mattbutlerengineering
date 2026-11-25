@@ -86,6 +86,12 @@ describe("personal access token bearer (#9664)", () => {
     expect(tokens.list).not.toHaveBeenCalled();
   });
 
+  it("refuses a token on the token endpoints through a percent-encoded path", async () => {
+    const res = await app.inject({ method: "GET", url: "/api/v1/me/%74okens", headers: PAT });
+    expect(res.statusCode).toBe(403);
+    expect(tokens.list).not.toHaveBeenCalled();
+  });
+
   it("leaves the JWT path unchanged, including writes", async () => {
     vi.mocked(jwtVerify).mockResolvedValue({
       payload: { sub: "auth0|me", iss: "https://test.auth0.com/", aud: "https://api.example.com" },
