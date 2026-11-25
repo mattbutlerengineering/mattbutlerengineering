@@ -24,8 +24,10 @@ export default {
   ...usersConfig,
 
   mutate: [
-    "services/reservations/src/services/*.ts",
-    "!services/reservations/src/services/*.test.ts",
+    // Narrowed to the transition logic and the deposit services so one run
+    // fits the workflow's 30-minute window (#9616).
+    "services/reservations/src/services/deposit.ts",
+    "services/reservations/src/services/deposit-state-machine.ts",
     "services/reservations/src/transitions/*.ts",
     "!services/reservations/src/transitions/*.test.ts",
   ],
@@ -35,14 +37,19 @@ export default {
   ignorePatterns: [
     ...usersConfig.ignorePatterns.filter(
       (pattern) =>
-        pattern !== "services/reservations/**" && pattern !== "services/users/node_modules/**"
+        pattern !== "services/reservations/**" &&
+        pattern !== "services/users/node_modules/**" &&
+        // The reservations tests import the generated Prisma client, which the
+        // sandbox must therefore carry (the workflow restores it before the run).
+        pattern !== "**/generated/**"
     ),
     "services/users/**",
     "services/reservations/node_modules/**",
   ],
 
   vitest: {
-    configFile: "services/reservations/vitest.config.ts",
+    // Narrowed config: only the tests for the mutated files (#9616).
+    configFile: "services/reservations/vitest.stryker.config.ts",
     related: false,
     dir: "services/reservations",
   },
