@@ -4094,6 +4094,42 @@
       "title": "Cuenta",
       "signedInAs": "Sesión iniciada como",
       "signOut": "Cerrar sesión"
+    },
+    "accessTokens": {
+      "title": "Conecta un asistente de IA",
+      "description": "Deja que un asistente de IA como Claude consulte información por ti. Un token es de solo lectura y llega a todos los locales a los que perteneces. Trátalo como una contraseña.",
+      "nameLabel": "Nombre del token",
+      "nameRequired": "Ponle un nombre al token, por ejemplo el del asistente que lo usará.",
+      "expiryLabel": "Vence",
+      "expiry": {
+        "30": "En 30 días",
+        "90": "En 90 días",
+        "365": "En 1 año",
+        "never": "Nunca"
+      },
+      "create": "Crear token",
+      "empty": "Aún no hay tokens.",
+      "loadError": "No se pudieron cargar tus tokens",
+      "created": "{{prefix}}… · creado el {{date}}",
+      "lastUsed": "Último uso: {{date}}",
+      "neverUsed": "Nunca usado",
+      "expires": "Vence el {{date}}",
+      "neverExpires": "No vence",
+      "revoke": "Revocar",
+      "revokeNamed": "Revocar {{name}}",
+      "revokeConfirm": {
+        "title": "¿Revocar {{name}}?",
+        "description": "Todo lo que use este token dejará de funcionar de inmediato. No se puede deshacer.",
+        "cancel": "Conservarlo"
+      },
+      "mintedTitle": "Token creado para {{name}}",
+      "tokenLabel": "Tu token",
+      "shownOnce": "Cópialo ahora. No volverás a verlo.",
+      "copy": "Copiar token",
+      "copied": "Copiado",
+      "copyFailed": "No se pudo copiar. Selecciona el token y cópialo a mano.",
+      "done": "Listo",
+      "limitReached": "Llegaste al límite de tokens activos. Revoca uno para crear otro."
     }
   },
   "admin": {

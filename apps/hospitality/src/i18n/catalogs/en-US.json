@@ -3978,6 +3978,42 @@
       "title": "Account",
       "signedInAs": "Signed in as",
       "signOut": "Sign Out"
+    },
+    "accessTokens": {
+      "title": "Connect an AI assistant",
+      "description": "Let an AI assistant such as Claude look things up for you. A token is read-only and reaches every venue you belong to. Treat it like a password.",
+      "nameLabel": "Token name",
+      "nameRequired": "Give the token a name, such as the assistant it is for.",
+      "expiryLabel": "Expires",
+      "expiry": {
+        "30": "In 30 days",
+        "90": "In 90 days",
+        "365": "In 1 year",
+        "never": "Never"
+      },
+      "create": "Create token",
+      "empty": "No tokens yet.",
+      "loadError": "Couldn't load your tokens",
+      "created": "{{prefix}}… · created {{date}}",
+      "lastUsed": "Last used {{date}}",
+      "neverUsed": "Never used",
+      "expires": "Expires {{date}}",
+      "neverExpires": "Never expires",
+      "revoke": "Revoke",
+      "revokeNamed": "Revoke {{name}}",
+      "revokeConfirm": {
+        "title": "Revoke {{name}}?",
+        "description": "Anything using this token stops working right away. This can't be undone.",
+        "cancel": "Keep it"
+      },
+      "mintedTitle": "Token created for {{name}}",
+      "tokenLabel": "Your token",
+      "shownOnce": "Copy it now. You won't see this again.",
+      "copy": "Copy token",
+      "copied": "Copied",
+      "copyFailed": "Couldn't copy. Select the token and copy it by hand.",
+      "done": "Done",
+      "limitReached": "You have reached the limit of active tokens. Revoke one to create another."
     }
   },
   "admin": {
