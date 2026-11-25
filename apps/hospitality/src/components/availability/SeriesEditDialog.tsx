@@ -21,7 +21,7 @@ import {
   growthClosure,
   nextOccurrence,
   restoreDate,
-  sameRow,
+  sameEditedRow,
   skipDate,
   type SeriesScope,
 } from "./series-edit.js";
@@ -99,7 +99,7 @@ export function SeriesEditDialog(props: SeriesEditDialogProps) {
     setEndsOn(series.endsOn ?? null);
     setGrowth(null);
     setPreviewFailure(null);
-    if (!sentRow || !sameRow(sentRow, series)) setChangedUnderneath(true);
+    if (!sentRow || !sameEditedRow(sentRow, series)) setChangedUnderneath(true);
   }
 
   const label = (d: string) =>

@@ -59,7 +59,7 @@ import { CloseStepTwo } from "./CloseStepTwo.js";
 import { GivenBackChoice } from "./GivenBackChoice.js";
 import { outcomeLabel, outcomeSummary } from "./outcome-label.js";
 import { sectionMembership } from "./section-membership.js";
-import { sameRow } from "./series-edit.js";
+import { sameEditedRow } from "./series-edit.js";
 import { refusalOf, refusalText } from "./step-two-refusal.js";
 import styles from "./CloseDialog.module.css";
 
@@ -263,7 +263,7 @@ export function CloseDialog(props: CloseDialogProps) {
     ? null
     : !liveRow
       ? "gone"
-      : sameRow(liveRow, editing)
+      : sameEditedRow(liveRow, editing)
         ? null
         : "changed";
   // Several dates are one closure each; these answer "which rule is for this date" so that a retry

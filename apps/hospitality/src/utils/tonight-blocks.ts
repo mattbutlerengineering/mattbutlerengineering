@@ -8,6 +8,10 @@ import type { AvailabilityConfig, DateRule } from "@mbe/types";
  * are open then; otherwise the day before does, while its past-midnight service still runs
  * (12:30 AM Friday is minute 1470 of Thursday's service day). Closures and Tonight changes are
  * stripped first, so a block never changes which day owns the booking.
+ *
+ * Deliberate twin of `owningServiceDay` in `packages/availability/src/slots.ts`, which takes an
+ * instant. The client keeps its own because its input is a calendar date plus `HH:MM` from a staff
+ * form, with no instant to give; see also `current-service-date.ts` (the engine's own rule, adapted).
  */
 export function bookingMinuteOnServiceDay(
   config: AvailabilityConfig,

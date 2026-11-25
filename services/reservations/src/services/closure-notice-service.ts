@@ -4,7 +4,13 @@ import type { JobsPort } from "../transitions/ports.js";
 import * as defaultStore from "./closure-notice-store.js";
 import type { ClosureWindow, NoticeVariant } from "./closure-notice-store.js";
 
-/** A closure that starts within this long is urgent (ux.md F5: 6 hours). */
+/**
+ * A closure that starts within this long is urgent (ux.md F5: 6 hours). Server-authoritative:
+ * measured in ms against the real start instant, which honours the DST-gap rule
+ * (`closureStartsAt`). The client's `URGENT_WITHIN_MINUTES`
+ * (`apps/hospitality/src/components/availability/close-draft.ts`) is a deliberate twin in
+ * wall-clock minutes with no DST rule; it only previews, so the two can differ near a DST change.
+ */
 export const URGENT_WINDOW_MS = 6 * 60 * 60 * 1000;
 
 type Store = Pick<

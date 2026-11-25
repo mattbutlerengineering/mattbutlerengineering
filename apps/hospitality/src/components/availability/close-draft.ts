@@ -68,6 +68,11 @@ export type OutcomeCounts = Readonly<Record<ClosureAction, number>>;
 
 /** A whole-day closure is stored as 0 to two days of minutes (ADR-029). */
 const END_OF_SERVICE_DAY = 2880;
+/**
+ * Preview only: the server's `URGENT_WINDOW_MS` (`services/reservations/src/services/closure-notice-service.ts`)
+ * is authoritative. Same 6 hours, but in wall-clock minutes with no DST-gap rule, so the two can
+ * differ around a DST change. Deliberate; do not derive one from the other.
+ */
 const URGENT_WITHIN_MINUTES = 6 * 60;
 const MINUTES_PER_DAY = 1440;
 
