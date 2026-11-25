@@ -44,6 +44,7 @@ import {
   type ClosurePostCommit,
   type CreateClosureOutcome,
 } from "./closure-command.js";
+import { Refused } from "./availability-refusal.js";
 import { prisma } from "./database.js";
 import { loadSectionIndex } from "./section-index.js";
 
@@ -70,16 +71,7 @@ const REST_OF_TONIGHT = 2 * MINUTES_PER_DAY;
 /** Only a close-early runs the closure command, so only it can owe post-commit work. */
 export type SetTonightOutcome =
   | { kind: "saved"; result: TonightResult; postCommit: ClosurePostCommit | null }
-  | Exclude<CreateClosureOutcome, { kind: "saved" }>
-  | { kind: "rule_exists" };
-
-type Refusal = Exclude<SetTonightOutcome, { kind: "saved" }>;
-
-class Refused extends Error {
-  constructor(readonly outcome: Refusal) {
-    super(outcome.kind);
-  }
-}
+  | Exclude<CreateClosureOutcome, { kind: "saved" }>;
 
 interface TonightDeps {
   createClosure: typeof createClosure;
@@ -212,7 +204,7 @@ function storedSame(
   const existing = state.stored.dateRules.find((r) => r.id === rule.id);
   if (!existing) return null;
   if (existing.kind !== "tonight" || fingerprint(existing) !== fingerprint(rule)) {
-    throw new Refused({ kind: "rule_exists" });
+    throw new Refused({ kind: "closure_exists" });
   }
   return existing;
 }
@@ -296,13 +288,12 @@ async function writeChange(
     where: { id: venueId, availabilityVersion: body.expectedVersion },
     data: { availabilityVersion: { increment: 1 } },
   });
-  if (cas.count === 0)
-    throw new Refused((await refuseStale(tx, venueId, body.expectedVersion)) as Refusal);
+  if (cas.count === 0) throw new Refused(await refuseStale(tx, venueId, body.expectedVersion));
 
   const next = await checkRule(tx, venueId, state, rule);
   const diff = diffConfig(state.stored, next);
   await writeConfigDiff(tx, venueId, diff, { actorId, now }).catch((e: unknown) => {
-    throw e instanceof ConfigRowConflict ? new Refused(conflictIssue(e, next) as Refusal) : e;
+    throw e instanceof ConfigRowConflict ? new Refused(conflictIssue(e, next)) : e;
   });
   const version = body.expectedVersion + 1;
   const range = affectedRange(state.stored, diff, civilDateIn(now, state.timezone));

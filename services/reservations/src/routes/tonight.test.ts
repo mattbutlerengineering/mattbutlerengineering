@@ -120,7 +120,7 @@ describe("tonight routes", () => {
       it.each([
         [{ kind: "decision_required", groupKeys: ["g"] }, 422],
         [{ kind: "version_conflict", winningChange: null }, 409],
-        [{ kind: "rule_exists" }, 409],
+        [{ kind: "closure_exists" }, 409],
       ])("enqueues nothing when a close-early is refused: %j", async (outcome, status) => {
         tonightSvc.set.mockResolvedValueOnce(outcome);
 
@@ -154,7 +154,6 @@ describe("tonight routes", () => {
       [{ kind: "forbidden" }, 403, undefined],
       [{ kind: "not_found" }, 404, undefined],
       [{ kind: "version_conflict", winningChange: null }, 409, "version-conflict"],
-      [{ kind: "rule_exists" }, 409, "closure-exists"],
       [{ kind: "closure_exists" }, 409, "closure-exists"],
       [{ kind: "decision_required", groupKeys: ["g"] }, 422, "decision-required"],
       [{ kind: "invalid", issues: [] }, 422, "invalid-config"],

@@ -12,7 +12,6 @@ import type {
   AvailabilityConfig,
   AvailabilityConfigSource,
   AvailabilityDaySummary,
-  ConflictChangesSince,
   PreviewAvailabilityParsed,
   PutAvailabilityConfigBody,
   StrandedReservation,
@@ -34,6 +33,12 @@ import {
   type BookedReservation,
 } from "./availability-config-checks.js";
 import { checkAvailability } from "./availability-check.js";
+import {
+  inAvailabilityTransaction,
+  refuse,
+  Refused,
+  type AvailabilityRefusal,
+} from "./availability-refusal.js";
 import { configSavedDetail, readDetail } from "./availability-change-detail.js";
 import {
   ConfigRowConflict,
@@ -304,23 +309,10 @@ export function planSave(input: {
 
 export type SaveOutcome =
   | { kind: "saved"; version: number; changeId: string }
-  | {
-      kind: "version_conflict";
-      winningChange: AvailabilityChangeSummary | null;
-      /** The version read before `winningChange`, so a later save can only make the winner newer. */
-      currentVersion: number;
-      /** Every change since the draft's version: the newest few and the true count. */
-      changesSince?: ConflictChangesSince;
-    }
-  | { kind: "not_found" }
-  | Exclude<SavePlan, { kind: "write" }>;
-
-/** Thrown inside the save transaction to roll back the version bump. */
-class SaveRefused extends Error {
-  constructor(readonly outcome: { kind: string }) {
-    super(outcome.kind);
-  }
-}
+  | Extract<
+      AvailabilityRefusal,
+      { kind: "version_conflict" | "not_found" | "invalid" | "stranded" }
+    >;
 
 /**
  * How long after its start a PENDING/CONFIRMED booking still counts as a late guest rather than
@@ -412,7 +404,7 @@ export async function refuseStale(
   db: StoreDb,
   venueId: string,
   expectedVersion: number
-): Promise<SaveOutcome> {
+): Promise<Extract<AvailabilityRefusal, { kind: "version_conflict" | "not_found" }>> {
   const exists = await db.venue.findUnique({
     where: { id: venueId },
     select: { id: true, availabilityVersion: true },
@@ -460,7 +452,7 @@ export async function refuseSeriesChanged(
   db: StoreDb,
   venueId: string,
   committedVersion: number
-): Promise<SaveOutcome> {
+): Promise<Extract<AvailabilityRefusal, { kind: "version_conflict" }>> {
   const winner = await newestChange(db, venueId);
   return {
     kind: "version_conflict",
@@ -470,7 +462,10 @@ export async function refuseSeriesChanged(
 }
 
 /** A unique-constraint refusal as the 422 a client can act on, addressed into the next config. */
-export function conflictIssue(error: ConfigRowConflict, next: AvailabilityConfig): SaveOutcome {
+export function conflictIssue(
+  error: ConfigRowConflict,
+  next: AvailabilityConfig
+): Extract<AvailabilityRefusal, { kind: "invalid" }> {
   const index = (next[error.table] as { id: string }[]).findIndex((r) => r.id === error.id);
   return {
     kind: "invalid",
@@ -520,33 +515,6 @@ export interface SaveRequest {
 }
 
 /**
- * Runs `work` as one venue-scoped transaction in which a save may be refused:
- * a refusal rolls the whole transaction back (the version bump included) and
- * comes back as the outcome.
- */
-export async function inSaveTransaction<T, R extends { kind: string } = never>(
-  client: StoreClient,
-  venueId: string,
-  work: (tx: StoreDb) => Promise<T>
-): Promise<T | SaveOutcome | R> {
-  try {
-    return await client.$transaction(async (tx) => {
-      await setVenueContext(tx, venueId);
-      return work(tx);
-    });
-  } catch (error) {
-    // Invariant: only `refuseSave` and `commitSave` throw it, with a SaveOutcome or the caller's R.
-    if (error instanceof SaveRefused) return error.outcome as SaveOutcome | R;
-    throw error;
-  }
-}
-
-/** Refuses the save in progress; only valid inside `inSaveTransaction`. */
-export function refuseSave(outcome: { kind: string }): never {
-  throw new SaveRefused(outcome);
-}
-
-/**
  * The one save path. Compare-and-set on `expectedVersion` first (it takes the
  * venue row lock, so concurrent saves serialize here), then `resolve` the
  * request against the loaded state, validate, stranded-check, write the rows,
@@ -571,7 +539,7 @@ export async function commitSave(
   if (cas.count === 0) return refuseStale(tx, venueId, expectedVersion);
 
   const state = await loadConfigState(tx, venueId, now);
-  if (!state) throw new SaveRefused({ kind: "not_found" });
+  if (!state) return refuse({ kind: "not_found" });
   const request = await resolve(state);
   const today = civilDateIn(now, state.timezone);
   const [bookings, tables, sections] = await Promise.all([
@@ -590,16 +558,14 @@ export async function commitSave(
     ...(request.allowNoHours ? { allowNoHours: true } : {}),
     ...(request.exact ? { exact: true } : {}),
   });
-  if (plan.kind !== "write") throw new SaveRefused(plan);
+  if (plan.kind !== "write") return refuse(plan);
 
   await writeConfigDiff(tx, venueId, plan.diff, {
     actorId,
     now,
     ...(request.revive ? { revive: request.revive } : {}),
   }).catch((error: unknown) => {
-    throw error instanceof ConfigRowConflict
-      ? new SaveRefused(conflictIssue(error, plan.next))
-      : error;
+    throw error instanceof ConfigRowConflict ? new Refused(conflictIssue(error, plan.next)) : error;
   });
   const change = await tx.availabilityChange.create({
     data: {
@@ -636,7 +602,7 @@ export async function saveAvailabilityConfig(
   client: StoreClient = prisma
 ): Promise<SaveOutcome> {
   const { venueId, actorId, actorName, body, now } = input;
-  return inSaveTransaction(client, venueId, (tx) =>
+  return inAvailabilityTransaction(client, venueId, (tx) =>
     commitSave(
       tx,
       { venueId, actorId, actorName, expectedVersion: body.expectedVersion, now },
