@@ -184,10 +184,33 @@ describe("useDecisionsSession refusals (kind x next state x ids)", () => {
     h.send.mockRejectedValueOnce(problem(409, "version-conflict", { winningChange }));
     await submit(h);
     expect(h.hook.result.current.state).toEqual({ kind: "refused", refusal: "version-conflict" });
-    expect(h.hook.result.current.winner).toEqual(winningChange);
+    expect(h.hook.result.current.winner).toEqual({ change: winningChange });
     expect(h.onVersionConflict).toHaveBeenCalledWith(
       expect.objectContaining({ kind: "version-conflict" })
     );
+  });
+
+  it("version-conflict with no recorded change still has a winner to name", async () => {
+    const h = setup({ impact: [ONE_GROUP] });
+    choose(h);
+    h.send.mockRejectedValueOnce(problem(409, "version-conflict", { winningChange: null }));
+    await submit(h);
+    expect(h.hook.result.current.winner).toEqual({ change: null });
+  });
+
+  it("unconfirmed: true after a refusal that may have saved, false after one that did not", async () => {
+    const h = setup({ impact: [NO_GROUPS] });
+    expect(h.hook.result.current.unconfirmed).toBe(false);
+    h.send
+      .mockRejectedValueOnce(REFUSALS.unknown())
+      .mockRejectedValueOnce(REFUSALS.other())
+      .mockRejectedValueOnce(REFUSALS["closure-exists"]());
+    await submit(h);
+    expect(h.hook.result.current.unconfirmed).toBe(true);
+    await submit(h);
+    expect(h.hook.result.current.unconfirmed).toBe(false);
+    await submit(h);
+    expect(h.hook.result.current.unconfirmed).toBe(true);
   });
 
   it("closure-exists: settled as maybeSaved until the rule shows in the config, then earlier", async () => {

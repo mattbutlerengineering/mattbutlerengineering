@@ -955,6 +955,50 @@ describe("CloseDialog", () => {
       expect(within(dialog).getByRole("button", { name: "Close and cancel 14" })).toBeEnabled();
     });
 
+    describe("when the server says this attempt already committed (closure-exists)", () => {
+      const alreadyCommitted = () =>
+        new ApiClientError(
+          {
+            type: "about:blank",
+            title: "Conflict",
+            status: 409,
+            detail: "This closure already exists.",
+            code: "closure-exists",
+          } as never,
+          "POST",
+          "closures"
+        );
+
+      it("shows the settled maybe-saved text, the same one a lost response gets", async () => {
+        create.mockRejectedValueOnce(alreadyCommitted());
+        renderDialog();
+        const dialog = screen.getByRole("dialog");
+        toStepTwo(dialog);
+        fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+
+        expect(
+          await within(dialog).findByText(/may have gone through and cancelled guests/)
+        ).toBeTruthy();
+        expect(within(dialog).queryByText(/already saved/)).toBeNull();
+      });
+
+      it("never sends a changed choice before the reloaded config shows the closure", async () => {
+        create.mockRejectedValueOnce(alreadyCommitted()).mockResolvedValue(RESULT);
+        renderDialog();
+        const dialog = screen.getByRole("dialog");
+        toStepTwo(dialog);
+        fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+        await within(dialog).findByText(/may have gone through/);
+        expect(refresh).toHaveBeenCalled();
+
+        // The config has not reloaded yet (`refresh` is a spy): the dialog still has to hold.
+        fireEvent.click(within(dialog).getByRole("radio", { name: "Keep them and notify" }));
+        expect(within(dialog).getByTestId("close-primary")).toBeDisabled();
+        fireEvent.click(within(dialog).getByTestId("close-primary"));
+        expect(create).toHaveBeenCalledTimes(1);
+      });
+    });
+
     it("says a lost response may have gone through (#8032)", async () => {
       create.mockRejectedValueOnce(new TypeError("Failed to fetch"));
       renderDialog();
@@ -962,7 +1006,9 @@ describe("CloseDialog", () => {
       toStepTwo(dialog);
       fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
 
-      expect(await within(dialog).findByText(/may have gone through/)).toBeTruthy();
+      expect(
+        await within(dialog).findByText(/may have gone through and cancelled guests/)
+      ).toBeTruthy();
       expect(within(dialog).queryByText(/Can't reach/)).toBeNull();
     });
 
