@@ -20,6 +20,7 @@ import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useDismiss } from "../../hooks/useDismiss";
 import { usePointerActivation } from "../../hooks/usePointerActivation";
 import { useLayerFloating, placeMenu } from "../../hooks/useLayerFloating";
+import { useShiftIntoViewport } from "../../hooks/useShiftIntoViewport";
 import { DialogLayerContext } from "../Dialog/DialogLayerContext";
 import { cn } from "../../utils/class-composer";
 import styles from "./DropdownMenu.module.css";
@@ -117,6 +118,10 @@ export const DropdownMenu = forwardRef<HTMLDivElement, DropdownMenuProps>(functi
   const dialogLayer = useContext(DialogLayerContext);
   const place = useMemo(() => placeMenu(align, side), [align, side]);
   useLayerFloating(open && dialogLayer !== null, wrapperRef, menuRef, place);
+  // A dialog menu is placed by placeMenu, which already clamps to the viewport.
+  // On the page, CSS alignment can run the menu off a 375px screen (a
+  // right-aligned trigger near the left edge). Shift that one back.
+  useShiftIntoViewport(open && dialogLayer === null, menuRef);
   const itemRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
   const motionPreset = useMotionPreset();
   const menuId = useId();

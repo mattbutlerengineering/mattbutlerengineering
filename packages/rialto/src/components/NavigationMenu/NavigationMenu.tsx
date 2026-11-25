@@ -13,6 +13,7 @@ import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
 import { useDismiss } from "../../hooks/useDismiss";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
+import { useShiftIntoViewport } from "../../hooks/useShiftIntoViewport";
 import styles from "./NavigationMenu.module.css";
 
 /**
@@ -143,6 +144,9 @@ function NavTrigger({
   }, [onClose]);
 
   useEscapeKey(closeAndReturnFocus, isOpen);
+  // The panel is left-aligned to its trigger. A trigger in the right half of
+  // a 375px column opens a 200px panel past the viewport; slide it back in.
+  useShiftIntoViewport(isOpen, panelRef);
 
   useLayoutEffect(() => {
     if (!isOpen || !focusFirstOnOpenRef.current) return;
