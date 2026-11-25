@@ -42,8 +42,8 @@ import { prisma } from "./database.js";
  * day with no cron and no schedule touched.
  *
  * Pause online, stop window, table blocks and pacing leave existing bookings
- * alone and are written here, through the shared config row writer behind the
- * `availabilityVersion` compare-and-set. A close-early can strand bookings, so
+ * alone and are written here, through `commitSave`, the shared save path (version
+ * compare-and-set, rows, audit row). A close-early can strand bookings, so
  * it goes through the closure command (decisions, outcomes, cancels and moves
  * in one transaction); this file only builds its rule.
  */
@@ -261,16 +261,22 @@ async function writeChange(
   rule: Extract<DateRule, { kind: "tonight" }>
 ): Promise<TonightResult> {
   const { venueId, actorId, actorName, now, body } = input;
-  const meta: TonightMeta = { ruleId: rule.id, version: body.expectedVersion + 1 };
   const saved = await commitSave(
     tx,
-    { venueId, actorId, actorName, expectedVersion: body.expectedVersion, now },
-    async (state) => ({
+    { venueId, actorId, actorName, version: { expected: body.expectedVersion }, now },
+    async (state, { committedVersion }) => ({
       next: withRule(state, rule),
       kind: "tonight",
-      summary: describeChange(body.change),
-      detail: tonightDetail(body.change),
-      inverseExtra: { tonight: meta },
+      validate: "full",
+      stranded: "caller",
+      prepare: () => {
+        const meta: TonightMeta = { ruleId: rule.id, version: committedVersion };
+        return {
+          summary: describeChange(body.change),
+          detail: tonightDetail(body.change),
+          inverseMeta: { tonight: meta },
+        };
+      },
     })
   );
   return {
@@ -386,7 +392,7 @@ export async function endTonight(
           venueId,
           actorId: caller.actorId,
           actorName: caller.actorName ?? null,
-          expectedVersion: null,
+          version: { current: true },
           now,
         },
         async (state) => {
@@ -397,7 +403,10 @@ export async function endTonight(
               ...state.stored,
               dateRules: state.stored.dateRules.filter((r) => r.id !== ruleId),
             },
-            validate: false,
+            // Ending only removes a rule: nothing it touches can be invalid, and a venue holding
+            // some other invalid row must still be able to end Tonight.
+            validate: "touched",
+            stranded: "caller",
             kind: "tonight_end",
             summary: "Tonight change ended",
             detail: tonightEndedDetail(),

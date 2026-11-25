@@ -35,6 +35,7 @@ import {
   type BookedReservation,
 } from "./availability-config-checks.js";
 import { checkAvailability } from "./availability-check.js";
+import { touchedIssues } from "./availability-touched-issues.js";
 import {
   inAvailabilityTransaction,
   refuse,
@@ -258,7 +259,9 @@ function describeDiff(detail: AvailabilityChangeDetail): string {
 /** The decision half of a save, pure: what the change becomes, or why it is refused. */
 export function planSave(input: {
   state: ConfigState;
-  body: PutAvailabilityConfigBody;
+  body: Pick<PutAvailabilityConfigBody, "changes" | "scopeConflicts"> & {
+    expectedVersion?: number;
+  };
   bookings: readonly BookedReservation[];
   /** Every table of the venue, active or not: a date rule may only block these. */
   tableIds: ReadonlySet<string>;
@@ -512,15 +515,17 @@ type SaveSource =
       changes: PutAvailabilityConfigBody["changes"];
       scopeConflicts: PutAvailabilityConfigBody["scopeConflicts"];
       next?: undefined;
+      validate?: undefined;
     }
   | {
-      /**
-       * The config to write. Validated and reference-checked, but not settled against scope
-       * conflicts and never stranded-checked: a Tonight change leaves bookings alone.
-       */
+      /** The config to write, not settled against scope conflicts. */
       next: AvailabilityConfig;
-      /** `false` writes `next` unvalidated (ending a Tonight change only removes a rule). */
-      validate?: boolean;
+      /**
+       * `"full"` (the default) refuses any issue in the config; `"touched"` only those on rows
+       * this change creates or updates, so a venue holding an unrelated invalid row can still
+       * be changed (a Host reopening during service).
+       */
+      validate?: "full" | "touched";
       changes?: undefined;
       scopeConflicts?: undefined;
     };
@@ -528,15 +533,30 @@ type SaveSource =
 /** What a save commits: the row operations, and how its audit row reads. */
 export type SaveRequest = SaveSource & SaveRequestFields;
 
-interface SaveRequestFields {
+/** What a request's `prepare` adds to the audit row once the plan is known. */
+export interface SavePrepared {
   /** Merged into the audit row's `inverse` (a Tonight change's replay key). */
-  inverseExtra?: Record<string, unknown>;
+  inverseMeta?: Record<string, unknown>;
+  summary?: string;
+  detail?: AvailabilityChangeDetail | null;
+}
+
+type WritePlan = Extract<SavePlan, { kind: "write" }>;
+
+interface SaveRequestFields {
   /** The audit row's `kind`. */
   kind: string;
   /** Replaces the generated summary. */
   summary?: string;
   /** Replaces the generated code and data; `null` for none (a revert of a change that had none). */
   detail?: AvailabilityChangeDetail | null;
+  /**
+   * `"refuse"` (the default) refuses a change that strands a booking; `"caller"` leaves that to
+   * the caller, which has settled it already (Tonight leaves bookings alone).
+   */
+  stranded?: "refuse" | "caller";
+  /** Sees the planned write inside the transaction; what it returns overrides the audit row. */
+  prepare?: (tx: StoreDb, plan: WritePlan) => Promise<SavePrepared> | SavePrepared;
   /** Written to `Venue.operatingHours` in place of the projection of the next config. */
   operatingHours?: Prisma.InputJsonValue | typeof Prisma.DbNull;
   /** Permit the result to have no live schedule (an undone first save). */
@@ -550,12 +570,14 @@ interface SaveRequestFields {
 }
 
 /**
- * Takes the venue row lock by bumping `availabilityVersion`, and answers the version it is now at.
- * With an `expectedVersion` it is a compare-and-set a stale draft is refused at; without one (a
- * Tonight change ended by rule id, #8121) it bumps unconditionally.
+ * `{ expected }` is a compare-and-set a stale draft is refused at; `{ current: true }` bumps
+ * unconditionally, for a command that takes no `expectedVersion` (ending Tonight, #8121).
  */
-async function bumpVersion(tx: StoreDb, venueId: string, expectedVersion: number | null) {
-  if (expectedVersion === null) {
+export type SaveVersion = { expected: number } | { current: true };
+
+/** Takes the venue row lock by bumping `availabilityVersion`; answers the version it reached. */
+async function bumpVersion(tx: StoreDb, venueId: string, version: SaveVersion) {
+  if ("current" in version) {
     const bumped = await tx.venue.update({
       where: { id: venueId },
       data: { availabilityVersion: { increment: 1 } },
@@ -564,11 +586,11 @@ async function bumpVersion(tx: StoreDb, venueId: string, expectedVersion: number
     return bumped.availabilityVersion;
   }
   const cas = await tx.venue.updateMany({
-    where: { id: venueId, availabilityVersion: expectedVersion },
+    where: { id: venueId, availabilityVersion: version.expected },
     data: { availabilityVersion: { increment: 1 } },
   });
-  if (cas.count === 0) return refuse(await refuseStale(tx, venueId, expectedVersion));
-  return expectedVersion + 1;
+  if (cas.count === 0) return refuse(await refuseStale(tx, venueId, version.expected));
+  return version.expected + 1;
 }
 
 /** Plans a request: settled against the draft, or the config the command already built. */
@@ -576,51 +598,53 @@ async function planRequest(
   tx: StoreDb,
   state: ConfigState,
   request: SaveRequest,
-  input: { venueId: string; expectedVersion: number | null; now: Date }
+  input: { venueId: string; now: Date }
 ): Promise<SavePlan> {
-  const { venueId, expectedVersion, now } = input;
-  const needsTables = request.next ? request.validate !== false : true;
-  const [tables, sections] = needsTables
-    ? await Promise.all([
-        tx.table.findMany({ where: { venueId }, select: { id: true } }),
-        loadSectionIndex(tx, venueId),
-      ])
-    : [[], undefined];
+  const { venueId, now } = input;
+  const [tables, sections] = await Promise.all([
+    tx.table.findMany({ where: { venueId }, select: { id: true } }),
+    loadSectionIndex(tx, venueId),
+  ]);
   const tableIds = new Set(tables.map((t) => t.id));
-  if (request.next) {
-    const issues =
-      request.validate === false || !sections
-        ? []
-        : [
-            ...validateConfig(request.next),
-            ...referenceIssues(request.next, tableIds, sections.ids),
-          ];
-    return issues.length > 0 ? { kind: "invalid", issues } : writePlan(state, request.next, now);
+  const bookings =
+    request.stranded === "caller"
+      ? []
+      : await futureBookings(tx, venueId, civilDateIn(now, state.timezone), now);
+  if (!request.next) {
+    return planSave({
+      state,
+      body: { changes: request.changes, scopeConflicts: request.scopeConflicts },
+      bookings,
+      tableIds,
+      sections,
+      now,
+      ...(request.allowNoHours ? { allowNoHours: true } : {}),
+      ...(request.exact ? { exact: true } : {}),
+    });
   }
-  const bookings = await futureBookings(tx, venueId, civilDateIn(now, state.timezone), now);
-  return planSave({
-    state,
-    body: {
-      expectedVersion: expectedVersion ?? 0,
-      changes: request.changes,
-      scopeConflicts: request.scopeConflicts,
-    },
-    bookings,
-    tableIds,
-    ...(sections ? { sections } : {}),
-    now,
-    ...(request.allowNoHours ? { allowNoHours: true } : {}),
-    ...(request.exact ? { exact: true } : {}),
-  });
+  const plan = writePlan(state, request.next, now);
+  const found = [
+    ...validateConfig(request.next),
+    ...referenceIssues(request.next, tableIds, sections.ids),
+  ];
+  const issues =
+    request.validate === "touched" ? touchedIssues(found, request.next, plan.diff) : found;
+  if (issues.length > 0) return { kind: "invalid", issues };
+  const reservations = findStrandedReservations(
+    { timezone: state.timezone, config: state.effective },
+    { timezone: state.timezone, config: request.next },
+    bookings
+  );
+  return reservations.length > 0 ? { kind: "stranded", reservations } : plan;
 }
 
 /**
- * The one save path. Compare-and-set on `expectedVersion` first (it takes the
- * venue row lock, so concurrent saves serialize here), then `resolve` the
- * request against the loaded state, validate, stranded-check, write the rows,
- * the audit row and the legacy projection. Revert and Tonight go through here too.
+ * The one save path. Bump `availabilityVersion` first (it takes the venue row lock, so
+ * concurrent saves serialize here; compare-and-set on `{ expected }`), then `resolve` the request
+ * against the loaded state, validate, stranded-check, write the rows, the audit row and the
+ * legacy projection. Revert and Tonight go through here too.
  * Every refusal is thrown (`refuse`), so it rolls the bump back with the rest; call it inside
- * `inAvailabilityTransaction`.
+ * `inAvailabilityTransaction`. Replay and permission checks belong before it: a retry never bumps.
  */
 export async function commitSave(
   tx: StoreDb,
@@ -628,20 +652,20 @@ export async function commitSave(
     venueId: string;
     actorId: string;
     actorName?: string | null;
-    /** `null` bumps without a compare-and-set. */
-    expectedVersion: number | null;
+    version: SaveVersion;
     now: Date;
   },
-  resolve: (state: ConfigState) => Promise<SaveRequest>
+  resolve: (state: ConfigState, committed: { committedVersion: number }) => Promise<SaveRequest>
 ): Promise<SavedChange> {
-  const { venueId, actorId, actorName = null, expectedVersion, now } = input;
-  const version = await bumpVersion(tx, venueId, expectedVersion);
+  const { venueId, actorId, actorName = null, now } = input;
+  const version = await bumpVersion(tx, venueId, input.version);
 
   const state = await loadConfigState(tx, venueId, now);
   if (!state) return refuse({ kind: "not_found" });
-  const request = await resolve(state);
-  const plan = await planRequest(tx, state, request, { venueId, expectedVersion, now });
+  const request = await resolve(state, { committedVersion: version });
+  const plan = await planRequest(tx, state, request, { venueId, now });
   if (plan.kind !== "write") return refuse(plan);
+  const prepared = (await request.prepare?.(tx, plan)) ?? {};
 
   await writeConfigDiff(tx, venueId, plan.diff, {
     actorId,
@@ -650,6 +674,7 @@ export async function commitSave(
   }).catch((error: unknown) => {
     throw error instanceof ConfigRowConflict ? new Refused(conflictIssue(error, plan.next)) : error;
   });
+  const detail = prepared.detail !== undefined ? prepared.detail : request.detail;
   const change = await tx.availabilityChange.create({
     data: {
       venueId,
@@ -657,11 +682,11 @@ export async function commitSave(
       actorName,
       at: now,
       kind: request.kind,
-      summary: request.summary ?? plan.summary,
-      ...detailData(request.detail === undefined ? plan.detail : request.detail),
+      summary: prepared.summary ?? request.summary ?? plan.summary,
+      ...detailData(detail === undefined ? plan.detail : detail),
       affectedFrom: toDbDate(plan.range.from),
       affectedTo: toDbDate(plan.range.to),
-      inverse: { ...plan.inverse, ...request.inverseExtra } as unknown as Prisma.InputJsonValue,
+      inverse: { ...plan.inverse, ...prepared.inverseMeta } as unknown as Prisma.InputJsonValue,
       version,
     },
     select: { id: true },
@@ -688,7 +713,7 @@ export async function saveAvailabilityConfig(
   return inAvailabilityTransaction<SavedChange, SaveOutcome>(client, venueId, (tx) =>
     commitSave(
       tx,
-      { venueId, actorId, actorName, expectedVersion: body.expectedVersion, now },
+      { venueId, actorId, actorName, version: { expected: body.expectedVersion }, now },
       async () => ({
         changes: body.changes,
         scopeConflicts: body.scopeConflicts,
