@@ -75,12 +75,12 @@ schema but nothing reads it. Defer until the early window proves demand.
 ## Money flow (for option B, for payment review)
 
 Option B is not proposed for building now. It is specified so the Connect ADR starts from a
-reviewed design. `stripe-flow-reviewer` read the first draft (verdict "needs changes") and this
-section was revised to address every finding.
+reviewed design. `stripe-flow-reviewer` read two drafts and this section was revised after each
+read to address every finding.
 
 **Parties.** Guest (payer). Venue (merchant of record, Connect Standard account, carries dispute
-liability). Platform (optional application fee). Membership money never sits in the platform
-balance.
+liability). Platform (optional application fee). The membership charge settles in the venue's
+balance. Only the application fee settles in the platform balance.
 
 **Who pays whom, when.**
 
@@ -91,30 +91,41 @@ balance.
    in minor units before the call. The Price id goes on a `MembershipPlan` row.
 3. Guest opens their member link and starts checkout. Checkout Session in `subscription` mode on
    the venue's account, optional `subscription_data.application_fee_percent`. Direct charge: the
-   guest pays the venue, and Stripe pays the platform its fee from that charge.
+   guest pays the venue, and Stripe moves the platform's fee from that charge to the platform.
 4. Access starts only on `invoice.paid` for the first invoice, never on the checkout redirect.
 5. Renewals charge on the venue's account. `invoice.paid` moves `currentPeriodEnd` forward only.
    `invoice.payment_failed` sets `past_due` and removes the early window at once.
 6. Cancel sets `cancel_at_period_end`; access lasts to period end; `customer.subscription.deleted`
-   ends it. Re-subscribing after `ended` creates a new membership row and a new subscription. An
-   ended row is never revived.
+   ends it. Every checkout attempt and every re-subscribe after `ended` is a new membership row.
+   An ended row is never revived.
 
 **Membership state machine.** Every transition is a CAS: `updateMany where { id, status: from }`.
 
-| From                | Event                                                             | To                  |
-| ------------------- | ----------------------------------------------------------------- | ------------------- |
-| (none)              | checkout started                                                  | `pending`           |
-| `pending`           | `invoice.paid` (first invoice)                                    | `active`            |
-| `pending`           | subscription `incomplete`                                         | `incomplete`        |
-| `pending`           | `checkout.session.expired`                                        | `ended` (row freed) |
-| `incomplete`        | `invoice.paid`                                                    | `active`            |
-| `incomplete`        | subscription `incomplete_expired`                                 | `ended` (row freed) |
-| `active`            | `invoice.payment_failed`                                          | `past_due`          |
-| `past_due`          | `invoice.paid`                                                    | `active`            |
-| `active`/`past_due` | `charge.dispute.created`                                          | `suspended_dispute` |
-| `suspended_dispute` | `charge.dispute.closed` won                                       | `active`            |
-| `suspended_dispute` | `charge.dispute.closed` lost                                      | `ended`             |
-| any but `ended`     | `customer.subscription.deleted`, venue ends program, deauthorized | `ended`             |
+| From                | Event                                                         | To                           |
+| ------------------- | ------------------------------------------------------------- | ---------------------------- |
+| (none)              | checkout started (new row)                                    | `pending`                    |
+| `pending`           | `invoice.paid` (first invoice)                                | `active`                     |
+| `pending`           | subscription `incomplete`                                     | `incomplete`                 |
+| `pending`           | `checkout.session.expired`                                    | `ended`                      |
+| `incomplete`        | `invoice.paid`                                                | `active`                     |
+| `incomplete`        | subscription `incomplete_expired`                             | `ended`                      |
+| `active`            | `invoice.payment_failed`                                      | `past_due`                   |
+| `active`            | `customer.subscription.updated`, status `past_due` / `unpaid` | `past_due`                   |
+| `past_due`          | `invoice.paid`, or `subscription.updated` status `active`     | `active`                     |
+| `active`/`past_due` | `charge.dispute.created`                                      | `suspended_dispute`          |
+| `suspended_dispute` | last open dispute closes as won                               | Stripe's current status (\*) |
+| `suspended_dispute` | any dispute closes as lost                                    | `ended`                      |
+| any but `ended`     | `customer.subscription.deleted`                               | `ended`                      |
+| any but `ended`     | venue ends program (while connected)                          | `ended`                      |
+| any but `ended`     | `account.application.deauthorized`                            | `ended` (local only)         |
+
+(\*) On a won dispute, retrieve the subscription and map its status: `active` to `active`,
+`past_due` or `unpaid` to `past_due`, `canceled` to `ended`. Open disputes are stored per
+membership; the suspension stays until all of them close.
+
+`customer.subscription.updated` on any row not `ended` also updates fields without a status move:
+`cancelAtPeriodEnd`, the current Price id, and `currentPeriodEnd` (forward only). It never moves
+a row out of `suspended_dispute` or `ended`.
 
 `invoice.paid` never lifts `suspended_dispute` and never revives `ended`. The CAS `from` set
 enforces both.
@@ -127,17 +138,24 @@ enforces both.
   a new `app_resolve_venue_id` kind (by `stripeAccountId`), then run the handler in
   `runWithVenueContext`.
 - Insert into a processed-event table keyed by `event.id` in the same transaction as the status
-  change. A duplicate insert rolls back the whole handler.
+  change. Record the event even when its CAS was a no-op. A unique violation on that insert means
+  "already processed": reply 200. A 500 would make Stripe redeliver for about 3 days.
+- A handler that fails and rolls back repeats its Stripe calls on retry. That is safe only
+  because every Stripe call carries an idempotency key.
 - Ordering: events can arrive out of order. Handlers either retrieve the subscription from Stripe
   and act on its current state, or only move `currentPeriodEnd` forward.
-- Also handle `customer.subscription.updated` (`cancel_at_period_end` toggled, price change) and
-  `account.application.deauthorized` (treated as "venue ends program").
+- `charge.dispute.*` lookup: dispute, then its charge, then the charge's invoice, then the
+  invoice's subscription, then `GuestMembership` by `stripeSubscriptionId`. Retrieved on the venue's
+  account. The ADR pins the API version, since the charge-to-invoice link differs between versions.
+- `account.application.deauthorized`: a disconnected Standard account revokes the platform's API
+  access, so refund and cancel calls would fail. Set every membership of that venue `ended`
+  locally, make no Stripe calls, and leave refunds to the venue.
 
 **Idempotency keys.**
 
-- Checkout: `membership:${membershipId}:checkout:${planPriceId}:${attempt}`. `attempt` increments
-  when a session expires. One open membership row per (venue, guest) by a partial unique index;
-  `checkout.session.expired` and `incomplete_expired` release it.
+- Checkout: `membership:${membershipId}:checkout:${planPriceId}`. A new attempt is a new row, so a
+  new key. One open row (`pending`/`incomplete`) per (venue, guest) by a partial unique index.
+- Cancel: `membership:${membershipId}:cancel`.
 - `stripeSubscriptionId` and the connected-account `stripeCustomerId` are unique on
   `GuestMembership`. That Customer lives on the venue's account and is unrelated to deposit
   Customers.
@@ -153,14 +171,15 @@ enforces both.
 
 **Refund triggers.**
 
-| Trigger                                                | Action                                                       | `refund_application_fee` |
-| ------------------------------------------------------ | ------------------------------------------------------------ | ------------------------ |
-| Guest cancels within 14 days, no member-window booking | Full refund of latest invoice, cancel now                    | true                     |
-| Guest cancels later                                    | No refund, cancel at period end                              | n/a                      |
-| Venue ends the program, closes or deauthorizes         | Prorated refund on every active subscription, cancel now     | true                     |
-| Venue removes a member for abuse                       | Cancel now, prorated refund (Owner/legal to confirm)         | false                    |
-| Dispute opened                                         | Suspend, no refund call. A dispute does not reverse the fee. | n/a                      |
-| Refund made in the venue's dashboard                   | Reconcile only, as `postCaptureRefundCents` does (#5725)     | n/a                      |
+| Trigger                                                | Action                                                                                 | `refund_application_fee` |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------- | ------------------------ |
+| Guest cancels within 14 days, no member-window booking | Full refund of latest invoice, cancel now                                              | true                     |
+| Guest cancels later                                    | No refund, cancel at period end                                                        | n/a                      |
+| Venue ends the program or closes, still connected      | Prorated refund and cancel on every active subscription, as a retryable background job | true                     |
+| Venue disconnects (`account.application.deauthorized`) | `ended` locally, no Stripe calls, venue handles refunds                                | n/a                      |
+| Venue removes a member for abuse                       | Cancel now, prorated refund (Owner/legal to confirm)                                   | false                    |
+| Dispute opened                                         | Suspend, no refund call. A dispute does not reverse the fee.                           | n/a                      |
+| Refund made in the venue's dashboard                   | Reconcile only, as `postCaptureRefundCents` does (#5725)                               | n/a                      |
 
 Reservations made in the member window stay valid when a membership lapses. Ending a membership
 never cancels a booking or touches its deposit.
