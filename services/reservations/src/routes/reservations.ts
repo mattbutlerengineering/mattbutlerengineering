@@ -37,6 +37,9 @@ import { bodyVenueId, inNamedVenueContext } from "./named-venue.js";
 import { venueScoped } from "./venue-scope.js";
 import { resolveVenueId } from "../services/resolve-venue.js";
 
+/** Problem `type` of the walk-in 409 for a waitlist party that is no longer waiting (#9606). */
+const WAITLIST_ENTRY_NOT_WAITING_TYPE = "urn:mbe:problem:waitlist-entry-not-waiting";
+
 /** The authenticated user as the reservation event log's staff actor. */
 const requestActor = (request: FastifyRequest): ReservationEventActor =>
   staffActor(request.user?.id);
@@ -321,10 +324,38 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
             createProblemDetails(422, titleForStatus(422), result.error ?? "Party does not fit")
           );
       }
+      if (result.waitlistEntryNotWaiting) {
+        // Another device seated this party first; nothing was written here (#9606).
+        return reply
+          .code(409)
+          .send(
+            createProblemDetails(
+              409,
+              "Conflict",
+              result.error ?? "Waitlist party is no longer waiting",
+              WAITLIST_ENTRY_NOT_WAITING_TYPE
+            )
+          );
+      }
       if (!result.success || !result.reservation) {
         return reply
           .code(409)
           .send(createProblemDetails(409, "Conflict", result.error ?? "Table is not available"));
+      }
+      if (request.body.waitlistEntryId) {
+        // The entry was seated inside the walk-in's transaction; the queue behind it moves up.
+        // Best effort: the seating is committed, and a numbering hiccup must not fail it.
+        try {
+          await fastify.services.waitlistService.recalculate(request.body.venueId, (changes) => {
+            for (const change of changes) {
+              fastify.waitlistNotifier.notifyPositionUpdate(change).catch(() => {
+                // Already logged inside the notifier
+              });
+            }
+          });
+        } catch (err) {
+          request.log.error({ err }, "waitlist recalculation after walk-in seating failed");
+        }
       }
       return reply.code(201).send({ data: result.reservation });
     })

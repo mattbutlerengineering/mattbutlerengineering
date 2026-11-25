@@ -75,6 +75,11 @@ export const WalkInBodySchema = z
       .describe("ID of an existing guest at this venue to link the walk-in to")
       .optional(),
     guestName: z.string().describe("Guest name (defaults to 'Walk-in')").optional(),
+    waitlistEntryId: z
+      .string()
+      .min(1)
+      .describe("Waitlist entry this walk-in seats; marked seated in the same transaction")
+      .optional(),
     durationMinutes: z
       .number()
       .int()

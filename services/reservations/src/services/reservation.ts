@@ -77,9 +77,14 @@ export interface CreateReservationResult {
   tableNotInVenue?: boolean;
   /** The party does not fit the caller-named table (route answers 422). */
   partyDoesNotFit?: boolean;
+  /** The walk-in's waitlist party is already seated or gone; nothing was written (route answers 409). */
+  waitlistEntryNotWaiting?: boolean;
   /** The availability gate refused the slot (route answers 422 via `gateProblem`). */
   rejection?: GateRejection;
 }
+
+/** Thrown inside the walk-in transaction so the reservation and table flip roll back (#9606). */
+class WaitlistEntryNotWaitingError extends Error {}
 
 /** True when the patch moves the reservation's slot (date, time or table). */
 function isSlotMove(data: UpdateReservationRequest): boolean {
@@ -920,10 +925,36 @@ export const reservationService = {
           reservationId: createdReservation.id,
         });
 
+        // Seating a waitlist party: take them off the list in this same transaction, so a
+        // failure can never leave them seated yet still waiting (and offered a second table).
+        if (data.waitlistEntryId) {
+          const seated = await tx.waitlistEntry.updateMany({
+            where: {
+              id: data.waitlistEntryId,
+              venueId: data.venueId,
+              status: { in: ["waiting", "notified"] },
+            },
+            data: { status: "seated" },
+          });
+          // Already seated on another device (or not this venue's): a second table would
+          // double-seat them, so refuse and roll the whole walk-in back.
+          if (seated.count === 0) throw new WaitlistEntryNotWaitingError();
+        }
+
         return { reservation: createdReservation, table: occupiedTable };
       },
+    }).catch((err: unknown) => {
+      if (err instanceof WaitlistEntryNotWaitingError) return null;
+      throw err;
     });
 
+    if (!result) {
+      return {
+        success: false,
+        error: "Waitlist party is no longer waiting",
+        waitlistEntryNotWaiting: true,
+      };
+    }
     if (!result.ok) {
       return {
         success: false,

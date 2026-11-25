@@ -891,6 +891,24 @@ export async function mockApi(page: Page): Promise<SseMock> {
     } catch {
       // no body — leave empty
     }
+    // The real route seats the waitlist entry in the walk-in's own transaction (#9606), and
+    // refuses with nothing written when that party is no longer waiting.
+    if (typeof body.waitlistEntryId === "string") {
+      const entry = waitlistEntries.find((e) => e.id === body.waitlistEntryId);
+      if (!entry || (entry.status !== "waiting" && entry.status !== "notified")) {
+        return route.fulfill({
+          status: 409,
+          contentType: "application/json",
+          body: JSON.stringify({
+            type: "urn:mbe:problem:waitlist-entry-not-waiting",
+            title: "Conflict",
+            status: 409,
+            detail: "Waitlist party is no longer waiting",
+          }),
+        });
+      }
+      updateWaitlistEntry(body.waitlistEntryId, { status: "seated" });
+    }
     const first = fixture.data[0] ?? {};
     const tableId = typeof body.tableId === "string" ? body.tableId : (first.tableId as string);
     // A picked returning guest arrives as `guestId`; the service answers with the linked guest's
@@ -936,9 +954,10 @@ export async function mockApi(page: Page): Promise<SseMock> {
   // Waitlist
   // Per-context stateful store, empty at session start (unlike reservations,
   // which layers on top of a base fixture). POST adds a "waiting" entry with
-  // the next position; PUT .../seat|notify|cancel transitions it in place so
-  // add -> list -> seat composes across requests instead of every call
-  // returning the same static shape (the stateful-mock gap this class of
+  // the next position; PUT .../notify|cancel and a walk-in carrying its
+  // waitlistEntryId (the walk-in route above reads this store) transition it
+  // in place so add -> list -> seat composes across requests instead of every
+  // call returning the same static shape (the stateful-mock gap this class of
   // Playwright spec is meant to catch).
   const waitlistEntries: Array<Record<string, unknown>> = [];
 

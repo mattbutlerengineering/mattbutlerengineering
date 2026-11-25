@@ -12,7 +12,7 @@ import {
   useCreateWaitlistEntry,
   useNotifyWaitlistEntry,
   useCancelWaitlistEntry,
-  useSeatWaitlistEntry,
+  useRefreshWaitlist,
 } from "../hooks/useWaitlist.js";
 import { useTables } from "../hooks/useTables.js";
 import { useApiClient } from "../hooks/useApiClient.js";
@@ -49,13 +49,14 @@ vi.mock("../hooks/useWaitlist.js", () => ({
   useCreateWaitlistEntry: vi.fn(),
   useNotifyWaitlistEntry: vi.fn(),
   useCancelWaitlistEntry: vi.fn(),
-  useSeatWaitlistEntry: vi.fn(),
+  useRefreshWaitlist: vi.fn(),
 }));
 vi.mock("../hooks/useTables.js", () => ({ useTables: vi.fn() }));
 vi.mock("../hooks/useApiClient.js", () => ({ useApiClient: vi.fn() }));
 vi.mock("../hooks/useStaffTonight.js", () => ({ useStaffTonight: vi.fn() }));
 vi.mock("../hooks/useVenueTeam.js", () => ({ useVenueTeam: vi.fn() }));
 vi.mock("../hooks/useClosures.js", () => ({ useReopenClosure: vi.fn() }));
+const mockRefreshList = vi.fn();
 const mockRefresh = vi.hoisted(() => vi.fn());
 vi.mock("../hooks/useRefreshAvailability.js", () => ({
   useRefreshAvailability: () => mockRefresh,
@@ -353,7 +354,6 @@ function mockMutationHooks(
     create?: Partial<ReturnType<typeof useCreateWaitlistEntry>>;
     notify?: Partial<ReturnType<typeof useNotifyWaitlistEntry>>;
     cancel?: Partial<ReturnType<typeof useCancelWaitlistEntry>>;
-    seat?: Partial<ReturnType<typeof useSeatWaitlistEntry>>;
   } = {}
 ) {
   vi.mocked(useCreateWaitlistEntry).mockReturnValue({
@@ -383,21 +383,14 @@ function mockMutationHooks(
     error: null,
     ...overrides.cancel,
   });
-  vi.mocked(useSeatWaitlistEntry).mockReturnValue({
-    mutate: vi.fn(),
-    mutateAsync: vi.fn().mockResolvedValue(makeEntry({ status: "seated" })),
-    isPending: false,
-    isSuccess: false,
-    isError: false,
-    error: null,
-    ...overrides.seat,
-  });
 }
 
 describe("WaitlistPage", () => {
   beforeEach(() => {
     mockToast.mockClear();
     mockRefresh.mockClear();
+    mockRefreshList.mockClear();
+    vi.mocked(useRefreshWaitlist).mockReturnValue(mockRefreshList);
     mockNavigate.mockClear();
     mockUseGuestLookup.mockReset();
     mockUseGuestLookup.mockReturnValue(idleLookup);
@@ -1250,13 +1243,11 @@ describe("WaitlistPage", () => {
   });
 
   describe("seat action", () => {
-    it("creates a walk-in reservation then marks the entry seated on success", async () => {
+    it("seats with one walk-in call carrying the waitlist entry id, then refreshes the lists", async () => {
       const walkIn = vi.fn().mockResolvedValue({ id: "res-1" });
       vi.mocked(useApiClient).mockReturnValue({
         reservations: { walkIn },
       } as unknown as ReturnType<typeof useApiClient>);
-      const seatMutateAsync = vi.fn().mockResolvedValue(makeEntry({ status: "seated" }));
-      mockMutationHooks({ seat: { mutateAsync: seatMutateAsync } });
       vi.mocked(useWaitlist).mockReturnValue({
         data: [makeEntry({ id: "wl-1", partySize: 4, guestName: "Jane Doe" })],
         isLoading: false,
@@ -1268,18 +1259,15 @@ describe("WaitlistPage", () => {
       fireEvent.click(screen.getByRole("button", { name: "Seat" }));
 
       await waitFor(() => {
-        expect(walkIn).toHaveBeenCalledWith(
-          expect.objectContaining({
-            partySize: 4,
-            guestName: "Jane Doe",
-            venueId: "venue-abc",
-            tableId: "table-1",
-          })
-        );
+        expect(walkIn).toHaveBeenCalledWith({
+          partySize: 4,
+          guestName: "Jane Doe",
+          venueId: "venue-abc",
+          tableId: "table-1",
+          waitlistEntryId: "wl-1",
+        });
       });
-      await waitFor(() => {
-        expect(seatMutateAsync).toHaveBeenCalledWith("wl-1");
-      });
+      await waitFor(() => expect(mockRefreshList).toHaveBeenCalled());
     });
 
     it('seat success speaks the sentence once, toasts a "View on Timeline" handoff to today\'s Timeline with the party selected, and focuses the next card', async () => {
@@ -1356,7 +1344,7 @@ describe("WaitlistPage", () => {
       expect(document.activeElement).toBe(screen.getByTestId("waitlist-empty"));
     });
 
-    it('on a 409 table-unavailable failure, shows "Not seated." with the server\'s own detail, leaves the entry waiting, and never marks it seated', async () => {
+    it('on a 409 table-unavailable failure, shows "Not seated." with the server\'s own detail, leaves the entry waiting, and refreshes nothing', async () => {
       const walkIn = vi.fn().mockRejectedValue(
         new ApiClientError(
           {
@@ -1372,8 +1360,6 @@ describe("WaitlistPage", () => {
       vi.mocked(useApiClient).mockReturnValue({
         reservations: { walkIn },
       } as unknown as ReturnType<typeof useApiClient>);
-      const seatMutateAsync = vi.fn().mockResolvedValue(makeEntry({ status: "seated" }));
-      mockMutationHooks({ seat: { mutateAsync: seatMutateAsync } });
       vi.mocked(useWaitlist).mockReturnValue({
         data: [makeEntry({ id: "wl-1", partySize: 4, guestName: "Jane Doe" })],
         isLoading: false,
@@ -1388,7 +1374,7 @@ describe("WaitlistPage", () => {
       expect(banner).toHaveTextContent("Not seated.");
       expect(banner).toHaveTextContent("Table is not available");
       expect(screen.queryByText(/failed: 409/)).toBeNull();
-      expect(seatMutateAsync).not.toHaveBeenCalled();
+      expect(mockRefreshList).not.toHaveBeenCalled();
       expect(mockToast).not.toHaveBeenCalled();
       expect(pageStatus()).toHaveTextContent("");
       expect(screen.getByRole("button", { name: "Seat" })).toBeInTheDocument();
@@ -1416,13 +1402,22 @@ describe("WaitlistPage", () => {
       expect(screen.queryByText(/failed: 500/)).toBeNull();
     });
 
-    it("surfaces a distinct partial-state error when walk-in succeeds but marking seated fails", async () => {
-      const walkIn = vi.fn().mockResolvedValue({ id: "res-1" });
+    it("on the already-seated 409 says so, refreshes the list, and seats nothing", async () => {
+      const walkIn = vi.fn().mockRejectedValue(
+        new ApiClientError(
+          {
+            type: "urn:mbe:problem:waitlist-entry-not-waiting",
+            title: "Conflict",
+            status: 409,
+            detail: "Waitlist party is no longer waiting",
+          },
+          "POST",
+          "/api/v1/reservations/walk-in"
+        )
+      );
       vi.mocked(useApiClient).mockReturnValue({
         reservations: { walkIn },
       } as unknown as ReturnType<typeof useApiClient>);
-      const seatMutateAsync = vi.fn().mockRejectedValue(new Error("Network error"));
-      mockMutationHooks({ seat: { mutateAsync: seatMutateAsync } });
       vi.mocked(useWaitlist).mockReturnValue({
         data: [makeEntry({ id: "wl-1", partySize: 4, guestName: "Jane Doe" })],
         isLoading: false,
@@ -1433,17 +1428,9 @@ describe("WaitlistPage", () => {
       renderPage();
       fireEvent.click(screen.getByRole("button", { name: "Seat" }));
 
-      await waitFor(() => {
-        expect(walkIn).toHaveBeenCalled();
-      });
-      await waitFor(() => {
-        expect(seatMutateAsync).toHaveBeenCalledWith("wl-1");
-      });
       const banner = await screen.findByRole("alert");
-      expect(banner).toHaveTextContent(
-        "Seated at Table 1, but the waitlist didn't update. Refresh to tidy up."
-      );
-      expect(screen.queryByText("Network error")).toBeNull();
+      expect(banner).toHaveTextContent("Jane Doe was already seated.");
+      expect(mockRefreshList).toHaveBeenCalled();
       expect(mockToast).not.toHaveBeenCalled();
     });
 

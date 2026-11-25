@@ -83,8 +83,20 @@ describe("proposeMoves", () => {
       out.map((p) => (p.kind === "waitlist_offer" ? `${p.entryId}>${p.tableId}` : ""))
     ).toEqual(["w1>T2", "w3>T1"]);
     expect(out.find((p) => p.kind === "waitlist_offer" && p.entryId === "w3")!.reason).toBe(
-      "Seat the Garcias (6) at T1 — T1 is the only table that fits them, so it is held back from smaller parties; they've waited 8 min"
+      "Seat the Garcias (6) at T1 — T1 is held back so larger waiting parties can all be seated; they've waited 8 min"
     );
+  });
+
+  it("seats the 5 and 6 on the 5-top and 6-top rather than the 2 on the 5-top (11 covers, not 7)", () => {
+    const state: NightState = {
+      tables: [table("Ta", 5), table("Tb", 6)],
+      reservations: [],
+      waitlist: [waiter("w1", 2, 0), waiter("w2", 5, 1), waiter("w3", 6, 2)],
+    };
+    const out = proposeMoves(state, 10);
+    expect(
+      out.map((p) => (p.kind === "waitlist_offer" ? `${p.entryId}>${p.tableId}` : ""))
+    ).toEqual(["w2>Ta", "w3>Tb"]);
   });
 
   it("still gives a big table to a smaller party when no larger party needs it", () => {

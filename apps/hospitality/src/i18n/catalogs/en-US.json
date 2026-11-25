@@ -981,7 +981,7 @@
       "offerNotice": "Seats them now. This can't be undone.",
       "reseatDone": "Moved {{party}} to {{to}}",
       "offerDone": "Seated {{party}} at {{to}}",
-      "splitFailure": "Seated at {{table}}, but the waitlist didn't update. Remove {{party}} from the Waitlist page so they aren't offered a table again.",
+      "alreadySeated": "{{party}} was already seated.",
       "undo": "Undo",
       "undoReseatDone": "Moved {{party}} back to {{from}}",
       "undoFailed": "Couldn't put {{party}} back. Nothing was changed.",
@@ -1361,7 +1361,7 @@
       "cancelling": "Cancelling…",
       "selectTable": "Please select a table.",
       "theTable": "the table",
-      "splitFailure": "Seated at {{table}}, but the waitlist didn't update. Refresh to tidy up.",
+      "alreadySeated": "{{name}} was already seated.",
       "notNotified": "Not notified.",
       "notRemoved": "Not removed.",
       "notSeated": "Not seated."

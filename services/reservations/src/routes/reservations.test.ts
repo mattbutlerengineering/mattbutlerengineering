@@ -1375,6 +1375,79 @@ describe("Reservation Routes", () => {
       expect(emittedData("table:updated")).toEqual([occupiedTable]);
     });
 
+    it("passes waitlistEntryId through and renumbers the queue only after the walk-in lands (#9606)", async () => {
+      vi.mocked(jwtVerify).mockResolvedValue({
+        payload: mockJWTPayload,
+        protectedHeader: { alg: "RS256" },
+      } as never);
+      const recalculate = vi
+        .spyOn(app.services.waitlistService, "recalculate")
+        .mockResolvedValue(undefined);
+      const payload = {
+        tableId: "table-123",
+        partySize: 2,
+        venueId: "venue-123",
+        waitlistEntryId: "w1",
+      };
+      const send = () =>
+        app.inject({
+          method: "POST",
+          url: "/api/v1/reservations/walk-in",
+          headers: { authorization: "Bearer valid-token" },
+          payload,
+        });
+
+      vi.mocked(reservationService.createWalkIn).mockResolvedValueOnce({
+        success: false,
+        error: "Table is not available",
+      });
+      expect((await send()).statusCode).toBe(409);
+      expect(recalculate).not.toHaveBeenCalled();
+
+      vi.mocked(reservationService.createWalkIn).mockResolvedValueOnce({
+        success: true,
+        reservation: createMockReservation({ id: "res-walkin", status: "CONFIRMED" }),
+      });
+      expect((await send()).statusCode).toBe(201);
+      expect(reservationService.createWalkIn).toHaveBeenLastCalledWith(
+        expect.objectContaining({ waitlistEntryId: "w1" }),
+        expect.anything(),
+        expect.anything()
+      );
+      expect(recalculate).toHaveBeenCalledWith("venue-123", expect.any(Function));
+    });
+
+    it("409s with a distinct problem type when the waitlist party is already seated (#9606)", async () => {
+      vi.mocked(jwtVerify).mockResolvedValue({
+        payload: mockJWTPayload,
+        protectedHeader: { alg: "RS256" },
+      } as never);
+      const recalculate = vi
+        .spyOn(app.services.waitlistService, "recalculate")
+        .mockResolvedValue(undefined);
+      vi.mocked(reservationService.createWalkIn).mockResolvedValueOnce({
+        success: false,
+        error: "Waitlist party is no longer waiting",
+        waitlistEntryNotWaiting: true,
+      });
+
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/v1/reservations/walk-in",
+        headers: { authorization: "Bearer valid-token" },
+        payload: {
+          tableId: "table-123",
+          partySize: 2,
+          venueId: "venue-123",
+          waitlistEntryId: "w1",
+        },
+      });
+
+      expect(response.statusCode).toBe(409);
+      expect(JSON.parse(response.body).type).toBe("urn:mbe:problem:waitlist-entry-not-waiting");
+      expect(recalculate).not.toHaveBeenCalled();
+    });
+
     it("does not emit SSE events when createWalkIn fails (rolled back)", async () => {
       vi.mocked(jwtVerify).mockResolvedValueOnce({
         payload: mockJWTPayload,

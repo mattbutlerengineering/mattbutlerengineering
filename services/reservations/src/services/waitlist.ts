@@ -250,6 +250,11 @@ export const waitlistService = {
     return entry;
   },
 
+  /** Re-numbers the waiting queue after an entry left it by another door (a walk-in seating). */
+  async recalculate(venueId: string, onImproved?: OnPositionsImproved): Promise<void> {
+    await recalculateVenuePositions(venueId, onImproved);
+  },
+
   async cancel(id: string, onImproved?: OnPositionsImproved): Promise<WaitlistEntryData | null> {
     let entry: WaitlistEntryData;
     try {
