@@ -190,11 +190,6 @@ const VISUAL_ROUTES: ReadonlyArray<readonly [RegExp, unknown]> = [
     /\/api\/v1\/reservations\/metrics\/end-of-service\?/,
     { date: DAY, venueId: VENUE.id, covers: 84, tableTurns: 31, noShows: 1, turnedAway: null },
   ],
-  // timeline (#9492): no Autopilot suggestions, so the baseline is unchanged (the panel renders nothing).
-  [
-    /\/api\/v1\/reservations\/metrics\/autopilot-proposals\?/,
-    { date: DAY, venueId: VENUE.id, moves: [] },
-  ],
   // home (#9485): the turned-away heatmap, so the baseline shows the grid, not an error.
   [
     /\/api\/v1\/reservations\/metrics\/lost-demand\?/,

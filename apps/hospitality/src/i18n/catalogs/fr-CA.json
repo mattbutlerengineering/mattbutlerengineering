@@ -982,23 +982,6 @@
       "cancel": "Annuler",
       "seatNow": "Installer maintenant",
       "seating": "Installation…"
-    },
-    "autopilot": {
-      "heading": "Pilote automatique",
-      "toggleName_one": "Pilote automatique : {{count}} suggestion",
-      "toggleName_many": "Pilote automatique : {{count}} de suggestions",
-      "toggleName_other": "Pilote automatique : {{count}} suggestions",
-      "intro": "Ce sont seulement des suggestions. Rien ne bouge avant que vous le déplaciez.",
-      "reseat": "Déplacer {{party}} ({{size}}) de {{from}} à {{to}}",
-      "offer": "Asseoir {{party}} ({{size}}) à {{to}}",
-      "reseatWhy": "Libère {{from}} pour un groupe en attente.",
-      "offerWhy": "{{to}} est libre et convient au groupe.",
-      "dismissMove": "Ignorer",
-      "dismissMoveFor": "Ignorer la suggestion pour {{party}}",
-      "dismissNight": "Ignorer pour ce soir",
-      "ghostLabel": "Suggéré : {{party}}",
-      "partyFallback": "Groupe de {{size}}",
-      "listLabel": "Déplacements suggérés"
     }
   },
   "onMyWayBadge": {

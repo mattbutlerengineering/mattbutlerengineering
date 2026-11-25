@@ -74,32 +74,6 @@ vi.mock("../hooks/useGuests.js", () => ({
 vi.mock("../hooks/useLostDemand.js", () => ({
   useLostDemand: () => ({ data: null, error: null, refetch: vi.fn() }),
 }));
-vi.mock("../hooks/useAutopilotProposals.js", () => ({
-  useAutopilotProposals: () => ({
-    data: {
-      date: "2026-06-19",
-      venueId: "v1",
-      moves: [
-        {
-          id: "offer:w1>t1",
-          kind: "waitlist_offer",
-          partyLabel: "Kim",
-          partySize: 4,
-          fromTableId: null,
-          fromTableName: null,
-          toTableId: "t1",
-          toTableName: "Mesa 1",
-          startTime: "2026-06-19T19:00:00.000Z",
-          endTime: "2026-06-19T20:30:00.000Z",
-          reason: "english server reason",
-        },
-      ],
-    },
-    isLoading: false,
-    error: null,
-    refetch: vi.fn(),
-  }),
-}));
 vi.mock("../hooks/useTimelineData.js", () => ({
   useTimelineData: () => ({
     reservations: [],
@@ -402,9 +376,6 @@ describe("home and timeline in es-MX", () => {
     expect(screen.getByRole("heading", { name: "Cronograma" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Día anterior" })).toBeInTheDocument();
     expect(screen.getByText("Aún no hay mesas.")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Piloto automático: 1 sugerencia" })
-    ).toBeInTheDocument();
   });
 });
 
@@ -446,8 +417,5 @@ describe("home and timeline in fr-CA", () => {
     expect(screen.getByRole("heading", { name: "Chronologie" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Jour suivant" })).toBeInTheDocument();
     expect(screen.getByText("Aucune table pour l'instant.")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Pilote automatique : 1 suggestion" })
-    ).toBeInTheDocument();
   });
 });
