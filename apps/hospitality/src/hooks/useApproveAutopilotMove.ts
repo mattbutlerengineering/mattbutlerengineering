@@ -14,6 +14,16 @@ import { WAITLIST_QUERY_KEY } from "./useWaitlist.js";
 /** `stale`: the move no longer holds, nothing was applied and the list was refreshed. */
 export type ApproveOutcome = "applied" | "stale" | "failed";
 
+type ApplyResult = "applied" | "already-seated";
+
+/** Problem  the walk-in route answers a 409 with when its waitlist party is already seated. */
+const WAITLIST_ENTRY_NOT_WAITING = "urn:mbe:problem:waitlist-entry-not-waiting";
+
+function isWaitlistEntryNotWaiting(error: unknown): boolean {
+  const details = (error as { problemDetails?: { type?: unknown } } | null)?.problemDetails;
+  return details?.type === WAITLIST_ENTRY_NOT_WAITING;
+}
+
 /**
  * Applies one Autopilot move the host approved (#9493), through the same reservation and waitlist
  * routes the Timeline and Waitlist pages use; no route of its own. The move is re-checked first
@@ -88,39 +98,42 @@ export function useApproveAutopilotMove(
   );
 
   const apply = useCallback(
-    async (move: AutopilotMove, party: string, venue: string) => {
+    async (move: AutopilotMove, party: string, venue: string): Promise<ApplyResult> => {
       if (move.kind === "reseat" && move.reservationId) {
         await api.reservations.update(move.reservationId, { tableId: move.toTableId });
         // A booking with no known origin has nowhere to be put back to.
         if (move.fromTableId) offerUndo(move, party);
         else toast({ title: t("timeline.autopilot.reseatDone", { party, to: move.toTableName }) });
-        return;
+        return "applied";
       }
       if (!move.waitlistEntryId) throw new Error("Move has nothing to apply");
-      await api.reservations.walkIn({
-        venueId: venue,
-        partySize: move.partySize,
-        tableId: move.toTableId,
-        ...(move.partyLabel ? { guestName: move.partyLabel } : {}),
-      });
       try {
-        await api.waitlist.seat(move.waitlistEntryId);
-      } catch {
-        // The party is seated (the walk-in exists) but still waiting on the list, so the engine
-        // would offer them another table: hold their offers, and say so rather than report success.
+        await api.reservations.walkIn({
+          venueId: venue,
+          partySize: move.partySize,
+          tableId: move.toTableId,
+          // The server seats the waitlist entry in the walk-in's own transaction: no half-seated
+          // party, so no second call to fail (#9606).
+          waitlistEntryId: move.waitlistEntryId,
+          ...(move.partyLabel ? { guestName: move.partyLabel } : {}),
+        });
+      } catch (error) {
+        if (!isWaitlistEntryNotWaiting(error)) throw error;
+        // Another device seated this party first: nothing was written here. Hold their offers in
+        // this browser too, and let the caller refresh the suggestions.
         onSplitFailure?.(move.waitlistEntryId);
         toast({
-          title: t("timeline.autopilot.splitFailure", { table: move.toTableName, party }),
-          variant: "error",
-          duration: 10000,
+          title: t("timeline.autopilot.alreadySeated", { party }),
+          duration: 8000,
         });
-        return;
+        return "already-seated";
       }
       toast({
         title: t("timeline.autopilot.offerDone", { party, to: move.toTableName }),
         variant: "success",
         duration: 5000,
       });
+      return "applied";
     },
     [api, offerUndo, onSplitFailure, t, toast]
   );
@@ -138,9 +151,9 @@ export function useApproveAutopilotMove(
           toast({ title: t("timeline.autopilot.stale"), duration: 8000 });
           return "stale";
         }
-        await apply(move, party, venueId);
+        const result = await apply(move, party, venueId);
         refresh();
-        return "applied";
+        return result === "applied" ? "applied" : "stale";
       } catch (error) {
         toast({
           title: t("timeline.autopilot.applyFailed"),

@@ -53,7 +53,11 @@ function matches(pattern: string | RegExp, url: string): boolean {
 }
 
 interface MockedApi {
-  request(method: string, path: string, body?: unknown): Promise<{ status: number; data: any }>;
+  request(
+    method: string,
+    path: string,
+    body?: unknown
+  ): Promise<{ status: number; data: any; body: { type?: string; status?: number } | null }>;
 }
 
 async function createMockedApi(): Promise<MockedApi> {
@@ -94,9 +98,11 @@ async function createMockedApi(): Promise<MockedApi> {
         await handler(route);
         if (outcome.fellBack) continue;
         if (outcome.fulfilled) {
+          const parsed = JSON.parse(outcome.fulfilled.body ?? "null");
           return {
             status: outcome.fulfilled.status ?? 200,
-            data: JSON.parse(outcome.fulfilled.body ?? "null").data,
+            data: parsed?.data,
+            body: parsed,
           };
         }
         throw new Error(`mock handler for ${String(pattern)} neither fulfilled nor fell back`);
@@ -227,6 +233,72 @@ describe("api-mocks — table-status overlay (#5023)", () => {
     // An unknown id never comes back wearing the first fixture row's identity.
     const unknown = await api.request("GET", reservationById("res_e2e_nope"));
     expect(unknown.data.id).toBe("res_e2e_nope");
+  });
+
+  // #9606: the real walk-in route seats the waitlist entry in its own transaction, and refuses
+  // (409, nothing written) a party that is no longer waiting. The mock mirrors both.
+  describe("walk-in with a waitlistEntryId (#9606)", () => {
+    const WAITLIST_LIST = "/api/v1/waitlist?venueId=ven_e2e_001";
+    const walkInFor = (waitlistEntryId: string) => ({
+      partySize: 2,
+      tableId: "tbl_e2e_003",
+      venueId: "ven_e2e_001",
+      guestName: "Priya Shah",
+      waitlistEntryId,
+    });
+
+    async function addEntry(api: MockedApi): Promise<string> {
+      const created = await api.request("POST", "/api/v1/waitlist", {
+        venueId: "ven_e2e_001",
+        partySize: 2,
+        guestName: "Priya Shah",
+        guestPhone: "555-0100",
+      });
+      return created.data.id;
+    }
+
+    it("marks the entry seated, so the waiting list drops it", async () => {
+      const api = await createMockedApi();
+      const id = await addEntry(api);
+
+      const walkIn = await api.request("POST", "/api/v1/reservations/walk-in", walkInFor(id));
+      expect(walkIn.status).toBe(200);
+
+      const waiting = await api.request("GET", WAITLIST_LIST);
+      expect(waiting.data).toEqual([]);
+    });
+
+    it("answers 409 with the waitlist-entry-not-waiting problem type, and creates no reservation, when the entry is already seated", async () => {
+      const api = await createMockedApi();
+      const id = await addEntry(api);
+      await api.request("POST", "/api/v1/reservations/walk-in", walkInFor(id));
+      const before = await api.request("GET", RESERVATIONS);
+
+      const second = await api.request("POST", "/api/v1/reservations/walk-in", walkInFor(id));
+
+      expect(second.status).toBe(409);
+      expect(second.body).toMatchObject({
+        type: "urn:mbe:problem:waitlist-entry-not-waiting",
+        status: 409,
+      });
+      const after = await api.request("GET", RESERVATIONS);
+      expect(after.data).toHaveLength(before.data.length);
+    });
+
+    it("a walk-in without a waitlistEntryId is unchanged", async () => {
+      const api = await createMockedApi();
+      const id = await addEntry(api);
+
+      const walkIn = await api.request("POST", "/api/v1/reservations/walk-in", {
+        partySize: 2,
+        tableId: "tbl_e2e_003",
+        venueId: "ven_e2e_001",
+      });
+
+      expect(walkIn.status).toBe(200);
+      const waiting = await api.request("GET", WAITLIST_LIST);
+      expect(waiting.data.map((e: { id: string }) => e.id)).toEqual([id]);
+    });
   });
 
   it("no UTC date slice remains in api-mocks.ts", () => {

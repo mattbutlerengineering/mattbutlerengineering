@@ -163,7 +163,7 @@ describe("useApproveAutopilotMove", () => {
     expect(outcome).toBe("stale");
   });
 
-  it("seats a waiting party with a walk-in, then takes them off the waitlist, with no undo", async () => {
+  it("seats a waiting party in one walk-in call that also takes them off the waitlist, with no undo", async () => {
     renderApprove(offer);
 
     expect(await screen.findByText("Seated Kim at Booth")).toBeInTheDocument();
@@ -171,26 +171,37 @@ describe("useApproveAutopilotMove", () => {
       venueId: "v1",
       partySize: 5,
       tableId: "t6",
+      waitlistEntryId: "w1",
       guestName: "Kim",
     });
-    expect(api.waitlist.seat).toHaveBeenCalledWith("w1");
+    expect(api.waitlist.seat).not.toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
     expect(outcome).toBe("applied");
   });
 
-  it("warns, never claims success, when the walk-in is made but the waitlist did not update", async () => {
-    api.waitlist.seat.mockRejectedValue(new Error("boom"));
-    const { invalidate } = renderApprove(offer);
+  it("reports a failed waitlist seating as one failure: nothing was half-applied", async () => {
+    api.reservations.walkIn.mockRejectedValue(new Error("boom"));
+    renderApprove(offer);
 
     expect(
-      await screen.findByText(
-        "Seated at Booth, but the waitlist didn't update. Remove Kim from the Waitlist page so they aren't offered a table again."
-      )
+      await screen.findByText("Couldn't make that move. Nothing was changed.")
     ).toBeInTheDocument();
+    expect(api.waitlist.seat).not.toHaveBeenCalled();
+    expect(outcome).toBe("failed");
+  });
+
+  it("says the party was already seated, holds them here and refreshes, when another device got there first", async () => {
+    api.reservations.walkIn.mockRejectedValue({
+      category: "conflict",
+      problemDetails: { type: "urn:mbe:problem:waitlist-entry-not-waiting", detail: "x" },
+      message: "conflict",
+    });
+    const { invalidate } = renderApprove(offer);
+
+    expect(await screen.findByText("Kim was already seated.")).toBeInTheDocument();
     expect(onSplit).toHaveBeenCalledWith("w1");
-    expect(screen.queryByText("Seated Kim at Booth")).toBeNull();
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["autopilot-proposals"] });
-    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["waitlist"] });
+    expect(outcome).toBe("stale");
   });
 
   it("reports a failed write and leaves the move on the list", async () => {

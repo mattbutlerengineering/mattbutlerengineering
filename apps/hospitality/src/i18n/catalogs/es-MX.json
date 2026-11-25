@@ -1005,7 +1005,7 @@
       "offerNotice": "Los sienta ahora. No se puede deshacer.",
       "reseatDone": "Se movió a {{party}} a {{to}}",
       "offerDone": "Se sentó a {{party}} en {{to}}",
-      "splitFailure": "Se sentó en {{table}}, pero la lista de espera no se actualizó. Quita a {{party}} de la página de Lista de espera para que no se le ofrezca otra mesa.",
+      "alreadySeated": "{{party}} ya estaba sentado.",
       "undo": "Deshacer",
       "undoReseatDone": "Se devolvió a {{party}} a {{from}}",
       "undoFailed": "No se pudo devolver a {{party}}. No se cambió nada.",
@@ -1393,7 +1393,7 @@
       "cancelling": "Cancelando…",
       "selectTable": "Selecciona una mesa.",
       "theTable": "la mesa",
-      "splitFailure": "Se sentó en {{table}}, pero la lista de espera no se actualizó. Actualiza para ordenarla.",
+      "alreadySeated": "{{name}} ya estaba sentado.",
       "notNotified": "No se notificó.",
       "notRemoved": "No se quitó.",
       "notSeated": "No se sentó."
