@@ -9,13 +9,15 @@
 
 /** At least two capitalised humps then `(`, e.g. `ReservationList(`. */
 const CALL_START = /[A-Z][a-z0-9]+[A-Z][A-Za-z0-9]*\(/;
-/**
- * A trailing CamelCase fragment that may still grow into a component name.
- * Plain words ("Hello") are never held, so ordinary text keeps its
- * one-event-per-delta framing; a name split before its second hump still leaks.
- */
 /** Any capitalised word then `(`; checked against the catalog names. */
 const CAPITALISED_CALL = /(?<![A-Za-z0-9])[A-Z][A-Za-z0-9]*\(/g;
+/**
+ * A trailing CamelCase fragment that may still grow into a component name.
+ * Plain words ("Hello") are not held, so ordinary text keeps its
+ * one-event-per-delta framing; the exception is a trailing word that is a
+ * prefix of a catalog name (see `findTail`). A name split before its second
+ * hump still leaks unless it is a catalog name.
+ */
 const NAME_TAIL = /[A-Z][a-z0-9]+[A-Z][A-Za-z0-9]*$/;
 
 /** Longest call text held back waiting for its close paren before it is released as prose. */
