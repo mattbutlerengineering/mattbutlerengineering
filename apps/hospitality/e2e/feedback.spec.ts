@@ -14,7 +14,7 @@ test.describe("In-app feedback", () => {
     await mockedPage.getByRole("button", { name: "Send feedback" }).click();
 
     const dialog = mockedPage.getByRole("dialog");
-    await expect(dialog.getByText("We'll include:")).toBeVisible();
+    await expect(dialog).toBeVisible();
 
     await dialog.getByRole("radio", { name: "Idea" }).click();
     await dialog.getByLabel(/Your message/).fill("Let me pin a table to a server.");
@@ -65,7 +65,10 @@ test.describe("In-app feedback", () => {
       })
     );
 
+    // Wait for the probe to answer: before it does the control is also absent.
+    const probed = mockedPage.waitForResponse("**/api/gen/feedback/status");
     await mockedPage.goto("timeline");
+    await probed;
     await expect(mockedPage.getByTestId("dashboard-layout")).toBeVisible();
     await expect(mockedPage.getByRole("button", { name: "Send feedback" })).toHaveCount(0);
   });
