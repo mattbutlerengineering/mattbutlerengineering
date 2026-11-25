@@ -742,10 +742,16 @@
       "title": "Add a seating at…",
       "day": "Day",
       "time": "Time",
-      "estimate_one": "Estimate: about {{count, number}} of the searches in the last 28 days asked for this day and hour, roughly {{perNight, number}} a night. A seating then might have booked it.",
-      "estimate_other": "Estimate: about {{count, number}} of the searches in the last 28 days asked for this day and hour, roughly {{perNight, number}} a night. A seating then might have booked them.",
-      "none": "Estimate: no turned-away searches in the last 28 days asked for this day and hour, so a seating then would not have caught any.",
-      "note": "An estimate from past searches, not a forecast. Guests who named no time are not counted."
+      "estimate_one": "Estimate: about {{count, number}} search in the last 28 days that found no table within 30 minutes of {{time}} on a {{weekday}}, roughly {{perNight, number}} a night. A seating then might have booked it.",
+      "estimate_other": "Estimate: about {{count, number}} searches in the last 28 days that found no table within 30 minutes of {{time}} on a {{weekday}}, roughly {{perNight, number}} a night. A seating then might have booked them.",
+      "none": "Estimate: no turned-away searches in the last 28 days asked for a time near {{time}} on a {{weekday}} that this seating could seat, so it would not have caught any.",
+      "anyTime_one": "{{count, number}} more search on a {{weekday}} named no time and found no table. It is not in this count.",
+      "anyTime_other": "{{count, number}} more searches on a {{weekday}} named no time and found no table. They are not in this count.",
+      "closed": "You have no service on {{weekday}}, so there is nothing to add a seating to.",
+      "alreadyOffered": "{{time}} is already bookable on a {{weekday}}, or no table fits the parties who searched, so adding it would change nothing.",
+      "blocked": "A seating at {{time}} on a {{weekday}} would run into another service or break a rule. Change your hours first to try it.",
+      "loadFailed": "Couldn't estimate this seating.",
+      "note": "An estimate from past searches, not a forecast."
     },
     "deposit": {
       "title": "Deposit Exposure",

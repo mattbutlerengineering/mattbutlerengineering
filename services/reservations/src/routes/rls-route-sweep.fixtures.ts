@@ -2286,6 +2286,10 @@ const bookingMetricsFixtures: Record<string, RouteFixture> = {
     lostDemandEndpoints.get.path,
     "&from=2026-10-01&to=2026-10-28"
   ),
+  "GET /api/v1/reservations/metrics/lost-demand/what-if": okScopedByQuery(
+    lostDemandEndpoints.whatIf.path,
+    "&weekday=2&time=21:30&from=2026-10-01&to=2026-10-28"
+  ),
 };
 
 /**

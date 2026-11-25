@@ -3,7 +3,6 @@ import type { ToolSet } from "ai";
 import { z } from "zod";
 import type { FastifyBaseLogger } from "fastify";
 import { lastServiceDate } from "@mbe/availability";
-import { estimateAddedSeating } from "@mbe/types";
 import {
   NO_VENUE,
   failureLog,
@@ -201,7 +200,7 @@ export function createBriefingTools(
     }),
     estimate_added_seating: tool({
       description:
-        'Estimate how many turned-away searches a new seating would have satisfied: the recorded searches in the last 28 days for that weekday and hour (counts only). Use it for "what if I added a 9:30 seating on Fridays". It is an estimate, not a forecast. Read only; it adds nothing to the schedule.',
+        'Estimate how many turned-away searches a new seating would have satisfied: the recorded searches in the last 28 days near that weekday and time, only for party sizes the new seating could seat (counts only). It also says when the venue is closed that day, the time is already offered, or the seating cannot be added. Use it for "what if I added a 9:30 seating on Fridays". It is an estimate, not a forecast. Read only; it adds nothing to the schedule.',
       inputSchema: z.object({
         weekday: z.enum(WEEKDAYS).describe("The weekday of the candidate seating, in English"),
         time: z.string().describe("Start time of the candidate seating, 24-hour HH:MM"),
@@ -218,20 +217,28 @@ export function createBriefingTools(
         }
         log.info({ venueId, weekday, time }, "estimate_added_seating tool called");
         try {
-          const demand = await api.reservations.getLostDemand({ venueId });
-          const { searches, nights, perNight } = estimateAddedSeating(demand, {
+          const result = await api.reservations.getLostDemandWhatIf({
+            venueId,
             weekday: weekdayIndex,
-            minute,
+            time,
           });
+          // Same server answer as the Home card: closed, already offered and blocked carry no number.
+          const counted = result.outcome === "estimated";
           return {
             estimate: true,
+            outcome: result.outcome,
             weekday,
             time,
-            from: demand.from,
-            to: demand.to,
-            searches,
-            nights,
-            perNight,
+            from: result.from,
+            to: result.to,
+            ...(counted
+              ? {
+                  searches: result.searches,
+                  nights: result.nights,
+                  perNight: result.perNight,
+                  noTimeNamed: result.anyTimeSearches,
+                }
+              : {}),
           };
         } catch (err) {
           log.error({ venueId, ...failureLog(err) }, "estimate_added_seating failed");

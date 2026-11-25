@@ -180,8 +180,8 @@ export type { PartyFitTable } from "./party-fit.js";
 export { partyFitsTable, tableMaxCovers } from "./party-fit.js";
 
 // "Add a seating at X" what-if over the Lost Demand Ledger (#9486)
-export type { AddedSeatingEstimate, CandidateSeating } from "./lost-demand-what-if.js";
-export { busiestTurnedAwaySlot, estimateAddedSeating } from "./lost-demand-what-if.js";
+export type { CandidateSeating } from "./lost-demand-what-if.js";
+export { busiestTurnedAwaySlot, countWeekday } from "./lost-demand-what-if.js";
 
 // Zod Schemas
 export * from "./schemas/index.js";

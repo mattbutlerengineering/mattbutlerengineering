@@ -9,6 +9,7 @@ import type {
   AutopilotProposals,
   EndOfServiceSummary,
   LostDemand,
+  LostDemandWhatIf,
 } from "@mbe/types";
 import {
   ReservationSchema,
@@ -253,6 +254,22 @@ export class ReservationsClient {
     to?: string;
   }): Promise<LostDemand> {
     return (await this.client.call(lostDemandEndpoints.get, { query: params })).data;
+  }
+
+  /**
+   * Estimate how many turned-away searches a new seating (weekday + `HH:MM` time)
+   * would have served. Read-only; an estimate, never a forecast.
+   */
+  async getLostDemandWhatIf(params: {
+    venueId: string;
+    weekday: number;
+    time: string;
+    minParty?: number;
+    maxParty?: number;
+    from?: string;
+    to?: string;
+  }): Promise<LostDemandWhatIf> {
+    return (await this.client.call(lostDemandEndpoints.whatIf, { query: params })).data;
   }
 
   /**

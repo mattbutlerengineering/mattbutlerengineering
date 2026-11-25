@@ -12,6 +12,7 @@ import { validateDateString } from "@mbe/database";
 import { venueScoped } from "./venue-scope.js";
 import { bookingMetricsService, type DailyBookingMetrics } from "../services/booking-metrics.js";
 import { autopilotProposalsService } from "../services/autopilot-proposals.js";
+import { lostDemandWhatIfService } from "../services/lost-demand-what-if.js";
 import { endOfServiceSummaryService } from "../services/end-of-service-summary.js";
 import {
   MAX_WINDOW_DAYS,
@@ -23,6 +24,16 @@ import {
 /** Today's date as YYYY-MM-DD (UTC), the default window when no `date` is given. */
 function todayDateString(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+/** Why a lost-demand window is unusable, or null when it is a real range of at most 92 days. */
+function windowProblem(from: string, to: string): string | null {
+  const invalid = [validateDateString(from), validateDateString(to)].find((r) => !r.valid);
+  if (invalid && !invalid.valid) return invalid.error;
+  const days = windowDays(from, to);
+  return days < 1 || days > MAX_WINDOW_DAYS
+    ? `from must not be after to, and the window may span at most ${MAX_WINDOW_DAYS} days`
+    : null;
 }
 
 export const bookingMetricsRoutes: FastifyPluginAsync = async (fastify) => {
@@ -128,23 +139,61 @@ export const bookingMetricsRoutes: FastifyPluginAsync = async (fastify) => {
       async (request, reply, { venueId }) => {
         const to = request.query.to ?? (await lostDemandReportService.defaultWindow(venueId)).to;
         const from = request.query.from ?? defaultWindowStart(to);
-        const invalid = [validateDateString(from), validateDateString(to)].find((r) => !r.valid);
-        if (invalid && !invalid.valid) {
-          return reply.code(400).send(createProblemDetails(400, "Bad Request", invalid.error));
-        }
-        const days = windowDays(from, to);
-        if (days < 1 || days > MAX_WINDOW_DAYS) {
+        const invalid = windowProblem(from, to);
+        if (invalid) return reply.code(400).send(createProblemDetails(400, "Bad Request", invalid));
+        return { data: await lostDemandReportService.getLostDemand({ venueId, from, to }) };
+      }
+    ),
+  });
+
+  // "Add a seating at X" what-if (#9486): read-only, an estimate from the same ledger.
+  registerEndpoint(fastify, lostDemandEndpoints.whatIf, {
+    docs: {
+      summary: "Estimate the turned-away searches a new seating would have served",
+      operationId: "getLostDemandWhatIf",
+      description:
+        "Previews an unsaved candidate seating (weekday and time) through the availability preview " +
+        "and counts the recorded no-slot searches on that weekday that asked for a time within 30 " +
+        "minutes of it, for party sizes a table fits. An estimate, not a forecast: a search is not " +
+        "a booking. Whole-day misses are returned as `anyTimeSearches` and never added to the count. " +
+        "Writes nothing; availability is unchanged. Requires venue membership.",
+      tags: ["Metrics"],
+      security: [{ bearerAuth: [] }],
+    },
+    preHandler: requireAuth,
+    handler: venueScoped(
+      {
+        venue: {
+          from: "query",
+          field: "venueId",
+          missing: "venueId query parameter is required",
+        },
+      },
+      async (request, reply, { venueId }) => {
+        const { weekday, time, minParty, maxParty } = request.query;
+        if (minParty !== undefined && maxParty !== undefined && minParty > maxParty) {
           return reply
             .code(400)
-            .send(
-              createProblemDetails(
-                400,
-                "Bad Request",
-                `from must not be after to, and the window may span at most ${MAX_WINDOW_DAYS} days`
-              )
-            );
+            .send(createProblemDetails(400, "Bad Request", "minParty must not exceed maxParty"));
         }
-        return { data: await lostDemandReportService.getLostDemand({ venueId, from, to }) };
+        const { from, to } = request.query;
+        if (from && to) {
+          const invalid = windowProblem(from, to);
+          if (invalid)
+            return reply.code(400).send(createProblemDetails(400, "Bad Request", invalid));
+        }
+        const [hours = 0, minutes = 0] = time.split(":").map(Number);
+        const estimate = await lostDemandWhatIfService.estimate({
+          venueId,
+          weekday,
+          minute: hours * 60 + minutes,
+          ...(minParty !== undefined ? { minParty } : {}),
+          ...(maxParty !== undefined ? { maxParty } : {}),
+          ...(from ? { from } : {}),
+          ...(to ? { to } : {}),
+          now: new Date(),
+        });
+        return { data: estimate };
       }
     ),
   });

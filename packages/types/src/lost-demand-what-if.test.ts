@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { LostDemand } from "./endpoints/lost-demand.js";
-import { busiestTurnedAwaySlot, estimateAddedSeating } from "./lost-demand-what-if.js";
+import { busiestTurnedAwaySlot, countWeekday } from "./lost-demand-what-if.js";
 
 // 2026-11-01 is a Sunday: the window below holds four Fridays (6, 13, 20, 27).
 const demand: LostDemand = {
@@ -16,25 +16,12 @@ const demand: LostDemand = {
   anyTime: [{ weekday: 5, searches: 2 }],
 };
 
-describe("estimateAddedSeating", () => {
-  it("counts the searches for the seating's weekday and hour", () => {
-    expect(estimateAddedSeating(demand, { weekday: 5, minute: 21 * 60 + 30 })).toEqual({
-      searches: 8,
-      nights: 4,
-      perNight: 2,
-    });
-  });
-
-  it("never counts another weekday, another hour or searches that named no time", () => {
-    expect(estimateAddedSeating(demand, { weekday: 1, minute: 21 * 60 }).searches).toBe(0);
-    expect(estimateAddedSeating(demand, { weekday: 5, minute: 19 * 60 }).searches).toBe(0);
-  });
-
+describe("countWeekday", () => {
   it("counts the weekday's nights in the window", () => {
-    expect(estimateAddedSeating(demand, { weekday: 0, minute: 0 }).nights).toBe(4);
-    expect(
-      estimateAddedSeating({ ...demand, to: "2026-11-02" }, { weekday: 1, minute: 0 }).nights
-    ).toBe(1);
+    expect(countWeekday("2026-11-01", "2026-11-28", 5)).toBe(4);
+    expect(countWeekday("2026-11-01", "2026-11-28", 0)).toBe(4);
+    expect(countWeekday("2026-11-01", "2026-11-02", 1)).toBe(1);
+    expect(countWeekday("2026-11-01", "2026-11-02", 3)).toBe(0);
   });
 });
 
