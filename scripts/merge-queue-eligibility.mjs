@@ -112,7 +112,7 @@ export function decideAutoMergeAction(labelNames = [], autoMergeEnabled = false)
  *
  * `auto-merge.yml` gates a *different* label (`auto-merge`) than
  * `merge-queue.yml`'s `has-pr` — applied by four workflows
- * (production-feedback, pr-metrics, drift-fix, acmm-regression) that open
+ * (drift-fix, acmm-regression, docs-audit, shipped-features-snapshot) that open
  * PRs via `peter-evans/create-pull-request` and never apply `has-pr`. Before
  * #3857, `auto-merge.yml` gated those PRs with a hand-maintained
  * sensitive-path regex that never read `tier:*` at all — the same hole
@@ -206,8 +206,8 @@ export function isAutomationAutoMergeEligible(labelNames = []) {
  * `app/dependabot` are also real, live `gh` output — confirmed on #3865
  * and via `gh pr list --search author:app/dependabot` — and neither
  * should skip review here). The four workflows that apply the
- * `auto-merge` label (production-feedback, pr-metrics, drift-fix,
- * acmm-regression) all push via `peter-evans/create-pull-request` with
+ * `auto-merge` label (drift-fix, acmm-regression, docs-audit,
+ * shipped-features-snapshot) all push via `peter-evans/create-pull-request` with
  * `token: ${{ secrets.AUTOMATION_PAT || secrets.GITHUB_TOKEN }}`;
  * AUTOMATION_PAT is not configured (docs/SECRETS.md), so every one of
  * them falls back to `GITHUB_TOKEN` and is reported as `app/github-actions`

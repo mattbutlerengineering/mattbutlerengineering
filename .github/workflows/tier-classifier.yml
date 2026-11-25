@@ -27,7 +27,7 @@ on:
         description: >-
           PR number to classify. Used by the automation producers
           (acmm-regression, docs-audit, drift-fix, metrics-collectors,
-          pr-metrics, production-feedback, record-summary-rows,
+          production-feedback, record-summary-rows,
           shipped-features-snapshot, stale-human-blocked,
           visual-baseline-regen) whose GITHUB_TOKEN/AUTOMATION_PAT-authored
           PRs fire no `pull_request(_target)` event (#4070; see

@@ -220,8 +220,8 @@ describe("implement-queue profile wiring (#3807, revised #3861; moved to the que
 //
 // `auto-merge.yml` gates a different, hand-maintained sensitive-path regex
 // than merge-queue.yml's tier check, and never read `tier:*` at all — the
-// same hole #3787/#3796 closed in merge-queue.yml. The three workflows that
-// apply the `auto-merge` label (pr-metrics, drift-fix, acmm-regression) never carry `has-pr` — that label gates the
+// same hole #3787/#3796 closed in merge-queue.yml. The workflows that
+// apply the `auto-merge` label (drift-fix, acmm-regression, docs-audit, shipped-features-snapshot) never carry `has-pr` — that label gates the
 // implement-queue's own review boundary and is deliberately NOT loosened
 // here (see the docstring on isAutomationAutoMergeEligible). Instead this is
 // a distinct, explicit automation path: same tier gate, `auto-merge` label
@@ -525,8 +525,8 @@ describe("auto-merge.yml wiring (#3857)", () => {
 
 describe("isTrustedAutomationAuthor", () => {
   it("trusts app/github-actions — the verified author of every auto-merge-labeled PR today", () => {
-    // The 3 workflows that apply the `auto-merge` label (pr-metrics,
-    // drift-fix, acmm-regression) all push via peter-evans/
+    // The workflows that apply the `auto-merge` label (drift-fix,
+    // acmm-regression, docs-audit, shipped-features-snapshot) all push via peter-evans/
     // create-pull-request with `token: AUTOMATION_PAT || GITHUB_TOKEN`.
     // AUTOMATION_PAT is not configured (docs/SECRETS.md), so they fall back
     // to GITHUB_TOKEN, which `gh` reports as `app/github-actions`. Confirmed

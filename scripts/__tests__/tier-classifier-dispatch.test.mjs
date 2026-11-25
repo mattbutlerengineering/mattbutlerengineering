@@ -69,7 +69,7 @@ describe("every workflow dispatches tier-classifier from the default branch", ()
     expect(offenders).toEqual([]);
   });
 
-  it("each of the six producers still contains a dispatch (cannot pass by finding nothing)", () => {
+  it("each of the five producers still contains a dispatch (cannot pass by finding nothing)", () => {
     const missing = PRODUCERS.filter(
       ({ file }) => dispatchLines(readFileSync(resolve(ROOT, file), "utf8")).length === 0
     ).map(({ file }) => file);
@@ -77,8 +77,8 @@ describe("every workflow dispatches tier-classifier from the default branch", ()
   });
 });
 
-// The three `auto-merge`-labeled producers also wait for the label and then arm
-// auto-merge; the other three only dispatch (covered above).
+// The two `auto-merge`-labeled producers tested here also wait for the label and
+// then arm auto-merge; the other three only dispatch (covered above).
 const AUTO_MERGE_PRODUCERS = PRODUCERS.filter(({ file }) =>
   /\/(drift-fix|acmm-regression)\.yml$/.test(file)
 );
