@@ -1,8 +1,8 @@
 name: Automation PR Rescue
 
 # Scheduled follow-up pass for automation/* PRs that fall behind `main` after
-# creation (#3966). production-feedback.yml, drift-fix.yml,
-# and acmm-regression.yml each enable auto-merge on their own PR immediately
+# creation (#3966). drift-fix.yml, acmm-regression.yml, docs-audit.yml, and
+# shipped-features-snapshot.yml each enable auto-merge on their own PR immediately
 # after opening it, but `main` is `strict`: a PR that falls behind hours
 # later (once a sibling PR merges) will not auto-merge until its branch is
 # brought up to date, and none of those workflows run again later in the day

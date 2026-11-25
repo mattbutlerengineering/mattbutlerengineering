@@ -69,7 +69,7 @@ describe("every workflow dispatches tier-classifier from the default branch", ()
     expect(offenders).toEqual([]);
   });
 
-  it("each of the six producers still contains a dispatch (cannot pass by finding nothing)", () => {
+  it("each of the five producers still contains a dispatch (cannot pass by finding nothing)", () => {
     const missing = PRODUCERS.filter(
       ({ file }) => dispatchLines(readFileSync(resolve(ROOT, file), "utf8")).length === 0
     ).map(({ file }) => file);
