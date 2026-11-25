@@ -620,17 +620,43 @@ describe("assessQueueTelemetryCostCoverage", () => {
   const assess = (rows) => assessQueueTelemetryCostCoverage({ readMetric: () => rows, now: NOW });
   const knownRows = (n) => Array.from({ length: n }, () => known(48));
 
-  it("is unmeasured below the floor and shows the count", () => {
+  it("is uninstrumented below the floor and shows the count (#9238)", () => {
     const results = assess([...knownRows(COST_COVERAGE_MIN_KNOWN_ROWS - 1), unknown(10)]);
-    expect(results[0].state).toBe("unmeasured");
+    expect(results[0].state).toBe("uninstrumented");
     expect(results[0].knownRows).toBe(COST_COVERAGE_MIN_KNOWN_ROWS - 1);
     expect(results[0].rowsN).toBe(COST_COVERAGE_MIN_KNOWN_ROWS);
     expect(freshnessExitCode(results)).toBe(1);
-    expect(formatFinding(results[0])).toMatch(
+    const line = formatFinding(results[0]);
+    expect(line).toMatch(
       new RegExp(
-        `unmeasured — ${COST_COVERAGE_MIN_KNOWN_ROWS - 1}/${COST_COVERAGE_MIN_KNOWN_ROWS} `
+        `uninstrumented — ${COST_COVERAGE_MIN_KNOWN_ROWS - 1}/${COST_COVERAGE_MIN_KNOWN_ROWS} `
       )
     );
+    expect(line).toContain("#5627");
+    expect(line).toContain("#9098");
+  });
+
+  it("files uninstrumented as blocked, not a failure; exit code stays 1 like unconfigured (#9238)", () => {
+    const results = assess([]);
+    const { blocked, failures } = partitionFindings(results);
+    expect(blocked.map((r) => r.state)).toEqual(["uninstrumented"]);
+    expect(failures).toHaveLength(0);
+    expect(freshnessExitCode(results)).toBe(1);
+    expect(freshnessRegressions(results)[0].severity).toBe("low");
+  });
+
+  it("still files an unreadable cost file as a failure", () => {
+    const { blocked, failures } = partitionFindings([
+      { metric: "queue-telemetry", state: "unreadable", ageDays: null },
+    ]);
+    expect(blocked).toHaveLength(0);
+    expect(failures).toHaveLength(1);
+  });
+
+  it("defaults an unknown state to failures", () => {
+    const { blocked, failures } = partitionFindings([{ metric: "x", state: "brand-new" }]);
+    expect(blocked).toHaveLength(0);
+    expect(failures).toHaveLength(1);
   });
 
   it("is fresh at the floor", () => {
@@ -641,17 +667,17 @@ describe("assessQueueTelemetryCostCoverage", () => {
 
   it("ignores known rows older than 7 days", () => {
     const rows = [...knownRows(COST_COVERAGE_MIN_KNOWN_ROWS - 1), known(24 * 10)];
-    expect(assess(rows)[0].state).toBe("unmeasured");
+    expect(assess(rows)[0].state).toBe("uninstrumented");
   });
 
   it("does not count non-numeric cost_usd as known", () => {
     const rows = Array.from({ length: 5 }, () => ({ claimed_at: hoursAgo(5), cost_usd: "1.2" }));
-    expect(assess(rows)[0]).toMatchObject({ state: "unmeasured", knownRows: 0 });
+    expect(assess(rows)[0]).toMatchObject({ state: "uninstrumented", knownRows: 0 });
   });
 
-  it("is unmeasured with zero known rows for missing or empty data", () => {
-    expect(assess([])[0]).toMatchObject({ state: "unmeasured", knownRows: 0 });
-    expect(assess(null)[0]).toMatchObject({ state: "unmeasured", knownRows: 0 });
+  it("is uninstrumented with zero known rows for missing or empty data", () => {
+    expect(assess([])[0]).toMatchObject({ state: "uninstrumented", knownRows: 0 });
+    expect(assess(null)[0]).toMatchObject({ state: "uninstrumented", knownRows: 0 });
   });
 
   it("reports an unreadable sink as a finding", () => {
