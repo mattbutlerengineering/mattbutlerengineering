@@ -9,11 +9,15 @@ import {
   type PaginatedResponse,
   createProblemDetails,
 } from "@mbe/types";
-import { requireAuth, requireAdmin, requireOwnershipOrAdmin } from "@mbe/auth/fastify";
+import {
+  requireAuth,
+  requireAdmin,
+  requireOwnershipOrAdmin,
+  resolveProfileClaims,
+} from "@mbe/auth/fastify";
 import type { AuthUser } from "@mbe/auth/fastify";
 import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
 import { userService } from "../services/user.js";
-import { fetchUserInfoClaims } from "../services/auth0-userinfo.js";
 
 /**
  * `request.user`, enriched with profile claims from the OIDC userinfo
@@ -24,25 +28,14 @@ import { fetchUserInfoClaims } from "../services/auth0-userinfo.js";
  * does (ADR-010) — so for a real production token `request.user.email` is
  * always `undefined`. Every email-keyed identity check below goes through
  * here instead of reading `request.user` directly, so the userinfo fallback
- * applies uniformly (#9563).
+ * applies uniformly (#9563). The fallback itself lives in `@mbe/auth`
+ * (`resolveProfileClaims`) so every service built on `toAuthUser` can reach
+ * it without duplicating the Auth0 HTTP call.
  */
 async function resolveAuthUser(request: FastifyRequest): Promise<AuthUser | undefined> {
-  const authUser = request.user;
-  if (!authUser || authUser.email) return authUser;
-
-  const authHeader = request.headers.authorization;
-  if (!authHeader?.startsWith("Bearer ")) return authUser;
-
-  const claims = await fetchUserInfoClaims(authHeader.slice(7));
-  if (!claims) return authUser;
-
-  return {
-    ...authUser,
-    email: claims.email ?? authUser.email,
-    emailVerified: claims.emailVerified ?? authUser.emailVerified,
-    name: claims.name ?? authUser.name,
-    picture: claims.picture ?? authUser.picture,
-  };
+  const authority = process.env.AUTH_AUTHORITY;
+  if (!authority) return request.user;
+  return resolveProfileClaims(request, request.user, authority);
 }
 
 /**
