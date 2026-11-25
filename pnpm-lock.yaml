@@ -1354,6 +1354,9 @@ importers:
       '@mbe/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@mbe/gh-client':
+        specifier: workspace:*
+        version: link:../../packages/gh-client
       '@mbe/rialto-catalog':
         specifier: workspace:^
         version: link:../../packages/rialto-catalog

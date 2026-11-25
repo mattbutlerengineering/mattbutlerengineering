@@ -350,6 +350,11 @@
     },
     {
       "from": "@mbe/agent-service",
+      "to": "@mbe/gh-client",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/agent-service",
       "to": "@mbe/rialto-catalog",
       "type": "dependency"
     },

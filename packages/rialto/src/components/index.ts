@@ -67,6 +67,7 @@ export * from "./Banner";
 export * from "./BarChart";
 export * from "./Collapsible";
 export * from "./ConfirmDialog";
+export * from "./FeedbackDialog";
 export * from "./ContextMenu";
 export * from "./DataList";
 export * from "./DataTable";

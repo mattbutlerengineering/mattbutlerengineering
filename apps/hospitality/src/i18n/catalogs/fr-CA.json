@@ -4483,5 +4483,38 @@
       "email": "Parlez de votre restaurant à Matt",
       "open": "Ouvrir votre restaurant"
     }
+  },
+  "feedback": {
+    "open": "Envoyer des commentaires",
+    "title": "Envoyer des commentaires",
+    "typeLabel": "De quel type de commentaire s'agit-il?",
+    "types": {
+      "bug": "Bogue",
+      "idea": "Idée",
+      "other": "Autre"
+    },
+    "messageLabel": "Votre message",
+    "messageHint": "Au moins 10 caractères.",
+    "messageTooShort": "Écrivez au moins 10 caractères.",
+    "emailLabel": "Courriel pour le suivi",
+    "emailHint": "Facultatif. Il n'est jamais publié.",
+    "emailInvalid": "Entrez une adresse courriel valide.",
+    "contextHeading": "Nous joindrons :",
+    "context": {
+      "app": "Application",
+      "page": "Page",
+      "screen": "Écran",
+      "version": "Version",
+      "user": "ID d'utilisateur"
+    },
+    "submit": "Envoyer",
+    "submitting": "Envoi en cours",
+    "cancel": "Annuler",
+    "done": "Terminé",
+    "retry": "Réessayer",
+    "errorTitle": "Nous n'avons pas pu envoyer vos commentaires",
+    "errorBody": "Votre message est toujours là. Vérifiez votre connexion et réessayez.",
+    "successTitle": "Merci, c'est bien reçu",
+    "successBody": "Enregistré sous le ticket #{{number}}."
   }
 }

@@ -1,0 +1,44 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-md);
+}
+
+.context {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-xs);
+  padding: var(--rialto-space-sm) var(--rialto-space-md);
+  border-radius: var(--rialto-radius-soft);
+  background: var(--rialto-surface-elevated);
+}
+
+.contextList {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-2xs);
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-secondary);
+}
+
+.contextRow {
+  display: flex;
+  gap: var(--rialto-space-sm);
+}
+
+.contextRow dt {
+  min-width: 6rem;
+}
+
+.contextRow dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.error {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-2xs);
+  color: var(--rialto-error);
+}

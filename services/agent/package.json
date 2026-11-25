@@ -32,6 +32,7 @@
     "@mbe/auth": "workspace:^",
     "@mbe/availability": "workspace:^",
     "@mbe/database": "workspace:*",
+    "@mbe/gh-client": "workspace:*",
     "@mbe/rialto-catalog": "workspace:^",
     "@mbe/sentry": "workspace:*",
     "@mbe/service-bootstrap": "workspace:*",

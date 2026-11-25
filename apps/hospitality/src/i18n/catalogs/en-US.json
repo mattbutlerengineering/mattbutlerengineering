@@ -4368,5 +4368,38 @@
       "email": "Tell Matt about your venue",
       "open": "Open your venue"
     }
+  },
+  "feedback": {
+    "open": "Send feedback",
+    "title": "Send feedback",
+    "typeLabel": "What kind of feedback is this?",
+    "types": {
+      "bug": "Bug",
+      "idea": "Idea",
+      "other": "Other"
+    },
+    "messageLabel": "Your message",
+    "messageHint": "At least 10 characters.",
+    "messageTooShort": "Write at least 10 characters.",
+    "emailLabel": "Email for follow-up",
+    "emailHint": "Optional. It is never posted publicly.",
+    "emailInvalid": "Enter a valid email address.",
+    "contextHeading": "We'll include:",
+    "context": {
+      "app": "App",
+      "page": "Page",
+      "screen": "Screen",
+      "version": "Version",
+      "user": "User ID"
+    },
+    "submit": "Send",
+    "submitting": "Sending",
+    "cancel": "Cancel",
+    "done": "Done",
+    "retry": "Try again",
+    "errorTitle": "We couldn't send your feedback",
+    "errorBody": "Your message is still here. Check your connection and try again.",
+    "successTitle": "Thanks, we got it",
+    "successBody": "Filed as issue #{{number}}."
   }
 }

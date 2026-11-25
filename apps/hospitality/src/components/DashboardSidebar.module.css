@@ -25,6 +25,9 @@
 /* ── Pinned footer slot ──────────────────────── */
 
 .footer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-xs);
   padding: var(--rialto-space-sm);
   border-block-start: 1px solid var(--rialto-border);
 }

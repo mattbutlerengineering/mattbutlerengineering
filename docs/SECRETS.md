@@ -39,6 +39,7 @@ Production infrastructure secrets are injected by Pulumi at deploy time (see `in
 | `AUTOMATION_PAT`              | PAT/bot-token for scheduled automation that pushes commits (see below)                                    | Semi-annually                   | —             |
 | `RIALTO_PACKAGES_TOKEN`       | Classic PAT (`write:packages`) publishing `@mattbutlerengineering/rialto` to GitHub Packages (see below)  | Optional -- unset skips publish | —             |
 | `CHAT_PROBE_VENUE_ID`         | Venue id the `chat-probe.yml` live chat probe reads (E2E user must have access; reads only, #9481)        | Optional -- unset skips probe   | —             |
+| `FEEDBACK_GITHUB_TOKEN`       | Fine-grained PAT, this repo, Issues write only -- DO env on `agent-api`, not a GitHub secret              | Optional -- unset 503s feedback | —             |
 
 ## Rotation Runbooks
 

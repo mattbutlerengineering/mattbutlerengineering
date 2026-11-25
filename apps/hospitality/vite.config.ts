@@ -34,6 +34,10 @@ export default defineConfig({
     },
   },
   base: "/hospitality/",
+  define: {
+    // Short commit shown in (and sent with) in-app feedback; "dev" off CI.
+    "import.meta.env.VITE_APP_COMMIT": JSON.stringify(process.env.GITHUB_SHA?.slice(0, 7) ?? "dev"),
+  },
   server: {
     port: 3002,
     proxy: {

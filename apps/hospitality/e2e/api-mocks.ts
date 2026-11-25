@@ -527,6 +527,21 @@ export async function mockApi(page: Page): Promise<SseMock> {
       : jsonResponse(route, "user-me")
   );
   await page.route("**/api/v1/users/me/preferences", (route) => jsonResponse(route, "user-me"));
+
+  // In-app feedback (agent-api). The GitHub call is never reached from a spec:
+  // the status probe says it is available and a submit answers a fixed issue.
+  await page.route("**/api/gen/feedback/status", (route) => jsonOk(route, { available: true }));
+  await page.route("**/api/gen/feedback", (route) =>
+    route.fulfill({
+      status: 201,
+      contentType: "application/json",
+      body: JSON.stringify({
+        success: true,
+        data: { issueNumber: 4242, url: "https://github.com/o/r/issues/4242" },
+        error: null,
+      }),
+    })
+  );
   await page.route("**/api/v1/users?*", (route) => {
     const fixture = JSON.parse(loadFixture("user-me"));
     return route.fulfill({
