@@ -177,6 +177,13 @@ export const bookingMetricsRoutes: FastifyPluginAsync = async (fastify) => {
             .send(createProblemDetails(400, "Bad Request", "minParty must not exceed maxParty"));
         }
         const { from, to } = request.query;
+        // One-sided windows would skip the length check (from=2000-01-01 scans decades), so the
+        // window is either both bounds, validated, or neither (the service's 28-day default).
+        if (Boolean(from) !== Boolean(to)) {
+          return reply
+            .code(400)
+            .send(createProblemDetails(400, "Bad Request", "from and to must be given together"));
+        }
         if (from && to) {
           const invalid = windowProblem(from, to);
           if (invalid)

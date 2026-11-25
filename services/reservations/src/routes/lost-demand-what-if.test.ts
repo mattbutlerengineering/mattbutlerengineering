@@ -126,6 +126,11 @@ describe("GET /api/v1/reservations/metrics/lost-demand/what-if", () => {
       "a date that is not real",
       "venueId=venue-abc&weekday=2&time=21:30&from=2026-02-31&to=2026-03-05",
     ],
+    [
+      "only a start date (unbounded window)",
+      "venueId=venue-abc&weekday=2&time=21:30&from=2000-01-01",
+    ],
+    ["only an end date", "venueId=venue-abc&weekday=2&time=21:30&to=2026-11-24"],
   ])("returns 400 for %s", async (_name, query) => {
     await buildAs(["admin"]);
     const response = await get(query);
