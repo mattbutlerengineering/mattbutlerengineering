@@ -1,51 +1,75 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-
-const { create, createGhClient } = vi.hoisted(() => {
-  const createFn = vi.fn();
-  return { create: createFn, createGhClient: vi.fn(() => ({ issue: { create: createFn } })) };
-});
-
-vi.mock("@mbe/gh-client", () => ({ createGhClient }));
-
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { createFeedbackIssue, isFeedbackConfigured, FEEDBACK_TOKEN_ENV } from "./feedback-issue.js";
 
 const INPUT = { title: "[Feedback] bug: x", body: "body", labels: ["feedback", "needs-triage"] };
+const ENV = { [FEEDBACK_TOKEN_ENV]: "tok" };
+
+const fetchMock = vi.fn<typeof fetch>();
+
+function githubResponse(body: unknown, status = 201): Response {
+  return new Response(JSON.stringify(body), { status });
+}
 
 describe("createFeedbackIssue", () => {
   beforeEach(() => {
-    create.mockReset();
-    createGhClient.mockClear();
+    fetchMock.mockReset();
+    vi.stubGlobal("fetch", fetchMock);
   });
 
-  it("forces the REST transport with the dedicated token and returns the number", async () => {
-    create.mockReturnValue("https://github.com/o/r/issues/77\n");
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
 
-    const result = await createFeedbackIssue(INPUT, { [FEEDBACK_TOKEN_ENV]: "tok" });
+  it("posts one authenticated request to the issues API and returns number and url", async () => {
+    fetchMock.mockResolvedValue(
+      githubResponse({ number: 77, html_url: "https://github.com/o/r/issues/77" })
+    );
+
+    const result = await createFeedbackIssue(INPUT, ENV);
 
     expect(result).toEqual({ number: 77, url: "https://github.com/o/r/issues/77" });
-    const opts = (createGhClient.mock.calls[0] as unknown as [Record<string, unknown>])[0];
-    expect(opts.token).toBe("tok");
-    expect((opts.probe as () => boolean)()).toBe(false);
-    expect(create).toHaveBeenCalledWith([
-      "--title",
-      INPUT.title,
-      "--body",
-      INPUT.body,
-      "--label",
-      "feedback",
-      "--label",
-      "needs-triage",
-    ]);
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(url).toBe(
+      "https://api.github.com/repos/mattbutlerengineering/mattbutlerengineering/issues"
+    );
+    expect(init?.method).toBe("POST");
+    const headers = init?.headers as Record<string, string>;
+    expect(headers.Authorization).toBe("Bearer tok");
+    expect(headers["User-Agent"]).toBeTruthy();
+    expect(JSON.parse(String(init?.body))).toEqual({
+      title: INPUT.title,
+      body: INPUT.body,
+      labels: INPUT.labels,
+    });
+    expect(init?.signal).toBeInstanceOf(AbortSignal);
   });
 
-  it("refuses without a token and never builds a client", async () => {
+  it("rejects without echoing upstream text on a non-2xx answer", async () => {
+    fetchMock.mockResolvedValue(githubResponse({ message: "Bad credentials ghp_secret" }, 401));
+
+    const err = await createFeedbackIssue(INPUT, ENV).catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(Error);
+    expect((err as Error).message).toContain("401");
+    expect((err as Error).message).not.toContain("ghp_secret");
+  });
+
+  it("rejects when the request times out", async () => {
+    fetchMock.mockRejectedValue(new DOMException("timed out", "TimeoutError"));
+
+    await expect(createFeedbackIssue(INPUT, ENV)).rejects.toThrow();
+  });
+
+  it("rejects an answer without an issue number or url", async () => {
+    fetchMock.mockResolvedValue(githubResponse({ nope: true }));
+
+    await expect(createFeedbackIssue(INPUT, ENV)).rejects.toThrow();
+  });
+
+  it("refuses without a token and never calls GitHub", async () => {
     await expect(createFeedbackIssue(INPUT, {})).rejects.toThrow(FEEDBACK_TOKEN_ENV);
-    expect(createGhClient).not.toHaveBeenCalled();
-  });
-
-  it("rejects an answer that is not an issue URL", async () => {
-    create.mockReturnValue("nope");
-    await expect(createFeedbackIssue(INPUT, { [FEEDBACK_TOKEN_ENV]: "tok" })).rejects.toThrow();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
 

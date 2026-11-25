@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { createGhClient } from "@mbe/gh-client";
+
+const GITHUB_TIMEOUT_MS = 5000;
 
 /** The repo feedback issues are filed in (public). */
 const FEEDBACK_REPO = { owner: "mattbutlerengineering", name: "mattbutlerengineering" };
@@ -114,9 +115,10 @@ export function isFeedbackConfigured(env: NodeJS.ProcessEnv = process.env): bool
 }
 
 /**
- * Files the issue through `@mbe/gh-client`. The REST transport is forced
- * (`probe: () => false`) so the container never depends on a `gh` binary or its
- * ambient login, and the token is the dedicated one above.
+ * Files the issue with one async `fetch` using the dedicated token. Async on
+ * purpose: `@mbe/gh-client`'s REST transport blocks the event loop with
+ * `execFileSync`, which would stall every SSE stream on this service. Errors
+ * carry only the HTTP status, never upstream text.
  */
 export async function createFeedbackIssue(
   input: FeedbackIssueInput,
@@ -125,23 +127,26 @@ export async function createFeedbackIssue(
   const token = (env[FEEDBACK_TOKEN_ENV] ?? "").trim();
   if (!token) throw new Error(`${FEEDBACK_TOKEN_ENV} is not set`);
 
-  const gh = createGhClient({
-    probe: () => false,
-    token,
-    owner: FEEDBACK_REPO.owner,
-    repoName: FEEDBACK_REPO.name,
-  });
-  const url = gh.issue
-    .create([
-      "--title",
-      input.title,
-      "--body",
-      input.body,
-      ...input.labels.flatMap((label) => ["--label", label]),
-    ])
-    .trim();
+  const response = await fetch(
+    `https://api.github.com/repos/${FEEDBACK_REPO.owner}/${FEEDBACK_REPO.name}/issues`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github+json",
+        "Content-Type": "application/json",
+        "X-GitHub-Api-Version": "2022-11-28",
+        "User-Agent": "mbe-feedback",
+      },
+      body: JSON.stringify({ title: input.title, body: input.body, labels: input.labels }),
+      signal: AbortSignal.timeout(GITHUB_TIMEOUT_MS),
+    }
+  );
+  if (!response.ok) throw new Error(`GitHub answered ${response.status}`);
 
-  const match = /\/issues\/(\d+)$/.exec(url);
-  if (!match) throw new Error("GitHub answered without an issue URL");
-  return { number: Number(match[1]), url };
+  const issue = (await response.json()) as { number?: unknown; html_url?: unknown };
+  if (typeof issue.number !== "number" || typeof issue.html_url !== "string") {
+    throw new Error("GitHub answered without an issue number and url");
+  }
+  return { number: issue.number, url: issue.html_url };
 }
