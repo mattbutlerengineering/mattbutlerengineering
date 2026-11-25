@@ -56,7 +56,7 @@ import {
 } from "./closure-alongside.js";
 import { withAlongside, withClosure } from "./closure-impact.js";
 import { impactInTransaction } from "./closure-impact-store.js";
-import { Refused, type AvailabilityRefusal } from "./availability-refusal.js";
+import { Refused, type AvailabilityRefusal, type RefusalIssue } from "./availability-refusal.js";
 import { prisma } from "./database.js";
 
 /**
@@ -90,13 +90,6 @@ export interface ClosureCaller {
   actorId: string;
   /** Display name snapshotted on the audit row; absent or `null` when the token has none. */
   actorName?: string | null;
-}
-
-export interface RefusalIssue {
-  path: string;
-  code: string;
-  message: string;
-  reservation?: StrandedReservation;
 }
 
 /**

@@ -6,8 +6,14 @@ import type {
 } from "@mbe/types";
 import { setVenueContext } from "../middleware/venue-context.js";
 import type { ReferenceIssue } from "./availability-config-plan.js";
-import type { StoreClient, StoreDb } from "./availability-config.js";
-import type { RefusalIssue } from "./closure-command.js";
+import type { Prisma, PrismaClient } from "../generated/prisma/index.js";
+
+export interface RefusalIssue {
+  path: string;
+  code: string;
+  message: string;
+  reservation?: StrandedReservation;
+}
 
 /**
  * Every way an availability command (save, revert, closure, Tonight) can refuse. A command's
@@ -57,9 +63,9 @@ export function refuse(outcome: { kind: string }): never {
  * work can only throw.
  */
 export async function inAvailabilityTransaction<T, R extends { kind: string } = never>(
-  client: StoreClient,
+  client: Pick<PrismaClient, "$transaction">,
   venueId: string,
-  work: (tx: StoreDb) => Promise<T>
+  work: (tx: Prisma.TransactionClient) => Promise<T>
 ): Promise<T | R> {
   try {
     return await client.$transaction(async (tx) => {
