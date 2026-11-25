@@ -1,4 +1,6 @@
 import { test, expect } from "./fixtures.js";
+import { pickBookingDate } from "./booking-date.js";
+import { localDay } from "./local-day.js";
 
 const VENUE_NAME = "E2E Test Bistro";
 const VENUE_SLUG = "e2e-test-bistro";
@@ -14,9 +16,11 @@ test.describe("Booking widget — Regulars Club member link (#9627)", () => {
     mockedPage,
   }) => {
     const availabilityTokens: Array<string | undefined> = [];
-    await mockedPage.route("**/public/v1/venues/*/member", (route) =>
-      route.fulfill(json({ data: { member: true, leadDays: 7 } }))
-    );
+    const statusTokens: Array<string | undefined> = [];
+    await mockedPage.route("**/public/v1/venues/*/member", (route) => {
+      statusTokens.push(route.request().headers()["x-member-token"]);
+      return route.fulfill(json({ data: { member: true, leadDays: 7 } }));
+    });
     await mockedPage.route("**/public/v1/venues/*/availability*", (route) => {
       availabilityTokens.push(route.request().headers()["x-member-token"]);
       return route.fulfill(json({ data: [] }));
@@ -26,6 +30,8 @@ test.describe("Booking widget — Regulars Club member link (#9627)", () => {
     await expect(mockedPage.getByRole("heading", { name: VENUE_NAME })).toBeVisible();
     await expect(mockedPage.getByText("Members book 7 days early")).toBeVisible();
 
+    expect(statusTokens).toEqual(["signed-token"]);
+    await pickBookingDate(mockedPage, localDay(3));
     await mockedPage.getByRole("button", { name: "Find Available Times" }).click();
     await expect.poll(() => availabilityTokens.length).toBeGreaterThan(0);
     expect(availabilityTokens.every((token) => token === "signed-token")).toBe(true);
@@ -42,7 +48,7 @@ test.describe("Booking widget — Regulars Club member link (#9627)", () => {
     await expect(mockedPage.getByRole("heading", { name: VENUE_NAME })).toBeVisible();
 
     await expect(mockedPage.getByText(/Members book/)).toHaveCount(0);
-    await expect(mockedPage.getByText(/member link/i)).toHaveCount(0);
+    await expect(mockedPage.getByText(/This member link isn.t active/)).toHaveCount(0);
     expect(memberCalls).toEqual([]);
   });
 
