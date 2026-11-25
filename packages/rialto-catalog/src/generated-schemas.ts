@@ -69,11 +69,13 @@ export const generatedSchemas = {
     max: z.string().optional(),
     defaultMonth: z.string().optional(),
     locale: z.string().optional(),
+    weekStartsOn: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6)]).optional(),
   }),
   Card: z.object({
     variant: z.enum(["elevated", "flat", "glass"]).optional(),
     tilt: z.boolean().optional(),
     title: z.string().max(60).optional(),
+    headingLevel: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6)]).optional(),
     subtitle: z.string().max(80).optional(),
   }),
   Checkbox: z.object({
@@ -146,6 +148,7 @@ export const generatedSchemas = {
     editable: z.boolean().optional(),
     defaultMonth: z.string().optional(),
     locale: z.string().optional(),
+    weekStartsOn: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6)]).optional(),
     label: z.string().optional(),
     placeholder: z.string().optional(),
     placement: z.enum(["bottom", "left", "right", "top"]).optional(),
@@ -154,11 +157,13 @@ export const generatedSchemas = {
     min: z.string().optional(),
     max: z.string().optional(),
     locale: z.string().optional(),
+    weekStartsOn: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6)]).optional(),
   }),
   DateRangePicker: z.object({
     min: z.string().optional(),
     max: z.string().optional(),
     locale: z.string().optional(),
+    weekStartsOn: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6)]).optional(),
     label: z.string().max(40).optional(),
     placeholder: z.string().max(60).optional(),
     placement: z.enum(["bottom", "left", "right", "top"]).optional(),
@@ -206,6 +211,7 @@ export const generatedSchemas = {
   EmptyState: z.object({
     icon: z.string().optional(),
     heading: z.string().max(50).optional(),
+    headingLevel: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6)]).optional(),
     description: z.string().max(300).optional(),
     action: z.string().optional(),
     variant: z.enum(["elevated", "flat"]).optional(),
@@ -213,6 +219,7 @@ export const generatedSchemas = {
   }),
   ErrorBoundary: z.object({
     fallback: z.string().optional(),
+    headingLevel: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6)]).optional(),
   }),
   Footer: z.object({
     variant: z.enum(["minimal", "rich"]).optional(),
@@ -244,8 +251,8 @@ export const generatedSchemas = {
     showLabels: z.boolean().optional(),
   }),
   Heading: z.object({
-    level: z.number().int().min(1).max(6).optional(),
-    size: z.number().int().min(1).max(6).optional(),
+    level: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6)]).optional(),
+    size: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6)]).optional(),
     color: z.enum(["accent", "error", "on-accent", "primary", "secondary", "success", "tertiary", "warning"]).optional(),
     align: z.enum(["center", "left", "right"]).optional(),
     truncate: z.boolean().optional(),
