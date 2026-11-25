@@ -1,3 +1,16 @@
+const PACKAGE_PATTERN = /^((?:services|packages|apps|tools)\/[^/]+)\//;
+
+/** Groups mutants by owning package, keeping first-seen package order. */
+function groupByPackage(mutants) {
+  const groups = new Map();
+  for (const mutant of mutants) {
+    const name = PACKAGE_PATTERN.exec(mutant.file)?.[1] ?? "other";
+    if (!groups.has(name)) groups.set(name, []);
+    groups.get(name).push(mutant);
+  }
+  return groups;
+}
+
 /**
  * Formats a mutation-testing run as GitHub Actions job-summary markdown:
  * score, threshold, status, and the top surviving mutants (the actionable
@@ -13,19 +26,6 @@
  * @param {string} [params.scope] - package this run measured, named in the heading
  * @returns {string} Markdown for $GITHUB_STEP_SUMMARY
  */
-const PACKAGE_PATTERN = /^((?:services|packages|apps|tools)\/[^/]+)\//;
-
-/** Groups mutants by owning package, keeping first-seen package order. */
-function groupByPackage(mutants) {
-  const groups = new Map();
-  for (const mutant of mutants) {
-    const name = PACKAGE_PATTERN.exec(mutant.file)?.[1] ?? "other";
-    if (!groups.has(name)) groups.set(name, []);
-    groups.get(name).push(mutant);
-  }
-  return groups;
-}
-
 export function formatMutationSummary({ scoreResult, survivedMutants = [], runUrl, scope }) {
   const lines = [`## Mutation Testing Results${scope ? ` — ${scope}` : ""}`, ""];
 

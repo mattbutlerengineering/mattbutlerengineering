@@ -70,6 +70,18 @@ jobs:
           run-id: ${{ github.event.workflow_run.id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Download reservations mutation report
+        # Second mutation scope (#9597). Optional: a missing artifact is skipped
+        # by record-summary-row.mjs --extra, never fatal.
+        if: github.event.workflow_run.name == 'Mutation Testing'
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: mutation-report-reservations
+          path: ${{ runner.temp }}/mutation-report-reservations
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Download audit sweep results
         if: github.event.workflow_run.name == 'Weekly Audit Sweep'
         id: sweep-download
@@ -107,7 +119,7 @@ jobs:
           elif [ "$RUN_NAME" = "Weekly Audit Sweep" ]; then
             node scripts/record-summary-row.mjs audit-coverage "$RUNNER_TEMP/audit-sweep-results/results.tsv" --commit "$RUN_SHA"
           else
-            node scripts/record-summary-row.mjs mutation "$RUNNER_TEMP/mutation-report/mutation.json" --commit "$RUN_SHA"
+            node scripts/record-summary-row.mjs mutation "$RUNNER_TEMP/mutation-report/mutation.json" --extra "$RUNNER_TEMP/mutation-report-reservations/mutation.json" --commit "$RUN_SHA"
           fi
 
       - name: Push metrics to metrics-data

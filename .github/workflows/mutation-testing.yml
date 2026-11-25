@@ -136,6 +136,7 @@ jobs:
       # reads only `steps.score`, never these.
       - name: Run reservations mutation tests
         id: reservations-run
+        if: always()
         continue-on-error: true
         run: tools/mutation-testing/node_modules/.bin/stryker run stryker.reservations.config.mjs
 
