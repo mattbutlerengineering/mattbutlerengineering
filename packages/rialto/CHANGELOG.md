@@ -1,5 +1,11 @@
 # @mattbutlerengineering/rialto
 
+## 3.1.5
+
+### Patch Changes
+
+- [#9672](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9672) [`5948aa6`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/5948aa621b280930ba9a986d061bab8d00b7a312) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Dropdown and navigation panels shift back inside a narrow viewport, navigation bars wrap instead of clipping, and pagination wraps its page buttons so every control stays in the column.
+
 ## 3.1.4
 
 ### Patch Changes
