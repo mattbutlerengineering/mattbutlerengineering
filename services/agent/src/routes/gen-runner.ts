@@ -5,6 +5,7 @@ import { GEN_BLOCKED_TOOLS, genIsBashCommandBlocked } from "@mbe/agent-core";
 import { genSystemInstructions } from "./gen-stream.js";
 import { PROPOSE_PATCH_TOOL } from "./gen-onboarding-tools.js";
 import { completeJsonElements } from "./gen-json-elements.js";
+import { catalog } from "@mbe/rialto-catalog/catalog";
 import { createComponentCallScrubber } from "./gen-text-scrub.js";
 
 // ── Public types ──────────────────────────────────────────────────────
@@ -172,7 +173,7 @@ export function createGenRunner(config: GenRunnerConfig): GenRunner {
       let renderEmitted = 0;
       let trackingRender = false;
       // F36: a model that writes a component call as prose must not show it.
-      const scrubber = createComponentCallScrubber();
+      const scrubber = createComponentCallScrubber({ knownNames: catalogComponentNames() });
       // Gemini sometimes answers a forced call with several parallel calls that
       // repeat element keys (2 of 6 live runs, 2026-11-12); only the first is rendered.
       let firstRenderId: string | undefined;
@@ -213,6 +214,13 @@ export function createGenRunner(config: GenRunnerConfig): GenRunner {
           stepEnded = false;
           await onEvent({ type: "text", content });
         } else if (event.type === "finish-step" && event.finishReason !== "length") {
+          // A call cut off in this step must not swallow the next step's prose.
+          const tail = scrubber.reset();
+          if (tail !== "") {
+            const content = textSoFar && stepEnded ? `\n\n${tail}` : tail;
+            textSoFar = true;
+            await onEvent({ type: "text", content });
+          }
           stepEnded = true;
         } else if (event.type === "tool-call") {
           if (event.toolName === "render_component") {
@@ -271,6 +279,12 @@ export function createGenRunner(config: GenRunnerConfig): GenRunner {
       }
     },
   };
+}
+
+/** Catalog component names, for scrubbing one-hump calls like `Calendar(`. Test mocks may omit them. */
+function catalogComponentNames(): string[] {
+  const data = (catalog as { data?: { components?: Record<string, unknown> } }).data;
+  return Object.keys(data?.components ?? {});
 }
 
 function isJsonRender(config: Pick<GenRunnerConfig, "provider" | "toolChoice">): boolean {
