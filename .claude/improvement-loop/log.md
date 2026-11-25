@@ -1173,6 +1173,12 @@ No `blocker: no-browser` (Chromium resolved at `/opt/pw-browsers/chromium_headle
 **Skill proposals:** 0 (not Friday — Step 4 session-log analysis skipped)
 **Threshold notes:** auto-tuner applied 3 adjustments — `acmm` 1.878 → 1.896 (headroom), `ci-fix` 1.198 → 1.228 (headroom), `bug` 1 → 0.95 (high-fp-rate, tightened). 30-day fix-effectiveness (non-skip verifications): 9 verified / 12 scored (~75%), above the 50% floor — no review-trigger. Overall false-positive rate across feedback categories ~11% (22/200 rejected), below the 30% loosen-trigger — no additional threshold changes recommended this run.
 
+## 2026-11-25
+
+**queueEfficiency:** composite 0.923 (baseline n/a) — healthy
+**Difficulty distribution:** size:m:15, size:xs:30, size:s:39, size:l:5, size:xl:7
+**Issues filed:** 0
+
 ## 2026-11-25 — mbe-evening (progress-tracker)
 
 ### Metrics (7d; `audit`+`ci-fix` labels, REST issue search, `created_at`/`closed_at` exact)
