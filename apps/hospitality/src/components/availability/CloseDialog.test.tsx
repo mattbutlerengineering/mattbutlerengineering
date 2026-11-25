@@ -997,6 +997,39 @@ describe("CloseDialog", () => {
         fireEvent.click(within(dialog).getByTestId("close-primary"));
         expect(create).toHaveBeenCalledTimes(1);
       });
+
+      it("lets an unchanged retry go out under the same key: the replay tells the truth", async () => {
+        create.mockRejectedValueOnce(alreadyCommitted()).mockResolvedValue(RESULT);
+        renderDialog();
+        const dialog = screen.getByRole("dialog");
+        toStepTwo(dialog);
+        fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+        await within(dialog).findByText(/may have gone through/);
+
+        expect(within(dialog).getByTestId("close-primary")).toBeEnabled();
+        fireEvent.click(within(dialog).getByTestId("close-primary"));
+        await waitFor(() => expect(create).toHaveBeenCalledTimes(2));
+        const [first, second] = create.mock.calls.map((c) => c[0] as Call);
+        expect(second!.idempotencyKey).toBe(first!.idempotencyKey);
+      });
+
+      it("sends a new request under a new key even when the config never reloads", async () => {
+        create.mockRejectedValueOnce(alreadyCommitted()).mockResolvedValue(RESULT);
+        renderDialog();
+        const dialog = screen.getByRole("dialog");
+        toStepTwo(dialog);
+        fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+        await within(dialog).findByText(/may have gone through/);
+
+        fireEvent.click(within(dialog).getByRole("button", { name: "Back" }));
+        chooseWhen("Tonight");
+        toStepTwo(dialog);
+        expect(within(dialog).getByTestId("close-primary")).toBeEnabled();
+        fireEvent.click(within(dialog).getByTestId("close-primary"));
+        await waitFor(() => expect(create).toHaveBeenCalledTimes(2));
+        const [first, second] = create.mock.calls.map((c) => c[0] as Call);
+        expect(second!.idempotencyKey).not.toBe(first!.idempotencyKey);
+      });
     });
 
     it("says a lost response may have gone through (#8032)", async () => {

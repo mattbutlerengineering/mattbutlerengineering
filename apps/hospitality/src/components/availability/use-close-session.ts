@@ -54,9 +54,11 @@ export function useCloseSession(options: CloseSessionOptions) {
   const refresh = useRefreshAvailability();
   const createOne = useCreateClosure();
   const createMany = useCreateClosures();
-  // `closure-exists`: this attempt committed. The config reload that proves it is async, and
-  // until it lands an edited choice would be a new attempt: nothing more is sent from here.
-  const [committed, setCommitted] = useState(false);
+  // The key `closure-exists` answered: that attempt committed. The config reload that proves it is
+  // async, and until it lands a changed choice would be a new key (a new attempt) for the same
+  // request. The same key may still be sent again (the replay tells the truth); a new request
+  // (`reset`) is free to go.
+  const [committedKey, setCommittedKey] = useState<string | null>(null);
 
   const session = useDecisionsSession<CloseSaved>({
     rules: options.rules,
@@ -100,7 +102,7 @@ export function useCloseSession(options: CloseSessionOptions) {
         const { kind } = refusalOf(error);
         // Either way the calendar on screen is out of date.
         if (kind === "version-conflict" || kind === "closure-exists") refresh();
-        if (kind === "closure-exists") setCommitted(true);
+        if (kind === "closure-exists") setCommittedKey(attempt.idempotencyKey);
         throw error;
       }
     },
@@ -116,11 +118,19 @@ export function useCloseSession(options: CloseSessionOptions) {
       ? t("availabilitySpecial.add.maybeSaved")
       : session.failure;
 
+  // A changed choice on a request that committed: its edit made a new key, which must not go out.
+  const committed = committedKey !== null && committedKey !== session.attempts.idempotencyKey;
+
   return {
     ...session,
     failure,
     submit: () => (committed ? Promise.resolve() : session.submit()),
-    /** This attempt is in the config already (the reload is on its way): the button stays off. */
+    /** A new request begins: choices and refusal go, and so does the hold on the old one. */
+    reset: () => {
+      setCommittedKey(null);
+      session.reset();
+    },
+    /** A changed choice followed a committed attempt (the reload is on its way): the button stays off. */
     committed,
     isPending: createOne.isPending || createMany.isPending,
   };
