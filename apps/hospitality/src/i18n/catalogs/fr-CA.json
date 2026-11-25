@@ -2764,6 +2764,7 @@
         "tonightCloseEarly": "Ce soir : fermeture hâtive",
         "tonightStopWindow": "Ce soir : réservations arrêtées pour une plage",
         "tonightEnded": "Le changement de ce soir est terminé",
+        "sectionClosureMaterialised": "Section supprimée : ses fermetures bloquent maintenant ses tables",
         "tonightBlockTables_one": "Ce soir : {{count}} table bloquée",
         "tonightBlockTables_other": "Ce soir : {{count}} tables bloquées",
         "tonightBlockTables_many": "Ce soir : {{count}} de tables bloquées",

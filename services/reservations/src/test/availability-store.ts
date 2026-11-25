@@ -68,6 +68,13 @@ export function availabilityStore(store: Store) {
             { deletedAt: null, ...data, repeat: null, window: null },
           ];
         }),
+        update: vi.fn(
+          async ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) => {
+            store.dateRules = store.dateRules.map((r) =>
+              r["id"] === where.id ? { ...r, ...data } : r
+            );
+          }
+        ),
         updateMany: vi.fn(async ({ where }: { where: { id: { in: string[] } } }) => {
           store.dateRules = store.dateRules.filter((r) => !where.id.in.includes(r["id"] as string));
           return { count: 1 };

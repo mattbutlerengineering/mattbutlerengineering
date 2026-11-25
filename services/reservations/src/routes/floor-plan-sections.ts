@@ -17,6 +17,7 @@ import {
   assignSectionTablesBodyJsonSchema,
 } from "@mbe/types";
 import { requireAuth } from "@mbe/auth/fastify";
+import { actorNameOf } from "../services/actor-name.js";
 import { venueScoped } from "./venue-scope.js";
 
 const SECTION_NOT_FOUND = "Floor plan section not found";
@@ -148,7 +149,11 @@ export const floorPlanSectionRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     venueScoped({ venue: "query" }, async (request, reply, { venueId }) => {
-      if (!(await floorPlanSectionService.delete(venueId, request.params.sectionId))) {
+      const actor = {
+        actorId: request.user?.id ?? "unknown",
+        actorName: actorNameOf(request.user),
+      };
+      if (!(await floorPlanSectionService.delete(venueId, request.params.sectionId, actor))) {
         return reply.code(404).send(createProblemDetails(404, "Not Found", SECTION_NOT_FOUND));
       }
       return reply.code(204).send();

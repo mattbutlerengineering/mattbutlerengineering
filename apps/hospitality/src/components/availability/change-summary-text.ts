@@ -90,15 +90,17 @@ function detailText(
 ): string | null {
   const { added, changed, removed } = detail;
   const text =
-    detail.code === "config_saved"
-      ? isCount(added) && isCount(changed) && isCount(removed)
-        ? t("availability.history.summary.configSaved", { added, changed, removed })
-        : null
-      : detail.code === "regular_week_changed"
-        ? regularWeekText(detail, format, t)
-        : detail.code.startsWith("tonight_")
-          ? tonightText(detail, t)
-          : closureText(detail, format, t);
+    detail.code === "section_closure_materialised"
+      ? t("availability.history.summary.sectionClosureMaterialised")
+      : detail.code === "config_saved"
+        ? isCount(added) && isCount(changed) && isCount(removed)
+          ? t("availability.history.summary.configSaved", { added, changed, removed })
+          : null
+        : detail.code === "regular_week_changed"
+          ? regularWeekText(detail, format, t)
+          : detail.code.startsWith("tonight_")
+            ? tonightText(detail, t)
+            : closureText(detail, format, t);
   return text !== null && detail.reverted
     ? t("availability.history.summary.reverted", { summary: text })
     : text;

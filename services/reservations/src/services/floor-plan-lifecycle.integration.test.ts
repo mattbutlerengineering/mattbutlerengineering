@@ -15,6 +15,8 @@ import { runWithVenueContext } from "./venue-context-store.js";
  * Shares the FORCE-toggling suites' advisory lock so it never sees their window.
  */
 const DATABASE_URL = process.env.DATABASE_URL;
+const ACTOR = { actorId: "mgr-1", actorName: "Mia" };
+
 const RLS_SUITE_LOCK_KEY = 5369;
 
 describe.skipIf(!DATABASE_URL)("floor plan lifecycle (real Postgres)", () => {
@@ -100,7 +102,7 @@ describe.skipIf(!DATABASE_URL)("floor plan lifecycle (real Postgres)", () => {
     it("hard-deletes a plan whose tables were never booked or held", async () => {
       const { planId, tableIds } = await planWithTables("Unbooked", ["U1", "U2"]);
 
-      expect(await asVenue(() => floorPlanService.delete(planId))).toBe("deleted");
+      expect(await asVenue(() => floorPlanService.delete(planId, ACTOR))).toBe("deleted");
 
       const left = await inVenue(async (tx) => ({
         plan: await tx.floorPlan.findUnique({ where: { id: planId } }),
@@ -140,7 +142,7 @@ describe.skipIf(!DATABASE_URL)("floor plan lifecycle (real Postgres)", () => {
         return { reservationId: reservation.id, holdId: hold.id };
       });
 
-      expect(await asVenue(() => floorPlanService.delete(planId))).toBe("archived");
+      expect(await asVenue(() => floorPlanService.delete(planId, ACTOR))).toBe("archived");
 
       const after = await inVenue(async (tx) => ({
         reservation: await tx.reservation.findUnique({ where: { id: reservationId } }),
@@ -164,7 +166,7 @@ describe.skipIf(!DATABASE_URL)("floor plan lifecycle (real Postgres)", () => {
       expect(await asVenue(() => floorPlanService.getById(planId))).toBeNull();
       expect(await asVenue(() => floorPlanService.setActive(planId, venueId))).toBeNull();
       expect(await asVenue(() => floorPlanService.clone(planId))).toBeNull();
-      expect(await asVenue(() => floorPlanService.delete(planId))).toBe("not_found");
+      expect(await asVenue(() => floorPlanService.delete(planId, ACTOR))).toBe("not_found");
 
       // A new plan can reuse the archived tables' names.
       await expect(planWithTables("New patio", ["P1", "P2"])).resolves.toBeDefined();
@@ -188,7 +190,7 @@ describe.skipIf(!DATABASE_URL)("floor plan lifecycle (real Postgres)", () => {
         })
       );
 
-      expect(await asVenue(() => floorPlanService.delete(planId))).toBe("has_upcoming");
+      expect(await asVenue(() => floorPlanService.delete(planId, ACTOR))).toBe("has_upcoming");
 
       const after = await inVenue(async (tx) => ({
         plan: await tx.floorPlan.findUnique({ where: { id: planId } }),
@@ -201,7 +203,7 @@ describe.skipIf(!DATABASE_URL)("floor plan lifecycle (real Postgres)", () => {
     it("refuses to delete the active plan and changes nothing", async () => {
       const { planId, tableIds } = await planWithTables("Live", ["L1"], true);
 
-      expect(await asVenue(() => floorPlanService.delete(planId))).toBe("active");
+      expect(await asVenue(() => floorPlanService.delete(planId, ACTOR))).toBe("active");
 
       const plan = await inVenue((tx) => tx.floorPlan.findUnique({ where: { id: planId } }));
       expect(plan?.isActive).toBe(true);
@@ -209,7 +211,7 @@ describe.skipIf(!DATABASE_URL)("floor plan lifecycle (real Postgres)", () => {
     });
 
     it("reports an unknown plan as not found", async () => {
-      expect(await asVenue(() => floorPlanService.delete("no-such-plan"))).toBe("not_found");
+      expect(await asVenue(() => floorPlanService.delete("no-such-plan", ACTOR))).toBe("not_found");
     });
   });
 });

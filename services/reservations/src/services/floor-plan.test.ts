@@ -69,6 +69,8 @@ function makePrismaFloorPlan(overrides: Record<string, unknown> = {}) {
   };
 }
 
+const ACTOR = { actorId: "mgr-1", actorName: "Mia" };
+
 describe("floorPlanService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -367,7 +369,7 @@ describe("floorPlanService", () => {
     it("is not_found when the plan does not exist or is archived", async () => {
       vi.mocked(prisma.floorPlan.findFirst).mockResolvedValueOnce(null as never);
 
-      expect(await floorPlanService.delete("missing")).toBe("not_found");
+      expect(await floorPlanService.delete("missing", ACTOR)).toBe("not_found");
       expect(prisma.floorPlan.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({ where: { id: "missing", archivedAt: null } })
       );
@@ -376,7 +378,7 @@ describe("floorPlanService", () => {
     it("refuses the active plan without touching anything", async () => {
       const tx = deleteTx({ plan: { isActive: true, archivedAt: null } });
 
-      expect(await floorPlanService.delete("fp-1")).toBe("active");
+      expect(await floorPlanService.delete("fp-1", ACTOR)).toBe("active");
       expect(tx.table.deleteMany).not.toHaveBeenCalled();
       expect(tx.floorPlan.update).not.toHaveBeenCalled();
     });
@@ -384,7 +386,7 @@ describe("floorPlanService", () => {
     it("refuses a plan whose tables still have an upcoming booking", async () => {
       const tx = deleteTx({ plan: inactive, upcoming: 1, history: 1 });
 
-      expect(await floorPlanService.delete("fp-1")).toBe("has_upcoming");
+      expect(await floorPlanService.delete("fp-1", ACTOR)).toBe("has_upcoming");
       expect(tx.reservation.count).toHaveBeenCalledWith({
         where: {
           tableId: { in: ["t-1"] },
@@ -399,7 +401,7 @@ describe("floorPlanService", () => {
     it("hard-deletes tables then the plan when nothing was ever booked", async () => {
       const tx = deleteTx({ plan: inactive });
 
-      expect(await floorPlanService.delete("fp-1")).toBe("deleted");
+      expect(await floorPlanService.delete("fp-1", ACTOR)).toBe("deleted");
       expect(tx.table.deleteMany).toHaveBeenCalledWith({ where: { floorPlanId: "fp-1" } });
       expect(tx.floorPlan.delete).toHaveBeenCalledWith({ where: { id: "fp-1" } });
     });
@@ -411,20 +413,25 @@ describe("floorPlanService", () => {
       materialise.mockImplementation(async () => void order.push("materialise"));
       tx.table.deleteMany.mockImplementation(async () => void order.push("tables"));
 
-      expect(await floorPlanService.delete("fp-1")).toBe("deleted");
+      expect(await floorPlanService.delete("fp-1", ACTOR)).toBe("deleted");
 
       expect(tx.floorPlanSection.findMany).toHaveBeenCalledWith({
         where: { floorPlanId: "fp-1" },
         select: { id: true },
       });
-      expect(materialise).toHaveBeenCalledWith(tx, "venue-1", ["sec-1", "sec-2"], expect.any(Date));
+      expect(materialise).toHaveBeenCalledWith(tx, {
+        venueId: "venue-1",
+        sectionIds: ["sec-1", "sec-2"],
+        now: expect.any(Date),
+        actor: ACTOR,
+      });
       expect(order).toEqual(["materialise", "tables"]);
     });
 
     it("leaves the sections of an archived plan, and their closures, alone", async () => {
       deleteTx({ plan: inactive, history: 1 });
 
-      expect(await floorPlanService.delete("fp-1")).toBe("archived");
+      expect(await floorPlanService.delete("fp-1", ACTOR)).toBe("archived");
 
       expect(materialise).not.toHaveBeenCalled();
     });
@@ -437,7 +444,7 @@ describe("floorPlanService", () => {
         history: 1,
       });
 
-      expect(await floorPlanService.delete("fp-1")).toBe("archived");
+      expect(await floorPlanService.delete("fp-1", ACTOR)).toBe("archived");
       expect(tx.table.deleteMany).not.toHaveBeenCalled();
       expect(tx.table.update).toHaveBeenCalledWith({
         where: { id: "t-1" },
@@ -453,7 +460,7 @@ describe("floorPlanService", () => {
       const tx = deleteTx({ plan: inactive });
       tx.table.deleteMany.mockRejectedValueOnce({ code: "P2003" });
 
-      expect(await floorPlanService.delete("fp-1")).toBe("in_use");
+      expect(await floorPlanService.delete("fp-1", ACTOR)).toBe("in_use");
     });
   });
 

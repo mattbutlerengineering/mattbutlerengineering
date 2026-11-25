@@ -2764,6 +2764,7 @@
         "tonightCloseEarly": "Esta noche: cierre anticipado",
         "tonightStopWindow": "Esta noche: reservas detenidas por un periodo",
         "tonightEnded": "Se terminó el cambio de esta noche",
+        "sectionClosureMaterialised": "Sección eliminada: sus cierres ahora cierran sus mesas",
         "tonightBlockTables_one": "Esta noche: {{count}} mesa bloqueada",
         "tonightBlockTables_other": "Esta noche: {{count}} mesas bloqueadas",
         "tonightBlockTables_many": "Esta noche: {{count}} de mesas bloqueadas",

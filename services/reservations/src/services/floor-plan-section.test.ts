@@ -59,6 +59,8 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
+const ACTOR = { actorId: "mgr-1", actorName: "Mia" };
+
 describe("floorPlanSectionService", () => {
   it("lists a venue's sections in display order, optionally for one floor plan", async () => {
     db.floorPlanSection.findMany.mockResolvedValue([row]);
@@ -118,7 +120,7 @@ describe("floorPlanSectionService", () => {
 
     const tx = { floorPlanSection: { count: vi.fn().mockResolvedValue(0), deleteMany: vi.fn() } };
     db.$transaction.mockImplementationOnce(async (fn: (tx: unknown) => unknown) => fn(tx));
-    expect(await floorPlanSectionService.delete("v1", "s9")).toBe(false);
+    expect(await floorPlanSectionService.delete("v1", "s9", ACTOR)).toBe(false);
     expect(tx.floorPlanSection.count).toHaveBeenCalledWith({ where: { id: "s9", venueId: "v1" } });
     expect(tx.floorPlanSection.deleteMany).not.toHaveBeenCalled();
     expect(materialise).not.toHaveBeenCalled();
@@ -139,9 +141,14 @@ describe("floorPlanSectionService", () => {
     db.$transaction.mockImplementationOnce(async (fn: (tx: unknown) => unknown) => fn(tx));
     const at = new Date("2026-11-07T12:00:00Z");
 
-    expect(await floorPlanSectionService.delete("v1", "s1", at)).toBe(true);
+    expect(await floorPlanSectionService.delete("v1", "s1", ACTOR, at)).toBe(true);
 
-    expect(materialise).toHaveBeenCalledWith(tx, "v1", ["s1"], at);
+    expect(materialise).toHaveBeenCalledWith(tx, {
+      venueId: "v1",
+      sectionIds: ["s1"],
+      now: at,
+      actor: ACTOR,
+    });
     expect(order).toEqual(["materialise", "delete"]);
     expect(tx.floorPlanSection.deleteMany).toHaveBeenCalledWith({
       where: { id: "s1", venueId: "v1" },

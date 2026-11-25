@@ -186,19 +186,36 @@ describe("listAvailabilityChanges", () => {
       row({ id: "a", notifiedGuests: true }),
       row({ id: "b", revertedById: "z" }),
       row({ id: "c", kind: "revert" }),
+      row({ id: "d", kind: "section_closure_materialised" }),
     ];
     const client = storeClientOf({
       venue: { findUnique: vi.fn(async () => ({ id: "venue-1", ianaTimezone: TZ })) },
       availabilityChange: {
         findMany: vi.fn(async () => rows),
-        count: vi.fn(async () => 3),
+        count: vi.fn(async () => 4),
         findFirst: vi.fn(async () => inForce(rows[0]!)),
       },
     });
 
     const page = await listAvailabilityChanges("venue-1", query, client);
 
-    expect(page?.items.map((i) => i.revertible)).toEqual([false, false, false]);
+    expect(page?.items.map((i) => i.revertible)).toEqual([false, false, false, false]);
+  });
+
+  it("offers no Revert on a section delete's materialised closure, even as the newest change", async () => {
+    const rows = [row({ id: "d", kind: "section_closure_materialised" })];
+    const client = storeClientOf({
+      venue: { findUnique: vi.fn(async () => ({ id: "venue-1", ianaTimezone: TZ })) },
+      availabilityChange: {
+        findMany: vi.fn(async () => rows),
+        count: vi.fn(async () => 1),
+        findFirst: vi.fn(async () => inForce(rows[0]!)),
+      },
+    });
+
+    const page = await listAvailabilityChanges("venue-1", query, client);
+
+    expect(page?.items.map((i) => i.revertible)).toEqual([false]);
   });
 
   it("names the person from the snapshot, and leaves older rows without a name", async () => {
@@ -608,6 +625,9 @@ describe("revertAvailabilityChange", () => {
     ["guests_notified", { notifiedGuests: true }, undefined],
     ["already_reverted", { revertedById: "chg-9" }, undefined],
     ["not_revertable", { kind: "revert" }, undefined],
+    // A section delete's materialised closure: its inverse would name a section that is gone.
+    ["not_revertable", { kind: "section_closure_materialised" }, undefined],
+    // The change before a materialised closure: that row (chg-7) is now the newest in force.
     ["superseded", {}, "chg-7"],
   ])("refuses with %s and writes nothing", async (reason, over, newest) => {
     const tx = revertingTx({
