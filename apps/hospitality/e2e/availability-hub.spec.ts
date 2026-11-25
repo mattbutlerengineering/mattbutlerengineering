@@ -9,6 +9,7 @@ import { mockDemoVenue, nextChristmasEve } from "./helpers/demo-venue.js";
 import { countInteractions } from "./helpers/interaction-counter.js";
 import { createSharedConfig, serveSharedConfig } from "./helpers/shared-config-mock.js";
 import { localDay } from "./local-day.js";
+import { dayOfNextMonth, pinMidMonth } from "./mid-month-clock.js";
 
 /**
  * The Availability hub (docs/features/availability-hub, breakdown H1.6): the landing page of
@@ -466,10 +467,7 @@ test.describe("Availability hub: Close and Pause", () => {
   const endField = (page: Page) => page.getByRole("combobox", { name: "End date (optional)" });
 
   /** A day of next month: one "Next" away on the calendar, clear of any zone's day boundary. */
-  function nextMonth(day: number): string {
-    const [year, month] = localDay().split("-").map(Number) as [number, number];
-    return new Date(Date.UTC(year, month, day)).toISOString().slice(0, 10);
-  }
+  const nextMonth = dayOfNextMonth;
 
   async function mockBarSection(page: Page): Promise<void> {
     await page.route(/\/api\/v1\/floor-plan-sections(\?|$)/, (route) =>
@@ -533,6 +531,7 @@ test.describe("Availability hub: Close and Pause", () => {
         posted.push(request.postDataJSON());
       }
     });
+    await pinMidMonth(page);
     await openHub(page);
 
     const one = countInteractions(page);
@@ -586,6 +585,7 @@ test.describe("Availability hub: Close and Pause", () => {
   }) => {
     await mockClosures(page);
     await mockBarSection(page);
+    await pinMidMonth(page);
     const a = nextMonth(15);
     const b = nextMonth(16);
     const when = (d: Locator) => d.getByRole("combobox", { name: "When" });

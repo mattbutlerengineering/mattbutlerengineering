@@ -4,6 +4,7 @@ import { test, expect } from "./fixtures.js";
 import { loadFixture } from "./api-mocks.js";
 import { mockAvailability } from "./availability-draft-mock.js";
 import { localDay } from "./local-day.js";
+import { pinMidMonth } from "./mid-month-clock.js";
 
 /**
  * #7980: Availability on a phone and from a keyboard. Layout only exists in a browser, so the
@@ -72,8 +73,13 @@ async function open(page: Page, viewport = PHONE) {
   await page.locator("[data-date]").first().waitFor();
 }
 
-/** A month ahead, so every row or cell in it is in the future whatever day the suite runs. */
+/**
+ * A month ahead, so every row or cell in it is in the future whatever day the suite runs. The
+ * clock is pinned mid-month first: the real date made "Select every Tuesday" a no-op late in a
+ * month (#9573).
+ */
 async function openNextMonth(page: Page, viewport = PHONE, next = "Next") {
+  await pinMidMonth(page);
   await open(page, viewport);
   const period = page.locator("[aria-live='polite']").filter({ hasText: /\d{4}/ });
   const before = await period.textContent();
