@@ -1,6 +1,230 @@
 {
-  "generatedAt": "2026-11-24T13:54:02.000Z",
+  "generatedAt": "2026-11-25T14:03:17.000Z",
   "features": [
+    {
+      "slug": "widen-mutation-pilot-to-services-reservations-9599",
+      "title": "Widen mutation pilot to services/reservations",
+      "trackingIssue": 9599,
+      "proposalIssue": 9333,
+      "proposalEvidence": "`stryker.config.mjs` explicitly scopes mutation testing to a single pilot: `mutate: [\"services/users/src/routes/*.ts\", \"services/users/src/services/*.ts\"]` (\"Pilot scope: services/users ... Target mutation score: > 80%\"). `metrics/mutation-score.jsonl` confirms this is the only package ever measured: every row's `packages` key is `{\"services/users\": 99.07}` — `services/reservations` (the actual booking/deposit/availability state machine) and `services/agent` have never had a single mutant generated against them.",
+      "proposedAt": "2026-11-21T17:11:32.000Z",
+      "firstMergedAt": "2026-11-25T04:34:40.000Z",
+      "lastMergedAt": "2026-11-25T14:03:17.000Z",
+      "wallClockHours": 92.9,
+      "liveUrl": null,
+      "children": [
+        {
+          "issue": 9596,
+          "title": "[Feature] Widen mutation pilot to services/reservations [1/3]: collector reports per-package scores",
+          "prs": [
+            {
+              "number": 9600,
+              "title": "feat(scripts): mutation summary row carries extra scopes' per-package scores (mbe-feature-drain #9596)",
+              "mergedAt": "2026-11-25T04:34:40.000Z",
+              "mergeCommit": "e1564c5330a449a66c964970226566e057f08ed7",
+              "reviewVerdict": "pass",
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 9597,
+          "title": "[Feature] Widen mutation pilot to services/reservations [2/3]: run reservations mutation in the weekly workflow",
+          "prs": [
+            {
+              "number": 9610,
+              "title": "feat(scripts): run reservations mutation scope in the weekly workflow (mbe-feature-drain #9597)",
+              "mergedAt": "2026-11-25T05:15:39.000Z",
+              "mergeCommit": "939428e610be4439c95d4aa1354f8a90607f1e44",
+              "reviewVerdict": "pass",
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 9598,
+          "title": "[Feature] Widen mutation pilot to services/reservations [3/3]: kill survivors in booking/deposit transition logic",
+          "prs": [
+            {
+              "number": 9651,
+              "title": "test(reservations): kill deposit create-currency and refundPartial boundary mutants (mbe-feature-drain #9598)",
+              "mergedAt": "2026-11-25T14:03:17.000Z",
+              "mergeCommit": "d0b7c262797054207eab0aed527b8fb4ef77ed78",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "rialto-catalog-widening-9524",
+      "title": "Rialto catalog widening",
+      "trackingIssue": 9524,
+      "proposalIssue": 9331,
+      "proposalEvidence": "`packages/rialto-catalog/CLAUDE.md` states the catalog's include-list is exactly the set of co-located `<Component>.catalog.ts` files under `packages/rialto/src/components/<Component>/`. Computed against current `main` (2026-11-21):",
+      "proposedAt": "2026-11-21T17:11:03.000Z",
+      "firstMergedAt": "2026-11-24T18:04:15.000Z",
+      "lastMergedAt": "2026-11-25T02:46:54.000Z",
+      "wallClockHours": 81.6,
+      "liveUrl": "/rialto/components/autocomplete",
+      "children": [
+        {
+          "issue": 9516,
+          "title": "[Feature] Rialto catalog widening [1/8]: form &amp; composite input catalogs (TextArea, Autocomplete, DateRangePicker, InputGroup, Collapsible)",
+          "prs": [
+            {
+              "number": 9529,
+              "title": "feat(gen): catalog form & composite components for AI generation (mbe-feature-drain #9516)",
+              "mergedAt": "2026-11-24T18:04:15.000Z",
+              "mergeCommit": "d95e7e48c4df5e7642c05c36946c70fdc64e5c8d",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 9517,
+          "title": "[Feature] Rialto catalog widening [2/8]: status &amp; progress catalogs (Progress, Meter, Steps, Pagination)",
+          "prs": [
+            {
+              "number": 9534,
+              "title": "feat(gen): catalog Progress, Meter, Steps, Pagination for AI generation (mbe-feature-drain #9517)",
+              "mergedAt": "2026-11-24T20:43:05.000Z",
+              "mergeCommit": "e741ee5f710363de2678a033723a11c9a15c94c1",
+              "reviewVerdict": "pass",
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 9518,
+          "title": "[Feature] Rialto catalog widening [3/8]: overlay &amp; interaction catalogs (ConfirmDialog, HoverCard, ContextMenu, CommandPalette)",
+          "prs": [
+            {
+              "number": 9539,
+              "title": "feat(gen): catalog ConfirmDialog, HoverCard, ContextMenu, CommandPalette (mbe-feature-drain #9518)",
+              "mergedAt": "2026-11-24T20:12:08.000Z",
+              "mergeCommit": "9525d41f51a205f02e1977d3379064fe3ae3a5ff",
+              "reviewVerdict": "pass",
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 9519,
+          "title": "[Feature] Rialto catalog widening [4/8]: navigation &amp; page-structure catalogs (Navbar, GlobalNav, PageHeader, Heading, Hero)",
+          "prs": [
+            {
+              "number": 9546,
+              "title": "feat(gen): catalog Navbar, GlobalNav, PageHeader, Heading, Hero for AI generation (mbe-feature-drain #9519)",
+              "mergedAt": "2026-11-24T21:36:17.000Z",
+              "mergeCommit": "ed775cbce5cd51d8b9fb3e6bfc7f4c96bc2f1698",
+              "reviewVerdict": "pass",
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 9520,
+          "title": "[Feature] Rialto catalog widening [5/8]: system/utility catalogs (ErrorBoundary, ThemeToggle, DisabledTooltip, SplitScreenExit, Kbd)",
+          "prs": [
+            {
+              "number": 9552,
+              "title": "feat(gen): catalog ErrorBoundary, ThemeToggle, DisabledTooltip, SplitScreenExit, Kbd for AI generation (mbe-feature-drain #9520)",
+              "mergedAt": "2026-11-24T22:27:04.000Z",
+              "mergeCommit": "b51a8be7e189709ceba8aaf1752d4dc082395e7c",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 9521,
+          "title": "[Feature] Rialto catalog widening [6/8]: misc/complex catalogs (MasterOverride, ChatPanel, ImageUpload, Tree)",
+          "prs": [
+            {
+              "number": 9556,
+              "title": "feat(rialto): catalog MasterOverride, ImageUpload, Tree for AI generation (mbe-feature-drain #9521)",
+              "mergedAt": "2026-11-25T01:36:57.000Z",
+              "mergeCommit": "29be982819b13d385fcc762c8acf8d1afe13110f",
+              "reviewVerdict": "pass",
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 9523,
+          "title": "[Feature] Rialto catalog widening [8/8]: update Template Gallery coverage count/docs",
+          "prs": [
+            {
+              "number": 9587,
+              "title": "docs(gen): update catalog coverage count after widening (mbe-feature-drain #9523)",
+              "mergedAt": "2026-11-25T02:46:54.000Z",
+              "mergeCommit": "e35dfe3f3aa414fb580cb31a17f8d78f365b425c",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "production-health-uptime-panel-9528",
+      "title": "Production-health uptime panel",
+      "trackingIssue": 9528,
+      "proposalIssue": 9332,
+      "proposalEvidence": "Three metrics artifacts are collected and committed to the repo but never referenced anywhere in `apps/marketing/src` (checked `grep -rl` for each across `apps/marketing/src`, 2026-11-21 — zero hits):",
+      "proposedAt": "2026-11-21T17:11:17.000Z",
+      "firstMergedAt": "2026-11-24T19:07:44.000Z",
+      "lastMergedAt": "2026-11-24T23:42:46.000Z",
+      "wallClockHours": 78.5,
+      "liveUrl": "/",
+      "children": [
+        {
+          "issue": 9525,
+          "title": "[Feature] Production-health uptime panel [1/3]: productionHealth sensor registry entry",
+          "prs": [
+            {
+              "number": 9536,
+              "title": "feat(marketing): add productionHealth sensor registry entry (mbe-feature-drain #9525)",
+              "mergedAt": "2026-11-24T19:07:44.000Z",
+              "mergeCommit": "c3f90887bd9f43a458e0a86e26d5fbac1b9fa9c0",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 9526,
+          "title": "[Feature] Production-health uptime panel [2/3]: marketing data loader and types",
+          "prs": [
+            {
+              "number": 9561,
+              "title": "feat(marketing): normalize productionHealth sensor for the AI-health page (mbe-feature-drain #9526)",
+              "mergedAt": "2026-11-24T23:22:32.000Z",
+              "mergeCommit": "2fa463ecdba8ffd6755ce487d1a56737adb65b50",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 9527,
+          "title": "[Feature] Production-health uptime panel [3/3]: render panel on AiHealthPage",
+          "prs": [
+            {
+              "number": 9564,
+              "title": "feat(marketing): production-health uptime panel on the AI-health page (mbe-feature-drain #9527)",
+              "mergedAt": "2026-11-24T23:42:46.000Z",
+              "mergeCommit": "37c8fe5dfd4b4c2959172daf224917efa3676255",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
     {
       "slug": "public-demo-venue-9509",
       "title": "Public demo venue",
