@@ -98,7 +98,7 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
     venueId,
     rules: state.config.dateRules,
     version: state.version,
-    itemsOf: () => items,
+    itemsOf: (ruleIdFor) => ruleItems(form, today, ruleIdFor),
     dateCount,
     savedTitle,
     onSaved,
@@ -108,10 +108,7 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
     onBackToForm: () => setStep(1),
   });
   const { attempts, impacts, choices, failureLines: failure } = session;
-  const { idempotencyKey, earlier } = attempts;
-  // One rule id per row per attempt: a retried save never creates a rule twice, and a changed one
-  // (a new key) is never taken for the first.
-  const [ruleIds] = useState(() => new Map<string, string>());
+  const { earlier } = attempts;
 
   // Set by a handler that wants focus moved once the render it causes has committed.
   const pendingFocusRef = useRef<string | null>(null);
@@ -126,12 +123,9 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
     control?.focus();
   }, [form.rows, invalid]);
 
-  const idFor = (rowKey: string) => {
-    const key = `${idempotencyKey}:${rowKey}`;
-    if (!ruleIds.has(key)) ruleIds.set(key, crypto.randomUUID());
-    return ruleIds.get(key)!;
-  };
-  const items = ruleItems(form, today, idFor);
+  // For what the form shows (messages, first date): the rule ids that are sent come from the
+  // session when Next or Save runs, one per row per attempt.
+  const items = ruleItems(form, today, (rowKey) => rowKey);
   const combined = combineImpacts(impacts);
   const firstDate = combined.groups[0]?.date ?? items[0]?.rule.startsOn ?? today;
   const urgent = isUrgent(
@@ -204,6 +198,7 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
     step === 1 &&
     failure.length === 0 &&
     invalid === null &&
+    !session.lookupFailed &&
     (attempts.tried.length === 0 || kind === "sending" || kind === "saved");
   const counts = outcomeCounts(combined.groups, choices);
   const label = (() => {

@@ -51,7 +51,7 @@ export interface DecisionsSessionOptions<Out> {
    * A flow that saves several rules at once (Add special dates): the ids and dates this send
    * creates, so an attempt that shows in the config can be named. Default: the attempt's one rule.
    */
-  readonly attemptOf?: () => {
+  readonly attemptOf?: (ruleIdFor: (rowKey: string) => string) => {
     readonly ruleIds: readonly string[];
     readonly dates: readonly string[];
   };
@@ -125,7 +125,11 @@ export function useDecisionsSession<Out>(options: DecisionsSessionOptions<Out>) 
     }
   };
 
-  /** `found`: impacts a flow has just loaded and not yet rendered (previews, then saves at once). */
+  /**
+   * `found`: impacts a flow has just loaded and not yet rendered (previews, then saves at once).
+   * Readiness is still checked against the current render's choices, so pass only impacts that
+   * have no groups to decide.
+   */
   const submit = async (found?: readonly ClosureImpact[]) => {
     // An attempt that may have saved can be sent again: the same request replays its truth, and a
     // changed one is a new attempt. Only one already in the config ends the sending.
@@ -136,7 +140,7 @@ export function useDecisionsSession<Out>(options: DecisionsSessionOptions<Out>) 
     if (!sent.every((i) => decisionsReady(i.groups, choices))) return;
     setFailure(null);
     setPhase({ kind: "sending" });
-    const { ruleIds, dates } = attemptOf?.() ?? {};
+    const { ruleIds, dates } = attemptOf?.(ruleIdFor) ?? {};
     attempts.record(outcomeSummary(outcomeCounts(groups, choices), t), ruleIds, dates);
     try {
       const out = await send({
@@ -186,6 +190,8 @@ export function useDecisionsSession<Out>(options: DecisionsSessionOptions<Out>) 
     failure,
     winner,
     submit,
+    /** A row's rule id for the current attempt: for flows that build rules before `send`. Handlers only. */
+    ruleIdFor,
     edited: afterEdit,
     /** A new plan begins: choices, failure and refusal go; the attempt ids are the flow's to restart. */
     reset: () => {

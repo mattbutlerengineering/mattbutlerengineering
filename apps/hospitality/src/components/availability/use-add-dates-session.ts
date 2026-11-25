@@ -18,8 +18,8 @@ export interface AddDatesSessionOptions {
   readonly venueId: string;
   readonly rules: readonly DateRule[];
   readonly version: number;
-  /** Read when sending: the rule ids hang off the attempt's key, which the session owns. */
-  readonly itemsOf: () => readonly AddDatesItem[];
+  /** The rows' closures, with the attempt's rule ids: they hang off the key the session owns. */
+  readonly itemsOf: (ruleIdFor: (rowKey: string) => string) => readonly AddDatesItem[];
   readonly dateCount: number;
   readonly savedTitle?: string;
   /** The closures were saved (not cancelled, not refused), called once before the sheet closes. */
@@ -48,15 +48,18 @@ export function useAddDatesSession(options: AddDatesSessionOptions) {
   const [impacts, setImpacts] = useState<readonly ClosureImpact[]>([]);
   // This sheet's key already committed (`closure-exists`): nothing more is sent from it.
   const [savedEarlier, setSavedEarlier] = useState(false);
-  // A save with no answer may have committed: from then on "nothing was cancelled" can be false.
-  const [outcomeUnknown, setOutcomeUnknown] = useState(false);
   const [lastRefusal, setLastRefusal] = useState<string | null>(null);
   const [reloadFailed, setReloadFailed] = useState(false);
   // Asking for the bookings (Next) failed: no session state to say so.
   const [previewFailed, setPreviewFailed] = useState(false);
+  // A lookup has failed at least once: a sheet opened by a holiday then stays up for the retry.
+  const [lookupFailed, setLookupFailed] = useState(false);
 
   const load = async (): Promise<readonly ClosureImpact[]> =>
-    previewImpacts.mutateAsync({ venueId, rules: itemsOf().map((i) => i.rule) });
+    previewImpacts.mutateAsync({
+      venueId,
+      rules: itemsOf(session.ruleIdFor).map((i) => i.rule),
+    });
 
   const session = useDecisionsSession({
     rules: options.rules,
@@ -74,8 +77,8 @@ export function useAddDatesSession(options: AddDatesSessionOptions) {
     format,
     reload: options.reload,
     onLeave: options.onClose,
-    attemptOf: () => {
-      const items = itemsOf();
+    attemptOf: (ruleIdFor) => {
+      const items = itemsOf(ruleIdFor);
       return {
         ruleIds: items.map((item) => item.rule.id),
         dates: items.map((item) => item.rule.startsOn),
@@ -90,7 +93,7 @@ export function useAddDatesSession(options: AddDatesSessionOptions) {
           idempotencyKey: attempt.idempotencyKey,
           body: {
             expectedVersion: options.version,
-            items: itemsOf().map((item, i) => ({
+            items: itemsOf(attempt.ruleIdFor).map((item, i) => ({
               rule: item.rule,
               decisions: attempt.decisions[i] ?? [],
             })),
@@ -103,7 +106,6 @@ export function useAddDatesSession(options: AddDatesSessionOptions) {
           onStale();
           setSavedEarlier(true);
         }
-        if (refused.kind === "other" && refused.outcomeUnknown) setOutcomeUnknown(true);
         throw error;
       }
     },
@@ -154,7 +156,8 @@ export function useAddDatesSession(options: AddDatesSessionOptions) {
     if (text !== null && lastRefusal === "closure-exists") return [text];
     if (text !== null && lastRefusal === "groups-changed") return [text, ...reload];
     // Kept after an edit too: the session drops its text then, but the save may still have gone through.
-    if (outcomeUnknown) return [t("availabilitySpecial.add.maybeSaved")];
+    if (session.state.kind === "settled" && session.state.reason === "maybeSaved")
+      return [t("availabilitySpecial.add.maybeSaved")];
     if (text === null) return [];
     return [text, t("availabilitySpecial.add.nothingCancelled"), ...reload];
   };
@@ -172,6 +175,7 @@ export function useAddDatesSession(options: AddDatesSessionOptions) {
         return found;
       } catch {
         setPreviewFailed(true);
+        setLookupFailed(true);
         return null;
       }
     },
@@ -181,6 +185,7 @@ export function useAddDatesSession(options: AddDatesSessionOptions) {
     },
     /** The save is in the config already: the button stays off. */
     savedEarlier,
+    lookupFailed,
     failureLines: failureLines(),
     busy: previewImpacts.isPending || createClosures.isPending,
   };
