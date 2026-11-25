@@ -2065,18 +2065,6 @@
       ]
     },
     {
-      "name": "FEEDBACK_MESSAGE_MAX",
-      "importPath": "@mattbutlerengineering/rialto",
-      "props": [],
-      "slots": []
-    },
-    {
-      "name": "FEEDBACK_MESSAGE_MIN",
-      "importPath": "@mattbutlerengineering/rialto",
-      "props": [],
-      "slots": []
-    },
-    {
       "name": "FeedbackButton",
       "description": "A button that opens a \n{@link \nFeedbackDialog \n}\n. Focus returns to the button\nwhen the dialog closes.",
       "importPath": "@mattbutlerengineering/rialto",

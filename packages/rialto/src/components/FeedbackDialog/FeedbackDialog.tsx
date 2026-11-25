@@ -9,8 +9,8 @@ import styles from "./FeedbackDialog.module.css";
 
 export type FeedbackKind = "bug" | "idea" | "other";
 
-export const FEEDBACK_MESSAGE_MIN = 10;
-export const FEEDBACK_MESSAGE_MAX = 2000;
+const FEEDBACK_MESSAGE_MIN = 10;
+const FEEDBACK_MESSAGE_MAX = 2000;
 
 const KINDS: readonly FeedbackKind[] = ["bug", "idea", "other"];
 const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

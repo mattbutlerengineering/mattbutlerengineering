@@ -63,7 +63,7 @@ export function FeedbackControl() {
     [t]
   );
 
-  const version = import.meta.env.VITE_APP_COMMIT ?? "dev";
+  const version = import.meta.env.VITE_APP_COMMIT?.slice(0, 7) || "dev";
   const contextItems = [
     { label: t("feedback.context.app"), value: APP_NAME },
     { label: t("feedback.context.page"), value: pathname },
