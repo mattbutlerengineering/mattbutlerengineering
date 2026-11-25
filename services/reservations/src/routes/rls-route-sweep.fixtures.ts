@@ -2,6 +2,7 @@ import { expect } from "vitest";
 import { randomUUID } from "node:crypto";
 import type { FastifyInstance, InjectOptions, LightMyRequestResponse } from "fastify";
 import {
+  ACCESS_TOKENS_PREFIX,
   AVAILABILITY_CONFIG_PREFIX,
   ClosureSummariesSchema,
   autopilotProposalsEndpoints,
@@ -2402,6 +2403,36 @@ const depositFixtures: Record<string, RouteFixture> = {
   }),
 };
 
+/**
+ * Personal access tokens (#9663) belong to a user, not a venue: the table has
+ * no `venue_id` and no RLS policy (like `venue_memberships`), so these routes
+ * are `not-rls`. The fixture still drives mint -> list -> revoke through the
+ * real app role, which proves the `app_reservations` GRANT in the migration.
+ */
+const accessTokenFixtures: Record<string, RouteFixture> = {
+  "POST /api/v1/me/tokens": notRls(async (ctx) => {
+    const res = await asMember(ctx, {
+      method: "POST",
+      url: ACCESS_TOKENS_PREFIX,
+      payload: { name: "sweep" },
+    });
+    expect(res.statusCode, `mint: ${res.body}`).toBe(201);
+    const id = (JSON.parse(res.body) as { data: { id: string } }).data.id;
+    const revoke = await asMember(ctx, { method: "DELETE", url: `${ACCESS_TOKENS_PREFIX}/${id}` });
+    expect(revoke.statusCode, `revoke after mint: ${revoke.body}`).toBe(204);
+  }),
+  "GET /api/v1/me/tokens": notRls(async (ctx) => {
+    expectOk(await asMember(ctx, { method: "GET", url: ACCESS_TOKENS_PREFIX }), "list tokens");
+  }),
+  "DELETE /api/v1/me/tokens/:id": notRls(async (ctx) => {
+    const res = await asMember(ctx, {
+      method: "DELETE",
+      url: `${ACCESS_TOKENS_PREFIX}/unknown-id`,
+    });
+    expect(res.statusCode, `revoke unknown: ${res.body}`).toBe(404);
+  }),
+};
+
 export const FIXTURES: Record<string, RouteFixture> = {
   ...notRlsFixtures,
   ...tableFixtures,
@@ -2418,4 +2449,5 @@ export const FIXTURES: Record<string, RouteFixture> = {
   ...reservationEventFixtures,
   ...reservationDepositStatusFixtures,
   ...depositFixtures,
+  ...accessTokenFixtures,
 };

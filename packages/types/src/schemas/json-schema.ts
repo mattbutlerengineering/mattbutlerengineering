@@ -28,6 +28,11 @@ import {
   UpdateVenueTeamRequestSchema,
 } from "./venue-team.js";
 import {
+  AccessTokenSchema,
+  CreateAccessTokenRequestSchema,
+  MintedAccessTokenSchema,
+} from "./access-token.js";
+import {
   AgentSessionSchema,
   AgentSessionEventSchema,
   CreateAgentSessionRequestSchema,
@@ -416,6 +421,9 @@ export const updateTeamMemberRoleBodyJsonSchema = toRequestJsonSchema(
   UpdateTeamMemberRoleRequestSchema
 );
 export const updateVenueTeamBodyJsonSchema = toRequestJsonSchema(UpdateVenueTeamRequestSchema);
+export const accessTokenResponseJsonSchema = toResponseJsonSchema(AccessTokenSchema);
+export const mintedAccessTokenResponseJsonSchema = toResponseJsonSchema(MintedAccessTokenSchema);
+export const createAccessTokenBodyJsonSchema = toRequestJsonSchema(CreateAccessTokenRequestSchema);
 export const createMenuBodyJsonSchema = toRequestJsonSchema(CreateMenuRequestSchema);
 export const updateMenuBodyJsonSchema = toRequestJsonSchema(UpdateMenuRequestSchema);
 export const createMenuSectionBodyJsonSchema = toRequestJsonSchema(CreateMenuSectionRequestSchema);
