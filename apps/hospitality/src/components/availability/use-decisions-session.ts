@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type {
   AvailabilityChangeSummary,
@@ -79,10 +79,8 @@ export function useDecisionsSession<Out>(options: DecisionsSessionOptions<Out>) 
     | { readonly kind: "refused"; readonly refusal: Refusal["kind"] }
     | { readonly kind: "saved" }
   >({ kind: "idle" });
-  const [rowIds, setRowIds] = useState<{ key: string; ids: Map<string, string> }>({
-    key: attempts.idempotencyKey,
-    ids: new Map(),
-  });
+  // Per-row ids for the attempt's key; only touched from handlers, never during render.
+  const rowIds = useRef<{ key: string; ids: Map<string, string> }>({ key: "", ids: new Map() });
 
   const impacts = impact.data ?? [];
   const groups = impacts.flatMap((i) => i.groups);
@@ -100,8 +98,10 @@ export function useDecisionsSession<Out>(options: DecisionsSessionOptions<Out>) 
 
   // Per-row ids hang off the attempt's key: a new key starts a new set.
   const ruleIdFor = (rowKey: string) => {
-    const ids = rowIds.key === attempts.idempotencyKey ? rowIds.ids : new Map<string, string>();
-    if (ids !== rowIds.ids) setRowIds({ key: attempts.idempotencyKey, ids });
+    if (rowIds.current.key !== attempts.idempotencyKey) {
+      rowIds.current = { key: attempts.idempotencyKey, ids: new Map() };
+    }
+    const { ids } = rowIds.current;
     let id = ids.get(rowKey);
     if (!id) {
       id = crypto.randomUUID();

@@ -271,6 +271,24 @@ describe("useDecisionsSession attempt ids", () => {
     expect(seen[3]).not.toBe(seen[0]);
   });
 
+  it("per-row ids stay stable after a restart, and across a retry of the same request", async () => {
+    const h = setup({ impact: [NO_GROUPS] });
+    const rounds: string[][] = [];
+    h.send.mockImplementation(async (a: { ruleIdFor: (k: string) => string }) => {
+      rounds.push([a.ruleIdFor("row-1"), a.ruleIdFor("row-2"), a.ruleIdFor("row-1")]);
+      throw REFUSALS.other();
+    });
+    await submit(h);
+    act(() => h.hook.result.current.edited(1, 2));
+    await submit(h);
+    await submit(h);
+    const [before, afterRestart, retry] = rounds;
+    expect(afterRestart![0]).toBe(afterRestart![2]);
+    expect(afterRestart![0]).not.toBe(afterRestart![1]);
+    expect(afterRestart![0]).not.toBe(before![0]);
+    expect(retry).toEqual(afterRestart);
+  });
+
   it("works without an idempotency key (Tonight sends none): the key is still offered, the flow may ignore it", async () => {
     const h = setup({ firstRuleId: "rule-1", impact: [ONE_GROUP] });
     choose(h);
