@@ -87,6 +87,18 @@ describe("proposeMoves", () => {
     );
   });
 
+  it("seats the 5 and 6 on the 5-top and 6-top rather than the 2 on the 5-top (11 covers, not 7)", () => {
+    const state: NightState = {
+      tables: [table("Ta", 5), table("Tb", 6)],
+      reservations: [],
+      waitlist: [waiter("w1", 2, 0), waiter("w2", 5, 1), waiter("w3", 6, 2)],
+    };
+    const out = proposeMoves(state, 10);
+    expect(
+      out.map((p) => (p.kind === "waitlist_offer" ? `${p.entryId}>${p.tableId}` : ""))
+    ).toEqual(["w2>Ta", "w3>Tb"]);
+  });
+
   it("still gives a big table to a smaller party when no larger party needs it", () => {
     const state: NightState = {
       tables: [table("T1", 6)],

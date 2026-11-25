@@ -241,6 +241,38 @@ const scarceBigTable: Night = {
   ],
 };
 
+/**
+ * A 5-top and a 6-top are both free. Parties of 2, 5 and 6 wait, longest first. Seating the party
+ * of 2 at the 5-top pushes the party of 5 onto the 6-top and strands the party of 6 (7 covers).
+ * The party of 5 takes the 5-top and the party of 6 the 6-top (11 covers); the party of 2 waits.
+ */
+const chainedScarceTables: Night = {
+  id: "chained-scarce-tables",
+  description:
+    "Seat the parties of 5 and 6 at the 5-top and 6-top; the party of 2 waits for the next table.",
+  initial: {
+    tables: [table("Ta", 5, "AVAILABLE"), table("Tb", 6, "AVAILABLE")],
+    reservations: [],
+    waitlist: [
+      { ...waiting("w1", 2), joinedAt: 0 },
+      { ...waiting("w2", 5), joinedAt: 1 },
+    ],
+  },
+  events: [{ at: 2, type: "waitlist_joined", entry: waiting("w3", 6) }],
+  goodMoves: [
+    {
+      suggestion: { kind: "waitlist_offer", entryId: "w2", tableId: "Ta" },
+      windowStart: 2,
+      windowEnd: 12,
+    },
+    {
+      suggestion: { kind: "waitlist_offer", entryId: "w3", tableId: "Tb" },
+      windowStart: 2,
+      windowEnd: 12,
+    },
+  ],
+};
+
 export const NIGHTS: readonly Night[] = [
   bigPartyReseat,
   earlyTurnWaitlist,
@@ -250,4 +282,5 @@ export const NIGHTS: readonly Night[] = [
   lateOffer,
   oversizedParty,
   scarceBigTable,
+  chainedScarceTables,
 ];

@@ -72,7 +72,30 @@ function legalTablesByEntry(
   return byEntry;
 }
 
-/** True when a party still waiting in `later`, materially larger than `entry`, can only be seated at `table`. */
+/**
+ * Most parties that can sit at once, each at a distinct table from its own list (maximum
+ * bipartite matching, augmenting paths). Floor sizes are tiny, so this is cheap.
+ */
+function maxSeatable(options: readonly (readonly string[])[]): number {
+  const owner = new Map<string, number>();
+  const tryParty = (p: number, seen: Set<string>): boolean =>
+    options[p]!.some((t) => {
+      if (seen.has(t)) return false;
+      seen.add(t);
+      const o = owner.get(t);
+      if (o !== undefined && !tryParty(o, seen)) return false;
+      owner.set(t, p);
+      return true;
+    });
+  return options.filter((_, p) => tryParty(p, new Set())).length;
+}
+
+/**
+ * True when taking `table` for `entry` would strand a party still waiting in `later` that is
+ * materially larger than `entry`: with the table gone, fewer of those larger parties can be
+ * seated from the remaining free tables than with it. Looks at every chain of larger parties,
+ * not just the next one (a 2 on the 5-top would push the 5 onto the 6-top and strand the 6).
+ */
 function needsTable(
   table: NightTable,
   entry: NightWaitlistEntry,
@@ -80,11 +103,12 @@ function needsTable(
   legal: ReadonlyMap<string, NightTable[]>,
   claimed: ReadonlySet<string>
 ): boolean {
-  return later.some((l) => {
-    if (l.partySize < entry.partySize + MIN_LARGER_PARTY_GAP) return false;
-    const open = (legal.get(l.id) ?? []).filter((t) => !claimed.has(t.id));
-    return open.length === 1 && open[0]!.id === table.id;
-  });
+  const options = later
+    .filter((l) => l.partySize >= entry.partySize + MIN_LARGER_PARTY_GAP)
+    .map((l) => (legal.get(l.id) ?? []).filter((t) => !claimed.has(t.id)).map((t) => t.id));
+  if (options.length === 0) return false;
+  const without = options.map((ids) => ids.filter((id) => id !== table.id));
+  return maxSeatable(without) < maxSeatable(options);
 }
 
 /**
