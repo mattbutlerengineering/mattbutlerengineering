@@ -144,6 +144,7 @@ model Venue {
   closureOutcomes           ClosureOutcome[]
   guestWinBacks             GuestWinBack[]
   noSlotSearches            NoSlotSearch[]
+  guestMemberships          GuestMembership[]
   /// Per-venue compare-and-set counter for availability config saves (ADR-030).
   availabilityVersion       Int               @default(0) @map("availability_version")
   /// Host "stop all online bookings" switch.
@@ -310,6 +311,7 @@ model Guest {
   unsubscribed            Boolean                 @default(false)
   reservations            Reservation[]
   winBack                 GuestWinBack?
+  memberships             GuestMembership[]
   createdAt               DateTime                @default(now()) @map("created_at")
   updatedAt               DateTime                @updatedAt @map("updated_at")
 
@@ -898,4 +900,29 @@ model NoSlotSearch {
 
   @@unique([venueId, date, requestedMinute, partySize])
   @@map("no_slot_searches")
+}
+
+enum MembershipTier {
+  REGULAR
+}
+
+enum MembershipStatus {
+  ACTIVE
+  REVOKED
+}
+
+/// Regulars Club membership (#9623). A row, never a `Guest.tags` entry, because staff edit tags freely.
+model GuestMembership {
+  id        String           @id @default(cuid())
+  venueId   String           @map("venue_id")
+  venue     Venue            @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  guestId   String           @map("guest_id")
+  guest     Guest            @relation(fields: [guestId], references: [id], onDelete: Cascade)
+  tier      MembershipTier   @default(REGULAR)
+  status    MembershipStatus @default(ACTIVE)
+  invitedAt DateTime         @default(now()) @map("invited_at")
+  revokedAt DateTime?        @map("revoked_at")
+
+  @@unique([venueId, guestId])
+  @@map("guest_memberships")
 }
