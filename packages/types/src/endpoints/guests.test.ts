@@ -20,10 +20,13 @@ const PILOT_TABLE = [
   ["getLapsing", "GET /api/v1/guests/lapsing"],
   ["sendWinBack", "POST /api/v1/guests/:id/win-back"],
   ["delete", "DELETE /api/v1/guests/:id"],
+  ["listMembers", "GET /api/v1/guests/members"],
+  ["inviteMember", "POST /api/v1/guests/members"],
+  ["revokeMember", "POST /api/v1/guests/:id/revoke-membership"],
 ] as const;
 
 describe("guestsEndpoints", () => {
-  it("declares exactly the 11 pilot endpoints, one definition each", () => {
+  it("declares exactly the pilot and Regulars Club endpoints, one definition each", () => {
     const declared = Object.entries(guestsEndpoints).map(([name, def]) => [
       name,
       `${def.method} ${def.path}`,

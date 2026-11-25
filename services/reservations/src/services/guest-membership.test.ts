@@ -70,6 +70,7 @@ vi.mock("./database.js", async () => {
   });
 });
 
+import { prisma } from "./database.js";
 import { inviteMember, listMembers, revokeMember } from "./guest-membership.js";
 
 describe("guest membership", () => {
@@ -94,6 +95,14 @@ describe("guest membership", () => {
     const list = await listMembers({ venueId: "v1" });
 
     expect(list.map((m) => m.guestId)).toEqual(["g1"]);
+  });
+
+  it("lists each member with the guest's name and email for the operator", async () => {
+    await listMembers({ venueId: "v1" });
+
+    expect(vi.mocked(prisma.guestMembership.findMany)).toHaveBeenLastCalledWith(
+      expect.objectContaining({ include: { guest: { select: { name: true, email: true } } } })
+    );
   });
 
   it("revokes an active member and stamps revokedAt", async () => {

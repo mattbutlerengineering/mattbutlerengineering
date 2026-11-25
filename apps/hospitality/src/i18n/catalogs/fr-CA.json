@@ -1302,6 +1302,21 @@
     "shown_other": "{{count}} clients affichés",
     "addGuest": "Ajouter un client",
     "addAGuest": "Ajouter un client",
+    "regulars": {
+      "title": "Club des habitués",
+      "description": "Invitez des clients par courriel. Chaque membre reçoit un lien de réservation personnel que vous pouvez révoquer en tout temps.",
+      "name": "Nom",
+      "email": "Courriel",
+      "invite": "Envoyer l'invitation",
+      "sending": "Envoi en cours...",
+      "sent": "Invitation envoyée à {{email}}",
+      "empty": "Aucun membre pour l'instant. Invitez un habitué ci-dessus.",
+      "statusActive": "Actif",
+      "statusRevoked": "Révoqué",
+      "invitedOn": "Invité le {{date}}",
+      "revoke": "Révoquer",
+      "revokeAria": "Révoquer {{name}}"
+    },
     "search": {
       "label": "Rechercher des clients",
       "placeholder": "Rechercher des clients...",

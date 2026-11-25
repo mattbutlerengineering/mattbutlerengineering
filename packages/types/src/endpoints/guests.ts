@@ -13,8 +13,11 @@ import { defineEndpoint, problem } from "./define.js";
 import { paginatedResponseSchema } from "../schemas/common.js";
 import {
   GuestSchema,
+  GuestMemberSchema,
   GuestSegmentSchema,
+  InviteMemberBodySchema,
   LapsingGuestSchema,
+  RevokeMemberResultSchema,
   WinBackResultSchema,
 } from "../schemas/guest.js";
 import {
@@ -26,6 +29,7 @@ import {
   UpdateGuestBodySchema,
   AddGuestNoteBodySchema,
   LapsingGuestsQuerySchema,
+  MembersQuerySchema,
 } from "../schemas/reservation-requests.js";
 
 /** Mounted at this prefix by the reservations service (ADR-007 /api/v1 versioning). */
@@ -33,6 +37,8 @@ export const GUESTS_PREFIX = "/api/v1/guests";
 
 const GuestIdParamsSchema = z.object({ id: z.string().describe("Guest ID") });
 const guestEnvelope = z.object({ data: GuestSchema });
+
+const memberEnvelope = z.object({ data: GuestMemberSchema });
 
 const authRequired = problem("Authentication required");
 const guestNotFound = problem("Guest not found");
@@ -146,6 +152,43 @@ export const guestsEndpoints = {
       424: problem(
         "The email provider rejected the message, or email isn't configured; nothing was sent and the guest can be tried again."
       ),
+    },
+  }),
+  listMembers: defineEndpoint({
+    method: "GET",
+    path: `${GUESTS_PREFIX}/members`,
+    query: MembersQuerySchema,
+    responses: {
+      200: {
+        description: "Regulars Club members, newest invite first",
+        body: z.object({ data: z.array(GuestMemberSchema) }),
+      },
+      401: authRequired,
+    },
+  }),
+  inviteMember: defineEndpoint({
+    method: "POST",
+    path: `${GUESTS_PREFIX}/members`,
+    body: InviteMemberBodySchema,
+    responses: {
+      201: { description: "Member invited; the member link was emailed", body: memberEnvelope },
+      401: authRequired,
+      424: problem(
+        "The member was added but the invitation email was rejected or email isn't configured; the operator can invite again to retry."
+      ),
+    },
+  }),
+  revokeMember: defineEndpoint({
+    method: "POST",
+    path: `${GUESTS_PREFIX}/:id/revoke-membership`,
+    params: GuestIdParamsSchema,
+    responses: {
+      200: {
+        description: "Membership revoked; the member link no longer works",
+        body: z.object({ data: RevokeMemberResultSchema }),
+      },
+      401: authRequired,
+      404: problem("Guest not found, or not an active member"),
     },
   }),
   delete: defineEndpoint({

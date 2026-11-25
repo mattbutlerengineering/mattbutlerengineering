@@ -2,16 +2,20 @@ import type { z } from "zod";
 import type {
   PaginatedResponse,
   Guest,
+  GuestMember,
   GuestSegment,
   LapsingGuest,
   CreateGuestRequest,
   UpdateGuestRequest,
   FindOrCreateGuestBodySchema,
+  InviteMemberBodySchema,
 } from "@mbe/types";
 import { guestsEndpoints } from "@mbe/types";
 import type { ApiClient } from "./client.js";
 
 export type FindOrCreateGuestRequest = z.input<typeof FindOrCreateGuestBodySchema>;
+
+export type InviteMemberRequest = z.input<typeof InviteMemberBodySchema>;
 
 export interface ListGuestsParams {
   page?: number;
@@ -115,5 +119,26 @@ export class GuestsClient {
    */
   async sendWinBack(id: string): Promise<{ sent: boolean }> {
     return (await this.client.call(guestsEndpoints.sendWinBack, { params: { id } })).data;
+  }
+
+  /**
+   * The venue's Regulars Club members, newest invite first
+   */
+  async listMembers(venueId: string): Promise<GuestMember[]> {
+    return (await this.client.call(guestsEndpoints.listMembers, { query: { venueId } })).data;
+  }
+
+  /**
+   * Invite a guest to the Regulars Club; emails the signed member link
+   */
+  async inviteMember(data: InviteMemberRequest): Promise<GuestMember> {
+    return (await this.client.call(guestsEndpoints.inviteMember, { body: data })).data;
+  }
+
+  /**
+   * Revoke a guest's membership; their member link stops working
+   */
+  async revokeMember(guestId: string): Promise<{ revoked: boolean }> {
+    return (await this.client.call(guestsEndpoints.revokeMember, { params: { id: guestId } })).data;
   }
 }

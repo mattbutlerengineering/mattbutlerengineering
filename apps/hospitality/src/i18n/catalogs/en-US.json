@@ -1269,6 +1269,21 @@
     "shown_other": "{{count}} guests shown",
     "addGuest": "Add Guest",
     "addAGuest": "Add a Guest",
+    "regulars": {
+      "title": "Regulars Club",
+      "description": "Invite guests by email. Each member gets a personal booking link you can revoke any time.",
+      "name": "Name",
+      "email": "Email",
+      "invite": "Send invitation",
+      "sending": "Sending...",
+      "sent": "Invitation sent to {{email}}",
+      "empty": "No members yet. Invite a regular above.",
+      "statusActive": "Active",
+      "statusRevoked": "Revoked",
+      "invitedOn": "Invited {{date}}",
+      "revoke": "Revoke",
+      "revokeAria": "Revoke {{name}}"
+    },
     "search": {
       "label": "Search guests",
       "placeholder": "Search guests...",

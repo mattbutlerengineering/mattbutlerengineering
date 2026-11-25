@@ -15,6 +15,9 @@ import {
   type WinBackResult,
 } from "../services/win-back.js";
 import { winBackStatusFor } from "../services/win-back-store.js";
+import { resolveManageBaseUrl } from "../config/manage-base-url.js";
+import { listMembers, revokeMember } from "../services/guest-membership.js";
+import { inviteRegular, toGuestMember } from "../services/member-invite.js";
 import { venueScoped } from "./venue-scope.js";
 
 /**
@@ -324,6 +327,87 @@ export const guestRoutes: FastifyPluginAsync = async (fastify) => {
             .send(createProblemDetails(problem.status, problem.title, problem.detail));
         }
         return { data: { sent: result.status === "sent" } };
+      }
+    ),
+  });
+
+  // Regulars Club (#9626)
+  registerEndpoint(fastify, guestsEndpoints.listMembers, {
+    docs: {
+      summary: "List Regulars Club members",
+      operationId: "listGuestMembers",
+      description: "The venue's Regulars Club members with their status, newest invite first.",
+      tags: ["Guests"],
+      security: [{ bearerAuth: [] }],
+    },
+    preHandler: requireAuth,
+    handler: venueScoped({ venue: "query" }, async (_request, _reply, { venueId }) => {
+      const rows = await listMembers({ venueId });
+      return { data: rows.map((row) => toGuestMember(row, row.guest)) };
+    }),
+  });
+
+  registerEndpoint(fastify, guestsEndpoints.inviteMember, {
+    docs: {
+      summary: "Invite a Regulars Club member",
+      operationId: "inviteGuestMember",
+      description:
+        "Finds or creates the guest by email, activates their membership and emails the signed member link. Answers 424 when the email was not sent; the membership is kept and inviting again retries.",
+      tags: ["Guests"],
+      security: [{ bearerAuth: [] }],
+    },
+    preHandler: requireAuth,
+    handler: venueScoped({ venue: "body" }, async (request, reply, { venueId }) => {
+      const venue = await venueService.getById(venueId);
+      if (!venue) {
+        return reply.code(404).send(createProblemDetails(404, "Not Found", "Venue not found"));
+      }
+      const { email, name } = request.body;
+      const result = await inviteRegular(
+        { venue: { id: venue.id, name: venue.name, slug: venue.slug }, email, name },
+        {
+          guestService,
+          dispatcher: fastify.notificationPort,
+          baseUrl: resolveManageBaseUrl(process.env),
+          log: request.log,
+        }
+      );
+      if (result.status === "failed") {
+        return reply
+          .code(424)
+          .send(
+            createProblemDetails(
+              424,
+              "Failed Dependency",
+              `${result.member.guestName} was added to the Regulars Club, but the invitation email was not sent. You can invite again to retry.`
+            )
+          );
+      }
+      return reply.code(201).send({ data: result.member });
+    }),
+  });
+
+  registerEndpoint(fastify, guestsEndpoints.revokeMember, {
+    docs: {
+      summary: "Revoke a Regulars Club membership",
+      operationId: "revokeGuestMember",
+      description: "Revokes the guest's membership. Their member link stops working at once.",
+      tags: ["Guests"],
+      security: [{ bearerAuth: [] }],
+    },
+    preHandler: requireAuth,
+    handler: venueScoped(
+      {
+        venue: { entity: "guest", key: (request) => request.params.id, notFound: GUEST_NOT_FOUND },
+      },
+      async (request, reply, { venueId }) => {
+        const revoked = await revokeMember({ venueId, guestId: request.params.id });
+        if (!revoked) {
+          return reply
+            .code(404)
+            .send(createProblemDetails(404, "Not Found", "This guest is not an active member"));
+        }
+        return { data: { revoked: true } };
       }
     ),
   });

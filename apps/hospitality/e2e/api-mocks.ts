@@ -1133,6 +1133,53 @@ export async function mockApi(page: Page): Promise<SseMock> {
     }
     return jsonOk(route, guest);
   });
+  // Regulars Club (#9626): one seeded active member; invite adds, revoke flips (stateful per launch).
+  const members: Array<Record<string, unknown>> = [
+    {
+      id: "mem_e2e_001",
+      guestId: "guest_e2e_member",
+      guestName: "Marguerite Dupont",
+      guestEmail: "marguerite@example.com",
+      tier: "REGULAR",
+      status: "ACTIVE",
+      invitedAt: "2026-11-01T10:00:00.000Z",
+      revokedAt: null,
+    },
+  ];
+  await page.route(/\/api\/v1\/guests\/members(\?.*)?$/, async (route) => {
+    if (route.request().method() === "POST") {
+      const body = route.request().postDataJSON() as { email: string; name: string };
+      const created = {
+        id: `mem_e2e_${members.length + 1}`,
+        guestId: `guest_e2e_${members.length + 1}`,
+        guestName: body.name,
+        guestEmail: body.email,
+        tier: "REGULAR",
+        status: "ACTIVE",
+        invitedAt: new Date().toISOString(),
+        revokedAt: null,
+      };
+      members.unshift(created);
+      return route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: JSON.stringify({ data: created }),
+      });
+    }
+    return jsonOk(route, members);
+  });
+  await page.route(/\/api\/v1\/guests\/([^/]+)\/revoke-membership$/, (route) => {
+    const guestId = route.request().url().split("/").at(-2);
+    const index = members.findIndex((m) => m.guestId === guestId);
+    if (index >= 0) {
+      members[index] = {
+        ...members[index],
+        status: "REVOKED",
+        revokedAt: new Date().toISOString(),
+      };
+    }
+    return jsonOk(route, { revoked: true });
+  });
 
   // Floor Plans
   // Stateful create sequence (#4762): POST /api/v1/floor-plans (bare, no

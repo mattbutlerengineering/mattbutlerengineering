@@ -23,6 +23,7 @@ import { useReservations } from "../hooks/useReservations.js";
 import { useFormState } from "../hooks/use-form-state.js";
 import { GuestTable } from "../components/crm/GuestTable.js";
 import { GuestDrawer } from "../components/crm/GuestDrawer.js";
+import { RegularsClubPanel } from "../components/crm/RegularsClubPanel.js";
 import { SearchOrchestrator } from "../components/crm/SearchOrchestrator.js";
 import styles from "./GuestsPage.module.css";
 
@@ -302,6 +303,8 @@ export function GuestsPage({ _useGuestDirectory }: GuestsPageProps = {}) {
           </Stack>
         )}
       </div>
+
+      <RegularsClubPanel />
 
       <GuestDrawer
         guest={selectedGuest}
