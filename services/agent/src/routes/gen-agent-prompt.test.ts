@@ -379,6 +379,13 @@ describe("briefing, dashboard stats and page-only areas in the prompt", () => {
     expect(prompt).toMatch(/couldn't read the turned-away numbers.*never report zeros/);
   });
 
+  it("answers an add-a-seating what-if with estimate_new_seating, always as an estimate", () => {
+    expect(prompt).toMatch(/what if we added a 9:30 seating.*estimate_new_seating/);
+    expect(prompt).toMatch(/estimate_new_seating.*estimate, not a forecast/s);
+    expect(prompt).toMatch(/estimate_new_seating.*noTimeNamedSearches.*never/s);
+    expect(prompt).toMatch(/estimate_new_seating.*changes nothing/s);
+  });
+
   it("answers how the night went with get_night_summary, rendered as Stat elements", () => {
     expect(prompt).toMatch(/how did tonight go.*get_night_summary/);
     expect(prompt).toMatch(/¿cómo fue la noche\?/);

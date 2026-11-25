@@ -147,6 +147,13 @@ vi.mock("../components/dashboard", () => ({
   TurnedAwayHeatmap: ({ demand }: { demand: LostDemand | null | undefined }) => (
     <div data-testid="turned-away-heatmap" data-total={demand?.total ?? 0} />
   ),
+  SeatingWhatIf: ({
+    venueId,
+    demand,
+  }: {
+    venueId: string;
+    demand: LostDemand | null | undefined;
+  }) => <div data-testid="seating-what-if" data-venue={venueId} data-total={demand?.total ?? 0} />,
   DepositExposureWidget: ({
     depositAtRiskCount,
     noShowExposureCents,
@@ -551,6 +558,23 @@ describe("HomePage", () => {
 
     expect(useLostDemand).toHaveBeenCalledWith({ venueId: "venue-1" });
     expect(screen.getByTestId("turned-away-heatmap").getAttribute("data-total")).toBe("9");
+  });
+
+  it("puts the add-a-seating what-if beside the heatmap for the selected venue", () => {
+    vi.mocked(useVenue).mockReturnValue(venueContextValue(VENUE));
+    vi.mocked(useLostDemand).mockReturnValue({
+      data: { ...LOST_DEMAND, total: 9 },
+      isLoading: false,
+      error: null,
+      isPlaceholderData: false,
+      refetch: vi.fn(),
+    });
+
+    renderPage();
+
+    const whatIf = screen.getByTestId("seating-what-if");
+    expect(whatIf.getAttribute("data-venue")).toBe("venue-1");
+    expect(whatIf.getAttribute("data-total")).toBe("9");
   });
 
   it("shows an actionable error with retry when the turned-away query fails", () => {

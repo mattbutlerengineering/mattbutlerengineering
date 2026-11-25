@@ -188,6 +188,7 @@ describe("POST /api/gen/agent", () => {
       "create_menu",
       "create_reservation",
       "end_tonight_change",
+      "estimate_new_seating",
       "get_briefing",
       "get_deposit_status",
       "get_menu",

@@ -755,7 +755,34 @@
       "tableLabel": "Búsquedas sin mesa por día de la semana y hora",
       "anyTime": "Sin hora indicada",
       "anyTimeNote": "Los invitados de la última fila no indicaron hora y no encontraron mesa ese día, por eso se cuentan solo por día de la semana, nunca en una hora.",
-      "loadFailed": "No se pudieron cargar las búsquedas sin mesa."
+      "loadFailed": "No se pudieron cargar las búsquedas sin mesa.",
+      "whatIf": {
+        "title": "Agregar un turno",
+        "intro": "Elige un día de la semana y una hora para estimar lo que habría captado un turno adicional.",
+        "weekday": "Día de la semana",
+        "time": "Hora",
+        "party": "Tamaño del grupo",
+        "partyAll": "Cualquier tamaño",
+        "party1to2": "1 a 2 invitados",
+        "party3to4": "3 a 4 invitados",
+        "party5to8": "5 a 8 invitados",
+        "party9plus": "9 invitados o más",
+        "result_one": "Un turno adicional a las {{time}} cada {{weekday}} habría captado hasta {{count}} búsqueda.",
+        "result_many": "Un turno adicional a las {{time}} cada {{weekday}} habría captado hasta {{count}} de búsquedas.",
+        "result_other": "Un turno adicional a las {{time}} cada {{weekday}} habría captado hasta {{count}} búsquedas.",
+        "none": "Un turno adicional a las {{time}} cada {{weekday}} no habría captado ninguna de las búsquedas sin mesa.",
+        "method_one": "Estimación, no un pronóstico. Basada en {{count}} búsqueda de los últimos 28 días que no encontró mesa entre {{from}} y {{to}} en un {{weekday}}. Cada una de esas búsquedas se cuenta como una posible reserva, y algunos invitados no habrían reservado.",
+        "method_many": "Estimación, no un pronóstico. Basada en {{count}} de búsquedas de los últimos 28 días que no encontraron mesa entre {{from}} y {{to}} en un {{weekday}}. Cada una de esas búsquedas se cuenta como una posible reserva, y algunos invitados no habrían reservado.",
+        "method_other": "Estimación, no un pronóstico. Basada en {{count}} búsquedas de los últimos 28 días que no encontraron mesa entre {{from}} y {{to}} en un {{weekday}}. Cada una de esas búsquedas se cuenta como una posible reserva, y algunos invitados no habrían reservado.",
+        "partyNote": "Solo se cuentan grupos de {{min}} a {{max}} invitados.",
+        "anyTimeNote_one": "{{count}} búsqueda más de ese día no indicó hora y no encontró mesa. Pudo haber reservado, pero no está en este conteo.",
+        "anyTimeNote_many": "{{count}} de búsquedas más de ese día no indicaron hora y no encontraron mesa. Pudieron haber reservado, pero no están en este conteo.",
+        "anyTimeNote_other": "{{count}} búsquedas más de ese día no indicaron hora y no encontraron mesa. Pudieron haber reservado, pero no están en este conteo.",
+        "closed": "No tienes servicio el {{weekday}}, así que no hay nada a lo que agregar un turno.",
+        "alreadyOffered": "Las {{time}} ya se pueden reservar en un {{weekday}}, o ninguna mesa cabe para ese grupo, así que agregarlas no cambiaría nada.",
+        "blocked": "Un turno a las {{time}} en un {{weekday}} chocaría con otro servicio. Cambia primero tu horario para probarlo.",
+        "loadFailed": "No se pudo estimar este turno."
+      }
     },
     "deposit": {
       "title": "Exposición de depósitos",
@@ -4349,7 +4376,7 @@
       },
       "lostDemandLedger": {
         "label": "Registro de demanda perdida",
-        "detail": "Cada reserva que no pudiste aceptar, para ver cuánto te costó una noche llena."
+        "detail": "Cada búsqueda que no encontró mesa, por día y hora, y una estimación de lo que habría captado un nuevo turno."
       },
       "guestPassport": {
         "label": "Pasaporte del comensal",

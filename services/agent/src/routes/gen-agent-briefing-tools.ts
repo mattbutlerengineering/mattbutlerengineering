@@ -32,6 +32,14 @@ const WEEKDAYS = [
 /** How many weekday-and-hour slots the chat gets: enough to answer, few enough to read. */
 const BUSIEST_LIMIT = 10;
 
+const TIME_OF_DAY = /^([01]\d|2[0-3]):[0-5]\d$/;
+const ESTIMATE_METHOD =
+  "Estimate, not a forecast. Counts the searches in the lookback that found no table at a time inside the window on that weekday, for parties a table fits. Every such search counts as a possible booking, and some guests would not have booked. Searches that named no time are reported apart and are not in searches.";
+
+/** Minutes past midnight as 24-hour HH:MM. */
+const hhmm = (minute: number): string =>
+  `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`;
+
 const UNREADABLE_DATE = "The date can't be read. Use a real date as YYYY-MM-DD.";
 
 /** True for a real calendar date written YYYY-MM-DD (2026-02-30 is not one). */
@@ -163,6 +171,58 @@ export function createBriefingTools(
           return readFailure(err, "the turned-away numbers", {
             notEmpty: "nobody was turned away",
           });
+        }
+      },
+    }),
+    estimate_new_seating: tool({
+      description:
+        'Estimate how many turned-away searches an extra seating at a weekday and time would have caught, from the last 28 days of searches that found no table. Use it for "what if we added a 9:30 seating on Tuesdays". Read only: it previews the seating and never changes availability. Always an estimate, not a forecast.',
+      inputSchema: z.object({
+        weekday: z.enum(WEEKDAYS).describe("Weekday of the candidate seating, in English"),
+        time: z
+          .string()
+          .describe("Candidate seating time as 24-hour HH:MM, in the venue's own time"),
+        minParty: z.number().int().min(1).max(20).optional().describe("Smallest party to count"),
+        maxParty: z.number().int().min(1).max(20).optional().describe("Largest party to count"),
+      }),
+      execute: async ({ weekday, time, minParty, maxParty }) => {
+        if (!venueId) return NO_VENUE;
+        if (!WEEKDAYS.includes(weekday)) {
+          return { rejected: true, error: "The weekday can't be read. Use a name like Tuesday." };
+        }
+        if (!TIME_OF_DAY.test(time)) {
+          return {
+            rejected: true,
+            error: "The time can't be read. Use 24-hour HH:MM, like 21:30.",
+          };
+        }
+        if (minParty !== undefined && maxParty !== undefined && minParty > maxParty) {
+          return { rejected: true, error: "minParty must not exceed maxParty." };
+        }
+        log.info({ venueId, weekday, time }, "estimate_new_seating tool called");
+        try {
+          const result = await api.reservations.getLostDemandWhatIf({
+            venueId,
+            weekday: WEEKDAYS.indexOf(weekday),
+            time,
+            ...(minParty === undefined ? {} : { minParty }),
+            ...(maxParty === undefined ? {} : { maxParty }),
+          });
+          return {
+            isEstimate: true,
+            outcome: result.outcome,
+            weekday,
+            time,
+            // Only an estimated outcome has a count; a closed or blocked day must not read as zero.
+            ...(result.outcome === "estimated" ? { searches: result.searches } : {}),
+            window: { from: hhmm(result.windowStart), to: hhmm(result.windowEnd) },
+            noTimeNamedSearches: result.anyTimeSearches,
+            lookback: { from: result.from, to: result.to },
+            method: ESTIMATE_METHOD,
+          };
+        } catch (err) {
+          log.error({ venueId, ...failureLog(err) }, "estimate_new_seating failed");
+          return readFailure(err, "the seating estimate", { notEmpty: "nothing was turned away" });
         }
       },
     }),

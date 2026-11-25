@@ -30,6 +30,10 @@ export {
   LOST_DEMAND_PATH,
   LostDemandQuerySchema,
   LostDemandSchema,
+  LOST_DEMAND_WHAT_IF_PATH,
+  LostDemandWhatIfQuerySchema,
+  LostDemandWhatIfSchema,
+  type LostDemandWhatIf,
   type LostDemand,
   type LostDemandCell,
 } from "./lost-demand.js";

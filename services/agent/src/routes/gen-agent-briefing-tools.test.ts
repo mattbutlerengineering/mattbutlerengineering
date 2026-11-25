@@ -316,6 +316,113 @@ describe("get_turned_away_demand chat tool", () => {
   });
 });
 
+describe("estimate_new_seating chat tool", () => {
+  let log: FastifyBaseLogger;
+  let api: { reservations: { getLostDemandWhatIf: ReturnType<typeof vi.fn> } };
+
+  const estimate = {
+    venueId: "v1",
+    from: "2026-10-28",
+    to: "2026-11-24",
+    weekday: 2,
+    minute: 21 * 60 + 30,
+    outcome: "estimated",
+    searches: 7,
+    windowStart: 21 * 60,
+    windowEnd: 22 * 60,
+    minParty: null,
+    maxParty: null,
+    anyTimeSearches: 3,
+  };
+
+  beforeEach(() => {
+    log = createMockLogger();
+    api = { reservations: { getLostDemandWhatIf: vi.fn().mockResolvedValue(estimate) } };
+  });
+
+  function run(
+    input: Record<string, unknown>,
+    options: { venueId?: string; timeZone?: string } = { venueId: "v1" }
+  ) {
+    const tools = createAgentTools(log, api as never, options);
+    return tools.estimate_new_seating!.execute!(input as never, toolCtx);
+  }
+
+  it("is a read: not confirm-gated, so it never changes availability", () => {
+    expect(GEN_WRITE_TOOL_NAMES).not.toContain("estimate_new_seating");
+  });
+
+  it("pins the venue and sends the weekday as its index and the time as given", async () => {
+    await run({ venueId: "other", weekday: "Tuesday", time: "21:30", minParty: 2, maxParty: 4 });
+
+    expect(api.reservations.getLostDemandWhatIf).toHaveBeenCalledWith({
+      venueId: "v1",
+      weekday: 2,
+      time: "21:30",
+      minParty: 2,
+      maxParty: 4,
+    });
+  });
+
+  it("returns the count labelled as an estimate with its method, whole-day misses apart", async () => {
+    const result = await run({ weekday: "Tuesday", time: "21:30" });
+
+    expect(result).toMatchObject({
+      isEstimate: true,
+      outcome: "estimated",
+      weekday: "Tuesday",
+      time: "21:30",
+      searches: 7,
+      window: { from: "21:00", to: "22:00" },
+      noTimeNamedSearches: 3,
+      lookback: { from: "2026-10-28", to: "2026-11-24" },
+    });
+    expect((result as { method: string }).method).toMatch(/estimate, not a forecast/i);
+    expect((result as { method: string }).method).toMatch(/found no table/i);
+  });
+
+  it("reports an outcome with no number for a closed day", async () => {
+    api.reservations.getLostDemandWhatIf.mockResolvedValue({
+      ...estimate,
+      outcome: "closed",
+      searches: 0,
+    });
+
+    const result = await run({ weekday: "Tuesday", time: "21:30" });
+
+    expect(result).toMatchObject({ outcome: "closed", isEstimate: true });
+    expect(result).not.toHaveProperty("searches");
+  });
+
+  it("refuses an unreadable time or weekday without calling the API", async () => {
+    expect(await run({ weekday: "Tuesday", time: "9:30pm" })).toMatchObject({ rejected: true });
+    expect(await run({ weekday: "Someday", time: "21:30" })).toMatchObject({ rejected: true });
+    expect(api.reservations.getLostDemandWhatIf).not.toHaveBeenCalled();
+  });
+
+  it("refuses a backwards party range", async () => {
+    expect(
+      await run({ weekday: "Tuesday", time: "21:30", minParty: 6, maxParty: 2 })
+    ).toMatchObject({ rejected: true });
+    expect(api.reservations.getLostDemandWhatIf).not.toHaveBeenCalled();
+  });
+
+  it("needs a selected venue", async () => {
+    expect(await run({ weekday: "Tuesday", time: "21:30" }, {})).toMatchObject({
+      error: expect.stringContaining("No venue"),
+    });
+  });
+
+  it("never turns a failed read into zeros", async () => {
+    api.reservations.getLostDemandWhatIf.mockRejectedValue(new Error("boom"));
+
+    const result = await run({ weekday: "Tuesday", time: "21:30" });
+
+    expect(result).toMatchObject({ unknown: true, error: expect.stringMatching(/couldn't/i) });
+    expect(result).not.toHaveProperty("searches");
+  });
+});
+
 describe("get_briefing chat tool", () => {
   let log: FastifyBaseLogger;
   let api: { briefing: { list: ReturnType<typeof vi.fn> } };

@@ -1,0 +1,20 @@
+/* Three pickers side by side where they fit, stacked at 375px. */
+.controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: var(--rialto-space-md);
+  margin-block-start: var(--rialto-space-md);
+}
+
+.result {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-xs);
+  margin-block-start: var(--rialto-space-md);
+}
+
+.method {
+  display: block;
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-xs);
+}

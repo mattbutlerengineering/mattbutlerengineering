@@ -1068,6 +1068,24 @@ export async function mockApi(page: Page): Promise<SseMock> {
   await page.route("**/api/v1/reservations/metrics/lost-demand?*", (route) =>
     jsonOk(route, { venueId: "", from: "", to: "", total: 0, cells: [], anyTime: [] })
   );
+  // Its "add a seating" what-if (#9486): the component stays hidden on an empty heatmap, so this
+  // only keeps a stray request off the lost-demand glob above (whose `?` also matches `/`).
+  await page.route("**/api/v1/reservations/metrics/lost-demand/what-if?*", (route) =>
+    jsonOk(route, {
+      venueId: "",
+      from: "",
+      to: "",
+      weekday: 5,
+      minute: 1170,
+      outcome: "estimated",
+      searches: 0,
+      windowStart: 1140,
+      windowEnd: 1200,
+      minParty: null,
+      maxParty: null,
+      anyTimeSearches: 0,
+    })
+  );
   await page.route("**/api/v1/guests/find-or-create", (route) => {
     const guests = JSON.parse(loadFixture("guests-list"));
     return jsonOk(route, guests.data[0]);

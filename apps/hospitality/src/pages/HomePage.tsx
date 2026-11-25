@@ -15,6 +15,7 @@ import {
   DepositExposureWidget,
   StatRow,
   TurnedAwayHeatmap,
+  SeatingWhatIf,
 } from "../components/dashboard";
 import { useVenue } from "../contexts/VenueContext.js";
 import { useDashboardStatsQuery } from "../hooks/useDashboardStatsQuery.js";
@@ -195,7 +196,10 @@ export function HomePage() {
                 onRetry={refetchLostDemand}
               />
             ) : (
-              <TurnedAwayHeatmap demand={lostDemand} />
+              <>
+                <TurnedAwayHeatmap demand={lostDemand} />
+                {selectedVenueId && <SeatingWhatIf venueId={selectedVenueId} demand={lostDemand} />}
+              </>
             )}
           </div>
         </div>

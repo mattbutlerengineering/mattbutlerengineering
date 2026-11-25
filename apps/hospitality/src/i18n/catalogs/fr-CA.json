@@ -755,7 +755,34 @@
       "tableLabel": "Recherches sans table par jour de la semaine et heure",
       "anyTime": "Heure non précisée",
       "anyTimeNote": "Les clients de la dernière ligne n'ont précisé aucune heure et n'ont trouvé aucune table ce jour-là; ils sont donc comptés par jour de la semaine seulement, jamais dans une heure.",
-      "loadFailed": "Impossible de charger les recherches sans table."
+      "loadFailed": "Impossible de charger les recherches sans table.",
+      "whatIf": {
+        "title": "Ajouter un service",
+        "intro": "Choisissez un jour de la semaine et une heure pour estimer ce qu'un service supplémentaire aurait attrapé.",
+        "weekday": "Jour de la semaine",
+        "time": "Heure",
+        "party": "Taille du groupe",
+        "partyAll": "Toutes les tailles",
+        "party1to2": "1 à 2 personnes",
+        "party3to4": "3 à 4 personnes",
+        "party5to8": "5 à 8 personnes",
+        "party9plus": "9 personnes ou plus",
+        "result_one": "Un service supplémentaire à {{time}} chaque {{weekday}} aurait attrapé jusqu'à {{count}} recherche.",
+        "result_many": "Un service supplémentaire à {{time}} chaque {{weekday}} aurait attrapé jusqu'à {{count}} de recherches.",
+        "result_other": "Un service supplémentaire à {{time}} chaque {{weekday}} aurait attrapé jusqu'à {{count}} recherches.",
+        "none": "Un service supplémentaire à {{time}} chaque {{weekday}} n'aurait attrapé aucune des recherches sans table.",
+        "method_one": "Estimation, pas une prévision. Fondée sur {{count}} recherche des 28 derniers jours qui n'a trouvé aucune table entre {{from}} et {{to}} un {{weekday}}. Chaque recherche de ce genre est comptée comme une réservation possible, et certains clients n'auraient pas réservé.",
+        "method_many": "Estimation, pas une prévision. Fondée sur {{count}} de recherches des 28 derniers jours qui n'ont trouvé aucune table entre {{from}} et {{to}} un {{weekday}}. Chaque recherche de ce genre est comptée comme une réservation possible, et certains clients n'auraient pas réservé.",
+        "method_other": "Estimation, pas une prévision. Fondée sur {{count}} recherches des 28 derniers jours qui n'ont trouvé aucune table entre {{from}} et {{to}} un {{weekday}}. Chaque recherche de ce genre est comptée comme une réservation possible, et certains clients n'auraient pas réservé.",
+        "partyNote": "Seuls les groupes de {{min}} à {{max}} personnes sont comptés.",
+        "anyTimeNote_one": "{{count}} recherche de plus ce jour-là n'a précisé aucune heure et n'a trouvé aucune table. Elle aurait pu réserver aussi, mais elle n'est pas dans ce total.",
+        "anyTimeNote_many": "{{count}} de recherches de plus ce jour-là n'ont précisé aucune heure et n'ont trouvé aucune table. Elles auraient pu réserver aussi, mais elles ne sont pas dans ce total.",
+        "anyTimeNote_other": "{{count}} recherches de plus ce jour-là n'ont précisé aucune heure et n'ont trouvé aucune table. Elles auraient pu réserver aussi, mais elles ne sont pas dans ce total.",
+        "closed": "Vous n'avez aucun service le {{weekday}}, donc il n'y a rien à quoi ajouter un service.",
+        "alreadyOffered": "{{time}} est déjà réservable un {{weekday}}, ou aucune table ne convient à ce groupe, donc l'ajouter ne changerait rien.",
+        "blocked": "Un service à {{time}} un {{weekday}} chevaucherait un autre service. Modifiez d'abord vos heures pour l'essayer.",
+        "loadFailed": "Impossible d'estimer ce service."
+      }
     },
     "deposit": {
       "title": "Exposition aux dépôts",
@@ -4349,7 +4376,7 @@
       },
       "lostDemandLedger": {
         "label": "Registre de la demande perdue",
-        "detail": "Chaque réservation que vous n'avez pas pu prendre, pour voir ce qu'une salle pleine vous a coûté."
+        "detail": "Chaque recherche sans table, par jour et par heure, et une estimation de ce qu'un nouveau service aurait attrapé."
       },
       "guestPassport": {
         "label": "Passeport du client",

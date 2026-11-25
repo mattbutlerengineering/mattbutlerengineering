@@ -736,7 +736,31 @@
       "tableLabel": "Turned-away searches by weekday and hour",
       "anyTime": "No time given",
       "anyTimeNote": "Guests in the last row named no time and found no table that day, so they are counted by weekday only, never in an hour.",
-      "loadFailed": "Couldn't load turned-away searches."
+      "loadFailed": "Couldn't load turned-away searches.",
+      "whatIf": {
+        "title": "Add a seating",
+        "intro": "Pick a weekday and a time to estimate what an extra seating would have caught.",
+        "weekday": "Weekday",
+        "time": "Time",
+        "party": "Party size",
+        "partyAll": "Any size",
+        "party1to2": "1 to 2 guests",
+        "party3to4": "3 to 4 guests",
+        "party5to8": "5 to 8 guests",
+        "party9plus": "9 or more guests",
+        "result_one": "An extra seating at {{time}} every {{weekday}} could have caught up to {{count}} search.",
+        "result_other": "An extra seating at {{time}} every {{weekday}} could have caught up to {{count}} searches.",
+        "none": "An extra seating at {{time}} every {{weekday}} would not have caught any turned-away searches.",
+        "method_one": "Estimate, not a forecast. Based on {{count}} search in the last 28 days that found no table between {{from}} and {{to}} on a {{weekday}}. Every such search is counted as a possible booking, and some guests would not have booked.",
+        "method_other": "Estimate, not a forecast. Based on {{count}} searches in the last 28 days that found no table between {{from}} and {{to}} on a {{weekday}}. Every such search is counted as a possible booking, and some guests would not have booked.",
+        "partyNote": "Only parties of {{min}} to {{max}} guests are counted.",
+        "anyTimeNote_one": "{{count}} more search that day named no time and found no table. It may have booked too, but it is not in this count.",
+        "anyTimeNote_other": "{{count}} more searches that day named no time and found no table. They may have booked too, but they are not in this count.",
+        "closed": "You have no service on {{weekday}}, so there is nothing to add a seating to.",
+        "alreadyOffered": "{{time}} is already bookable on a {{weekday}}, or no table fits that party size, so adding it would change nothing.",
+        "blocked": "A seating at {{time}} on a {{weekday}} would run into another service. Change your hours first to try it.",
+        "loadFailed": "Couldn't estimate this seating."
+      }
     },
     "deposit": {
       "title": "Deposit Exposure",
@@ -4237,7 +4261,7 @@
       },
       "lostDemandLedger": {
         "label": "Lost Demand Ledger",
-        "detail": "Every booking you could not take, so you can see what a full night cost you."
+        "detail": "Every search that found no table, by weekday and hour, and an estimate of what a new seating would have caught."
       },
       "guestPassport": {
         "label": "Guest Passport",

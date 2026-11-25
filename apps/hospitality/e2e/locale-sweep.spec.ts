@@ -684,6 +684,25 @@ async function mockGatedRoutes(page: Page, route: string): Promise<void> {
         anyTime: [{ weekday: 0, searches: 4 }],
       },
     ],
+    // `home` (#9486): the add-a-seating estimate under the heatmap, so its picker labels, the
+    // result sentence and the method line are swept in every locale.
+    [
+      /\/api\/v1\/reservations\/metrics\/lost-demand\/what-if\?/,
+      {
+        venueId: VENUE_ID,
+        from: day,
+        to: day,
+        weekday: 5,
+        minute: 19 * 60 + 30,
+        outcome: "estimated",
+        searches: 6,
+        windowStart: 19 * 60,
+        windowEnd: 20 * 60,
+        minParty: null,
+        maxParty: null,
+        anyTimeSearches: 4,
+      },
+    ],
   ];
   for (const [pattern, data] of answers) {
     await page.route(pattern, (r) => r.fulfill(ok(data)));
