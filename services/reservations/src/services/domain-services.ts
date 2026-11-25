@@ -19,6 +19,7 @@ import { waitlistService } from "./waitlist.js";
 import { briefingService } from "./briefing.js";
 import { venueTeamService } from "./venue-team.js";
 import { lostDemandService } from "./lost-demand.js";
+import { accessTokenService } from "./access-token.js";
 
 /**
  * The reservations domain-service seam (issue #3357).
@@ -65,6 +66,7 @@ export interface DomainServices {
   briefingService: typeof briefingService;
   venueTeamService: typeof venueTeamService;
   lostDemandService: typeof lostDemandService;
+  accessTokenService: typeof accessTokenService;
 }
 
 /**
@@ -96,4 +98,5 @@ export const defaultDomainServices: Omit<
   briefingService,
   venueTeamService,
   lostDemandService,
+  accessTokenService,
 };

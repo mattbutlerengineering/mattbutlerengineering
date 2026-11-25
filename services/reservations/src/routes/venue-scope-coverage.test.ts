@@ -49,6 +49,9 @@ const UNSCOPED_ROUTES: Readonly<Record<string, UnscopedReason>> = {
   "PATCH /api/v1/venues/groups/:id": "venue-group (no RLS)",
   "DELETE /api/v1/venues/groups/:id": "venue-group (no RLS)",
   "GET /api/v1/reservations/me": "user-scoped (/me)",
+  "POST /api/v1/me/tokens": "user-scoped (/me)",
+  "GET /api/v1/me/tokens": "user-scoped (/me)",
+  "DELETE /api/v1/me/tokens/:id": "user-scoped (/me)",
   "POST /api/v1/stripe/webhook": "webhook (signature-verified)",
   // Matt ruling 2026-10-10: an admin with no venueId gets an unfiltered
   // all-venue stream (#4016), which venueScoped cannot express. The route keeps
