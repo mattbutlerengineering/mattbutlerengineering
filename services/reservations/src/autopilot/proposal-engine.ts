@@ -49,8 +49,8 @@ function waitingByWait(state: NightState): NightWaitlistEntry[] {
 }
 
 /**
- * A waiting party this much larger than another counts as materially larger: when a table is
- * the only one that seats them, it is held back from the smaller party.
+ * A waiting party this much larger than another counts as materially larger: a table is held back
+ * from the smaller party when taking it would leave fewer of the larger parties seatable.
  */
 const MIN_LARGER_PARTY_GAP = 2;
 
@@ -72,7 +72,30 @@ function legalTablesByEntry(
   return byEntry;
 }
 
-/** True when a party still waiting in `later`, materially larger than `entry`, can only be seated at `table`. */
+/**
+ * Most parties that can sit at once, each at a distinct table from its own list (maximum
+ * bipartite matching, augmenting paths). Floor sizes are tiny, so this is cheap.
+ */
+function maxSeatable(options: readonly (readonly string[])[]): number {
+  const owner = new Map<string, number>();
+  const tryParty = (p: number, seen: Set<string>): boolean =>
+    options[p]!.some((t) => {
+      if (seen.has(t)) return false;
+      seen.add(t);
+      const o = owner.get(t);
+      if (o !== undefined && !tryParty(o, seen)) return false;
+      owner.set(t, p);
+      return true;
+    });
+  return options.filter((_, p) => tryParty(p, new Set())).length;
+}
+
+/**
+ * True when taking `table` for `entry` would strand a party still waiting in `later` that is
+ * materially larger than `entry`: with the table gone, fewer of those larger parties can be
+ * seated from the remaining free tables than with it. Looks at every chain of larger parties,
+ * not just the next one (a 2 on the 5-top would push the 5 onto the 6-top and strand the 6).
+ */
 function needsTable(
   table: NightTable,
   entry: NightWaitlistEntry,
@@ -80,17 +103,19 @@ function needsTable(
   legal: ReadonlyMap<string, NightTable[]>,
   claimed: ReadonlySet<string>
 ): boolean {
-  return later.some((l) => {
-    if (l.partySize < entry.partySize + MIN_LARGER_PARTY_GAP) return false;
-    const open = (legal.get(l.id) ?? []).filter((t) => !claimed.has(t.id));
-    return open.length === 1 && open[0]!.id === table.id;
-  });
+  const options = later
+    .filter((l) => l.partySize >= entry.partySize + MIN_LARGER_PARTY_GAP)
+    .map((l) => (legal.get(l.id) ?? []).filter((t) => !claimed.has(t.id)).map((t) => t.id));
+  if (options.length === 0) return false;
+  const without = options.map((ids) => ids.filter((id) => id !== table.id));
+  return maxSeatable(without) < maxSeatable(options);
 }
 
 /**
- * Parties that need a scarce big table get it; the rest are filled longest-waiting first, each
- * with the legal free table that wastes the fewest seats. A table is held back from a party when
- * a materially larger party still waiting has no other table that seats them.
+ * Waiting parties are filled longest-waiting first, each with the legal free table that wastes the
+ * fewest seats. A table is held back from a party when taking it would leave a materially larger
+ * waiting party (or a chain of them) with no table, so the scarce big tables reach the parties
+ * that need them.
  */
 function offerCandidates(state: NightState, at: number, waiting: NightWaitlistEntry[]) {
   const claimed = new Set<string>();
@@ -110,7 +135,7 @@ function offerCandidates(state: NightState, at: number, waiting: NightWaitlistEn
     const waited = waitedMinutes(entry, at);
     const since = waited > 0 ? `; they've waited ${waited} min` : "";
     const why = held.has(best.id)
-      ? `${tableName(best)} is the only table that fits them, so it is held back from smaller parties`
+      ? `${tableName(best)} is held back so larger waiting parties can all be seated`
       : `${tableName(best)} is free and the best fit`;
     out.push({
       proposal: {
