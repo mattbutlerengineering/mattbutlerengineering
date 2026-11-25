@@ -234,6 +234,8 @@ function scheduleServiceRows(
         bookingTypes: [...s.bookingTypes],
         weekdays: was?.weekdays ?? [],
         dayHours: was?.dayHours ?? { version: 1 as const, sets: [] },
+        // Rules are not edited here, but an upsert replaces the row: they ride along as stored.
+        ...(was?.rules ? { rules: was.rules } : {}),
         id,
         scheduleId,
         venueServiceId: s.venueServiceId,
@@ -330,7 +332,14 @@ function regularWeekdayRows(
     upsert: encoded.flatMap((row): ScheduleService[] => {
       const was = stored.get(row.venueServiceId);
       if (was && rowKey(was) === rowKey(row)) return [];
-      return [{ ...row, id: was?.id ?? makeId(), scheduleId: week.schedule.id }];
+      return [
+        {
+          ...row,
+          ...(was?.rules ? { rules: was.rules } : {}),
+          id: was?.id ?? makeId(),
+          scheduleId: week.schedule.id,
+        },
+      ];
     }),
     removed: week.rows
       .filter((row) => !encoded.some((e) => e.venueServiceId === row.venueServiceId))

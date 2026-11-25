@@ -2568,6 +2568,11 @@
       "loadError": "Impossible de charger pourquoi ce jour est ainsi"
     },
     "quickSetup": {
+      "pacing": {
+        "covers": "Rythme : couverts par période",
+        "hint": "Maximum de couverts par période. Abaisse la limite de l'établissement pour ce service; laissez vide pour aucune limite.",
+        "window": "Période du rythme"
+      },
       "title": "Définissez votre semaine habituelle",
       "intro": "Indiquez aux clients quand vous prenez des réservations. Vous pourrez modifier chaque jour plus tard.",
       "serviceN": "Service {{n}}",
