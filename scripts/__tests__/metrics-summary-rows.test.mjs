@@ -104,6 +104,23 @@ describe("buildMutationRow", () => {
       });
     });
 
+    it("surfaces the state of an extra report that measured nothing", () => {
+      const brokenTests = {
+        thresholds: { high: 80 },
+        files: { "services/reservations/src/a.ts": { mutants: [mutant("Survived")] } },
+        testsCompleted: 0,
+      };
+      const row = buildMutationRow(report, { date: "d", commit: "c" }, [brokenTests, null]);
+      expect(row.mutation_score).toBe(80);
+      expect(row.packages).toEqual({ "services/users": 66.67, "packages/types": 100 });
+      expect(row.extra_states).toEqual(["harness-broken", "report-missing"]);
+    });
+
+    it("omits extra_states when every extra report was usable", () => {
+      const row = buildMutationRow(report, { date: "d", commit: "c" }, [reservations]);
+      expect(row).not.toHaveProperty("extra_states");
+    });
+
     it("ignores an unusable extra report and keeps the base row", () => {
       const row = buildMutationRow(report, { date: "d", commit: "c" }, [null, { files: {} }]);
       expect(row.packages).toEqual({ "services/users": 66.67, "packages/types": 100 });

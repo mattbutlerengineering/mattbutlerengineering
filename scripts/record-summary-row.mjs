@@ -51,10 +51,13 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     metric = "lighthouse";
   } else if (kind === "mutation") {
     // `--extra <mutation.json>` (repeatable) adds another scope's per-package scores.
-    const extras = process.argv
-      .flatMap((arg, i, all) => (arg === "--extra" ? [readJson(all[i + 1])] : []))
-      .filter(Boolean);
+    const extras = process.argv.flatMap((arg, i, all) =>
+      arg === "--extra" ? [readJson(all[i + 1])] : []
+    );
     row = buildMutationRow(readJson(input), meta, extras);
+    if (row?.extra_states) {
+      console.error(`mutation: extra report(s) not scored: ${row.extra_states.join(", ")}`);
+    }
     metric = "mutation-score";
   } else if (kind === "audit-coverage") {
     const text = readText(input); // missing file = sweep produced nothing → no row

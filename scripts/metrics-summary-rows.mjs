@@ -89,20 +89,30 @@ function packageScores(reportJson) {
  * @param {{ date: string, commit: string }} meta
  * @param {Array<object|null|undefined>} [extraReports] Further scopes' reports (e.g.
  *   services/reservations). Only their per-package scores are added; the overall score
- *   stays the primary report's, and an unusable extra report is skipped, never fatal.
+ *   stays the primary report's, and an unusable extra report is skipped, never fatal, with its
+ *   classifyMutationRun() state recorded in `extra_states` so it is never silent.
  */
 export function buildMutationRow(reportJson, { date, commit }, extraReports = []) {
   const overall = collectMutationScore(reportJson);
   if (!overall.available) return null;
 
   const packages = packageScores(reportJson);
+  const extraStates = [];
   for (const extra of extraReports) {
-    if (collectMutationScore(extra).available) Object.assign(packages, packageScores(extra));
+    const result = collectMutationScore(extra);
+    if (result.available) Object.assign(packages, packageScores(extra));
+    else extraStates.push(result.state);
   }
 
   const { available, state, last_run, ...score } = overall;
   void available;
   void state;
   void last_run;
-  return { date, commit, ...score, packages };
+  return {
+    date,
+    commit,
+    ...score,
+    packages,
+    ...(extraStates.length > 0 && { extra_states: extraStates }),
+  };
 }
