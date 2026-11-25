@@ -27,7 +27,7 @@ Bias toward **caution over speed** (adapted from [Karpathy's CLAUDE.md](https://
 1. **Think before coding:** state assumptions, surface trade-offs, push back when a simpler approach exists, and ask immediately when terminology is ambiguous.
 2. **Simplicity first:** the minimum code that meets the requirement. No speculative features, abstractions, or configurability. Would a senior engineer call it overcomplicated?
 3. **Surgical changes:** touch only what the task needs, match existing style, no drive-by fixes, and remove only what your change orphaned.
-4. **Track all work as GitHub issues, and only as issues:** every task, follow-up and Owner-only action gets one (`ready` if an agent can do it, `ready-for-human` if only the Owner can). Chat, memory, plans and watchers cite issue numbers, never hold the list.
+4. **Track all work as GitHub issues, and only as issues:** every task, follow-up and Owner-only action gets one: `in-progress` (never `ready`) if this session works it, `ready` only to hand it to the drain, `ready-for-human` if only the Owner can. Chat, memory, plans and watchers cite issue numbers, never hold the list.
 
 ## Continuous Improvement Loop
 
