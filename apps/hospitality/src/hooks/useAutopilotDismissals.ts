@@ -62,26 +62,27 @@ export function useAutopilotDismissals(venueId: string, date: string): Autopilot
   }));
   const current = held.key === key ? held.value : read(key);
 
+  // Builds from the latest state, not this render's snapshot: a callback captured before an
+  // await (an in-flight approval's hold) must not overwrite dismissals made meanwhile.
   const update = useCallback(
-    (next: Dismissals) => {
-      write(key, next);
-      setHeld({ key, value: next });
+    (change: (base: Dismissals) => Dismissals) => {
+      setHeld((prev) => {
+        const next = change(prev.key === key ? prev.value : read(key));
+        write(key, next);
+        return { key, value: next };
+      });
     },
     [key]
   );
 
+  const add = (list: readonly string[], id: string) => (list.includes(id) ? list : [...list, id]);
+
   return {
     nightDismissed: current.night,
     isMoveDismissed: (moveId) => current.moves.includes(moveId),
-    dismissNight: () => update({ ...current, night: true }),
-    dismissMove: (moveId) =>
-      current.moves.includes(moveId)
-        ? undefined
-        : update({ ...current, moves: [...current.moves, moveId] }),
+    dismissNight: () => update((base) => ({ ...base, night: true })),
+    dismissMove: (moveId) => update((base) => ({ ...base, moves: add(base.moves, moveId) })),
     isEntryHeld: (id) => current.entries.includes(id),
-    holdEntry: (id) =>
-      current.entries.includes(id)
-        ? undefined
-        : update({ ...current, entries: [...current.entries, id] }),
+    holdEntry: (id) => update((base) => ({ ...base, entries: add(base.entries, id) })),
   };
 }
