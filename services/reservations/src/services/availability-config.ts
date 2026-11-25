@@ -3,6 +3,7 @@ import {
   addDays,
   projectLegacyOperatingHours,
   resolveDay,
+  validateConfig,
   type ConfigIssue,
 } from "@mbe/availability";
 import { CONFLICT_CHANGES_MAX } from "@mbe/types";
@@ -22,6 +23,7 @@ import {
   affectedRange,
   diffConfig,
   inverseOf,
+  referenceIssues,
   settleDraft,
   type ConfigDiff,
   type ConfigInverse,
@@ -294,6 +296,15 @@ export function planSave(input: {
   );
   if (reservations.length > 0) return { kind: "stranded", reservations };
 
+  return writePlan(state, next, now);
+}
+
+/** The write half of a plan: the rows, the way back and the audit text for `next`. */
+function writePlan(
+  state: ConfigState,
+  next: AvailabilityConfig,
+  now: Date
+): Extract<SavePlan, { kind: "write" }> {
   const diff = diffConfig(state.stored, next);
   const detail = configSavedDetail(diff, state.stored, next, civilDateIn(now, state.timezone));
   return {
@@ -307,8 +318,11 @@ export function planSave(input: {
   };
 }
 
+/** What `commitSave` returns: every refusal is thrown, so the transaction rolls back with it. */
+export type SavedChange = { kind: "saved"; version: number; changeId: string };
+
 export type SaveOutcome =
-  | { kind: "saved"; version: number; changeId: string }
+  | SavedChange
   | Extract<
       AvailabilityRefusal,
       { kind: "version_conflict" | "not_found" | "invalid" | "stranded" }
@@ -492,10 +506,31 @@ export const toDbDate = (d: string | null): Date | null =>
 export const detailData = (detail: AvailabilityChangeDetail | null) =>
   detail ? { summaryDetail: detail as unknown as Prisma.InputJsonValue } : {};
 
+/** Where a save's config comes from: edits to settle, or a config the command already built. */
+type SaveSource =
+  | {
+      changes: PutAvailabilityConfigBody["changes"];
+      scopeConflicts: PutAvailabilityConfigBody["scopeConflicts"];
+      next?: undefined;
+    }
+  | {
+      /**
+       * The config to write. Validated and reference-checked, but not settled against scope
+       * conflicts and never stranded-checked: a Tonight change leaves bookings alone.
+       */
+      next: AvailabilityConfig;
+      /** `false` writes `next` unvalidated (ending a Tonight change only removes a rule). */
+      validate?: boolean;
+      changes?: undefined;
+      scopeConflicts?: undefined;
+    };
+
 /** What a save commits: the row operations, and how its audit row reads. */
-export interface SaveRequest {
-  changes: PutAvailabilityConfigBody["changes"];
-  scopeConflicts: PutAvailabilityConfigBody["scopeConflicts"];
+export type SaveRequest = SaveSource & SaveRequestFields;
+
+interface SaveRequestFields {
+  /** Merged into the audit row's `inverse` (a Tonight change's replay key). */
+  inverseExtra?: Record<string, unknown>;
   /** The audit row's `kind`. */
   kind: string;
   /** Replaces the generated summary. */
@@ -515,10 +550,77 @@ export interface SaveRequest {
 }
 
 /**
+ * Takes the venue row lock by bumping `availabilityVersion`, and answers the version it is now at.
+ * With an `expectedVersion` it is a compare-and-set a stale draft is refused at; without one (a
+ * Tonight change ended by rule id, #8121) it bumps unconditionally.
+ */
+async function bumpVersion(tx: StoreDb, venueId: string, expectedVersion: number | null) {
+  if (expectedVersion === null) {
+    const bumped = await tx.venue.update({
+      where: { id: venueId },
+      data: { availabilityVersion: { increment: 1 } },
+      select: { availabilityVersion: true },
+    });
+    return bumped.availabilityVersion;
+  }
+  const cas = await tx.venue.updateMany({
+    where: { id: venueId, availabilityVersion: expectedVersion },
+    data: { availabilityVersion: { increment: 1 } },
+  });
+  if (cas.count === 0) return refuse(await refuseStale(tx, venueId, expectedVersion));
+  return expectedVersion + 1;
+}
+
+/** Plans a request: settled against the draft, or the config the command already built. */
+async function planRequest(
+  tx: StoreDb,
+  state: ConfigState,
+  request: SaveRequest,
+  input: { venueId: string; expectedVersion: number | null; now: Date }
+): Promise<SavePlan> {
+  const { venueId, expectedVersion, now } = input;
+  const needsTables = request.next ? request.validate !== false : true;
+  const [tables, sections] = needsTables
+    ? await Promise.all([
+        tx.table.findMany({ where: { venueId }, select: { id: true } }),
+        loadSectionIndex(tx, venueId),
+      ])
+    : [[], undefined];
+  const tableIds = new Set(tables.map((t) => t.id));
+  if (request.next) {
+    const issues =
+      request.validate === false || !sections
+        ? []
+        : [
+            ...validateConfig(request.next),
+            ...referenceIssues(request.next, tableIds, sections.ids),
+          ];
+    return issues.length > 0 ? { kind: "invalid", issues } : writePlan(state, request.next, now);
+  }
+  const bookings = await futureBookings(tx, venueId, civilDateIn(now, state.timezone), now);
+  return planSave({
+    state,
+    body: {
+      expectedVersion: expectedVersion ?? 0,
+      changes: request.changes,
+      scopeConflicts: request.scopeConflicts,
+    },
+    bookings,
+    tableIds,
+    ...(sections ? { sections } : {}),
+    now,
+    ...(request.allowNoHours ? { allowNoHours: true } : {}),
+    ...(request.exact ? { exact: true } : {}),
+  });
+}
+
+/**
  * The one save path. Compare-and-set on `expectedVersion` first (it takes the
  * venue row lock, so concurrent saves serialize here), then `resolve` the
  * request against the loaded state, validate, stranded-check, write the rows,
- * the audit row and the legacy projection. Revert goes through here too.
+ * the audit row and the legacy projection. Revert and Tonight go through here too.
+ * Every refusal is thrown (`refuse`), so it rolls the bump back with the rest; call it inside
+ * `inAvailabilityTransaction`.
  */
 export async function commitSave(
   tx: StoreDb,
@@ -526,38 +628,19 @@ export async function commitSave(
     venueId: string;
     actorId: string;
     actorName?: string | null;
-    expectedVersion: number;
+    /** `null` bumps without a compare-and-set. */
+    expectedVersion: number | null;
     now: Date;
   },
   resolve: (state: ConfigState) => Promise<SaveRequest>
-): Promise<SaveOutcome> {
+): Promise<SavedChange> {
   const { venueId, actorId, actorName = null, expectedVersion, now } = input;
-  const cas = await tx.venue.updateMany({
-    where: { id: venueId, availabilityVersion: expectedVersion },
-    data: { availabilityVersion: { increment: 1 } },
-  });
-  if (cas.count === 0) return refuseStale(tx, venueId, expectedVersion);
+  const version = await bumpVersion(tx, venueId, expectedVersion);
 
   const state = await loadConfigState(tx, venueId, now);
   if (!state) return refuse({ kind: "not_found" });
   const request = await resolve(state);
-  const today = civilDateIn(now, state.timezone);
-  const [bookings, tables, sections] = await Promise.all([
-    futureBookings(tx, venueId, today, now),
-    tx.table.findMany({ where: { venueId }, select: { id: true } }),
-    loadSectionIndex(tx, venueId),
-  ]);
-  const tableIds = new Set(tables.map((t) => t.id));
-  const plan = planSave({
-    state,
-    body: { expectedVersion, changes: request.changes, scopeConflicts: request.scopeConflicts },
-    bookings,
-    tableIds,
-    sections,
-    now,
-    ...(request.allowNoHours ? { allowNoHours: true } : {}),
-    ...(request.exact ? { exact: true } : {}),
-  });
+  const plan = await planRequest(tx, state, request, { venueId, expectedVersion, now });
   if (plan.kind !== "write") return refuse(plan);
 
   await writeConfigDiff(tx, venueId, plan.diff, {
@@ -578,8 +661,8 @@ export async function commitSave(
       ...detailData(request.detail === undefined ? plan.detail : request.detail),
       affectedFrom: toDbDate(plan.range.from),
       affectedTo: toDbDate(plan.range.to),
-      inverse: plan.inverse as unknown as Prisma.InputJsonValue,
-      version: expectedVersion + 1,
+      inverse: { ...plan.inverse, ...request.inverseExtra } as unknown as Prisma.InputJsonValue,
+      version,
     },
     select: { id: true },
   });
@@ -588,7 +671,7 @@ export async function commitSave(
     where: { id: venueId },
     data: { operatingHours: request.operatingHours ?? projectLegacyOperatingHours(plan.next) },
   });
-  return { kind: "saved" as const, version: expectedVersion + 1, changeId: change.id };
+  return { kind: "saved", version, changeId: change.id };
 }
 
 export async function saveAvailabilityConfig(
@@ -602,7 +685,7 @@ export async function saveAvailabilityConfig(
   client: StoreClient = prisma
 ): Promise<SaveOutcome> {
   const { venueId, actorId, actorName, body, now } = input;
-  return inAvailabilityTransaction(client, venueId, (tx) =>
+  return inAvailabilityTransaction<SavedChange, SaveOutcome>(client, venueId, (tx) =>
     commitSave(
       tx,
       { venueId, actorId, actorName, expectedVersion: body.expectedVersion, now },

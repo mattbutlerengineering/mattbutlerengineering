@@ -42,18 +42,19 @@ export type AvailabilityRefusal =
 
 /**
  * Thrown inside an availability transaction to roll it back (the version bump included); the
- * transaction's boundary answers it as the outcome. `O` is `AvailabilityRefusal` unless the
- * caller has refusals of its own (a revert's).
+ * transaction's boundary answers it as the outcome. Only `refuse` (a revert's own refusals) may
+ * carry a kind outside `AvailabilityRefusal`.
  */
-export class Refused<O extends { kind: string } = AvailabilityRefusal> extends Error {
-  constructor(readonly outcome: O) {
+export class Refused extends Error {
+  constructor(readonly outcome: AvailabilityRefusal) {
     super(outcome.kind);
   }
 }
 
 /** Refuses the command in progress; only valid inside `inAvailabilityTransaction` or a command's own boundary. */
 export function refuse(outcome: { kind: string }): never {
-  throw new Refused(outcome);
+  // The wide parameter admits a caller's own refusals (a revert's); its `R` names them at the boundary.
+  throw new Refused(outcome as AvailabilityRefusal);
 }
 
 /**

@@ -20,6 +20,14 @@ describe("availability refusal", () => {
     }
   });
 
+  it("types the Refused constructor as an AvailabilityRefusal", () => {
+    // @ts-expect-error a kind no command can produce must not compile (it would reach sendRefusal as `any`)
+    const stray = new Refused({ kind: "rule_exists" });
+    const known: Refused = new Refused({ kind: "closure_exists" });
+    expect(stray.outcome.kind).toBe("rule_exists");
+    expect(known.outcome).toEqual({ kind: "closure_exists" });
+  });
+
   it("inAvailabilityTransaction returns the work's result when nothing is refused", async () => {
     const result = await inAvailabilityTransaction(clientOf(), "v1", async () => ({ ok: 1 }));
     expect(result).toEqual({ ok: 1 });
