@@ -920,6 +920,20 @@ export const reservationService = {
           reservationId: createdReservation.id,
         });
 
+        // Seating a waitlist party: take them off the list in this same transaction, so a
+        // failure can never leave them seated yet still waiting (and offered a second
+        // table). An entry already resolved elsewhere matches no row and is left alone.
+        if (data.waitlistEntryId) {
+          await tx.waitlistEntry.updateMany({
+            where: {
+              id: data.waitlistEntryId,
+              venueId: data.venueId,
+              status: { in: ["waiting", "notified"] },
+            },
+            data: { status: "seated" },
+          });
+        }
+
         return { reservation: createdReservation, table: occupiedTable };
       },
     });

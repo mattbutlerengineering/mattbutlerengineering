@@ -97,20 +97,11 @@ export function useApproveAutopilotMove(venueId: string | null, date: string) {
         venueId: venue,
         partySize: move.partySize,
         tableId: move.toTableId,
+        // The server seats the waitlist entry in the walk-in's own transaction: no half-seated
+        // party, so no second call to fail (#9606).
+        waitlistEntryId: move.waitlistEntryId,
         ...(move.partyLabel ? { guestName: move.partyLabel } : {}),
       });
-      try {
-        await api.waitlist.seat(move.waitlistEntryId);
-      } catch {
-        // The party is seated (the walk-in exists) but still waiting on the list, so the engine
-        // would offer them another table: say so rather than report success. The caller refreshes.
-        toast({
-          title: t("waitlist.row.splitFailure", { table: move.toTableName }),
-          variant: "error",
-          duration: 10000,
-        });
-        return;
-      }
       toast({
         title: t("timeline.autopilot.offerDone", { party, to: move.toTableName }),
         variant: "success",

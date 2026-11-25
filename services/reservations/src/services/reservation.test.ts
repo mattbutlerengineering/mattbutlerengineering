@@ -1842,6 +1842,44 @@ describe("reservationService", () => {
       expect(result.reservation!.status).toBe("CONFIRMED");
     });
 
+    it("seats the linked waitlist entry in the same transaction as the walk-in (#9606)", async () => {
+      vi.mocked(checkTableConflict).mockReturnValueOnce(false);
+      const updateMany = vi.fn().mockResolvedValue({ count: 1 });
+      vi.mocked(prisma.$transaction).mockImplementationOnce(
+        async (fn: (tx: any) => Promise<unknown>) => {
+          const tx = {
+            $executeRawUnsafe: vi.fn().mockResolvedValue(0),
+            $executeRaw: vi.fn().mockResolvedValue(0),
+            reservationEvent: { create: vi.fn().mockResolvedValue(undefined) },
+            reservation: {
+              findFirst: vi.fn().mockResolvedValue(null),
+              create: vi.fn().mockResolvedValue(makePrismaReservation({ status: "CONFIRMED" })),
+            },
+            tableEvent: { create: vi.fn().mockResolvedValue(undefined) },
+            table: {
+              findUniqueOrThrow: vi.fn().mockResolvedValue(makePrismaTable()),
+              update: vi.fn().mockResolvedValue(makePrismaTable()),
+            },
+            waitlistEntry: { updateMany },
+          };
+          return fn(tx);
+        }
+      );
+
+      const result = await reservationService.createWalkIn({
+        partySize: 4,
+        tableId: "table-1",
+        venueId: "venue-1",
+        waitlistEntryId: "w1",
+      });
+
+      expect(result.success).toBe(true);
+      expect(updateMany).toHaveBeenCalledWith({
+        where: { id: "w1", venueId: "venue-1", status: { in: ["waiting", "notified"] } },
+        data: { status: "seated" },
+      });
+    });
+
     it("is not refused by Tonight's soft limits: walk-ins are counted, never gated (#7765)", async () => {
       // The availability gate is where Tonight's coverCap lives. A walk-in must
       // never cross it, so the door is never turned away by a host's lowered cap.

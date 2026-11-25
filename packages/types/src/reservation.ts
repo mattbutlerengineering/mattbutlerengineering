@@ -138,6 +138,8 @@ export interface WalkInRequest {
   venueId: string;
   guestId?: string;
   guestName?: string;
+  /** Waitlist entry this walk-in seats; marked seated in the same transaction (#9606). */
+  waitlistEntryId?: string;
   durationMinutes?: number;
   occasion?: Occasion;
   seatingPreference?: SeatingPreference;

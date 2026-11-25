@@ -326,6 +326,21 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
           .code(409)
           .send(createProblemDetails(409, "Conflict", result.error ?? "Table is not available"));
       }
+      if (request.body.waitlistEntryId) {
+        // The entry was seated inside the walk-in's transaction; the queue behind it moves up.
+        // Best effort: the seating is committed, and a numbering hiccup must not fail it.
+        try {
+          await fastify.services.waitlistService.recalculate(request.body.venueId, (changes) => {
+            for (const change of changes) {
+              fastify.waitlistNotifier.notifyPositionUpdate(change).catch(() => {
+                // Already logged inside the notifier
+              });
+            }
+          });
+        } catch (err) {
+          request.log.error({ err }, "waitlist recalculation after walk-in seating failed");
+        }
+      }
       return reply.code(201).send({ data: result.reservation });
     })
   );
