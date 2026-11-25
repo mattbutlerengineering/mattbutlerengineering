@@ -225,7 +225,13 @@ describe("GET /public/v1/venues/:slug/availability", () => {
 
       expect(response.statusCode).toBe(200);
       expect(lostDemandService.recordNoSlotSearch).toHaveBeenCalledWith(
-        { venueId: "venue_1", date: "2026-06-15", requestedMinute: 19 * 60, partySize: 4 },
+        {
+          venueId: "venue_1",
+          date: "2026-06-15",
+          requestedMinute: 19 * 60,
+          partySize: 4,
+          reason: "hours",
+        },
         expect.objectContaining({ sessionId: "sess-1" }),
         expect.anything()
       );
@@ -241,7 +247,13 @@ describe("GET /public/v1/venues/:slug/availability", () => {
       await search("date=2026-06-15&partySize=2");
 
       expect(lostDemandService.recordNoSlotSearch).toHaveBeenCalledWith(
-        { venueId: "venue_1", date: "2026-06-15", requestedMinute: -1, partySize: 2 },
+        {
+          venueId: "venue_1",
+          date: "2026-06-15",
+          requestedMinute: -1,
+          partySize: 2,
+          reason: "hours",
+        },
         expect.anything(),
         expect.anything()
       );
@@ -336,5 +348,36 @@ describe("GET /public/v1/venues/:slug/availability", () => {
       expect(response.statusCode).toBe(400);
       expect(response.json()).toMatchObject({ status: 400 });
     });
+  });
+});
+
+describe("public availability records the limiting reason (#9621)", () => {
+  it("records pacing for a refused seating, and leaves demand out of the reply", async () => {
+    const app = await buildApp({
+      logger: false,
+      services: { venueService, availabilityService, lostDemandService },
+    });
+    process.env.AUTH_BYPASS_IN_TESTS = "true";
+    await app.ready();
+    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
+    vi.mocked(availabilityService.getDayAvailability).mockResolvedValueOnce({
+      slots: [{ time: "2026-06-15T19:00:00", available: false, tables: [] }],
+      demand: { hasSeatings: true, refusals: [{ minute: 19 * 60, reason: "pacing" }] },
+    });
+    vi.mocked(lostDemandService.recordNoSlotSearch).mockClear();
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/public/v1/venues/the-oak-table/availability?date=2026-06-15&partySize=4&time=19:00",
+    });
+
+    expect(response.json()).not.toHaveProperty("demand");
+    expect(lostDemandService.recordNoSlotSearch).toHaveBeenCalledWith(
+      expect.objectContaining({ requestedMinute: 19 * 60, reason: "pacing" }),
+      expect.anything(),
+      expect.anything()
+    );
+    await app.close();
+    delete process.env.AUTH_BYPASS_IN_TESTS;
   });
 });

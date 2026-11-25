@@ -51,9 +51,16 @@ async function getLostDemand(params: GetLostDemandParams): Promise<LostDemand> {
   const groups = await prisma.noSlotSearch.groupBy({
     by: ["date", "requestedMinute"],
     where: { venueId, date: { gte: toUtcMidnight(from), lte: toUtcMidnight(to) } },
-    _sum: { searches: true },
+    _sum: {
+      searches: true,
+      pacingSearches: true,
+      tablesSearches: true,
+      hoursSearches: true,
+      closureSearches: true,
+    },
   });
 
+  const byReason = { pacing: 0, tables: 0, hours: 0, closure: 0 };
   let cells: ReadonlyMap<string, number> = new Map();
   let anyTime: ReadonlyMap<number, number> = new Map();
   let total = 0;
@@ -70,6 +77,10 @@ async function getLostDemand(params: GetLostDemandParams): Promise<LostDemand> {
       continue;
     }
     total += searches;
+    byReason.pacing += group._sum?.pacingSearches ?? 0;
+    byReason.tables += group._sum?.tablesSearches ?? 0;
+    byReason.hours += group._sum?.hoursSearches ?? 0;
+    byReason.closure += group._sum?.closureSearches ?? 0;
   }
 
   const cellList: LostDemandCell[] = [...cells].map(([key, searches]) => {
@@ -81,6 +92,7 @@ async function getLostDemand(params: GetLostDemandParams): Promise<LostDemand> {
     from,
     to,
     total,
+    byReason,
     cells: cellList.sort((a, b) => a.weekday - b.weekday || a.hour - b.hour),
     anyTime: [...anyTime]
       .map(([weekday, searches]) => ({ weekday, searches }))

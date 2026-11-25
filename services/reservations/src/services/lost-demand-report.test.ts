@@ -113,6 +113,7 @@ describe("lostDemandReportService.getLostDemand", () => {
       from: "2026-06-01",
       to: "2026-06-30",
       total: 0,
+      byReason: { pacing: 0, tables: 0, hours: 0, closure: 0 },
       cells: [],
       anyTime: [],
     });
@@ -152,5 +153,64 @@ describe("lostDemandReportService.defaultWindow", () => {
     );
 
     expect(window).toEqual({ from: "2026-05-23", to: "2026-06-19" });
+  });
+});
+
+describe("lostDemandReportService.getLostDemand byReason (#9621)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("sums the per-reason counters across the window", async () => {
+    vi.mocked(prisma.noSlotSearch.groupBy).mockResolvedValueOnce([
+      {
+        date: new Date("2026-06-19T00:00:00.000Z"),
+        requestedMinute: 19 * 60,
+        _sum: {
+          searches: 6,
+          pacingSearches: 3,
+          tablesSearches: 2,
+          hoursSearches: 1,
+          closureSearches: 0,
+        },
+      },
+      {
+        date: new Date("2026-06-20T00:00:00.000Z"),
+        requestedMinute: -1,
+        _sum: {
+          searches: 4,
+          pacingSearches: 1,
+          tablesSearches: 0,
+          hoursSearches: 2,
+          closureSearches: 1,
+        },
+      },
+    ] as never);
+
+    const result = await lostDemandReportService.getLostDemand({
+      venueId: "v1",
+      from: "2026-06-01",
+      to: "2026-06-30",
+    });
+
+    expect(result.total).toBe(10);
+    expect(result.byReason).toEqual({ pacing: 4, tables: 2, hours: 3, closure: 1 });
+  });
+
+  it("counts rows recorded before reasons existed as no reason", async () => {
+    vi.mocked(prisma.noSlotSearch.groupBy).mockResolvedValueOnce([
+      {
+        date: new Date("2026-06-19T00:00:00.000Z"),
+        requestedMinute: 19 * 60,
+        _sum: { searches: 5 },
+      },
+    ] as never);
+    const result = await lostDemandReportService.getLostDemand({
+      venueId: "v1",
+      from: "2026-06-01",
+      to: "2026-06-30",
+    });
+    expect(result.total).toBe(5);
+    expect(result.byReason).toEqual({ pacing: 0, tables: 0, hours: 0, closure: 0 });
   });
 });

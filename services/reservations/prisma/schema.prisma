@@ -887,6 +887,12 @@ model NoSlotSearch {
   requestedMinute Int      @map("requested_minute")
   partySize       Int      @map("party_size")
   searches        Int      @default(1)
+  /// Of `searches`, how many the engine refused for each limiting reason (#9621). Rows recorded
+  /// before reasons existed leave all four at 0, so the four may sum to less than `searches`.
+  pacingSearches  Int      @default(0) @map("pacing_searches")
+  tablesSearches  Int      @default(0) @map("tables_searches")
+  hoursSearches   Int      @default(0) @map("hours_searches")
+  closureSearches Int      @default(0) @map("closure_searches")
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 

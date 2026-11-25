@@ -34,12 +34,26 @@ const LostDemandAnyTimeSchema = z.object({
   searches: z.number().int().min(1),
 });
 
+/**
+ * Counted searches by the reason the engine found no slot (#9621). Precedence when
+ * several apply: closure > hours > tables > pacing. Rows recorded before reasons
+ * existed carry none, so the four can sum to less than `total`.
+ */
+const LostDemandByReasonSchema = z.object({
+  pacing: z.number().int().nonnegative(),
+  tables: z.number().int().nonnegative(),
+  hours: z.number().int().nonnegative(),
+  closure: z.number().int().nonnegative(),
+});
+
 export const LostDemandSchema = z.object({
   venueId: z.string(),
   from: ServiceDateSchema,
   to: ServiceDateSchema,
   /** Every counted search in the window, timed or not. */
   total: z.number().int().nonnegative(),
+  /** Optional so existing clients and fixtures keep parsing; the service always sends it. */
+  byReason: LostDemandByReasonSchema.optional(),
   /** Searches that named a time, sparse: only non-empty weekday x hour cells. */
   cells: z.array(LostDemandCellSchema),
   /**
