@@ -108,8 +108,9 @@ export const Group: StoryObj<typeof AvatarGroup> = {
     const style = getComputedStyle(group);
     // row-reverse + flex-end packs the stack to the inline-start. A stretched
     // column (the docs section) otherwise pins it to the inline-end.
+    // Current Chromium computes `justify-content: flex-end` as `flow-end`.
     await expect(style.flexDirection).toBe("row-reverse");
-    await expect(style.justifyContent).toBe("flex-end");
+    await expect(["flex-end", "flow-end"]).toContain(style.justifyContent);
     const box = group.getBoundingClientRect();
     const first = group.lastElementChild;
     if (!(first instanceof HTMLElement)) throw new Error("AvatarGroup has no avatars");
