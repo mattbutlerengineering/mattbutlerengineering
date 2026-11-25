@@ -5,8 +5,9 @@ import { storeClientOf } from "../test/store-client.js";
 
 vi.mock("./database.js", () => ({ prisma: {} }));
 
-const { planSave, saveAvailabilityConfig, getAvailabilityConfig, previewAvailabilityConfig } =
+const { planSave, getAvailabilityConfig, previewAvailabilityConfig } =
   await import("./availability-config.js");
+const { saveAvailabilityConfig } = await import("./availability-commit.js");
 type ConfigState = Parameters<typeof planSave>[0]["state"];
 
 const NOW = new Date("2026-10-25T19:00:00.000Z");

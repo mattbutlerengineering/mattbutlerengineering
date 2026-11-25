@@ -1,11 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import type { AvailabilityConfig, DateRule } from "@mbe/types";
-import type { ConfigState, SaveRequest } from "./availability-config.js";
+import type { ConfigState } from "./availability-config.js";
+import type { SaveRequest } from "./availability-commit.js";
 import { availabilityStore, type Store } from "../test/availability-store.js";
 
 vi.mock("./database.js", () => ({ prisma: {} }));
 
-const { commitSave } = await import("./availability-config.js");
+const { commitSave } = await import("./availability-commit.js");
 
 const NOW = new Date("2026-10-25T19:00:00.000Z");
 const WHO = { venueId: "v", actorId: "mgr-1", now: NOW };
@@ -134,6 +135,39 @@ describe("commitSave", () => {
         version: 10,
         inverse: { remove: { dateRules: ["r1"] }, tonight: { ruleId: "r1", version: 10 } },
       });
+    });
+
+    it("runs prepare after the rows are written, and lets it set notifiedGuests and the range", async () => {
+      const s = store();
+      const { tx, create } = availabilityStore(s);
+      let rowsWhenPrepared: unknown[] = [];
+
+      await commitSave(tx as never, { ...WHO, version: { expected: 9 } }, async (state) => ({
+        next: withRule(state.effective, rule("r1", { from: 0, to: 60 })),
+        kind: "reopen",
+        prepare: () => {
+          rowsWhenPrepared = s.dateRules;
+          return { notifiedGuests: true, range: { from: "2026-12-25", to: "2026-12-25" } };
+        },
+      }));
+
+      expect(rowsWhenPrepared).toHaveLength(1);
+      expect(create.mock.calls[0]![0].data).toMatchObject({
+        notifiedGuests: true,
+        affectedFrom: new Date("2026-12-25T00:00:00.000Z"),
+        affectedTo: new Date("2026-12-25T00:00:00.000Z"),
+      });
+    });
+
+    it("leaves notifiedGuests to the column's default when prepare says nothing", async () => {
+      const { tx, create } = availabilityStore(store());
+
+      await commitSave(tx as never, { ...WHO, version: { expected: 9 } }, async (state) => ({
+        next: withRule(state.effective, rule("r1", { from: 0, to: 60 })),
+        kind: "tonight",
+      }));
+
+      expect(create.mock.calls[0]![0].data).not.toHaveProperty("notifiedGuests");
     });
 
     it("validates the whole config by default, so an unrelated invalid row refuses it", async () => {

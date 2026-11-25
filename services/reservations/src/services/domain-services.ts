@@ -1,5 +1,5 @@
 import { availabilityService } from "./availability.js";
-import { availabilityConfigService } from "./availability-config.js";
+import { availabilityConfigService } from "./availability-commit.js";
 import { availabilityChangesService } from "./availability-changes.js";
 import { holidayDecisionService } from "./holiday-decision.js";
 import { closureImpactService } from "./closure-impact-store.js";

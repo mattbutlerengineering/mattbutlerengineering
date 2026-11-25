@@ -5,7 +5,8 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import type { PutAvailabilityConfigBody, SetTonightBody } from "@mbe/types";
 import { PrismaClient } from "../generated/prisma/index.js";
 import { listAvailabilityChanges, revertAvailabilityChange } from "./availability-changes.js";
-import { getAvailabilityConfig, saveAvailabilityConfig } from "./availability-config.js";
+import { getAvailabilityConfig } from "./availability-config.js";
+import { saveAvailabilityConfig } from "./availability-commit.js";
 import { createClosure, reopenClosure } from "./closure-command.js";
 import { endTonight, setTonight } from "./tonight-command.js";
 

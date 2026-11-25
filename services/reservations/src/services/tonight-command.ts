@@ -16,12 +16,12 @@ import type {
 } from "@mbe/types";
 import type { PrismaClient } from "../generated/prisma/index.js";
 import {
-  commitSave,
   loadConfigState,
   type ConfigState,
   type SavedChange,
   type StoreDb,
 } from "./availability-config.js";
+import { commitSave } from "./availability-commit.js";
 import { tonightDetail, tonightEndedDetail } from "./availability-change-detail.js";
 import {
   createClosure,

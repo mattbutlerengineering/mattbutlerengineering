@@ -1,5 +1,5 @@
-import { addDays, validateConfig, type ConfigIssue } from "@mbe/availability";
-import type { AvailabilityConfig, DateRule } from "@mbe/types";
+import { addDays } from "@mbe/availability";
+import type { DateRule } from "@mbe/types";
 import type { PrismaClient } from "../generated/prisma/index.js";
 import { toDbDate } from "./availability-config.js";
 import { rekey, type CarriedOutcomes } from "./closure-carry-outcomes.js";
@@ -38,21 +38,6 @@ export function rangeAround(rule: DateRule, date: string, newId: () => string): 
     parts.push({ ...rule, id: newId(), startsOn: addDays(date, 1) });
   }
   return { kind: "parts", parts };
-}
-
-/**
- * What `validateConfig` finds wrong with the rules this split created, and only those. A reopen
- * must work in an emergency on a venue that already holds some unrelated invalid rule, so the
- * whole config's issues are not its business.
- */
-export function splitIssues(next: AvailabilityConfig, created: readonly DateRule[]): ConfigIssue[] {
-  const indexes = new Set(
-    created.map((c) => next.dateRules.findIndex((r) => r.id === c.id)).filter((i) => i >= 0)
-  );
-  return validateConfig(next).filter((issue) => {
-    const at = /^dateRules\[(\d+)\]/.exec(issue.path);
-    return at !== null && indexes.has(Number(at[1]));
-  });
 }
 
 type Db = Pick<PrismaClient, "closureOutcome" | "$executeRaw">;
