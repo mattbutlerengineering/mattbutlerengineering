@@ -187,12 +187,13 @@ jobs:
             exit 0
           fi
 
-          # Only one class of finding remains since domain-metrics — the one
-          # metric that could be human-blocked on an unset credential — was
-          # retired (#5561). `metrics-freshness.mjs`'s `unconfigured`/`blocked`
-          # classification is still generic infrastructure for any future
-          # metric with a real credential prerequisite; it just has nothing to
-          # classify that way right now, so `.blocked` is always empty here.
+          # `.blocked` is not always empty. `metrics-freshness.mjs`'s
+          # `partitionFindings` routes two states there: `unconfigured` (a
+          # metric whose credential prerequisite is unset; none today since
+          # domain-metrics was retired, #5561) and `uninstrumented` (the
+          # queue-telemetry cost-coverage gap, #9238: nothing records per-issue
+          # spend, so no code fix can clear it). Both are shown in the step
+          # summary and never file an issue; only `.failures` does.
           FAILURE_COUNT=$(jq '.failures | length' /tmp/freshness.json)
           echo "failures=$FAILURE_COUNT"
 
