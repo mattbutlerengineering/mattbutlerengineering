@@ -2,7 +2,7 @@ import type { FastifyRequest } from "fastify";
 import { verifyMemberToken } from "../services/member-token.js";
 
 /** The Regulars Club member link the booking widget sends on availability, hold and confirm calls. */
-export const MEMBER_TOKEN_HEADER = "x-member-token";
+const MEMBER_TOKEN_HEADER = "x-member-token";
 
 /**
  * The member a request's `x-member-token` verifies to at this venue (#9625), or `null`.
