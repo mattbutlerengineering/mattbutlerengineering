@@ -176,5 +176,3 @@ export function useDecisionsSession<Out>(options: DecisionsSessionOptions<Out>) 
     leave: () => attempts.leave(state.kind === "sending"),
   };
 }
-
-export type DecisionsSession = ReturnType<typeof useDecisionsSession>;
