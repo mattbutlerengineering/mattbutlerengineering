@@ -89,6 +89,7 @@ import { allOutboundLive } from "./transitions/venue-policy.js";
 import type { JobsPort, PaymentsPort } from "./transitions/ports.js";
 import { StripeService } from "./services/stripe.js";
 import { DepositService } from "./services/deposit.js";
+import { createPatAwareVerifier, registerPatReadOnlyGuard } from "./middleware/pat-auth.js";
 import { resolveManageBaseUrl } from "./config/manage-base-url.js";
 import { createHostBrandResolver } from "./config/host-brand.js";
 
@@ -166,6 +167,14 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
         serverUrl: "http://localhost:3004",
       },
       registerSchemas,
+      // Personal access tokens (#9664) authenticate through the same plugin as
+      // Auth0 JWTs. The service resolves lazily from `fastify.services`:
+      // it is decorated after the app shell, before any request arrives.
+      wrapAuthVerifier: (fallback) =>
+        createPatAwareVerifier(
+          (token) => fastify.services.accessTokenService.authenticate(token),
+          fallback
+        ),
       database: {
         db,
         healthRoutes: [
@@ -177,6 +186,8 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
     },
     options
   );
+
+  registerPatReadOnlyGuard(fastify);
 
   // Venue-scope registry (docs/fixes/venue-scoped-routes/architecture.md):
   // records every route's `venueScoped` descriptor, or null, keyed

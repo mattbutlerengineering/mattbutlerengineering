@@ -11,6 +11,11 @@ import { prisma } from "./database.js";
 const TOKEN_PREFIX = "mbe_pat_";
 const DISPLAY_PREFIX_LENGTH = TOKEN_PREFIX.length + 4;
 const DAY_MS = 24 * 60 * 60 * 1000;
+/** `lastUsedAt` is stamped at most this often, so a busy client is not a write per request. */
+const LAST_USED_GRANULARITY_MS = 60 * 1000;
+
+/** True when `value` has the shape of a personal access token (not a JWT). */
+export const isAccessToken = (value: string): boolean => value.startsWith(TOKEN_PREFIX);
 
 /** Raised when a user already holds the most active tokens allowed. */
 export class TooManyAccessTokensError extends Error {
@@ -73,6 +78,30 @@ export function createAccessTokenService(
         orderBy: { createdAt: "desc" },
       });
       return rows.map(toAccessToken);
+    },
+
+    /**
+     * Resolves a presented plaintext token to its owner, or `null` when it is
+     * unknown, revoked or expired. Stamps `lastUsedAt` at most once a minute.
+     */
+    async authenticate(token: string): Promise<{ id: string; userSub: string } | null> {
+      if (!isAccessToken(token)) return null;
+      const row = await client.personalAccessToken.findUnique({
+        where: { tokenHash: hashAccessToken(token) },
+      });
+      const at = now();
+      if (!row || row.revokedAt || (row.expiresAt && row.expiresAt <= at)) return null;
+      await client.personalAccessToken.updateMany({
+        where: {
+          id: row.id,
+          OR: [
+            { lastUsedAt: null },
+            { lastUsedAt: { lt: new Date(at.getTime() - LAST_USED_GRANULARITY_MS) } },
+          ],
+        },
+        data: { lastUsedAt: at },
+      });
+      return { id: row.id, userSub: row.userSub };
     },
 
     /** `false` when the token is unknown, not the caller's, or already revoked. */
