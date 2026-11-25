@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { Button, Input, Alert, Text } from "@mattbutlerengineering/rialto";
-import type { Deposit } from "@mbe/types";
+import type { DepositStatusView } from "@mbe/types";
 import { useCreateDeposit } from "../../hooks/useDeposits.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
 import {
@@ -16,8 +16,8 @@ import styles from "./StaffDepositSection.module.css";
 
 interface StaffDepositSectionProps {
   reservationId: string;
-  existingDeposit?: Deposit | null;
-  /** True while the `GET /api/v1/deposits?reservationId=` lookup is in flight. */
+  existingDeposit?: DepositStatusView | null;
+  /** True while the `GET /api/v1/reservations/:id/deposit-status` lookup is in flight. */
   isLoading?: boolean;
   /** A failure from that same lookup — distinct from the create-deposit form's own `error` state. */
   fetchError?: unknown;

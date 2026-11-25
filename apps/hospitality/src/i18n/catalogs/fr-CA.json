@@ -757,6 +757,16 @@
       "anyTimeNote": "Les clients de la dernière ligne n'ont précisé aucune heure et n'ont trouvé aucune table ce jour-là; ils sont donc comptés par jour de la semaine seulement, jamais dans une heure.",
       "loadFailed": "Impossible de charger les recherches sans table."
     },
+    "whatIf": {
+      "title": "Ajouter un service à…",
+      "day": "Jour",
+      "time": "Heure",
+      "estimate_one": "Estimation : environ {{count, number}} des recherches des 28 derniers jours demandait ce jour et cette heure, soit environ {{perNight, number}} par soir. Un service à ce moment aurait pu la réserver.",
+      "estimate_many": "Estimation : environ {{count, number}} de recherches des 28 derniers jours demandaient ce jour et cette heure, soit environ {{perNight, number}} par soir. Un service à ce moment aurait pu les réserver.",
+      "estimate_other": "Estimation : environ {{count, number}} des recherches des 28 derniers jours demandaient ce jour et cette heure, soit environ {{perNight, number}} par soir. Un service à ce moment aurait pu les réserver.",
+      "none": "Estimation : aucune recherche sans table des 28 derniers jours ne demandait ce jour et cette heure; un service à ce moment n'en aurait capté aucune.",
+      "note": "Une estimation fondée sur les recherches passées, pas une prévision. Les clients qui n'ont précisé aucune heure ne sont pas comptés."
+    },
     "deposit": {
       "title": "Exposition aux dépôts",
       "atRisk": "Dépôts à risque",
@@ -4366,7 +4376,7 @@
       },
       "lostDemandLedger": {
         "label": "Registre de la demande perdue",
-        "detail": "Chaque réservation que vous n'avez pas pu prendre, pour voir ce qu'une salle pleine vous a coûté."
+        "detail": "Chaque recherche sans table, par jour et par heure, et une estimation de ce qu'un nouveau service aurait capté."
       },
       "guestPassport": {
         "label": "Passeport du client",

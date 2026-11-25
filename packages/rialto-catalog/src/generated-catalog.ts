@@ -84,6 +84,12 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     slots: ["default"],
     charLimits: { title: 60, subtitle: 80 },
   },
+  ChatPanel: {
+    name: "ChatPanel",
+    include: false,
+    description:
+      "Conversational panel that streams assistant replies and renders generated components inline. Use for an in-app assistant where staff ask questions or give commands in natural language.",
+  },
   Checkbox: {
     name: "Checkbox",
     description:
@@ -259,6 +265,12 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     description:
       "Icon-only action trigger for toolbars, dismiss affordances, and dense controls. Composes Button, so it shares the same variant (ghost default, secondary, primary) and size (sm/md/lg) options. Always provide aria-label — the button has no visible text, so the label is the only accessible name.",
   },
+  ImageUpload: {
+    name: "ImageUpload",
+    description:
+      "Image picker tile with preview, progress and validation. Use to collect a single photo such as a venue logo, menu photo or guest avatar. Give a label, and set accept and maxSize to constrain the file.",
+    charLimits: { label: 40, hint: 120, error: 120 },
+  },
   Input: {
     name: "Input",
     description:
@@ -275,6 +287,12 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     name: "Kbd",
     description:
       "Keyboard key cap for showing one key, such as Esc or K, inside help text or a hint. Put the key name in children.",
+  },
+  MasterOverride: {
+    name: "MasterOverride",
+    description:
+      "Guarded master switch with a lift-to-arm safety cover. Use for high-stakes venue-wide toggles such as pausing all online bookings or closing the kitchen. Always give a label; the optional description explains the consequence, and variant danger signals the highest severity.",
+    charLimits: { label: 40, idleLabel: 20, activeLabel: 20, coverLabel: 30 },
   },
   Meter: {
     name: "Meter",
@@ -472,5 +490,10 @@ export const catalogMeta: Record<string, CatalogMeta> = {
       "Short hover/focus hint attached to one trigger element. Put the element being explained (a Button, IconButton, Badge, or Text) as the single child and the hint in content (one short sentence). Use for brief explanations of terms or icon-only controls; never for essential information, long text, or interactive content. placement is top (default), bottom, left or right.",
     slots: ["default"],
     charLimits: { content: 80 },
+  },
+  Tree: {
+    name: "Tree",
+    description:
+      "Expandable hierarchy for navigating nested data such as floor plans, menu categories or organisation units. Provide a data array of nodes with id and label, and optional nested children.",
   },
 };

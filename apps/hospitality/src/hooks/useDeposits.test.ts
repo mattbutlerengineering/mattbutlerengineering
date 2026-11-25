@@ -13,7 +13,7 @@ const mockCreate = vi.fn();
 vi.mock("./useApiClient.js", () => ({
   useApiClient: () => ({
     deposits: {
-      getByReservation: mockGetByReservation,
+      getStatusByReservation: mockGetByReservation,
       create: mockCreate,
     },
   }),

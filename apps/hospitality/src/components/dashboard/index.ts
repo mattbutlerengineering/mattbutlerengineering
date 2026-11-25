@@ -4,3 +4,4 @@ export { LapsingGuestsWidget } from "./LapsingGuestsWidget";
 export { DepositExposureWidget } from "./DepositExposureWidget";
 export { StatRow } from "./StatRow";
 export { TurnedAwayHeatmap } from "./TurnedAwayHeatmap";
+export { AddSeatingWhatIf } from "./AddSeatingWhatIf";
