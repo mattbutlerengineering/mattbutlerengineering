@@ -112,6 +112,7 @@ test-results/
 # Stryker mutation testing artifacts
 .stryker-tmp/
 reports/mutation/
+reports/mutation-reservations/
 # Durable runtime telemetry (#3645). The block below is DERIVED from the
 # `durable` flags in scripts/metrics-store.mjs — edit the registry, then run
 # `node scripts/metrics-store.mjs --sync-gitignore`. Drift is a test failure

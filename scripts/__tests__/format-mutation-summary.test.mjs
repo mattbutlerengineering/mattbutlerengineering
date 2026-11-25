@@ -75,4 +75,37 @@ describe("formatMutationSummary", () => {
     });
     expect(md).toContain("[Artifacts](https://example.com/run/1)");
   });
+
+  it("groups surviving mutants under the package they belong to", () => {
+    const md = formatMutationSummary({
+      scoreResult: FAILING_SCORE,
+      survivedMutants: [
+        { file: "services/users/src/routes/users.ts", line: 18, mutator: "OptionalChaining" },
+        {
+          file: "services/reservations/src/transitions/deposit.ts",
+          line: 4,
+          mutator: "EqualityOperator",
+        },
+        { file: "services/users/src/services/auth.ts", line: 9, mutator: "BooleanLiteral" },
+      ],
+    });
+    expect(md).toContain("#### services/users");
+    expect(md).toContain("#### services/reservations");
+    expect(md.indexOf("#### services/users")).toBeLessThan(
+      md.indexOf("users/src/routes/users.ts:18")
+    );
+    expect(md.indexOf("#### services/reservations")).toBeLessThan(
+      md.indexOf("reservations/src/transitions/deposit.ts:4")
+    );
+    // Both users mutants sit under the one users heading.
+    expect(md.match(/#### services\/users/g)).toHaveLength(1);
+  });
+
+  it("names the scope of the run in the heading when given", () => {
+    const md = formatMutationSummary({
+      scoreResult: PASSING_SCORE,
+      scope: "services/reservations",
+    });
+    expect(md).toContain("## Mutation Testing Results — services/reservations");
+  });
 });

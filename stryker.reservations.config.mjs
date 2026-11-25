@@ -13,8 +13,10 @@
  * overwrite each other).
  *
  * Run: tools/mutation-testing/node_modules/.bin/stryker run stryker.reservations.config.mjs
- * Not yet wired into .github/workflows/mutation-testing.yml: whether it runs
- * as a second step or its own scheduled job is an open decision on #9333.
+ * Wired into .github/workflows/mutation-testing.yml as a second step of the
+ * same job (#9597), which shares the Prisma client cache restored there. The
+ * step is continue-on-error and reports to its own artifact and summary, so a
+ * reservations failure never changes the services/users result.
  */
 import usersConfig from "./stryker.config.mjs";
 

@@ -37,6 +37,7 @@ process.stdout.write(
       threshold: Number(args.threshold ?? 80),
       runUrl: args["run-url"] ?? "",
       today: args.today ?? new Date().toISOString().slice(0, 10),
+      scope: args.scope || undefined,
     })
   ) + "\n"
 );

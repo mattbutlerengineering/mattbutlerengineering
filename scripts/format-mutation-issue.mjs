@@ -109,9 +109,10 @@ const DEDUPE_FOOTER = [
  * @param {number} params.threshold
  * @param {string} params.runUrl
  * @param {string} params.today - ISO date (YYYY-MM-DD).
+ * @param {string} [params.scope] - package the run measured, named in the body and comment.
  * @returns {{title: string, dedupeKey: string, body: string, comment: string}}
  */
-export function formatMutationIssue({ state, score, threshold, runUrl, today }) {
+export function formatMutationIssue({ state, score, threshold, runUrl, today, scope }) {
   const identity = ISSUE_BY_STATE[state] ?? ISSUE_BY_STATE["report-missing"];
 
   let bodyLines;
@@ -125,6 +126,11 @@ export function formatMutationIssue({ state, score, threshold, runUrl, today }) 
   } else {
     bodyLines = noReportBody({ today, runUrl });
     comment = `Still no usable report as of ${today} — no score was measured. Run: ${runUrl}`;
+  }
+
+  if (scope) {
+    bodyLines = [`**Package:** ${scope}`, "", ...bodyLines];
+    comment = `[${scope}] ${comment}`;
   }
 
   return {
