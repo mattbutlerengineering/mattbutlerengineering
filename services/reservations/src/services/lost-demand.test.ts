@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, type Mock } from "vitest";
-import { ANY_TIME_MINUTE, createLostDemandService, type NoSlotSearchKey } from "./lost-demand.js";
+import {
+  ANY_TIME_MINUTE,
+  createLostDemandService,
+  limitingReason,
+  type NoSlotSearchKey,
+} from "./lost-demand.js";
 
 const SEARCH: NoSlotSearchKey = {
   venueId: "venue_1",
@@ -119,5 +124,84 @@ describe("lostDemandService.recordNoSlotSearch", () => {
 
   it("uses the any-time sentinel for a search that named no time", () => {
     expect(ANY_TIME_MINUTE).toBe(-1);
+  });
+});
+
+describe("limitingReason (#9621)", () => {
+  const at = (hh: number, mm = 0) => hh * 60 + mm;
+
+  it("is closure when the date is closed, whatever else is true", () => {
+    expect(
+      limitingReason({
+        requestedMinute: at(19),
+        closure: true,
+        hasSeatings: true,
+        refusals: [{ minute: at(19), reason: "pacing" }],
+      })
+    ).toBe("closure");
+  });
+
+  it("is hours when the venue has no online seating that day", () => {
+    expect(
+      limitingReason({ requestedMinute: ANY_TIME_MINUTE, hasSeatings: false, refusals: [] })
+    ).toBe("hours");
+  });
+
+  it("is hours when no seating exists at the requested minute", () => {
+    expect(
+      limitingReason({
+        requestedMinute: at(15, 10),
+        hasSeatings: true,
+        refusals: [{ minute: at(19), reason: "tables" }],
+      })
+    ).toBe("hours");
+  });
+
+  it("uses the engine's refusal at the requested minute", () => {
+    const refusals = [
+      { minute: at(19), reason: "pacing" as const },
+      { minute: at(19, 30), reason: "tables" as const },
+    ];
+    expect(limitingReason({ requestedMinute: at(19), hasSeatings: true, refusals })).toBe("pacing");
+    expect(limitingReason({ requestedMinute: at(19, 30), hasSeatings: true, refusals })).toBe(
+      "tables"
+    );
+  });
+
+  it("for an any-time search prefers tables over pacing", () => {
+    expect(
+      limitingReason({
+        requestedMinute: ANY_TIME_MINUTE,
+        hasSeatings: true,
+        refusals: [
+          { minute: at(19), reason: "pacing" },
+          { minute: at(20), reason: "tables" },
+        ],
+      })
+    ).toBe("tables");
+    expect(
+      limitingReason({
+        requestedMinute: ANY_TIME_MINUTE,
+        hasSeatings: true,
+        refusals: [{ minute: at(19), reason: "pacing" }],
+      })
+    ).toBe("pacing");
+  });
+});
+
+describe("recordNoSlotSearch carries the limiting reason (#9621)", () => {
+  it("passes the reason to the store", async () => {
+    const { service, store } = setup();
+    await service.recordNoSlotSearch({ ...SEARCH, reason: "pacing" }, GUEST);
+    expect(store.increment).toHaveBeenCalledWith({ ...SEARCH, reason: "pacing" });
+  });
+
+  it("dedupes the same search even when the reason is the same", async () => {
+    const { service, store } = setup();
+    await service.recordNoSlotSearch({ ...SEARCH, reason: "tables" }, GUEST);
+    expect(await service.recordNoSlotSearch({ ...SEARCH, reason: "tables" }, GUEST)).toBe(
+      "duplicate"
+    );
+    expect(store.increment).toHaveBeenCalledTimes(1);
   });
 });

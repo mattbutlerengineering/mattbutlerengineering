@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync, FastifyRequest } from "fastify";
-import { ANY_TIME_MINUTE, type NoSlotSearchKey } from "../services/lost-demand.js";
+import { ANY_TIME_MINUTE, limitingReason, type NoSlotSearchKey } from "../services/lost-demand.js";
 import type { PublicAvailabilityDatesResponse, PublicAvailabilityResponse } from "@mbe/types";
 import {
   createProblemDetails,
@@ -108,7 +108,7 @@ export const publicAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
             .send(createProblemDetails(400, "Invalid Party Size", partySizeResult.error));
         }
 
-        const { slots, ...notices } = await availabilityService.getDayAvailability(
+        const { slots, demand, ...notices } = await availabilityService.getDayAvailability(
           venue.id,
           date,
           partySizeResult.value,
@@ -123,7 +123,17 @@ export const publicAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
           const requestedMinute = missedMinute(open, time);
           if (requestedMinute !== null) {
             recordLostDemand(
-              { venueId: venue.id, date, requestedMinute, partySize: partySizeResult.value },
+              {
+                venueId: venue.id,
+                date,
+                requestedMinute,
+                partySize: partySizeResult.value,
+                reason: limitingReason({
+                  requestedMinute,
+                  hasSeatings: demand?.hasSeatings ?? false,
+                  refusals: demand?.refusals ?? [],
+                }),
+              },
               request
             );
           }

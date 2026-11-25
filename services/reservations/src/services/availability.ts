@@ -1,3 +1,4 @@
+import type { SeatingRefusal } from "./lost-demand.js";
 import type {
   TimeSlot,
   AvailableTable,
@@ -57,6 +58,11 @@ export interface DayAvailability {
   slots: TimeSlot[];
   closure?: AvailabilityClosure;
   bookingPaused?: BookingPaused;
+  /**
+   * Engine-internal, for the Lost Demand Ledger (#9621); the public route strips it.
+   * `hasSeatings`: the venue runs online seatings that date. `refusals`: those it refused.
+   */
+  demand?: { hasSeatings: boolean; refusals: SeatingRefusal[] };
 }
 
 async function loadOrNull(
@@ -157,7 +163,14 @@ async function getDayAvailability(
   if (!loaded) return { slots: [] };
   const timed = { ...loaded, snapshot: withDuration(loaded.snapshot, partySize, durationOverride) };
   const { seatings, offered } = listDay(timed, date, partySize, now);
-  return { slots: offered.map(toTimeSlot), ...noticesFor(loaded, date, seatings.length) };
+  const refusals = seatings.flatMap((s): SeatingRefusal[] =>
+    s.reason ? [{ minute: s.minute, reason: s.reason === "no_table" ? "tables" : "pacing" }] : []
+  );
+  return {
+    slots: offered.map(toTimeSlot),
+    ...noticesFor(loaded, date, seatings.length),
+    demand: { hasSeatings: seatings.length > 0, refusals },
+  };
 }
 
 /**
