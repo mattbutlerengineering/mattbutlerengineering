@@ -32,7 +32,7 @@ export const publicGuestRecognitionRoutes: FastifyPluginAsync = async (fastify) 
       schema: {
         summary: "Recognize a guest by email (public)",
         description:
-          "Read-only lookup that returns limited guest info for the booking widget. No auth required. Rate-limited to 10 req/min per IP.",
+          "Booking-widget recognition. Always answers unrecognized until the caller proves they own the email. No auth required. Rate-limited to 10 req/min per IP.",
         tags: ["Public"],
         params: {
           type: "object",
