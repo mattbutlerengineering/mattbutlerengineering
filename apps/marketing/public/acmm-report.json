@@ -1,20 +1,20 @@
 {
   "schema": "acmm-report/v2",
-  "generatedAt": "2026-11-22T12:21:51.131Z",
+  "generatedAt": "2026-11-24T14:39:30.393Z",
   "repo": {
     "currentLevel": 5,
     "levelName": "Semi-Automated",
     "role": "Operator",
-    "lastRun": "2026-11-22T12:21:49.015Z",
+    "lastRun": "2026-11-24T14:39:27.929Z",
     "summary": {
       "detected": 71,
       "total": 84,
       "coverage": 0.8452380952380952
     },
     "behavioral": {
-      "ciFlakeRate": 0.024024024024024024,
-      "agentPrAcceptanceRate": 0.9817518248175182,
-      "agentPrRevertRate": 0.0037174721189591076,
+      "ciFlakeRate": 0.022022022022022022,
+      "agentPrAcceptanceRate": 0.9811320754716981,
+      "agentPrRevertRate": 0.0038461538461538464,
       "evalPassRate": 0.8,
       "evalsStale": false,
       "evalsLastRun": "2026-11-20T15:59:17.181Z"
@@ -278,7 +278,7 @@
         "level": 3,
         "name": "ci-flake-rate",
         "passed": true,
-        "value": 0.024024024024024024,
+        "value": 0.022022022022022022,
         "threshold": 0.2,
         "unverifiable": false
       },
@@ -286,7 +286,7 @@
         "level": 4,
         "name": "agent-pr-acceptance",
         "passed": true,
-        "value": 0.9817518248175182,
+        "value": 0.9811320754716981,
         "threshold": 0.5,
         "unverifiable": false
       },
@@ -294,7 +294,7 @@
         "level": 5,
         "name": "auto-qa-tuning-history",
         "passed": true,
-        "value": 63,
+        "value": 65,
         "threshold": 1,
         "unverifiable": false
       },
@@ -302,7 +302,7 @@
         "level": 6,
         "name": "agent-pr-revert-rate",
         "passed": true,
-        "value": 0.0037174721189591076,
+        "value": 0.0038461538461538464,
         "threshold": 0.1,
         "unverifiable": false
       },
@@ -310,7 +310,7 @@
         "level": 6,
         "name": "human-touch-ratio",
         "passed": true,
-        "value": 0.02973977695167286,
+        "value": 0.023076923076923078,
         "threshold": 0.5,
         "unverifiable": false
       }
