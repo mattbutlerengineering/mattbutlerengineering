@@ -163,6 +163,29 @@ describe("pullDataBranch", () => {
     expect(result.pushed).toBe(true);
   });
 
+  it("works in a single-branch clone, whose fetch refspec covers only main", () => {
+    // `git clone --single-branch` (also implied by --depth) maps only main to
+    // origin/*, so a bare `git fetch origin metrics-data` never creates
+    // origin/metrics-data. Cloud sessions may clone this way.
+    const single = join(base, "single");
+    git(base, [
+      "clone",
+      "-q",
+      "--single-branch",
+      "--branch",
+      "main",
+      join(base, "remote.git"),
+      single,
+    ]);
+    identity(single);
+    pullDataBranch({ root: single, runGit: createRunGit(single), log: quiet });
+    appendFileSync(join(single, DATA_DIRNAME, "queue-telemetry.jsonl"), '{"n":"single"}\n');
+    expect(
+      pushDataBranch({ root: single, message: "single", runGit: createRunGit(single), log: quiet })
+        .pushed
+    ).toBe(true);
+  });
+
   it("refuses to pull over uncommitted metric writes", () => {
     pullDataBranch({ root: first, runGit: createRunGit(first), log: quiet });
     appendFileSync(join(first, DATA_DIRNAME, "queue-telemetry.jsonl"), '{"n":2}\n');

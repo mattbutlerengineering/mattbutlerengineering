@@ -160,6 +160,25 @@ describe("persistMetrics", () => {
     expect(gh).toHaveLength(1);
   });
 
+  it("still opens the main-file PR when the data push fails, then reports the failure", () => {
+    const { gh, runGit, runGh } = collect();
+    expect(() =>
+      persistMetrics({
+        routine: "learning-loop",
+        today: "2026-08-03",
+        paths: PATHS,
+        listChanged: () => [".claude/improvement-loop/log.md"],
+        pushData: () => {
+          throw new Error("Could not push to metrics-data after 5 attempts");
+        },
+        runGit,
+        runGh,
+        log: () => {},
+      })
+    ).toThrow(/metrics-data/);
+    expect(gh).toHaveLength(1);
+  });
+
   it("stages exactly the durable paths with a diff", () => {
     const { git, runGit, runGh } = collect();
 

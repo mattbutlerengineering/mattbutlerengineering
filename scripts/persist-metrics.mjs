@@ -169,12 +169,27 @@ export function persistMetrics({
 }) {
   assertRoutineName(routine);
   const message = buildCommitMessage(routine, today);
-  const data = pushData ? { dataPushed: pushData(message).pushed } : {};
+  // A failed data push must not also strand main-located files: carry on to
+  // the PR path, then report the push failure at the end.
+  let dataError;
+  let data = {};
+  if (pushData) {
+    try {
+      data = { dataPushed: pushData(message).pushed };
+    } catch (error) {
+      dataError = error;
+      data = { dataPushed: false };
+    }
+  }
+  const finish = (result) => {
+    if (dataError) throw dataError;
+    return result;
+  };
 
   const changed = selectDurableDiffs(paths, listChanged());
   if (changed.length === 0) {
     log(`[persist-metrics] No durable files on main changed for ${routine}; no PR needed.`);
-    return { committed: false, paths: [], ...data };
+    return finish({ committed: false, paths: [], ...data });
   }
 
   const branch = buildBranchName(routine, today);
@@ -202,7 +217,7 @@ export function persistMetrics({
   log(`[persist-metrics] Committed ${changed.length} durable path(s) on ${branch}:`);
   for (const path of changed) log(`  ${path}`);
 
-  return { committed: true, paths: changed, branch, message, ...data };
+  return finish({ committed: true, paths: changed, branch, message, ...data });
 }
 
 /**
