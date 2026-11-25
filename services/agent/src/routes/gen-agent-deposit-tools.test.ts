@@ -229,9 +229,13 @@ describe("deposits in the prompt", () => {
     expect(prompt).not.toMatch(/reservation page/);
   });
 
-  it("tells chat to state a partial refund amount only from refundAmountCents", () => {
+  // refundAmountCents is written before Stripe confirms the refund (deposit.ts
+  // refundPartial), so it is money owed back, never money already returned.
+  it("tells chat refundAmountCents is owed back to the guest, not confirmed returned", () => {
     expect(prompt).toMatch(/partial_refunded.*refundAmountCents/);
-    expect(prompt).not.toMatch(/refunded amount isn't shown/);
+    expect(prompt).toMatch(/refundAmountCents is the amount owed back to the guest/);
+    expect(prompt).toMatch(/being returned, never that it has been/);
+    expect(prompt).not.toMatch(/state the refunded amount only from refundAmountCents/);
   });
 
   it("warns that a no-show or cancellation may capture or refund the deposit", () => {

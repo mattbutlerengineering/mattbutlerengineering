@@ -119,7 +119,9 @@ export const DepositStatusViewSchema = z.object({
   forfeitedAt: z.string().nullable(),
   uncollectableAt: z.string().nullable().optional(),
   postCaptureRefundCents: z.number().int().nullable().optional(),
-  // Cents returned by a `partial_refunded` deposit (not the full amount).
+  // Planned refund owed back to the guest for a `partial_refunded` deposit (not the full
+  // amount). Written before the Stripe refund is confirmed (deposit.ts refundPartial), so
+  // never present it as money already returned.
   refundAmountCents: z.number().int().nullable().optional(),
 });
 
