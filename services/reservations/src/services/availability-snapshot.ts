@@ -306,6 +306,12 @@ function sectionMembership(rows: readonly DateRuleRow[]): Map<string, string[]> 
  * section closure's `tableIds` are the tables of the section its row was read with (ADR-032),
  * never its join rows.
  */
+function noEmptyRules<T extends { rules?: unknown }>(row: T): T {
+  const { rules, ...rest } = row;
+  const empty = typeof rules === "object" && rules !== null && Object.keys(rules).length === 0;
+  return (empty ? rest : row) as T;
+}
+
 export function parseConfigRows(rows: ConfigRows, warnings: SnapshotWarning[]): AvailabilityConfig {
   const { schedules, venueServices, scheduleServices, assignments, dateRules } = rows;
   return {
@@ -330,7 +336,8 @@ export function parseConfigRows(rows: ConfigRows, warnings: SnapshotWarning[]): 
     scheduleServices: parseRows<ScheduleService>(
       "schedule_services",
       ScheduleServiceSchema,
-      scheduleServices.map((r) => ({ id: r.id, value: r })),
+      // The column's `{}` default means "no rules": read it as absent so a row never gains a key.
+      scheduleServices.map((r) => ({ id: r.id, value: noEmptyRules(r) })),
       warnings
     ),
     assignments: parseRows<ScheduleAssignment>(
