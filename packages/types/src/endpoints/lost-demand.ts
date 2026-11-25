@@ -39,7 +39,7 @@ const LostDemandAnyTimeSchema = z.object({
  * several apply: closure > hours > tables > pacing. Rows recorded before reasons
  * existed carry none, so the four can sum to less than `total`.
  */
-export const LostDemandByReasonSchema = z.object({
+const LostDemandByReasonSchema = z.object({
   pacing: z.number().int().nonnegative(),
   tables: z.number().int().nonnegative(),
   hours: z.number().int().nonnegative(),
