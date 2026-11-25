@@ -412,7 +412,7 @@ describe("setTonight", () => {
     const w = world();
     await run(w, body({ type: "pause_online" }));
     const outcome = await run(w, body({ type: "pacing", covers: 8 }, { expectedVersion: 5 }));
-    expect(outcome.kind).toBe("rule_exists");
+    expect(outcome.kind).toBe("closure_exists");
   });
 
   it("routes a close-early through the closure command, as tonight's date, keyed by the ruleId and the change", async () => {
@@ -512,7 +512,7 @@ describe("setTonight", () => {
       const outcome = await run(w, body({ type: "close_early", closeAt: 1200 }), {
         createClosure,
       });
-      expect(outcome).toEqual({ kind: "rule_exists" });
+      expect(outcome).toEqual({ kind: "closure_exists" });
       expect(createClosure).not.toHaveBeenCalled();
     });
 

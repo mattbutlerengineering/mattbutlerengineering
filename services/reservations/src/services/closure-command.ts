@@ -6,12 +6,10 @@ import {
 } from "@mbe/availability";
 import type {
   AvailabilityChangeOutcome,
-  AvailabilityChangeSummary,
   ClosureAlongside,
   ClosureAction,
   ClosureImpact,
   ClosureResult,
-  ConflictChangesSince,
   ClosuresResult,
   CreateClosureBody,
   CreateClosuresBody,
@@ -58,6 +56,7 @@ import {
 } from "./closure-alongside.js";
 import { withAlongside, withClosure } from "./closure-impact.js";
 import { impactInTransaction } from "./closure-impact-store.js";
+import { Refused, type AvailabilityRefusal } from "./availability-refusal.js";
 import { prisma } from "./database.js";
 
 /**
@@ -151,30 +150,24 @@ interface Saved {
 
 export type CreateClosureOutcome =
   | ({ kind: "saved" } & Saved)
-  | { kind: "not_found" }
-  | { kind: "forbidden" }
-  | { kind: "too_long" }
-  | {
-      kind: "version_conflict";
-      winningChange: AvailabilityChangeSummary | null;
-      currentVersion?: number;
-      changesSince?: ConflictChangesSince;
-    }
-  | { kind: "key_reused" }
-  | { kind: "closure_exists" }
-  | { kind: "invalid"; issues: RefusalIssue[] }
-  | { kind: "decision_required"; groupKeys: string[] }
-  | { kind: "invalid_decision"; groupKeys: string[] }
-  | { kind: "move_unavailable"; reservationIds: string[] };
+  | Extract<
+      AvailabilityRefusal,
+      {
+        kind:
+          | "not_found"
+          | "forbidden"
+          | "too_long"
+          | "version_conflict"
+          | "key_reused"
+          | "closure_exists"
+          | "invalid"
+          | "decision_required"
+          | "invalid_decision"
+          | "move_unavailable";
+      }
+    >;
 
 type Refusal = Exclude<CreateClosureOutcome, { kind: "saved" }>;
-
-/** Thrown inside the transaction to roll back the version bump. */
-class Refused extends Error {
-  constructor(readonly outcome: Refusal) {
-    super(outcome.kind);
-  }
-}
 
 /** What the audit row's `inverse` carries beyond the undo data: the replay key. */
 interface ClosureMeta {
@@ -456,7 +449,7 @@ async function refuseBadAlongside(tx: Db, input: CommitInput, state: ConfigState
   // version, so the Manager gets the same recovery and the winner's change is named.
   if (seriesChangedSinceRead(state.stored.dateRules, rule, alongside)) {
     // After this transaction's own bump, which rolls back: answer against the version it matched.
-    throw new Refused((await refuseSeriesChanged(tx, venueId, body.expectedVersion)) as Refusal);
+    throw new Refused(await refuseSeriesChanged(tx, venueId, body.expectedVersion));
   }
   const today = civilDateIn(now, state.timezone);
   const stranded = findStrandedReservations(
@@ -508,8 +501,7 @@ async function commit(tx: Db, input: CommitInput): Promise<Saved> {
     where: { id: venueId, availabilityVersion: body.expectedVersion },
     data: { availabilityVersion: { increment: 1 } },
   });
-  if (cas.count === 0)
-    throw new Refused((await refuseStale(tx, venueId, body.expectedVersion)) as Refusal);
+  if (cas.count === 0) throw new Refused(await refuseStale(tx, venueId, body.expectedVersion));
 
   const state = await loadConfigState(tx, venueId, now);
   if (!state) throw new Refused({ kind: "not_found" });
@@ -543,7 +535,7 @@ async function commit(tx: Db, input: CommitInput): Promise<Saved> {
   const next = withClosure(state.effective, rule, body.alongside);
   const diff = diffConfig(state.stored, next);
   await writeConfigDiff(tx, venueId, diff, { actorId: caller.actorId, now }).catch((e: unknown) => {
-    throw e instanceof ConfigRowConflict ? new Refused(conflictIssue(e, next) as Refusal) : e;
+    throw e instanceof ConfigRowConflict ? new Refused(conflictIssue(e, next)) : e;
   });
   const version = body.expectedVersion + 1;
   // A series that grows is saved under a new id: what the old one did follows it (#7984).
@@ -878,7 +870,7 @@ export async function reopenClosure(
       if (input.seen && ruleChangedSinceSeen(state.stored.dateRules, ruleId, input.seen)) {
         // The venue is on the version before this transaction's own bump, which is rolled back.
         const current = bumped.availabilityVersion - 1;
-        throw new Refused((await refuseSeriesChanged(db, venueId, current)) as Refusal);
+        throw new Refused(await refuseSeriesChanged(db, venueId, current));
       }
 
       const keep = input.date ? splitFor(input, rule, input.date, state.stored.dateRules) : [];
@@ -951,7 +943,7 @@ export async function reopenClosure(
       };
     });
   } catch (error) {
-    if (error instanceof Refused) return error.outcome as ReopenOutcome;
+    if (error instanceof Refused) return error.outcome;
     throw error;
   }
 }

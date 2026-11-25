@@ -45,10 +45,7 @@ export const tonightRoutes: FastifyPluginAsync = async (fastify) => {
         }
         return { data: outcome.result };
       }
-      return sendRefusal(
-        reply,
-        outcome.kind === "rule_exists" ? { kind: "closure_exists" } : outcome
-      );
+      return sendRefusal(reply, outcome);
     }),
   });
 

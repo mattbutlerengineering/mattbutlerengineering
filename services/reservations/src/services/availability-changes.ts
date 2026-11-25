@@ -11,12 +11,11 @@ import { Prisma, type PrismaClient } from "../generated/prisma/index.js";
 import { setVenueContext } from "../middleware/venue-context.js";
 import {
   commitSave,
-  inSaveTransaction,
-  refuseSave,
   toSummary,
   type SaveOutcome,
   type StoreClient,
 } from "./availability-config.js";
+import { inAvailabilityTransaction, refuse } from "./availability-refusal.js";
 import { revertedDetail } from "./availability-change-detail.js";
 import { returnCarriedOutcomes } from "./closure-carry-outcomes.js";
 import { CONFIG_TABLES, type ConfigInverse } from "./availability-config-plan.js";
@@ -192,17 +191,17 @@ export async function revertAvailabilityChange(
   client: StoreClient = prisma
 ): Promise<RevertOutcome> {
   const { venueId, changeId, actorId, actorName, expectedVersion, now } = input;
-  return inSaveTransaction<SaveOutcome, RevertOutcome>(client, venueId, (tx) =>
+  return inAvailabilityTransaction<SaveOutcome, RevertOutcome>(client, venueId, (tx) =>
     commitSave(tx, { venueId, actorId, actorName, expectedVersion, now }, async (state) => {
       const change = await tx.availabilityChange.findFirst({ where: { id: changeId, venueId } });
-      if (!change) return refuseSave({ kind: "change_not_found" });
-      if (change.revertedById) return refuseSave(refused("already_reverted"));
-      if (change.kind === REVERT_KIND) return refuseSave(refused("not_revertable"));
-      if (change.notifiedGuests) return refuseSave(refused("guests_notified"));
+      if (!change) return refuse({ kind: "change_not_found" });
+      if (change.revertedById) return refuse(refused("already_reverted"));
+      if (change.kind === REVERT_KIND) return refuse(refused("not_revertable"));
+      if (change.notifiedGuests) return refuse(refused("guests_notified"));
       const newest = await newestInForce(tx, venueId);
-      if (newest?.id !== change.id) return refuseSave(refused("superseded"));
+      if (newest?.id !== change.id) return refuse(refused("superseded"));
       const inverse = readInverse(change.inverse);
-      if (!inverse) return refuseSave(refused("not_revertable"));
+      if (!inverse) return refuse(refused("not_revertable"));
 
       const stored = new Set(state.stored.dateRules.map((r) => r.id));
       const restore = inverse.restore;
