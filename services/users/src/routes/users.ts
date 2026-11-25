@@ -10,8 +10,40 @@ import {
   createProblemDetails,
 } from "@mbe/types";
 import { requireAuth, requireAdmin, requireOwnershipOrAdmin } from "@mbe/auth/fastify";
+import type { AuthUser } from "@mbe/auth/fastify";
 import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
 import { userService } from "../services/user.js";
+import { fetchUserInfoClaims } from "../services/auth0-userinfo.js";
+
+/**
+ * `request.user`, enriched with profile claims from the OIDC userinfo
+ * endpoint when the bearer token itself didn't carry them.
+ *
+ * Auth0 access tokens scoped to a custom API audience never carry profile
+ * claims (`email`, `name`, `picture`, `email_verified`) — only the ID token
+ * does (ADR-010) — so for a real production token `request.user.email` is
+ * always `undefined`. Every email-keyed identity check below goes through
+ * here instead of reading `request.user` directly, so the userinfo fallback
+ * applies uniformly (#9563).
+ */
+async function resolveAuthUser(request: FastifyRequest): Promise<AuthUser | undefined> {
+  const authUser = request.user;
+  if (!authUser || authUser.email) return authUser;
+
+  const authHeader = request.headers.authorization;
+  if (!authHeader?.startsWith("Bearer ")) return authUser;
+
+  const claims = await fetchUserInfoClaims(authHeader.slice(7));
+  if (!claims) return authUser;
+
+  return {
+    ...authUser,
+    email: claims.email ?? authUser.email,
+    emailVerified: claims.emailVerified ?? authUser.emailVerified,
+    name: claims.name ?? authUser.name,
+    picture: claims.picture ?? authUser.picture,
+  };
+}
 
 /**
  * Returns the requesting user's database cuid by looking up their JWT email.
@@ -22,8 +54,9 @@ import { userService } from "../services/user.js";
  * victim's address and pass ownership checks for the victim's profile.
  */
 async function resolveCurrentUserId(request: FastifyRequest): Promise<string | null> {
-  if (request.user?.emailVerified !== true) return null;
-  const email = request.user.email;
+  const authUser = await resolveAuthUser(request);
+  if (authUser?.emailVerified !== true) return null;
+  const email = authUser.email;
   if (!email) return null;
   const user = await userService.getByEmail(email);
   return user?.id ?? null;
@@ -362,7 +395,7 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const authUser = request.user;
+      const authUser = await resolveAuthUser(request);
       if (!authUser || !authUser.email) {
         return reply
           .code(401)
@@ -441,7 +474,7 @@ export const userRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     async (request, reply) => {
-      const authUser = request.user;
+      const authUser = await resolveAuthUser(request);
       if (!authUser || !authUser.email) {
         return reply
           .code(401)
