@@ -738,6 +738,15 @@
       "anyTimeNote": "Guests in the last row named no time and found no table that day, so they are counted by weekday only, never in an hour.",
       "loadFailed": "Couldn't load turned-away searches."
     },
+    "whatIf": {
+      "title": "Add a seating at…",
+      "day": "Day",
+      "time": "Time",
+      "estimate_one": "Estimate: about {{count, number}} of the searches in the last 28 days asked for this day and hour, roughly {{perNight, number}} a night. A seating then might have booked it.",
+      "estimate_other": "Estimate: about {{count, number}} of the searches in the last 28 days asked for this day and hour, roughly {{perNight, number}} a night. A seating then might have booked them.",
+      "none": "Estimate: no turned-away searches in the last 28 days asked for this day and hour, so a seating then would not have caught any.",
+      "note": "An estimate from past searches, not a forecast. Guests who named no time are not counted."
+    },
     "deposit": {
       "title": "Deposit Exposure",
       "atRisk": "Deposits at risk",
@@ -4237,7 +4246,7 @@
       },
       "lostDemandLedger": {
         "label": "Lost Demand Ledger",
-        "detail": "Every booking you could not take, so you can see what a full night cost you."
+        "detail": "Every search that found no table, by weekday and hour, and an estimate of what a new seating would have caught."
       },
       "guestPassport": {
         "label": "Guest Passport",

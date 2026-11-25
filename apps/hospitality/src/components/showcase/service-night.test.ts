@@ -44,7 +44,7 @@ describe("service-night structure", () => {
     const byId = new Map(SCENES.flatMap((scene) => scene.claims).map((c) => [c.id, c.status]));
     expect(byId.get("tonightAutopilot")).toBe("concept");
     expect(byId.get("nightInNumbers")).toBe("shipped");
-    expect(byId.get("lostDemandLedger")).toBe("concept");
+    expect(byId.get("lostDemandLedger")).toBe("shipped");
   });
 
   it("turns the lights down from doors until after hours and up again for morning", () => {

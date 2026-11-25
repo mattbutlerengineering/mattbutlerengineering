@@ -147,6 +147,9 @@ vi.mock("../components/dashboard", () => ({
   TurnedAwayHeatmap: ({ demand }: { demand: LostDemand | null | undefined }) => (
     <div data-testid="turned-away-heatmap" data-total={demand?.total ?? 0} />
   ),
+  AddSeatingWhatIf: ({ demand }: { demand: LostDemand | null | undefined }) => (
+    <div data-testid="add-seating-what-if" data-total={demand?.total ?? 0} />
+  ),
   DepositExposureWidget: ({
     depositAtRiskCount,
     noShowExposureCents,
@@ -551,6 +554,8 @@ describe("HomePage", () => {
 
     expect(useLostDemand).toHaveBeenCalledWith({ venueId: "venue-1" });
     expect(screen.getByTestId("turned-away-heatmap").getAttribute("data-total")).toBe("9");
+    // The what-if reads the same data, beside the heatmap.
+    expect(screen.getByTestId("add-seating-what-if").getAttribute("data-total")).toBe("9");
   });
 
   it("shows an actionable error with retry when the turned-away query fails", () => {
@@ -569,6 +574,7 @@ describe("HomePage", () => {
       "Couldn't load turned-away searches."
     );
     expect(screen.queryByTestId("turned-away-heatmap")).toBeNull();
+    expect(screen.queryByTestId("add-seating-what-if")).toBeNull();
     fireEvent.click(screen.getByText("Retry"));
     expect(refetch).toHaveBeenCalledTimes(1);
   });

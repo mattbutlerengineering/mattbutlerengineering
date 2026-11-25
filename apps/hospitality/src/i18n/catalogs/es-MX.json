@@ -757,6 +757,16 @@
       "anyTimeNote": "Los invitados de la última fila no indicaron hora y no encontraron mesa ese día, por eso se cuentan solo por día de la semana, nunca en una hora.",
       "loadFailed": "No se pudieron cargar las búsquedas sin mesa."
     },
+    "whatIf": {
+      "title": "Agregar un turno a las…",
+      "day": "Día",
+      "time": "Hora",
+      "estimate_one": "Estimación: cerca de {{count, number}} de las búsquedas de los últimos 28 días pidió este día y esta hora, unas {{perNight, number}} por noche. Un turno entonces pudo haberla reservado.",
+      "estimate_many": "Estimación: cerca de {{count, number}} de las búsquedas de los últimos 28 días pidieron este día y esta hora, unas {{perNight, number}} por noche. Un turno entonces pudo haberlas reservado.",
+      "estimate_other": "Estimación: cerca de {{count, number}} de las búsquedas de los últimos 28 días pidieron este día y esta hora, unas {{perNight, number}} por noche. Un turno entonces pudo haberlas reservado.",
+      "none": "Estimación: ninguna búsqueda sin mesa de los últimos 28 días pidió este día y esta hora, así que un turno entonces no habría captado ninguna.",
+      "note": "Una estimación basada en búsquedas pasadas, no un pronóstico. No se cuentan los invitados que no indicaron hora."
+    },
     "deposit": {
       "title": "Exposición de depósitos",
       "atRisk": "Depósitos en riesgo",
@@ -4349,7 +4359,7 @@
       },
       "lostDemandLedger": {
         "label": "Registro de demanda perdida",
-        "detail": "Cada reserva que no pudiste aceptar, para ver cuánto te costó una noche llena."
+        "detail": "Cada búsqueda que no encontró mesa, por día y hora, y una estimación de lo que habría captado un nuevo turno."
       },
       "guestPassport": {
         "label": "Pasaporte del comensal",
