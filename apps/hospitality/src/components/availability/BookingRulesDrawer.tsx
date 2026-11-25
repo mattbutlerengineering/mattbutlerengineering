@@ -72,19 +72,24 @@ export function BookingRulesDrawer({ onClose }: BookingRulesDrawerProps) {
     if (leaving) onClose();
   }, [leaving, onClose]);
 
-  const field = (key: BookingRulesField, label: string, placeholder: string, hint: string) => (
-    <Input
-      type="number"
-      inputMode="numeric"
-      label={label}
-      value={form[key]}
-      placeholder={placeholder}
-      error={invalid.includes(key)}
-      hint={invalid.includes(key) ? t(`availability.bookingRules.invalid.${key}`) : hint}
-      showOptional
-      onChange={(e) => setForm({ ...form, [key]: e.target.value })}
-    />
-  );
+  const field = (key: BookingRulesField, label: string, placeholder: string, hint: string) => {
+    // A window with no cap is its own problem, not a range error.
+    const invalidKey =
+      key === "pacingCovers" && form.pacingCovers.trim() === "" ? "pacingNeedsCap" : key;
+    return (
+      <Input
+        type="number"
+        inputMode="numeric"
+        label={label}
+        value={form[key]}
+        placeholder={placeholder}
+        error={invalid.includes(key)}
+        hint={invalid.includes(key) ? t(`availability.bookingRules.invalid.${invalidKey}`) : hint}
+        showOptional
+        onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+      />
+    );
+  };
 
   return (
     <>
@@ -133,6 +138,18 @@ export function BookingRulesDrawer({ onClose }: BookingRulesDrawerProps) {
             t("availability.bookingRules.largestParty"),
             t("availability.bookingRules.partyDefault", { count: UNSET_LARGEST_PARTY }),
             t("availability.bookingRules.largestPartyHint")
+          )}
+          {field(
+            "pacingCovers",
+            t("availability.bookingRules.pacingCovers"),
+            t("availability.bookingRules.noLimit"),
+            t("availability.bookingRules.pacingCoversHint")
+          )}
+          {field(
+            "pacingMinutes",
+            t("availability.bookingRules.pacingMinutes"),
+            t("availability.bookingRules.pacingMinutesDefault"),
+            t("availability.bookingRules.pacingMinutesHint")
           )}
           <Text variant="caption" color="secondary">
             {t("availabilityHub.bookingRules.notInHistory")}

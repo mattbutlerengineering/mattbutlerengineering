@@ -4,12 +4,7 @@ import { Letterboard } from "@mattbutlerengineering/rialto";
 import { ROADMAP } from "./service-night.js";
 import { SceneShell } from "./SceneShell.js";
 
-const BOARD_IDS = [
-  "guestPassport",
-  "kitchenAwareBooking",
-  "headlessVenue",
-  "regularsClub",
-] as const;
+const BOARD_IDS = ["guestPassport", "headlessVenue", "regularsClub"] as const;
 
 export function RoadmapScene() {
   const { t } = useTranslation();

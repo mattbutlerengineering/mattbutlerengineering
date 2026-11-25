@@ -125,4 +125,27 @@ describe("BookingRulesDrawer", () => {
     expect(await screen.findByText("Couldn't save booking rules")).toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();
   });
+
+  it("sets and clears the kitchen pacing cap on the first pacing rule", async () => {
+    renderDrawer({
+      maxPartySize: 10,
+      pacingRules: [{ maxCoversPerSlot: 20, timeWindowMinutes: 30 }],
+    });
+    const covers = screen.getByLabelText(/Most covers per window/);
+    const windowMin = screen.getByLabelText(/Window \(minutes\)/);
+    expect(covers).toHaveValue(20);
+    expect(windowMin).toHaveValue(30);
+    fireEvent.change(covers, { target: { value: "" } });
+    fireEvent.change(windowMin, { target: { value: "" } });
+    fireEvent.click(save());
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1));
+    expect(mutateAsync.mock.calls[0]?.[0].data.settings).toEqual({ maxPartySize: 10 });
+  });
+
+  it("refuses a pacing window without a cap", () => {
+    renderDrawer(null);
+    fireEvent.change(screen.getByLabelText(/Window \(minutes\)/), { target: { value: "30" } });
+    expect(screen.getByText("Set a cap to use a window.")).toBeInTheDocument();
+    expect(save()).toBeDisabled();
+  });
 });

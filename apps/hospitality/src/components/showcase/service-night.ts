@@ -58,7 +58,12 @@ export const SCENES: readonly Scene[] = [
   {
     id: "doors",
     time: "17:00",
-    claims: [shipped("publicBooking"), shipped("pauseBooking"), shipped("openSign")],
+    claims: [
+      shipped("publicBooking"),
+      shipped("pauseBooking"),
+      shipped("openSign"),
+      shipped("kitchenAwareBooking"),
+    ],
   },
   {
     id: "rush",
@@ -83,7 +88,6 @@ export const SCENES: readonly Scene[] = [
 /** Roadmap ideas, each from the weekly notes in `docs/ideas/`. */
 export const ROADMAP: readonly Claim[] = [
   concept("guestPassport"),
-  concept("kitchenAwareBooking"),
   concept("headlessVenue"),
   concept("regularsClub"),
 ];

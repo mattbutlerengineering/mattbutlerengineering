@@ -3364,10 +3364,18 @@
       "invalid": {
         "daysAhead": "Use a whole number of days from 0 to 730.",
         "noticeHours": "Use a whole number of hours from 0 to 720.",
-        "largestParty": "Use a whole number from 1 to 100."
+        "largestParty": "Use a whole number from 1 to 100.",
+        "pacingCovers": "Use a whole number of covers from 1 to 1000.",
+        "pacingMinutes": "Use a whole number of minutes from 5 to 240.",
+        "pacingNeedsCap": "Set a cap to use a window."
       },
       "saved": "Booking rules saved",
-      "saveError": "Couldn't save booking rules"
+      "saveError": "Couldn't save booking rules",
+      "pacingCovers": "Most covers per window",
+      "pacingCoversHint": "Caps how many covers can start in one window, so the kitchen isn't swamped.",
+      "pacingMinutes": "Window (minutes)",
+      "pacingMinutesDefault": "Seating interval",
+      "pacingMinutesHint": "Leave empty to use your seating interval."
     },
     "holidayNudge": {
       "line": "{{name}} is {{date}} and isn't planned yet.",
@@ -4290,7 +4298,7 @@
       },
       "kitchenAwareBooking": {
         "label": "Kitchen-Aware Booking",
-        "detail": "Take the bookings the kitchen can cook, and know tomorrow's prep before the doors open."
+        "detail": "Set a cap on covers starting in any window, and guests are only offered the tables the kitchen can pace."
       },
       "headlessVenue": {
         "label": "Headless Venue",
