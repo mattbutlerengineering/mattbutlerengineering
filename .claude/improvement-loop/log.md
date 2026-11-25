@@ -1,84 +1,3 @@
-## 2026-11-09
-
-**queueEfficiency:** composite 0.896 (baseline n/a) — healthy
-**Difficulty distribution:** size:xs:15, size:s:38, size:l:15, size:xl:16, size:m:12
-**Issues filed:** 0
-
-### Metrics
-
-| Metric                                      | Value                                                                                                              |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Closed (7d, audit+ci-fix)                   | 46                                                                                                                 |
-| Created (7d, audit+ci-fix)                  | 45                                                                                                                 |
-| Closure Rate                                | 102.2% (green)                                                                                                     |
-| Time-to-Close (mean)                        | 10.4h (green)                                                                                                      |
-| Agent Success (open has-pr/(has-pr+failed)) | 1/(1+2) = 33.3% (red, small sample: today's 2 agent-failed)                                                        |
-| CI Pass (main, last 20, skipped excluded)   | 13/13 = 100% (green)                                                                                               |
-| Queue (ready, open)                         | 1 (#8411) — green                                                                                                  |
-| Stale (ready>7d)                            | 0 (green)                                                                                                          |
-| Blocked (agent-failed, open)                | 2 (#8514, #8549) — red by target, both diagnosed as no-usable-fix this run                                         |
-| Skipped (agent-skip, open)                  | 0 (green)                                                                                                          |
-| 7d Spend (attributed, agentCost sensor)     | $1.54 attributed (3 sessions) + 10 queue-worker sessions (7d, 1,947,053 tokens, cost unknown — 79 rows lack usage) |
-| Cost/Issue                                  | not computable — queue worker cost mostly unknown (see above), never estimated                                     |
-
-### Patterns
-
-- The two `agent-failed` issues from this run (#8514, #8549) are not systemic automation bugs: #8514 traced to a one-off GitHub Releases 504 on `doctl` download in `deploy-services.yml`; #8549 traced to the expected ~24h flag→fix→re-review latency on `needs-review`-held PRs (#7972, #8167, #8227 all show the same shape). Neither needs a code fix.
-- CI on main is fully green (100% of non-skipped runs) — no instability pattern.
-- Queue is thin: only 1 `ready` issue open (#8411), and it's explicitly flagged in its own body as needing a human decision (DST/CRON_TZ cron-doc reconciliation), not a mechanical fix — correctly left unclaimed this iteration.
-- `agentCost`'s queue-worker cost is unknown for 79/89 (7d) rows — most queue-telemetry rows still lack `cost_usd`/`subagent_tokens`. Cost/Issue stays non-computable until more workers report usage.
-
-### Recommendations
-
-- Queue depth (1 ready issue) is below the "reduce audit or expand" 3-day-at-zero threshold (not yet 3 days at 0, no action this run) — worth re-checking in a few days; if it stays this thin, `/decompose` or audit cadence may need expanding.
-- No meta-improvement issue filed — no pattern has recurred 3+ consecutive days yet (today is the first agent-failed instance of both #8514- and #8549-style findings in this log).
-
-### Skipped Issues
-
-0 `agent-skip` issues open — nothing to review.
-
-## 2026-11-09 — mbe-learning-loop
-
-**Sensors:** 17/18 available (e2eStability not available). Status: Healthy. acmm L5 (73/84), ciHealth 100% (17/17), mutationScore 99.07% PASS (107/389 killed), flakyTests 0 (29087 runs), metricsFreshness 0 unhealthy.
-**Regressions:** 0 detected, 0 issues created.
-**Sentry triage:** skipped — stored Sentry MCP token expired/unauthorized; no human available in this scheduled run to re-authorize.
-**Verifications:** 5 closed issues checked (48h window) — #8596 (acmm) verified (L5 73/84); #8581, #8579, #8577 (ci-fix) skipped, no success/failure CI runs to verify against; #8574 (audit) skipped, no Lighthouse inventory available. 1 verified, 0 failed, 0 reopened.
-**AI issue feedback:** 7 categories collected, 0 unhealthy (>40% rejected) — acmm 20% (5 total), ci-fix 14% (51 total), audit 4% (27 total), feature 6% (85 total), meta-improvement 0% (15 total), sentry 0% (14 total), dependencies 0% (3 total). All budgets stay at default 3.
-**Skill proposals:** 0 (Monday — Friday-only).
-**Threshold notes:** last-30-days verifications.jsonl: 11 non-skip verifications, 7 verified / 4 not-verified → fix-effectiveness 63.6% (>50%, healthy, no review needed). False-positive proxy (category rejection rates above): weighted 14/200 = 7%, well under the 30% loosen-threshold trigger. Auto-tuner applied 1 adjustment this run: acmm 1.545 → 1.574 (headroom).
-
-## 2026-11-11 — mbe-ui-quality
-
-**State:** `state.mjs checkout` source `main` (head 81f2e51, `merged_main` null, 0 conflicts) — the `ui-quality/ledger` branch did not exist on the remote and was created fresh from `origin/main` this fire.
-
-**Routes:** 40 due / 40 captured / 40 audited, all `rialto-web`. Marketing and hospitality had 0 routes due, so both capture runs skipped with "no routes planned". 20 hospitality rows `unreachable:auth`, 0 `unreachable:build` — all three app builds succeeded. Unjudged 0, dropped tells 0.
-
-**Findings:** 2 mechanical, 1 judged (dropped by the calibration gate).
-
-- Mechanical: `accessibility/axe-serious` on `demos/dashboard` (color-contrast, 1 node, `._overflowText_yhejd_133`) and on `demos/telemetry` (color-contrast, 4 nodes, the `._deltaDown_` delta cells). Both already carry open issues.
-- Judged: `agent-built/gray-card-border` on `demos/drivers/:id` — the three stat tiles (CAREER POINTS / RACE WINS / PODIUMS) and the Profile attribute table are each a 1px gray-bordered box nested inside another 1px gray-bordered card, at both viewports. Suppressed as an agent-built tell under a `stale` calibration stamp, as designed.
-
-**Calibration:** stamp `stale`. `calibration-status --model-id claude-opus-5` returned exit 3; `rate.mjs pairs --calibration` exited 2 — `docs/ui-quality/calibration.json` still carries no labelled pairs (the Verify-stage task of labelling >= 10 pairs remains unowned by this routine). Not retried. Re-queried after: still `stale`. Agent-built findings stay suppressed until a human labels the set. Third consecutive fire in this condition (2026-11-05, 2026-11-08, today).
-
-**Rating:** 6 pairs over 1 app rated and recorded — rialto-web 3.33. Ours won 4 of 6: the `components/button` and `components/hero` docs pages beat both Mantine's and Chakra's Button docs on restraint and sectioning (Mantine's floating widget stack overlaps its own table of contents; Chakra fronts its page with a purple promo gradient and an AI-tip callout). Ours lost both pairs for `demos/session-expired`, which is a thin centred auth card against two dense, well-composed dashboards (shadcn-dashboard-01, tremor-overview).
-
-**Filing:** plan exit 0 — 2 `skip` (open issues #6422, #7268 for the two mechanical findings), 9 ledger-internal `close` actions (`carrier: seed`, `issue: null`, `state_reason: not_observed`), 0 seeds, 0 `create`/`reopen`/`comment`/`adopt`. No GitHub writes were required. 0 issues created / 0 reopened / 0 commented, 0 seeds. All 35 issue numbers in the findings ledger resolved; 37 `ui-quality`-labelled issues read across one complete page (`hasNextPage: false`), none unknown to the plan beyond the two closed escalation issues (#7477, #7908). No escalation file written. Checkpoint commit `cf7e6bc04` pushed before step g as required.
-
-**Fix PR:** none — the plan carried no `fix_pr_candidate`.
-
-**P1 SLA:** 0 open `ui-quality:p1` issues, 0 breaches, 0 escalated.
-
-**Coverage before this fire:** 99.2% (135/136 reachable rows covered, not provisional). `coverage.mjs --json` exited 1 — a coverage breach, with one uncovered row: `rialto-web demos`. That row was captured and judged this fire, so the next fire should read 100%.
-
-**Notes:** no blocker, no stopped filing, no pipeline bug. `mcp__github__search_issues` is not exposed in this sandbox, so both issue searches used `mcp__github__list_issues` with the same label filters, paginated to completion (`totalCount` 37 and 0).
-
-Two real defects were seen that rubric v1 has no tell for, so neither could be filed (recording them here rather than losing them):
-
-1. **The cookie-consent banner is broken at 375x812 on every rialto-web route.** Its body text collapses to a ~40px column (one word per line) inside a ~340px banner, and the banner overlaps the page content behind it — on `demos` it covers the Pit Wall, Drivers CRUD and Layout Demo cards. Visible in every mobile capture this fire; it is app-shell chrome, not route-specific. No judged tell covers a mobile layout/overlap fault, and it is not one of the mechanical tells either.
-2. **`components/color` swatches render as an alpha checkerboard rather than their token colour** at both viewports (`--rialto-surface`, `--rialto-surface-elevated`, `--rialto-surface-matte`, `--rialto-surface-deep`; `--rialto-surface-recessed` renders solid). Lower confidence than (1) — it may be an intentional backdrop — but on a page whose whole job is showing colour values it reads as a defect.
-
-Both are candidates for a human-owned `meta-improvement` issue proposing a rubric v2 tell (a layout/overflow face); this routine does not file those itself.
-
 ## 2026-11-11 — mbe-learning-loop
 
 **Sensors:** 17/18 available (e2eStability not available). Status: ⚠️ 1 regression. acmm L5 (73/84), ciHealth 94% (16/17), mutationScore 99.07% PASS (107/389 killed), flakyTests 0 (12464 runs), metricsFreshness 0 unhealthy (all 9 watched metrics fresh).
@@ -1246,3 +1165,21 @@ Several real layout defects were seen that the rubric has no judged tell for, so
 Checkpoint `chore(ui-quality): checkpoint 2026-11-25` committed and pushed to `ui-quality/ledger` (`c67e66db2`). `ledger.mjs record` exit 0: due 40, audited 40, unreachable auth 27 / build 0, unjudged 0, dropped_tells 0.
 
 No `blocker: no-browser` (Chromium resolved at `/opt/pw-browsers/chromium_headless_shell-1243/...`), no stopped filing, no pipeline bug. A clean fire: everything due was captured and judged, and nothing the rubric names was found.
+
+## 2026-11-25 — mbe-learning-loop
+
+**Sensors:** 19/19 available
+**Sentry triage:** skipped — Sentry MCP tools surfaced as still-connecting in this run; not actionable from an unattended run
+**Regressions:** 1 detected, 1 issue created — `sensor-report.mjs` reported ⚠️ 1 regression: `lighthouse./index.html:performance` 0.99 → 0.9 (-0.09, medium). No duplicate open issue found (`gh api search/issues`); filed #9674 (`fix(lighthouse): /index.html performance regressed (-0.09)`, labels `ready,audit,bug`) within the `audit` category budget (3).
+
+**Verifications:** 5 checked (48h window) — 3 verified, 0 failed, 2 skipped
+
+- ✅ #9630 (reservations section-closure-delete test): latest CI run on main passed after fix merged
+- ✅ #9617 (agent component-call scrubber hardening): latest CI run on main passed after fix merged
+- ✅ #9616 (Stryker reservations vitest setupFiles): latest CI run on main passed after fix merged
+- ⏭ #9624 (signed member link, `security` label): no automated security verifier; needs manual `cors-audit.mjs` re-run
+- ⏭ #9594 (CI health degraded): Lighthouse inventory not available — run a site audit first
+
+**AI issue feedback:** budgets refreshed — meta-improvement 0% rejected (n=19), feature 2% (n=87), ci-fix 7% (n=45), audit 18% (n=38), sentry 0% (n=7), acmm 33% (n=3), agent-failed 100% (n=1, budget stays halved to 1); 1 linked-PR lookup failed (GraphQL 403, non-fatal); no category newly crossed the >40% halving line this run.
+**Skill proposals:** 0 (not Friday — Step 4 session-log analysis skipped)
+**Threshold notes:** auto-tuner (run inside `verify-fixes.mjs`) applied 3 adjustments — `acmm` 1.896 → 1.918 (headroom), `ci-fix` 1.228 → 1.258 (headroom), `bug` 0.95 → 0.9 (high-fp-rate, tightened). 30-day fix-effectiveness (non-skip verifications): 11 verified / 14 scored (~79%), above the 50% floor — no review-trigger. Overall false-positive rate across feedback categories ~7% (14/200 rejected), below the 30% loosen-trigger — no additional threshold changes recommended this run.
