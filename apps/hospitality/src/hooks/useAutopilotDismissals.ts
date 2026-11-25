@@ -3,10 +3,16 @@ import { useCallback, useState } from "react";
 interface Dismissals {
   readonly night: boolean;
   readonly moves: readonly string[];
+  /** Waitlist entries left half-seated: never offered again tonight (#9590). */
+  readonly entries: readonly string[];
 }
 
-const NONE: Dismissals = { night: false, moves: [] };
+const NONE: Dismissals = { night: false, moves: [], entries: [] };
 const storageKey = (venueId: string, date: string) => `mbe-autopilot-dismissed:${venueId}:${date}`;
+
+function strings(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
+}
 
 function read(key: string): Dismissals {
   try {
@@ -15,7 +21,8 @@ function read(key: string): Dismissals {
     const parsed = JSON.parse(raw) as Partial<Dismissals>;
     return {
       night: parsed.night === true,
-      moves: Array.isArray(parsed.moves) ? parsed.moves.filter((m) => typeof m === "string") : [],
+      moves: strings(parsed.moves),
+      entries: strings(parsed.entries),
     };
   } catch {
     // Storage blocked or the value is junk: nothing is dismissed.
@@ -38,6 +45,8 @@ export interface AutopilotDismissals {
   isMoveDismissed: (moveId: string) => boolean;
   dismissNight: () => void;
   dismissMove: (moveId: string) => void;
+  isEntryHeld: (waitlistEntryId: string) => boolean;
+  holdEntry: (waitlistEntryId: string) => void;
 }
 
 /**
@@ -69,5 +78,10 @@ export function useAutopilotDismissals(venueId: string, date: string): Autopilot
       current.moves.includes(moveId)
         ? undefined
         : update({ ...current, moves: [...current.moves, moveId] }),
+    isEntryHeld: (id) => current.entries.includes(id),
+    holdEntry: (id) =>
+      current.entries.includes(id)
+        ? undefined
+        : update({ ...current, entries: [...current.entries, id] }),
   };
 }

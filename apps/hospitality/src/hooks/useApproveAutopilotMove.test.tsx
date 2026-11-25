@@ -47,9 +47,10 @@ const offer: AutopilotMove = {
 };
 
 let outcome: ApproveOutcome | null = null;
+const onSplit = vi.fn();
 
 function Approve({ move }: { readonly move: AutopilotMove }) {
-  const { approve, pendingMoveId } = useApproveAutopilotMove("v1", "2026-06-19");
+  const { approve, pendingMoveId } = useApproveAutopilotMove("v1", "2026-06-19", onSplit);
   return (
     <>
       <button
@@ -86,6 +87,7 @@ function renderApprove(move: AutopilotMove) {
 describe("useApproveAutopilotMove", () => {
   beforeEach(() => {
     outcome = null;
+    onSplit.mockReset();
     for (const fn of [
       api.reservations.getAutopilotProposals,
       api.reservations.update,
@@ -182,9 +184,10 @@ describe("useApproveAutopilotMove", () => {
 
     expect(
       await screen.findByText(
-        "Seated at Booth, but the waitlist didn't update. Refresh to tidy up."
+        "Seated at Booth, but the waitlist didn't update. Remove Kim from the Waitlist page so they aren't offered a table again."
       )
     ).toBeInTheDocument();
+    expect(onSplit).toHaveBeenCalledWith("w1");
     expect(screen.queryByText("Seated Kim at Booth")).toBeNull();
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["autopilot-proposals"] });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["waitlist"] });
