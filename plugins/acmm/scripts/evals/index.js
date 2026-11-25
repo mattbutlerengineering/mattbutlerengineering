@@ -22,6 +22,7 @@ import { fileURLToPath } from "node:url";
 import { parseTask } from "./schema.js";
 import { runEval } from "./run.js";
 import { measureEvals } from "../evals.js";
+import { resolveDataFile } from "../../../../scripts/metrics-store.mjs";
 
 const args = new Set(process.argv.slice(2));
 const DRY_RUN = args.has("--dry-run");
@@ -32,7 +33,7 @@ const ONLY_TASK = taskIdx >= 0 ? process.argv[taskIdx + 1] : null;
 const cwd = process.cwd();
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const TASKS_DIR = join(__dirname, "tasks");
-const OUT_PATH = join(cwd, "metrics/acmm-evals.jsonl");
+const OUT_PATH = resolveDataFile("acmm-evals.jsonl", { root: cwd });
 
 if (REPORT) {
   printReport();

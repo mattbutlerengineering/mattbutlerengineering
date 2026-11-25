@@ -54,6 +54,11 @@ jobs:
         # commit dies with ERR_MODULE_NOT_FOUND and the whole run fails.
         run: pnpm build --filter @mbe/cli...
 
+      - name: Check out metrics-data
+        # Telemetry lives on the orphan metrics-data branch, not main
+        # (scripts/metrics-data.mjs). metrics-store reads and writes it in .metrics-data/.
+        run: node scripts/metrics-data.mjs pull
+
       - name: Run auto-qa-tune
         run: node plugins/acmm/scripts/auto-qa-tune.js
 

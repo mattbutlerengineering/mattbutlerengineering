@@ -103,6 +103,19 @@ describe("checkProcessMetrics", () => {
     rmSync(dir, { recursive: true });
   });
 
+  test("reads from the metrics-data checkout when one exists", () => {
+    const dir = makeTmpDir();
+    const dataDir = join(dir, ".metrics-data");
+    mkdirSync(dataDir, { recursive: true });
+    writeFileSync(
+      join(dataDir, "process-metrics.jsonl"),
+      `{"timestamp":"${new Date().toISOString()}","fp_rate":15}\n`
+    );
+    const result = checkProcessMetrics(dir);
+    assert.equal(result.passed, true);
+    rmSync(dir, { recursive: true });
+  });
+
   test("fails when file missing", () => {
     const dir = makeTmpDir();
     const result = checkProcessMetrics(dir);

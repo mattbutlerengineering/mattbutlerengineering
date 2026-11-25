@@ -733,6 +733,28 @@ describe("agent eval command", () => {
     expect(record.timestamp).toBeDefined();
   });
 
+  it("writes into the metrics-data checkout when one exists", async () => {
+    mockLoadSuite.mockResolvedValue([task]);
+    mockRunAgentSession.mockResolvedValue(fakeSession());
+    mockExistsSync.mockImplementation((p: string) => String(p).endsWith(".metrics-data"));
+
+    await agentEvalCommand.parseAsync([], { from: "user" });
+
+    const [filePath] = mockAppendFileSync.mock.calls[0] as [string, string];
+    expect(filePath).toMatch(/\.metrics-data[\\/]eval-reports\.jsonl$/);
+  });
+
+  it("writes under metrics/ when there is no metrics-data checkout", async () => {
+    mockLoadSuite.mockResolvedValue([task]);
+    mockRunAgentSession.mockResolvedValue(fakeSession());
+    mockExistsSync.mockImplementation((p: string) => !String(p).endsWith(".metrics-data"));
+
+    await agentEvalCommand.parseAsync([], { from: "user" });
+
+    const [filePath] = mockAppendFileSync.mock.calls[0] as [string, string];
+    expect(filePath).toMatch(/[\\/]metrics[\\/]eval-reports\.jsonl$/);
+  });
+
   it("creates the log directory when it does not exist", async () => {
     mockLoadSuite.mockResolvedValue([task]);
     mockRunAgentSession.mockResolvedValue(fakeSession());

@@ -27,15 +27,13 @@ const makeFakeClock = (startAt = 0) => {
   };
 };
 
-// The four opt-in automation-PR producers (#3966) plus the rescue cron
+// The three opt-in automation-PR producers (#3966) plus the rescue cron
+// (production-feedback.yml left the list when its rows moved to the
+// metrics-data branch and stopped opening PRs)
 // (#3982) — every one of them must approve pending action_required runs
 // before dispatching/enabling auto-merge, or tier-classifier (and CI Gate
 // itself) never actually runs on their PR (#3684).
 const PRODUCER_WORKFLOWS = {
-  "production-feedback.yml": readFileSync(
-    resolve(ROOT, ".github/workflows/production-feedback.yml"),
-    "utf8"
-  ),
   "drift-fix.yml": readFileSync(resolve(ROOT, ".github/workflows/drift-fix.yml"), "utf8"),
   "pr-metrics.yml": readFileSync(resolve(ROOT, ".github/workflows/pr-metrics.yml"), "utf8"),
   "acmm-regression.yml": readFileSync(
