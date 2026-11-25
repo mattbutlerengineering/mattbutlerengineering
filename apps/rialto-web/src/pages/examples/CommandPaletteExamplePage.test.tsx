@@ -416,6 +416,16 @@ describe("CommandPaletteExamplePage — composition", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
+  it("names the primary trigger from its visible label, including the shortcut", () => {
+    render(<CommandPaletteExamplePage />);
+    const trigger = screen.getByRole("button", { name: /search everything/i });
+    expect(trigger).toHaveAttribute("data-variant", "primary");
+    expect(trigger).not.toHaveAttribute("aria-label");
+    // Visible "Search everything ⌘ K" is the name (WCAG 2.5.3). The shortcut
+    // is not aria-hidden, so the name is not empty.
+    expect(trigger).toHaveAccessibleName(/search everything\s*⌘\s*k/i);
+  });
+
   it("opens the palette via the visible trigger button", async () => {
     const user = userEvent.setup();
     render(<CommandPaletteExamplePage />);
