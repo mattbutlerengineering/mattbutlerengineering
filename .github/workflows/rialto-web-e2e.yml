@@ -82,6 +82,8 @@ on:
       - "scripts/publish-visual-diffs.mjs"
       # ...and the visual-diff-{report,comment,refs}.mjs modules it imports.
       - "scripts/visual-diff-*.mjs"
+      # Main-derived baselines: fetched by `visual` on PRs, published on main.
+      - "scripts/visual-baselines.mjs"
 
 permissions:
   contents: read
@@ -103,6 +105,14 @@ jobs:
         run: pnpm build --filter @mattbutlerengineering/rialto
       - name: Install Playwright browsers
         run: pnpm --dir apps/rialto-web exec playwright install --with-deps chromium
+      - name: Fetch the main-derived baseline
+        # PRs compare against the screenshots main itself produced at the
+        # nearest ancestor (scripts/visual-baselines.mjs), not the tracked
+        # PNGs. With no published baseline in range, the tracked PNGs stay.
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch -q --no-tags --depth=50 origin main:refs/remotes/origin/main
+          node scripts/visual-baselines.mjs fetch --suite rialto-web --dir apps/rialto-web/e2e/screenshots
       - name: Run visual regression tests
         # Invoke playwright directly (not the root `test:visual` script) so
         # the run is scoped to visual.spec.ts only — the root script's args
@@ -115,9 +125,22 @@ jobs:
         # output file is deliberately outside e2e/test-results/, because that
         # directory IS the rialto-web-visual-diffs artifact and SC-8 requires
         # that artifact's contents to stay byte-identical.
+        #
+        # On a push to main the run captures instead of comparing: merging the
+        # PR was the approval, and these screenshots become the baseline the
+        # next PR fetches (publish-visual-baseline below).
         env:
           PLAYWRIGHT_JSON_OUTPUT_FILE: ${{ github.workspace }}/visual-report/report.json
-        run: pnpm exec playwright test --reporter=github,json --config apps/rialto-web/playwright.config.ts apps/rialto-web/e2e/visual.spec.ts
+          UPDATE_FLAG: ${{ github.event_name == 'push' && '--update-snapshots=all' || '' }}
+        run: pnpm exec playwright test --reporter=github,json $UPDATE_FLAG --config apps/rialto-web/playwright.config.ts apps/rialto-web/e2e/visual.spec.ts
+      - name: Upload the captured baseline
+        if: success() && github.event_name == 'push'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: rialto-web-visual-baseline
+          path: apps/rialto-web/e2e/screenshots/*.png
+          retention-days: 3
+          if-no-files-found: error
       - name: Upload diff artifacts on failure
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -138,6 +161,25 @@ jobs:
           path: visual-report/report.json
           retention-days: 14
           if-no-files-found: ignore
+
+  publish-visual-baseline:
+    name: Publish Visual Baseline
+    needs: [visual]
+    # Main pushes only, and only a capture that finished. Writes one new ref,
+    # visual-baselines/rialto-web/<sha>; never overwrites, never --force.
+    if: github.event_name == 'push' && needs.visual.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - name: Download the captured baseline
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: rialto-web-visual-baseline
+          path: ${{ runner.temp }}/baseline
+      - name: Publish the baseline ref
+        run: node scripts/visual-baselines.mjs publish --suite rialto-web --dir "$RUNNER_TEMP/baseline" --sha "$GITHUB_SHA"
 
   publish-visual-diffs:
     name: Publish Visual Diffs
