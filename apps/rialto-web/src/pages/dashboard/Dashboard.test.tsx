@@ -1,15 +1,13 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { MemoryRouter, Routes, Route } from "react-router";
 import { Dashboard } from "./Dashboard";
 
 // Behavioral mock of @mattbutlerengineering/rialto (house pattern — the real
-// package resolves to an unbuilt dist in worktrees). Dashboard renders its
-// Skeleton-based loading state on mount (a 1.5s timer flips it to the full
-// grid), so only the always-rendered surface — PageHeader's breadcrumbs and
-// the always-visible rows — needs a behavioral stub; everything else is a
-// lean passthrough that just needs to not throw.
+// package resolves to an unbuilt dist in worktrees). Tabs, Table, Button, Tag,
+// Banner, and Alert mirror the real focusable surface just enough to assert
+// tab order. Everything else is a lean passthrough that just needs to not throw.
 //
 // The PageHeader stub mirrors the REAL Breadcrumb component's semantics
 // (packages/rialto/src/components/Breadcrumb/Breadcrumb.tsx): an item with
@@ -48,12 +46,85 @@ vi.mock("@mattbutlerengineering/rialto", () => {
   function Passthrough({ children }: { children?: ReactNode }) {
     return <div>{children}</div>;
   }
+  function Button({ children }: { children?: ReactNode }) {
+    return <button type="button">{children}</button>;
+  }
+  function Banner({
+    children,
+    action,
+    dismissible,
+  }: {
+    children?: ReactNode;
+    action?: ReactNode;
+    dismissible?: boolean;
+  }) {
+    return (
+      <div>
+        {children}
+        {action}
+        {dismissible ? <button type="button">Dismiss</button> : null}
+      </div>
+    );
+  }
+  function Alert({
+    children,
+    title,
+    dismissible,
+  }: {
+    children?: ReactNode;
+    title?: string;
+    dismissible?: boolean;
+  }) {
+    return (
+      <div>
+        {title}
+        {children}
+        {dismissible ? <button type="button">Dismiss</button> : null}
+      </div>
+    );
+  }
+  function Tag({ children, onClick }: { children?: ReactNode; onClick?: () => void }) {
+    return (
+      <button type="button" onClick={onClick}>
+        {children}
+      </button>
+    );
+  }
+  function Tabs({ tabs }: { tabs?: { id: string; label: string; content: ReactNode }[] }) {
+    return (
+      <div>
+        <div role="tablist">
+          {tabs?.map((tab, index) => (
+            <button key={tab.id} type="button" role="tab" tabIndex={index === 0 ? 0 : -1}>
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        {tabs?.[0]?.content}
+      </div>
+    );
+  }
+  function Table({ columns }: { columns?: { key: string; header: string; sortable?: boolean }[] }) {
+    return (
+      <table>
+        <thead>
+          <tr>
+            {columns?.map((col) => (
+              <th key={col.key}>
+                {col.sortable ? <button type="button">{col.header}</button> : col.header}
+              </th>
+            ))}
+          </tr>
+        </thead>
+      </table>
+    );
+  }
   return {
-    Alert: Passthrough,
+    Alert,
     AvatarGroup: Passthrough,
     Badge: Passthrough,
-    Banner: Passthrough,
-    Button: Passthrough,
+    Banner,
+    Button,
     Card: Passthrough,
     Divider: Passthrough,
     Kbd: Passthrough,
@@ -67,9 +138,9 @@ vi.mock("@mattbutlerengineering/rialto", () => {
     Skeleton: Passthrough,
     Slider: Passthrough,
     Stack: Passthrough,
-    Table: Passthrough,
-    Tabs: Passthrough,
-    Tag: Passthrough,
+    Table,
+    Tabs,
+    Tag,
     Text: Passthrough,
     Timeline: Passthrough,
     Toggle: Passthrough,
@@ -91,16 +162,50 @@ function renderDashboardWithRoutes() {
 
 describe("Dashboard — accessible names", () => {
   it("gives the Lap Progress progressbar an accessible name (axe aria-progressbar-name)", () => {
-    vi.useFakeTimers();
-    try {
-      renderDashboardWithRoutes();
-      act(() => {
-        vi.advanceTimersByTime(2000);
-      });
-      expect(screen.getByRole("progressbar", { name: "Lap progress" })).toBeInTheDocument();
-    } finally {
-      vi.useRealTimers();
-    }
+    renderDashboardWithRoutes();
+    expect(screen.getByRole("progressbar", { name: "Lap progress" })).toBeInTheDocument();
+  });
+});
+
+function tabbableLabels(container: HTMLElement): string[] {
+  return [...container.querySelectorAll<HTMLElement>("a, button, input, select, textarea")]
+    .filter((el) => !el.hasAttribute("disabled") && el.tabIndex >= 0)
+    .map((el) => (el.textContent ?? "").replace(/\s+/g, " ").trim());
+}
+
+describe("Dashboard — keyboard reachability", () => {
+  it("mounts the tablist, sort buttons, channel tags, and quick actions before any timer or scroll", () => {
+    const { container } = renderDashboardWithRoutes();
+
+    expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
+      "Speed Data",
+      "Lap Times",
+      "Engine",
+    ]);
+    // Roving tabindex: the active tab is the only tab stop; the others stay arrow-reachable.
+    expect(screen.getByRole("tab", { name: "Speed Data" })).toHaveProperty("tabIndex", 0);
+
+    const labels = tabbableLabels(container);
+    const from = labels.indexOf("View Schedule");
+    const to = labels.lastIndexOf("Back to Design System →");
+    expect(labels.slice(from, to + 1)).toEqual([
+      "View Schedule",
+      "Dismiss",
+      "Speed Data",
+      "Zone",
+      "Speed (km/h)",
+      "Best",
+      "Delta",
+      "Track",
+      "Box",
+      "Strategy",
+      "Engineer",
+      "Call to Pit",
+      "Send Message",
+      "View Replay",
+      "Dismiss",
+      "Back to Design System →",
+    ]);
   });
 });
 
