@@ -39,6 +39,8 @@ const CONFIRM_ERROR_STATUS: Record<string, number> = {
   CONFLICT: 409,
   PACING_EXCEEDED: 422,
   MEMBER_REQUIRED: 403,
+  MEMBER_CAP_REACHED: 422,
+  MEMBER_SUSPENDED: 403,
 };
 
 const CONFIRM_ERROR_TITLE: Record<string, string> = {
@@ -48,6 +50,8 @@ const CONFIRM_ERROR_TITLE: Record<string, string> = {
   CONFLICT: "Conflict",
   PACING_EXCEEDED: "Pacing Limit Reached",
   MEMBER_REQUIRED: "Member Link Required",
+  MEMBER_CAP_REACHED: "Early Booking Limit Reached",
+  MEMBER_SUSPENDED: "Early Booking Paused",
 };
 
 /**

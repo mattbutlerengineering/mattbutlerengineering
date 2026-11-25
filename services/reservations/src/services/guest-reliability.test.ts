@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
-import { assessGuestReliability } from "./guest-reliability.js";
+import { assessGuestReliability, assessMemberWindowAccess } from "./guest-reliability.js";
 
 describe("assessGuestReliability", () => {
   afterEach(() => {
@@ -231,6 +231,26 @@ describe("assessGuestReliability", () => {
       expect(assessGuestReliability({ noShowCount, visitCount: 5, lastNoShowAt }, null)).toBe(
         expected
       );
+    });
+  });
+});
+
+describe("assessMemberWindowAccess (#9628)", () => {
+  it("suspends when no-shows plus member late cancels reach the venue threshold", () => {
+    expect(
+      assessMemberWindowAccess(
+        { noShowCount: 1, memberLateCancels: 1 },
+        { autoDepositAfterNoShows: 2 }
+      )
+    ).toEqual({ suspended: true });
+  });
+
+  it("stays active one below the threshold, defaulting it to 2", () => {
+    expect(assessMemberWindowAccess({ noShowCount: 0, memberLateCancels: 1 }, null)).toEqual({
+      suspended: false,
+    });
+    expect(assessMemberWindowAccess({ noShowCount: 1, memberLateCancels: 1 }, null)).toEqual({
+      suspended: true,
     });
   });
 });

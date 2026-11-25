@@ -31,3 +31,16 @@ export function assessGuestReliability(
     riskyThreshold: threshold,
   });
 }
+
+/**
+ * Whether a Regulars Club member is suspended from the early window (#9628): their no-shows
+ * plus late cancels of member-window bookings reach the venue's `autoDepositAfterNoShows`
+ * threshold (shared default via `resolveNoShowThreshold`).
+ */
+export function assessMemberWindowAccess(
+  history: { noShowCount: number; memberLateCancels: number },
+  venueSettings: VenueSettings | null | undefined
+): { suspended: boolean } {
+  const threshold = resolveNoShowThreshold(venueSettings);
+  return { suspended: history.noShowCount + history.memberLateCancels >= threshold };
+}

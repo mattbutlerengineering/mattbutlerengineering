@@ -1,6 +1,7 @@
-import type { ConfirmHoldRequest, GuestNoticeLocale, Reservation } from "@mbe/types";
+import type { VenueSettings, ConfirmHoldRequest, GuestNoticeLocale, Reservation } from "@mbe/types";
 import type { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
+import { assessMemberWindowAccess } from "./guest-reliability.js";
 import type { GateRejection } from "./assert-bookable.js";
 import { bookSlot } from "./book-slot.js";
 import { toReservation } from "./serializers.js";
@@ -18,7 +19,9 @@ type ConfirmHoldErrorCode =
   | "CONFLICT"
   | "PACING_EXCEEDED"
   | "NOT_BOOKABLE"
-  | "MEMBER_REQUIRED";
+  | "MEMBER_REQUIRED"
+  | "MEMBER_CAP_REACHED"
+  | "MEMBER_SUSPENDED";
 
 export interface ConfirmHoldInput {
   holdId: string;
@@ -77,6 +80,63 @@ function isMemberBooking(memberEmail?: string | null, guestEmail?: string | null
   );
 }
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const DEFAULT_MEMBER_WEEKLY_CAP = 2;
+
+/**
+ * Refuses a member-window booking past the venue's weekly cap, or from a member suspended by
+ * no-shows plus late cancels (a cancel inside 24h of the start) of member-window bookings (#9628).
+ */
+async function memberWindowRefusal(
+  venueId: string,
+  guestEmail: string
+): Promise<{ error: string; errorCode: ConfirmHoldErrorCode } | null> {
+  const email = normalizeEmail(guestEmail);
+  const now = new Date();
+  const weekAgo = new Date(now.getTime() - 7 * MS_PER_DAY);
+  const memberBookings = {
+    venueId,
+    memberWindow: true,
+    guestEmail: { equals: email, mode: "insensitive" as const },
+  };
+
+  const [venue, guest, weekly, cancelled] = await Promise.all([
+    prisma.venue.findUnique({ where: { id: venueId }, select: { settings: true } }),
+    prisma.guest.findFirst({ where: { venueId, email }, select: { noShowCount: true } }),
+    prisma.reservation.count({
+      where: { ...memberBookings, createdAt: { gte: weekAgo }, status: { not: "CANCELLED" } },
+    }),
+    prisma.reservation.findMany({
+      where: { ...memberBookings, status: "CANCELLED" },
+      select: { startTime: true, updatedAt: true },
+    }),
+  ]);
+  // updatedAt is the cancel time: a cancelled row is final.
+  const lateCancelCount = cancelled.filter(
+    (r) => r.startTime.getTime() - r.updatedAt.getTime() < MS_PER_DAY
+  ).length;
+  const settings = (venue?.settings ?? null) as VenueSettings | null;
+
+  if (
+    assessMemberWindowAccess(
+      { noShowCount: guest?.noShowCount ?? 0, memberLateCancels: lateCancelCount },
+      settings
+    ).suspended
+  ) {
+    return {
+      error: "Early booking is paused for this member; please book in the public window",
+      errorCode: "MEMBER_SUSPENDED",
+    };
+  }
+  if (weekly >= (settings?.memberWeeklyBookingCap ?? DEFAULT_MEMBER_WEEKLY_CAP)) {
+    return {
+      error: "This member has reached the weekly limit for early bookings",
+      errorCode: "MEMBER_CAP_REACHED",
+    };
+  }
+  return null;
+}
+
 /**
  * Orchestrates hold-to-reservation confirmation.
  *
@@ -129,6 +189,12 @@ export async function confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldR
     };
   }
 
+  // Step 2.6: Abuse limits on the early window (#9628), checked before the slot is written.
+  if (hold.memberWindow && guestDetails.guestEmail) {
+    const refusal = await memberWindowRefusal(hold.venueId, guestDetails.guestEmail);
+    if (refusal) return { success: false, ...refusal };
+  }
+
   // Step 3: Atomic slot write under the advisory lock + transaction.
   const result = await bookSlot({
     tableId: hold.tableId,
@@ -168,6 +234,7 @@ export async function confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldR
           userId: userId ?? null,
           // Ownership proof for the public deposit route (#6304).
           originSessionId: hold.sessionId,
+          memberWindow: hold.memberWindow,
           // The host the guest booked on (#7892); null for non-public confirm
           // paths or an unrecognized origin.
           originHost: input.originHost ?? null,

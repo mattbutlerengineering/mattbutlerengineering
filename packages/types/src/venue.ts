@@ -86,6 +86,8 @@ export interface VenueSettings {
   maxAdvanceBooking?: number; // days
   /** Regulars Club members may book this many days past `maxAdvanceBooking` (#9625). */
   memberLeadDays?: number;
+  /** Most member-window bookings one member may make in a rolling week; default 2 (#9628). */
+  memberWeeklyBookingCap?: number;
   requirePhone?: boolean;
   requireEmail?: boolean;
   confirmationEmailEnabled?: boolean;
