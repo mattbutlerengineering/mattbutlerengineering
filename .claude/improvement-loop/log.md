@@ -1178,6 +1178,7 @@ No `blocker: no-browser` (Chromium resolved at `/opt/pw-browsers/chromium_headle
 **queueEfficiency:** composite 0.923 (baseline n/a) — healthy
 **Difficulty distribution:** size:m:15, size:xs:30, size:s:39, size:l:5, size:xl:7
 **Issues filed:** 0
+
 ## 2026-11-25 — mbe-evening (progress-tracker)
 
 ### Metrics (7d; `audit`+`ci-fix` labels, REST issue search, `created_at`/`closed_at` exact)
