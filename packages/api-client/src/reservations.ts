@@ -7,11 +7,13 @@ import type {
   UpdateReservationRequest,
   WalkInRequest,
   EndOfServiceSummary,
+  LostDemand,
 } from "@mbe/types";
 import {
   ReservationSchema,
   ReservationStatusSchema,
   endOfServiceEndpoints,
+  lostDemandEndpoints,
   paginatedResponseSchema,
 } from "@mbe/types";
 import type { ApiClient, PerRequestOptions, QueryParams } from "./client.js";
@@ -226,6 +228,18 @@ export class ReservationsClient {
     date?: string;
   }): Promise<EndOfServiceSummary> {
     return (await this.client.call(endOfServiceEndpoints.get, { query: params })).data;
+  }
+
+  /**
+   * Turned-away searches by weekday and hour (counts only). Omit `from`/`to`
+   * for the last 28 days ending today in the venue's own time zone.
+   */
+  async getLostDemand(params: {
+    venueId: string;
+    from?: string;
+    to?: string;
+  }): Promise<LostDemand> {
+    return (await this.client.call(lostDemandEndpoints.get, { query: params })).data;
   }
 
   /**

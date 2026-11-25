@@ -193,6 +193,7 @@ describe("POST /api/gen/agent", () => {
       "get_menu",
       "get_night_summary",
       "get_table_status",
+      "get_turned_away_demand",
       "get_venue_settings",
       "list_closures",
       "list_floor_plans",

@@ -3,7 +3,14 @@ import type { ToolSet } from "ai";
 import { z } from "zod";
 import type { FastifyBaseLogger } from "fastify";
 import { lastServiceDate } from "@mbe/availability";
-import { NO_VENUE, localTimeIn, readFailure, todayIn, type ApiClient } from "./gen-tool-support.js";
+import {
+  NO_VENUE,
+  failureLog,
+  localTimeIn,
+  readFailure,
+  todayIn,
+  type ApiClient,
+} from "./gen-tool-support.js";
 
 /**
  * Chat tool for the Briefing page (#7973): the day's pending and confirmed
@@ -12,6 +19,18 @@ import { NO_VENUE, localTimeIn, readFailure, todayIn, type ApiClient } from "./g
  */
 
 type BriefingEntry = Awaited<ReturnType<ApiClient["briefing"]["list"]>>[number];
+
+const WEEKDAYS = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+] as const;
+/** How many weekday-and-hour slots the chat gets: enough to answer, few enough to read. */
+const BUSIEST_LIMIT = 10;
 
 const UNREADABLE_DATE = "The date can't be read. Use a real date as YYYY-MM-DD.";
 
@@ -99,6 +118,51 @@ export function createBriefingTools(
         } catch (err) {
           log.error({ err, venueId, date: day }, "get_night_summary failed");
           return readFailure(err, "the night's numbers", { notEmpty: "the night had no guests" });
+        }
+      },
+    }),
+    get_turned_away_demand: tool({
+      description:
+        'Read when guests are turned away: public availability searches that found no slot, counted by weekday and hour (counts only, no guests). Use it for "when are we turning people away". Defaults to the last 28 days.',
+      inputSchema: z.object({
+        from: z.string().optional().describe("First date, YYYY-MM-DD. Omit for the last 28 days"),
+        to: z.string().optional().describe("Last date, YYYY-MM-DD. Omit for today"),
+      }),
+      execute: async ({ from, to }) => {
+        if (!venueId) return NO_VENUE;
+        if ((from !== undefined && !isRealDate(from)) || (to !== undefined && !isRealDate(to))) {
+          return { rejected: true, error: UNREADABLE_DATE };
+        }
+        log.info({ venueId, from, to }, "get_turned_away_demand tool called");
+        try {
+          const demand = await api.reservations.getLostDemand({
+            venueId,
+            ...(from === undefined ? {} : { from }),
+            ...(to === undefined ? {} : { to }),
+          });
+          return {
+            from: demand.from,
+            to: demand.to,
+            total: demand.total,
+            busiest: [...demand.cells]
+              .sort((a, b) => b.searches - a.searches || a.weekday - b.weekday || a.hour - b.hour)
+              .slice(0, BUSIEST_LIMIT)
+              .map((c) => ({
+                weekday: WEEKDAYS[c.weekday] ?? "",
+                hour: `${String(c.hour).padStart(2, "0")}:00`,
+                searches: c.searches,
+              })),
+            // Searches that named no time: the whole day had no slot. Never placed in an hour.
+            noTimeNamed: demand.anyTime.map((a) => ({
+              weekday: WEEKDAYS[a.weekday] ?? "",
+              searches: a.searches,
+            })),
+          };
+        } catch (err) {
+          log.error({ venueId, ...failureLog(err) }, "get_turned_away_demand failed");
+          return readFailure(err, "the turned-away numbers", {
+            notEmpty: "nobody was turned away",
+          });
         }
       },
     }),

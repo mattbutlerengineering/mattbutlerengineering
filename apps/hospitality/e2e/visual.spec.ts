@@ -190,6 +190,21 @@ const VISUAL_ROUTES: ReadonlyArray<readonly [RegExp, unknown]> = [
     /\/api\/v1\/reservations\/metrics\/end-of-service\?/,
     { date: DAY, venueId: VENUE.id, covers: 84, tableTurns: 31, noShows: 1, turnedAway: null },
   ],
+  // home (#9485): the turned-away heatmap, so the baseline shows the grid, not an error.
+  [
+    /\/api\/v1\/reservations\/metrics\/lost-demand\?/,
+    {
+      venueId: VENUE.id,
+      from: DAY,
+      to: DAY,
+      total: 14,
+      cells: [
+        { weekday: 5, hour: 19, searches: 6 },
+        { weekday: 6, hour: 20, searches: 4 },
+      ],
+      anyTime: [{ weekday: 0, searches: 4 }],
+    },
+  ],
   [
     /\/public\/v1\/reservations\/manage\?token=/,
     {

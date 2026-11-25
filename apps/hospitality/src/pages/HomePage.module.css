@@ -76,6 +76,11 @@
   margin-block-start: var(--rialto-space-lg);
 }
 
+.fullWidth {
+  grid-column: 1 / -1;
+  min-inline-size: 0;
+}
+
 /* ── Activity Feed ─────────────────────────── */
 
 .activityFeed {

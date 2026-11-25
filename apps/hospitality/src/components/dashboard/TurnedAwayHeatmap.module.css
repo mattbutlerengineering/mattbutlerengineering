@@ -1,0 +1,85 @@
+.scroll {
+  margin-block-start: var(--rialto-space-md);
+  overflow-x: auto;
+}
+
+.table {
+  inline-size: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 2px;
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-xs);
+}
+
+.caption {
+  /* Named for assistive tech; the card title and summary already say it on screen. */
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Wide enough for "7 PM" / "19 h"; "No time given" wraps onto two lines rather than clipping. */
+.corner {
+  inline-size: 4.5rem;
+}
+
+.colHead,
+.rowHead {
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-secondary);
+}
+
+.colHead {
+  padding-block: var(--rialto-space-xs);
+  text-align: center;
+}
+
+.rowHead {
+  padding-inline-end: var(--rialto-space-xs);
+  text-align: end;
+  overflow-wrap: anywhere;
+  hyphens: auto;
+}
+
+.hot,
+.cold {
+  padding-block: var(--rialto-space-xs);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  border-radius: var(--rialto-radius-sharp);
+}
+
+/* text-secondary, not tertiary: tertiary on surface-recessed is ~4.08:1 in light, under AA for 11px text. */
+.cold {
+  color: var(--rialto-text-secondary);
+  background: var(--rialto-surface-recessed);
+}
+
+/* Shade scales with the count but stays light enough for primary text to keep its contrast. */
+.hot {
+  /* Default; the component sets --heat inline per cell (count / max). */
+  --heat: 0;
+  color: var(--rialto-text-primary);
+  font-weight: var(--rialto-weight-medium);
+  background: color-mix(
+    in srgb,
+    var(--rialto-accent) calc(var(--heat, 0) * 45%),
+    var(--rialto-surface-recessed)
+  );
+}
+
+.anyTimeRow th,
+.anyTimeRow td {
+  border-block-start: 1px solid var(--rialto-border);
+}
+
+.note {
+  display: block;
+  margin-block-start: var(--rialto-space-sm);
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-xs);
+}

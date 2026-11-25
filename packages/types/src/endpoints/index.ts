@@ -25,3 +25,11 @@ export {
   EndOfServiceSummarySchema,
   type EndOfServiceSummary,
 } from "./end-of-service.js";
+export {
+  lostDemandEndpoints,
+  LOST_DEMAND_PATH,
+  LostDemandQuerySchema,
+  LostDemandSchema,
+  type LostDemand,
+  type LostDemandCell,
+} from "./lost-demand.js";

@@ -728,6 +728,16 @@
       "sendWinBack": "Send win-back",
       "sendWinBackTo": "Send win-back to {{name}}"
     },
+    "turnedAway": {
+      "title": "Turned away",
+      "empty": "No guests were turned away in the last 28 days.",
+      "summary_one": "{{count}} search found no table in the last 28 days.",
+      "summary_other": "{{count}} searches found no table in the last 28 days.",
+      "tableLabel": "Turned-away searches by weekday and hour",
+      "anyTime": "No time given",
+      "anyTimeNote": "Guests in the last row named no time and found no table that day, so they are counted by weekday only, never in an hour.",
+      "loadFailed": "Couldn't load turned-away searches."
+    },
     "deposit": {
       "title": "Deposit Exposure",
       "atRisk": "Deposits at risk",
