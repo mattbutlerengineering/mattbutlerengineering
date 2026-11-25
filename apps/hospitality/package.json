@@ -201,9 +201,9 @@
       "limit": "8 kB"
     },
     {
-      "name": "Copilot context + catalog registry (shared by dashboard drawer and chat page; 16.5 kB since #9519 widened it by 5 more, 15.5 kB since #9518 widened it by 4 more, 14.5 kB since #9516 widened the catalog by 5 more components, 13.5 kB after #8455 widened it by 8, 11.24 kB before)",
+      "name": "Copilot context + catalog registry (shared by dashboard drawer and chat page; 17.5 kB since #9521 added MasterOverride, ImageUpload and Tree adapters (over 16.5 kB by 204 B in CI), 16.5 kB since #9519 widened it by 5 more, 15.5 kB since #9518 widened it by 4 more, 14.5 kB since #9516 widened the catalog by 5 more components, 13.5 kB after #8455 widened it by 8, 11.24 kB before)",
       "path": "dist/assets/useRefreshingChatStream-*.js",
-      "limit": "16.5 kB"
+      "limit": "17.5 kB"
     },
     {
       "name": "Availability map page (lazy chunk; Venue Setup before #8864)",
