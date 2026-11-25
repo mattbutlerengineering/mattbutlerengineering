@@ -62,7 +62,7 @@ describe("remote MCP endpoint", () => {
     });
     await app.listen({ port: 0, host: "127.0.0.1" });
     const address = app.server.address();
-    url = `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}/mcp`;
+    url = `http://127.0.0.1:${typeof address === "object" && address ? address.port : 0}/api/gen/mcp`;
   });
 
   afterEach(async () => {
@@ -208,7 +208,7 @@ describe("remote MCP endpoint", () => {
     const init = (token: string) =>
       app.inject({
         method: "POST",
-        url: "/mcp",
+        url: "/api/gen/mcp",
         headers: {
           "content-type": "application/json",
           accept: "application/json, text/event-stream",

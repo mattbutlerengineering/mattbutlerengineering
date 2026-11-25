@@ -35,7 +35,8 @@ export interface McpRoutesOptions {
   readonly rateLimit?: { readonly max: number; readonly timeWindow: string };
 }
 
-const MCP_PATH = "/mcp";
+/** Under /api/gen, the prefix edge and ingress already route to the agent service. */
+export const MCP_PATH = "/api/gen/mcp";
 const WWW_AUTHENTICATE = 'Bearer realm="mbe-mcp"';
 const SILENT_LOG = { info() {}, error() {}, warn() {}, debug() {} } as unknown as FastifyBaseLogger;
 
