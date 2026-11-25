@@ -58,6 +58,8 @@ export const DROPPED_UPSTREAM_IDS = {
   "claude-reflect:claude-md-sync": "merged into acmm:claude-md-auto-sync — same signal",
   "claude-reflect:reflection-review": "merged into acmm:periodic-reflection — same signal",
   "claude-reflect:preference-index": "removed — same dead .claude/preferences.json target",
+  "acmm:copilot-review-apply":
+    "removed — Owner decision 2026-11-22: it measured a Copilot-era review-bot applier this repo does not run; reviews here are applied by the implement-queue worker loop",
 };
 
 /**

@@ -448,14 +448,15 @@ const CRITERIA = [
     source: "acmm",
     level: 2,
     category: "feedback-loop",
-    name: "Copilot instructions",
-    description: "GitHub Copilot repository instructions loaded on every Copilot interaction.",
-    rationale: "Same L2 signal as CLAUDE.md, scoped to Copilot users.",
+    name: "Scoped instruction rules",
+    description:
+      "Path-scoped rule files that load into the agent only when matching files are read.",
+    rationale: "Same L2 signal as CLAUDE.md, split so each session loads only the rules it needs.",
     details:
-      "copilot-instructions.md is a file in .github/ that GitHub Copilot reads to understand your project-specific rules during every interaction. An AI mission will create this file from your existing code conventions so Copilot suggestions match your team standards out of the box.",
-    detection: { type: "path", pattern: ".github/copilot-instructions.md" },
-    referencePath: ".github/copilot-instructions.md",
-    frequency: "Every Copilot session",
+      "A .claude/rules/ directory holds short rule files that Claude Code loads when it touches matching paths, so big instruction sets stay out of every session's context. An AI mission will split your CLAUDE.md into scoped rule files from your existing conventions.",
+    detection: { type: "path", pattern: ".claude/rules/" },
+    referencePath: ".claude/rules/",
+    frequency: "Every matching AI session",
   },
   {
     id: "acmm:agents-md",
@@ -774,23 +775,6 @@ const CRITERIA = [
         ".github/workflows/nightly-test-suite.yml",
       ],
       maxAgeDays: 7,
-    },
-  },
-  {
-    id: "acmm:copilot-review-apply",
-    source: "acmm",
-    level: 4,
-    category: "feedback-loop",
-    name: "Automated review application",
-    description: "Workflow that applies AI-review suggestions automatically to PRs.",
-    rationale:
-      "L4 action-taking: the loop closes when suggestions become commits without human intervention.",
-    details:
-      'Automated review application is a workflow that takes AI-generated review comments and applies the suggested fixes directly as commits on the PR branch. Instead of a human reading "change X to Y" and making the edit, the system does it automatically. This is L4 because the feedback loop acts on its own output. An AI mission will add a workflow that parses review bot suggestions and commits the fixes.',
-    detection: {
-      type: "active",
-      pattern: [".github/workflows/copilot-review-apply.yml", ".github/workflows/ai-fix.yml"],
-      maxAgeDays: 30,
     },
   },
   {

@@ -118,11 +118,10 @@ const L3_IDS = [
   "acmm:pr-review-rubric",
   "acmm:quality-dashboard",
 ];
-// L4 has 8 items; 70% = 6 needed
+// L4 has 7 items; 70% = 5 needed
 const L4_IDS = [
   "acmm:auto-qa-tuning",
   "acmm:nightly-compliance",
-  "acmm:copilot-review-apply",
   "acmm:auto-label",
   "acmm:ai-fix-workflow",
   "acmm:tier-classifier",

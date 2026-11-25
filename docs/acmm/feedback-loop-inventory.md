@@ -40,7 +40,7 @@ Catalog of all feedback loops in this repository, following the ACMM (AI Codebas
 
 Agent reads instructions at session start and follows conventions.
 
-- `CLAUDE.md`, `AGENTS.md`, `.github/copilot-instructions.md`
+- `CLAUDE.md`, `AGENTS.md`, `.claude/rules/`
 - Skills in `.claude/skills/`
 
 ### L3 -- Measured / Enforced
