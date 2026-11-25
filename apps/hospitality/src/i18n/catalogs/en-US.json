@@ -742,8 +742,8 @@
       "title": "Add a seating at…",
       "day": "Day",
       "time": "Time",
-      "estimate_one": "Estimate: about {{count}} of the searches in the last 28 days asked for this day and hour, roughly {{perNight}} a night. A seating then might have booked it.",
-      "estimate_other": "Estimate: about {{count}} of the searches in the last 28 days asked for this day and hour, roughly {{perNight}} a night. A seating then might have booked them.",
+      "estimate_one": "Estimate: about {{count, number}} of the searches in the last 28 days asked for this day and hour, roughly {{perNight, number}} a night. A seating then might have booked it.",
+      "estimate_other": "Estimate: about {{count, number}} of the searches in the last 28 days asked for this day and hour, roughly {{perNight, number}} a night. A seating then might have booked them.",
       "none": "Estimate: no turned-away searches in the last 28 days asked for this day and hour, so a seating then would not have caught any.",
       "note": "An estimate from past searches, not a forecast. Guests who named no time are not counted."
     },

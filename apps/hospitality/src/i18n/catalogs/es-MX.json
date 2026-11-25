@@ -761,9 +761,9 @@
       "title": "Agregar un turno a las…",
       "day": "Día",
       "time": "Hora",
-      "estimate_one": "Estimación: cerca de {{count}} de las búsquedas de los últimos 28 días pidió este día y esta hora, unas {{perNight}} por noche. Un turno entonces pudo haberla reservado.",
-      "estimate_many": "Estimación: cerca de {{count}} de las búsquedas de los últimos 28 días pidieron este día y esta hora, unas {{perNight}} por noche. Un turno entonces pudo haberlas reservado.",
-      "estimate_other": "Estimación: cerca de {{count}} de las búsquedas de los últimos 28 días pidieron este día y esta hora, unas {{perNight}} por noche. Un turno entonces pudo haberlas reservado.",
+      "estimate_one": "Estimación: cerca de {{count, number}} de las búsquedas de los últimos 28 días pidió este día y esta hora, unas {{perNight, number}} por noche. Un turno entonces pudo haberla reservado.",
+      "estimate_many": "Estimación: cerca de {{count, number}} de las búsquedas de los últimos 28 días pidieron este día y esta hora, unas {{perNight, number}} por noche. Un turno entonces pudo haberlas reservado.",
+      "estimate_other": "Estimación: cerca de {{count, number}} de las búsquedas de los últimos 28 días pidieron este día y esta hora, unas {{perNight, number}} por noche. Un turno entonces pudo haberlas reservado.",
       "none": "Estimación: ninguna búsqueda sin mesa de los últimos 28 días pidió este día y esta hora, así que un turno entonces no habría captado ninguna.",
       "note": "Una estimación basada en búsquedas pasadas, no un pronóstico. No se cuentan los invitados que no indicaron hora."
     },
