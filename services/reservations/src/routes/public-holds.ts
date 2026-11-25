@@ -329,10 +329,17 @@ export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
         // Whether this booking needs a deposit is decided here, from the
         // contact just submitted. It is the only place a caller learns it, and
         // only for the booking they are making (no standalone lookup).
-        const depositRequired = await rebookRequiresDeposit(venueId, {
-          guestEmail: guestEmail ?? null,
-          guestPhone: guestPhone ?? null,
-        });
+        // The booking is already committed, so a failed read must not become a 500 the guest
+        // cannot retry (the hold is consumed). Fall back to no deposit, as the widget did before.
+        let depositRequired = false;
+        try {
+          depositRequired = await rebookRequiresDeposit(venueId, {
+            guestEmail: guestEmail ?? null,
+            guestPhone: guestPhone ?? null,
+          });
+        } catch (error) {
+          request.log.error({ err: error, venueId }, "deposit check failed after hold confirm");
+        }
 
         return reply
           .status(201)

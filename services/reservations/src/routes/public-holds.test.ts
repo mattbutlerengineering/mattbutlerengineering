@@ -625,6 +625,24 @@ describe("POST /public/v1/venues/:slug/holds/:holdId/confirm", () => {
     });
   });
 
+  it("still confirms with depositRequired=false when the deposit check fails after booking", async () => {
+    // The reservation is committed and its email queued before the check runs, so a failed read
+    // must not turn a real booking into an error the guest cannot retry (the hold is consumed).
+    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
+    vi.mocked(confirmHold).mockResolvedValueOnce({ success: true, reservation: mockReservation });
+    vi.mocked(rebookRequiresDeposit).mockRejectedValueOnce(new Error("pool exhausted"));
+
+    const response = await app.inject({
+      method: "POST",
+      url: CONFIRM_URL,
+      headers: { "x-session-id": "sess_1" },
+      payload: { guestName: "Ada Lovelace", guestEmail: "ada@example.com" },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.json().depositRequired).toBe(false);
+  });
+
   it("does not evaluate the deposit when the booking is refused", async () => {
     vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
     vi.mocked(confirmHold).mockResolvedValueOnce({
