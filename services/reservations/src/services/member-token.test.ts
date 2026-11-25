@@ -14,13 +14,17 @@ vi.mock("./database.js", async () => {
           async ({
             where,
           }: {
-            where: { venueId: string; status: string; guest: { email: string } };
+            where: {
+              venueId: string;
+              status: string;
+              guest: { email: { equals: string; mode: string } };
+            };
           }) =>
             memberships.find(
               (m) =>
                 m.venueId === where.venueId &&
                 m.status === where.status &&
-                m.email === where.guest.email
+                m.email.toLowerCase() === where.guest.email.equals
             ) ?? null
         ),
       },
@@ -52,6 +56,12 @@ describe("member token", () => {
     const token = generateMemberToken("venue-1", "Ana@Example.com", NOW);
     const result = await verifyMemberToken(token, NOW);
     expect(result).toMatchObject({ valid: true, email: "ana@example.com" });
+  });
+
+  it("matches a membership whose stored email has different case", async () => {
+    memberships[0]!.email = "Ana@Example.com";
+    const token = generateMemberToken("venue-1", "ana@example.com", NOW);
+    expect(await verifyMemberToken(token, NOW)).toMatchObject({ valid: true });
   });
 
   it("rejects a tampered venue id as invalid (401)", async () => {

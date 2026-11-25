@@ -64,7 +64,11 @@ export async function verifyMemberToken(
 
     const membership = await runWithVenueContext(venueId, () =>
       prisma.guestMembership.findFirst({
-        where: { venueId, status: "ACTIVE", guest: { email } },
+        where: {
+          venueId,
+          status: "ACTIVE",
+          guest: { email: { equals: email, mode: "insensitive" } },
+        },
         select: { id: true },
       })
     );
