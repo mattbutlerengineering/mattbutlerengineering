@@ -1061,8 +1061,17 @@ export async function mockApi(page: Page): Promise<SseMock> {
   await page.route("**/api/v1/guests/lapsing?*", (route) => jsonOk(route, []));
   // The Home dashboard's turned-away heatmap (#9485): the empty state by default; specs that
   // render the grid mount their own route after mockApi (locale-sweep, visual).
+  // `from`/`to` must be real service dates: LostDemandSchema rejects "", which turned every
+  // dashboard load into a heatmap error banner (#9583).
   await page.route("**/api/v1/reservations/metrics/lost-demand?*", (route) =>
-    jsonOk(route, { venueId: "", from: "", to: "", total: 0, cells: [], anyTime: [] })
+    jsonOk(route, {
+      venueId: "venue_e2e",
+      from: localDay(-27),
+      to: localDay(),
+      total: 0,
+      cells: [],
+      anyTime: [],
+    })
   );
   // Its "add a seating" what-if (#9577): hidden on the empty heatmap above, so this only keeps a
   // stray request off the network. Registered explicitly: the lost-demand glob above does not
@@ -1087,7 +1096,8 @@ export async function mockApi(page: Page): Promise<SseMock> {
   );
   // The Timeline's Autopilot panel (#9492): no suggestions by default, so it renders nothing.
   await page.route("**/api/v1/reservations/metrics/autopilot-proposals?*", (route) =>
-    jsonOk(route, { date: "", venueId: "", moves: [] })
+    // A real service date: AutopilotProposalsSchema rejects "", and the panel hides read errors.
+    jsonOk(route, { date: localDay(), venueId: "ven_e2e_001", moves: [] })
   );
   await page.route("**/api/v1/guests/find-or-create", (route) => {
     const guests = JSON.parse(loadFixture("guests-list"));

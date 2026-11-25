@@ -469,7 +469,9 @@ test.describe("tap targets", () => {
 test.describe("keyboard and focus", () => {
   test("a weekday column can be selected from the keyboard", async ({ mockedPage: page }) => {
     await mockAvailability(page);
-    await open(page, DESKTOP);
+    // Next month: the page drops past dates from a selection, so late in a month the current
+    // month has no Tuesday left and the selection bar never shows.
+    await openNextMonth(page, DESKTOP);
     const header = page.getByRole("button", { name: "Select every Monday" });
     await page.getByRole("button", { name: "Select…" }).focus();
     for (let i = 0; i < 12; i += 1) {
