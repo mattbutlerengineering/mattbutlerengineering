@@ -56,7 +56,7 @@ describe.skipIf(!DATABASE_URL)(
                 venueId,
                 floorPlanId: plan.id,
                 sectionId: section.id,
-                name: `${name}-${randomUUID().slice(0, 4)}`,
+                name: `${name}-${randomUUID()}`,
                 capacity: 2,
               },
             })
