@@ -987,6 +987,7 @@
       "dismissMoveFor": "Descartar la sugerencia para {{party}}",
       "dismissNight": "Descartar por esta noche",
       "ghostLabel": "Sugerido: {{party}}",
+      "partyFallback": "Grupo de {{size}}",
       "listLabel": "Movimientos sugeridos"
     }
   },

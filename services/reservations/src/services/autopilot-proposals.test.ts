@@ -12,6 +12,11 @@ vi.mock("./database.js", async () => {
   });
 });
 
+vi.mock("./availability-config.js", () => ({ loadConfigState: vi.fn() }));
+vi.mock("@mbe/availability", () => ({ currentServiceDate: vi.fn() }));
+
+import { currentServiceDate } from "@mbe/availability";
+import { loadConfigState } from "./availability-config.js";
 import { autopilotProposalsService } from "./autopilot-proposals.js";
 import { prisma } from "./database.js";
 
@@ -97,6 +102,64 @@ describe("autopilotProposalsService.getProposals", () => {
       now: NOW,
     });
     expect(result.moves).toEqual([]);
+  });
+
+  it("sends null, not an invented label, for a booking with no guest name", async () => {
+    vi.mocked(prisma.reservation.findMany).mockResolvedValue([
+      {
+        id: "r1",
+        status: "CONFIRMED",
+        tableId: "t6",
+        partySize: 2,
+        startTime: new Date("2026-06-19T02:00:00Z"),
+        endTime: new Date("2026-06-19T03:30:00Z"),
+        guestName: null,
+      },
+    ] as never);
+    const result = await autopilotProposalsService.getProposals({
+      venueId: "v1",
+      date: "2026-06-19",
+      now: NOW,
+    });
+    expect(result.moves[0]).toMatchObject({ kind: "reseat", partyLabel: null });
+  });
+
+  describe("service date", () => {
+    it("uses the date it is given, without reading the venue's hours", async () => {
+      await autopilotProposalsService.getProposals({ venueId: "v1", date: "2026-06-19", now: NOW });
+      expect(loadConfigState).not.toHaveBeenCalled();
+      expect(prisma.reservation.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { venueId: "v1", date: new Date("2026-06-19T00:00:00.000Z") },
+        })
+      );
+    });
+
+    it("defaults to the service date, still Friday after midnight, not the calendar day", async () => {
+      // 08:00Z on Jun 20 is 01:00 Saturday in Los Angeles; Friday's service is still open.
+      const afterMidnight = new Date("2026-06-20T08:00:00Z");
+      vi.mocked(loadConfigState).mockResolvedValue({
+        timezone: "America/Los_Angeles",
+        effective: { schedules: [] },
+      } as never);
+      vi.mocked(currentServiceDate).mockReturnValue("2026-06-19");
+
+      const result = await autopilotProposalsService.getProposals({
+        venueId: "v1",
+        now: afterMidnight,
+      });
+
+      expect(currentServiceDate).toHaveBeenCalledWith(
+        { timezone: "America/Los_Angeles", config: { schedules: [] } },
+        afterMidnight
+      );
+      expect(result.date).toBe("2026-06-19");
+      expect(prisma.reservation.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { venueId: "v1", date: new Date("2026-06-19T00:00:00.000Z") },
+        })
+      );
+    });
   });
 
   it("proposes seating a waiting party at a free table, placed from now", async () => {

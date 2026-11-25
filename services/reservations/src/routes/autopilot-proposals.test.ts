@@ -8,10 +8,6 @@ vi.mock("../services/autopilot-proposals.js", () => ({
   autopilotProposalsService: { getProposals: vi.fn() },
 }));
 
-vi.mock("../services/end-of-service-summary.js", () => ({
-  endOfServiceSummaryService: { getSummary: vi.fn(), defaultServiceDate: vi.fn() },
-}));
-
 vi.mock("../services/database.js", async () => {
   const { createMockDatabaseService } = await import("@mbe/database/testing");
   return createMockDatabaseService();
@@ -23,7 +19,6 @@ vi.mock("jose", () => ({
 }));
 
 import { autopilotProposalsService } from "../services/autopilot-proposals.js";
-import { endOfServiceSummaryService } from "../services/end-of-service-summary.js";
 import { jwtVerify } from "jose";
 
 const URL_BASE = "/api/v1/reservations/metrics/autopilot-proposals";
@@ -49,7 +44,6 @@ describe("GET /api/v1/reservations/metrics/autopilot-proposals", () => {
 
   beforeEach(() => {
     vi.mocked(autopilotProposalsService.getProposals).mockResolvedValue(proposals);
-    vi.mocked(endOfServiceSummaryService.defaultServiceDate).mockResolvedValue("2026-06-19");
   });
 
   afterEach(async () => {
@@ -77,10 +71,36 @@ describe("GET /api/v1/reservations/metrics/autopilot-proposals", () => {
     expect(response.statusCode).toBe(200);
     expect(JSON.parse(response.body)).toEqual({ data: proposals });
     expect(lookup).toHaveBeenCalledWith("auth0|operator", "venue-abc");
+    // No date: the service resolves the venue's current service date (still last night's after midnight).
+    expect(autopilotProposalsService.getProposals).toHaveBeenCalledWith({ venueId: "venue-abc" });
+  });
+
+  it("passes the service date the Timeline is showing", async () => {
+    await buildAs(["staff"], vi.fn<VenueMembershipLookup>().mockResolvedValue(true));
+
+    await app.inject({
+      method: "GET",
+      url: `${URL_BASE}?venueId=venue-abc&date=2026-06-19`,
+      headers: { authorization: "Bearer t" },
+    });
+
     expect(autopilotProposalsService.getProposals).toHaveBeenCalledWith({
       venueId: "venue-abc",
       date: "2026-06-19",
     });
+  });
+
+  it("returns 400 for a date that is not a real calendar day", async () => {
+    await buildAs(["admin"]);
+
+    const response = await app.inject({
+      method: "GET",
+      url: `${URL_BASE}?venueId=venue-abc&date=2026-02-31`,
+      headers: { authorization: "Bearer t" },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(autopilotProposalsService.getProposals).not.toHaveBeenCalled();
   });
 
   it("returns 403 for a non-member and never reads proposals", async () => {

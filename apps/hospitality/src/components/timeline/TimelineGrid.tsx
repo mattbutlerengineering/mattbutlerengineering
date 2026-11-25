@@ -2,6 +2,7 @@ import { formatHourLabel } from "../../utils/format.js";
 import { useMemo, useState, useEffect, useRef, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import type { AutopilotMove, Reservation, Table, TableStatus } from "@mbe/types";
+import { partyName } from "./autopilot-party.js";
 import { GhostBlock } from "./GhostBlock.js";
 import { ReservationBlock } from "./ReservationBlock";
 import type { GuestSignalBadge } from "./guest-signal-badge.js";
@@ -348,7 +349,7 @@ export function TimelineGrid({
                   .map((ghost) => (
                     <GhostBlock
                       key={ghost.id}
-                      party={ghost.partyLabel}
+                      party={partyName(t, ghost.partyLabel, ghost.partySize)}
                       style={computeReservationLayout(ghost.startTime, ghost.endTime, {
                         startHour,
                         hourWidth,

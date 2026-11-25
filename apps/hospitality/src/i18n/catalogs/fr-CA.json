@@ -987,6 +987,7 @@
       "dismissMoveFor": "Ignorer la suggestion pour {{party}}",
       "dismissNight": "Ignorer pour ce soir",
       "ghostLabel": "Suggéré : {{party}}",
+      "partyFallback": "Groupe de {{size}}",
       "listLabel": "Déplacements suggérés"
     }
   },

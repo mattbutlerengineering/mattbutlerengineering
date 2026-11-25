@@ -32,4 +32,18 @@ describe("ReservationsClient.getAutopilotProposals", () => {
     expect(parsed.pathname).toBe(autopilotProposalsEndpoints.get.path);
     expect(Object.fromEntries(parsed.searchParams)).toEqual({ venueId: "v1" });
   });
+
+  it("sends the service date the caller is showing", async () => {
+    const client = new ReservationsClient(
+      new ApiClient({ baseUrl: "https://api.test.com", maxRetries: 0 })
+    );
+
+    await client.getAutopilotProposals({ venueId: "v1", date: "2026-06-19" });
+
+    const [url] = mockFetch.mock.calls[0]!;
+    expect(Object.fromEntries(new URL(url as string).searchParams)).toEqual({
+      venueId: "v1",
+      date: "2026-06-19",
+    });
+  });
 });

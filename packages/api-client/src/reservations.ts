@@ -221,8 +221,14 @@ const RESERVATION_BASE_PATH = "/api/v1/reservations";
 export class ReservationsClient {
   constructor(private client: ApiClient) {}
 
-  /** Moves Autopilot suggests for tonight (read-only; nothing is applied). */
-  async getAutopilotProposals(params: { venueId: string }): Promise<AutopilotProposals> {
+  /**
+   * Moves Autopilot suggests for a service date (read-only; nothing is applied). Omit `date`
+   * for the venue's current service date.
+   */
+  async getAutopilotProposals(params: {
+    venueId: string;
+    date?: string;
+  }): Promise<AutopilotProposals> {
     return (await this.client.call(autopilotProposalsEndpoints.get, { query: params })).data;
   }
 

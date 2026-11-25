@@ -134,7 +134,7 @@ export function createBriefingTools(
             date: proposals.date,
             count: proposals.moves.length,
             moves: proposals.moves.map((m) => ({
-              party: m.partyLabel,
+              party: m.partyLabel ?? `party of ${m.partySize}`,
               partySize: m.partySize,
               from: m.fromTableName,
               to: m.toTableName,

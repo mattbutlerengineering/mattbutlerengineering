@@ -965,6 +965,7 @@
       "dismissMoveFor": "Dismiss the suggestion for {{party}}",
       "dismissNight": "Dismiss for tonight",
       "ghostLabel": "Suggested: {{party}}",
+      "partyFallback": "Party of {{size}}",
       "listLabel": "Suggested moves"
     }
   },

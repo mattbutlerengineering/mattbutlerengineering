@@ -1,7 +1,10 @@
 import type { AutopilotMove, AutopilotProposals } from "@mbe/types";
+import { currentServiceDate } from "@mbe/availability";
 import { buildLiveSnapshot } from "../autopilot/live-snapshot.js";
 import { proposeMoves, type Proposal } from "../autopilot/proposal-engine.js";
+import { loadConfigState } from "./availability-config.js";
 import { prisma } from "./database.js";
+import { venueLocalDateString } from "./slot-rules.js";
 
 /**
  * Read-only: the moves the rule-based engine (#9491) would suggest for a service date, shaped
@@ -17,8 +20,8 @@ const MS_PER_MINUTE = 60_000;
 
 export interface GetProposalsParams {
   venueId: string;
-  /** Venue-local service date, YYYY-MM-DD. */
-  date: string;
+  /** Venue-local service date, YYYY-MM-DD. Omit for the venue's current service date (ADR-029). */
+  date?: string;
   now?: Date;
 }
 
@@ -33,8 +36,23 @@ async function arrivedReservationIds(venueId: string, ids: readonly string[]): P
     .map((e) => e.reservationId);
 }
 
+/**
+ * The service day "tonight" means: after midnight it is still the day that opened, which the
+ * calendar date is not. A venue whose hours cannot be read falls back to its calendar date.
+ */
+async function currentServiceDay(venueId: string, now: Date): Promise<string> {
+  const state = await loadConfigState(prisma, venueId, now);
+  if (state) return currentServiceDate({ timezone: state.timezone, config: state.effective }, now);
+  const venue = await prisma.venue.findUnique({
+    where: { id: venueId },
+    select: { ianaTimezone: true },
+  });
+  return venueLocalDateString(now, venue?.ianaTimezone ?? "UTC");
+}
+
 async function getProposals(params: GetProposalsParams): Promise<AutopilotProposals> {
-  const { venueId, date, now = new Date() } = params;
+  const { venueId, now = new Date() } = params;
+  const date = params.date ?? (await currentServiceDay(venueId, now));
   const [tables, reservations, waitlist] = await Promise.all([
     prisma.table.findMany({
       where: { venueId },
@@ -120,7 +138,7 @@ function toMove(
     return {
       id: `reseat:${p.reservationId}>${p.toTableId}`,
       kind: "reseat",
-      partyLabel: r.guestName ?? `party ${r.id}`,
+      partyLabel: r.guestName,
       partySize: r.partySize,
       fromTableId: r.tableId,
       fromTableName: tableNames.get(r.tableId) ?? r.tableId,

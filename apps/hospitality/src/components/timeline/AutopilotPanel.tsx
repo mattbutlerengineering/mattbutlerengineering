@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Badge, Button, Text } from "@mattbutlerengineering/rialto";
 import type { AutopilotMove } from "@mbe/types";
+import { partyName } from "./autopilot-party.js";
 import styles from "./AutopilotPanel.module.css";
 
 export interface AutopilotPanelProps {
@@ -36,6 +37,23 @@ export function AutopilotPanel({ moves, onDismissMove, onDismissNight }: Autopil
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [open]);
+
+  // After a single dismiss the row is gone and focus with it: land on the next row's Dismiss,
+  // else the previous one's. (Dismissing the last row unmounts the panel; the page then moves focus.)
+  const pendingFocusId = useRef<string | null>(null);
+  useEffect(() => {
+    const id = pendingFocusId.current;
+    if (id === null) return;
+    pendingFocusId.current = null;
+    panelRef.current?.querySelector<HTMLElement>(`[data-move-id="${CSS.escape(id)}"]`)?.focus();
+  }, [moves]);
+
+  function dismissMove(moveId: string) {
+    const index = moves.findIndex((m) => m.id === moveId);
+    const neighbour = moves[index + 1] ?? moves[index - 1];
+    pendingFocusId.current = neighbour?.id ?? null;
+    onDismissMove(moveId);
+  }
 
   if (moves.length === 0) return null;
 
@@ -74,7 +92,7 @@ export function AutopilotPanel({ moves, onDismissMove, onDismissNight }: Autopil
           </Text>
           <ul className={styles.list} aria-label={t("timeline.autopilot.listLabel")}>
             {moves.map((move) => (
-              <MoveItem key={move.id} move={move} onDismiss={onDismissMove} />
+              <MoveItem key={move.id} move={move} onDismiss={dismissMove} />
             ))}
           </ul>
           <Button variant="ghost" size="sm" onClick={onDismissNight}>
@@ -94,8 +112,9 @@ function MoveItem({
   onDismiss: (moveId: string) => void;
 }) {
   const { t } = useTranslation();
+  const party = partyName(t, move.partyLabel, move.partySize);
   const params = {
-    party: move.partyLabel,
+    party,
     size: move.partySize,
     from: move.fromTableName ?? "",
     to: move.toTableName,
@@ -116,7 +135,8 @@ function MoveItem({
         <Button
           variant="ghost"
           size="sm"
-          aria-label={t("timeline.autopilot.dismissMoveFor", { party: move.partyLabel })}
+          data-move-id={move.id}
+          aria-label={t("timeline.autopilot.dismissMoveFor", { party })}
           onClick={() => onDismiss(move.id)}
         >
           {t("timeline.autopilot.dismissMove")}

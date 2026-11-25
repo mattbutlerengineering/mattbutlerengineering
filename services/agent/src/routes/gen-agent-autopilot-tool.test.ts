@@ -87,6 +87,15 @@ describe("get_autopilot_suggestions chat tool", () => {
     expect(await run()).toMatchObject({ count: 0, moves: [] });
   });
 
+  it("describes an unnamed party by its size, never by an id", async () => {
+    api.reservations.getAutopilotProposals.mockResolvedValue({
+      date: "2026-06-19",
+      venueId: "v1",
+      moves: [{ ...move, partyLabel: null }],
+    });
+    expect(await run()).toMatchObject({ moves: [{ party: "party of 2" }] });
+  });
+
   it("asks for a venue when none is selected", async () => {
     const result = await run({});
     expect(result).toMatchObject({ error: expect.any(String) });

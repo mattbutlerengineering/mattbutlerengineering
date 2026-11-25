@@ -21,7 +21,7 @@ export function useTonightAutopilot(
   date: string,
   isTonight: boolean
 ): TonightAutopilot {
-  const proposals = useAutopilotProposals({ venueId: isTonight ? venueId : null });
+  const proposals = useAutopilotProposals({ venueId: isTonight ? venueId : null, date });
   const dismissals = useAutopilotDismissals(venueId ?? "", date);
   const all = proposals.data?.moves ?? NONE;
   const { nightDismissed, isMoveDismissed } = dismissals;

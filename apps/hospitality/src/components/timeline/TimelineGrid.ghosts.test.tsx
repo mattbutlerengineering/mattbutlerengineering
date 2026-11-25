@@ -73,6 +73,18 @@ describe("TimelineGrid ghost blocks", () => {
     expect(screen.getAllByRole("button", { name: /Real Booking/ })).toHaveLength(1);
   });
 
+  it("labels an unnamed party by its size, never by an id", () => {
+    render(
+      <TimelineGrid
+        tables={tables}
+        reservations={[booking]}
+        date="2026-05-14"
+        ghosts={[{ ...ghost, partyLabel: null }]}
+      />
+    );
+    expect(screen.getByTestId("autopilot-ghost").textContent).toContain("Party of 2");
+  });
+
   it("draws nothing without ghosts", () => {
     render(<TimelineGrid tables={tables} reservations={[booking]} date="2026-05-14" />);
     expect(screen.queryByTestId("autopilot-ghost")).toBeNull();

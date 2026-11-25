@@ -82,9 +82,21 @@ export const bookingMetricsRoutes: FastifyPluginAsync = async (fastify) => {
           missing: "venueId query parameter is required",
         },
       },
-      async (_request, _reply, { venueId }) => {
-        const date = await endOfServiceSummaryService.defaultServiceDate(venueId);
-        return { data: await autopilotProposalsService.getProposals({ venueId, date }) };
+      async (request, reply, { venueId }) => {
+        const { date } = request.query;
+        if (date !== undefined) {
+          const dateResult = validateDateString(date);
+          if (!dateResult.valid) {
+            return reply.code(400).send(createProblemDetails(400, "Bad Request", dateResult.error));
+          }
+        }
+        // No date: the service resolves the venue's current service date (ADR-029), not the calendar day.
+        return {
+          data: await autopilotProposalsService.getProposals({
+            venueId,
+            ...(date === undefined ? {} : { date }),
+          }),
+        };
       }
     ),
   });

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { useState } from "react";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { AutopilotMove } from "@mbe/types";
 import { AutopilotPanel } from "./AutopilotPanel.js";
@@ -106,5 +107,56 @@ describe("AutopilotPanel", () => {
 
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
     expect(document.activeElement).toBe(toggle);
+  });
+
+  it("names an unnamed party by its size, never by an id", () => {
+    setup([{ ...reseat, partyLabel: null }]);
+    fireEvent.click(screen.getByRole("button", { name: /Autopilot/ }));
+    expect(screen.getByText("Move Party of 2 (2) from Booth to Two-top")).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Dismiss the suggestion for Party of 2" })
+    ).toBeTruthy();
+  });
+
+  describe("focus after dismissing one move", () => {
+    const third: AutopilotMove = { ...offer, id: "offer:w2>t9", partyLabel: "Lee" };
+
+    function Harness({ initial }: { initial: readonly AutopilotMove[] }) {
+      const [moves, setMoves] = useState(initial);
+      return (
+        <AutopilotPanel
+          moves={moves}
+          onDismissMove={(id) => setMoves((m) => m.filter((x) => x.id !== id))}
+          onDismissNight={() => undefined}
+        />
+      );
+    }
+
+    function openAndDismiss(initial: readonly AutopilotMove[], party: string) {
+      render(<Harness initial={initial} />);
+      fireEvent.click(screen.getByRole("button", { name: /Autopilot/ }));
+      fireEvent.click(screen.getByRole("button", { name: `Dismiss the suggestion for ${party}` }));
+    }
+
+    it("moves to the next row's dismiss button", () => {
+      openAndDismiss([reseat, offer, third], "Ana");
+      expect(document.activeElement).toBe(
+        screen.getByRole("button", { name: "Dismiss the suggestion for Kim" })
+      );
+    });
+
+    it("moves to the previous row's when the last row goes", () => {
+      openAndDismiss([reseat, offer, third], "Lee");
+      expect(document.activeElement).toBe(
+        screen.getByRole("button", { name: "Dismiss the suggestion for Kim" })
+      );
+    });
+
+    it("stays on the one remaining row when two were listed", () => {
+      openAndDismiss([reseat, offer], "Kim");
+      expect(document.activeElement).toBe(
+        screen.getByRole("button", { name: "Dismiss the suggestion for Ana" })
+      );
+    });
   });
 });

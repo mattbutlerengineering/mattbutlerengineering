@@ -465,6 +465,11 @@ function LiveTimelinePage() {
   const isToday = selectedDate === todayStr;
   const autopilot = useTonightAutopilot(selectedVenueId, selectedDate, isToday);
   // The panel unmounts when dismissed for the night, so focus moves to the grid it sat above.
+  function handleDismissAutopilotMove(moveId: string) {
+    autopilot.dismissMove(moveId);
+    // The last suggestion takes the panel with it; otherwise the panel keeps focus itself.
+    if (autopilot.moves.length === 1) focusAfter({ kind: "testId", testId: "timeline-grid" });
+  }
   function handleDismissAutopilotNight() {
     autopilot.dismissNight();
     focusAfter({ kind: "testId", testId: "timeline-grid" });
@@ -683,7 +688,7 @@ function LiveTimelinePage() {
           )}
           <AutopilotPanel
             moves={autopilot.moves}
-            onDismissMove={autopilot.dismissMove}
+            onDismissMove={handleDismissAutopilotMove}
             onDismissNight={handleDismissAutopilotNight}
           />
           {renderGridArea()}

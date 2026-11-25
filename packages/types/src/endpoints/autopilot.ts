@@ -10,6 +10,9 @@ export const AUTOPILOT_PROPOSALS_PATH = "/api/v1/reservations/metrics/autopilot-
 
 export const AutopilotProposalsQuerySchema = z.object({
   venueId: z.string().describe("Venue ID"),
+  date: ServiceDateSchema.optional().describe(
+    "Service date, YYYY-MM-DD; defaults to the venue's current service date (still last night's after midnight)"
+  ),
 });
 
 export const AutopilotMoveSchema = z.object({
@@ -17,8 +20,8 @@ export const AutopilotMoveSchema = z.object({
   id: z.string(),
   /** `reseat` moves a booked party to another table; `waitlist_offer` seats a waiting party. */
   kind: z.enum(["reseat", "waitlist_offer"]),
-  /** The party the move is about (guest name, or "party <id>" when unnamed). */
-  partyLabel: z.string(),
+  /** The party the move is about: the guest's name, or null when the booking has none. */
+  partyLabel: z.string().nullable(),
   partySize: z.number().int().min(1),
   /** Table the party sits at now; null for a waitlist offer. */
   fromTableId: z.string().nullable(),
@@ -51,7 +54,7 @@ export const autopilotProposalsEndpoints = {
         description: "Moves worth suggesting tonight, best first (at most three)",
         body: z.object({ data: AutopilotProposalsSchema }),
       },
-      400: problem("Missing venueId"),
+      400: problem("Missing venueId or invalid date"),
       401: problem("Authentication required"),
       403: problem("No access to the requested venue"),
     },
