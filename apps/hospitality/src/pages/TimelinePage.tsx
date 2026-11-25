@@ -14,7 +14,13 @@ import {
   Text,
   useToast,
 } from "@mattbutlerengineering/rialto";
-import type { Reservation, TableStatus, UpdateReservationRequest, WalkInRequest } from "@mbe/types";
+import type {
+  AutopilotMove,
+  Reservation,
+  TableStatus,
+  UpdateReservationRequest,
+  WalkInRequest,
+} from "@mbe/types";
 import {
   ReservationSheet,
   TimelineGrid,
@@ -40,6 +46,7 @@ import { useVenue } from "../contexts/VenueContext.js";
 import { useSSEStatus } from "../hooks/useSSESync.js";
 import { useGuestSignalBadges } from "../hooks/useGuestSignalBadges.js";
 import { useTimelineData } from "../hooks/useTimelineData.js";
+import { useApproveAutopilotMove } from "../hooks/useApproveAutopilotMove.js";
 import { useTonightAutopilot } from "../hooks/useTonightAutopilot.js";
 import { useCancellationQuote } from "../hooks/useCancellationQuote.js";
 import { UNLESS_COVERED, useFocusAfter } from "../hooks/useFocusAfter.js";
@@ -464,11 +471,22 @@ function LiveTimelinePage() {
   const formattedDate = formatLongDateWithYear(selectedDate, fmt.locale);
   const isToday = selectedDate === todayStr;
   const autopilot = useTonightAutopilot(selectedVenueId, selectedDate, isToday);
+  const { approve: approveAutopilotMove, pendingMoveId: approvingMoveId } = useApproveAutopilotMove(
+    selectedVenueId,
+    selectedDate
+  );
   // The panel unmounts when dismissed for the night, so focus moves to the grid it sat above.
   function handleDismissAutopilotMove(moveId: string) {
     autopilot.dismissMove(moveId);
     // The last suggestion takes the panel with it; otherwise the panel keeps focus itself.
     if (autopilot.moves.length === 1) focusAfter({ kind: "testId", testId: "timeline-grid" });
+  }
+  async function handleApproveAutopilotMove(move: AutopilotMove) {
+    const wasLast = autopilot.moves.length === 1;
+    const outcome = await approveAutopilotMove(move);
+    // As with dismiss: the last move takes the panel with it, so focus goes to the grid.
+    if (outcome !== "failed" && wasLast) focusAfter({ kind: "testId", testId: "timeline-grid" });
+    return outcome;
   }
   function handleDismissAutopilotNight() {
     autopilot.dismissNight();
@@ -688,6 +706,8 @@ function LiveTimelinePage() {
           )}
           <AutopilotPanel
             moves={autopilot.moves}
+            approvingMoveId={approvingMoveId}
+            onApproveMove={handleApproveAutopilotMove}
             onDismissMove={handleDismissAutopilotMove}
             onDismissNight={handleDismissAutopilotNight}
           />

@@ -68,7 +68,7 @@ export const SCENES: readonly Scene[] = [
   {
     id: "assistant",
     time: "20:10",
-    claims: [shipped("assistantActions"), shipped("confirmUndo"), concept("tonightAutopilot")],
+    claims: [shipped("assistantActions"), shipped("confirmUndo"), shipped("tonightAutopilot")],
   },
   {
     id: "guest",

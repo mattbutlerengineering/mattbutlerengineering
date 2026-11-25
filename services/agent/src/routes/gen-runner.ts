@@ -105,6 +105,7 @@ export const GEN_WRITE_TOOL_NAMES = [
   "activate_floor_plan",
   "seat_reservation",
   "mark_no_show",
+  "approve_autopilot_move",
 ] as const;
 
 const GEN_WRITE_TOOLS: ReadonlySet<string> = new Set(GEN_WRITE_TOOL_NAMES);

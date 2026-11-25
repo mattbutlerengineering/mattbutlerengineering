@@ -2,12 +2,17 @@ import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Badge, Button, Text } from "@mattbutlerengineering/rialto";
 import type { AutopilotMove } from "@mbe/types";
+import type { ApproveOutcome } from "../../hooks/useApproveAutopilotMove.js";
 import { partyName } from "./autopilot-party.js";
 import styles from "./AutopilotPanel.module.css";
 
 export interface AutopilotPanelProps {
   /** Moves still worth showing: the page has already dropped the ones the host dismissed. */
   moves: readonly AutopilotMove[];
+  /** The move being applied right now, if any; every Approve waits for it. */
+  approvingMoveId: string | null;
+  /** Applies one move; resolves once it is done, stale or failed. */
+  onApproveMove: (move: AutopilotMove) => Promise<ApproveOutcome>;
   onDismissMove: (moveId: string) => void;
   onDismissNight: () => void;
 }
@@ -15,9 +20,15 @@ export interface AutopilotPanelProps {
 /**
  * The accessible source for Autopilot's suggestions (the ghost blocks on the grid are
  * `aria-hidden`). Collapsed by default with a count; renders nothing when there is nothing to say.
- * Suggestions only: the seam for an approve action (#9493) is the `actions` row of each move.
+ * Each move has one-tap Approve (no confirm: the toast's Undo is the safety net) and Dismiss.
  */
-export function AutopilotPanel({ moves, onDismissMove, onDismissNight }: AutopilotPanelProps) {
+export function AutopilotPanel({
+  moves,
+  approvingMoveId,
+  onApproveMove,
+  onDismissMove,
+  onDismissNight,
+}: AutopilotPanelProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const toggleRef = useRef<HTMLButtonElement>(null);
@@ -53,6 +64,20 @@ export function AutopilotPanel({ moves, onDismissMove, onDismissNight }: Autopil
     const neighbour = moves[index + 1] ?? moves[index - 1];
     pendingFocusId.current = neighbour?.id ?? null;
     onDismissMove(moveId);
+  }
+
+  // Approving works like dismissing for focus: the row leaves, so focus goes to a neighbour. If the
+  // move did not apply, the row stays and focus returns to the button that was pressed.
+  async function approveMove(move: AutopilotMove) {
+    const index = moves.findIndex((m) => m.id === move.id);
+    const neighbour = moves[index + 1] ?? moves[index - 1];
+    pendingFocusId.current = neighbour?.id ?? null;
+    const outcome = await onApproveMove(move);
+    if (outcome !== "failed") return;
+    pendingFocusId.current = null;
+    panelRef.current
+      ?.querySelector<HTMLElement>(`[data-approve-id="${CSS.escape(move.id)}"]`)
+      ?.focus();
   }
 
   if (moves.length === 0) return null;
@@ -92,7 +117,13 @@ export function AutopilotPanel({ moves, onDismissMove, onDismissNight }: Autopil
           </Text>
           <ul className={styles.list} aria-label={t("timeline.autopilot.listLabel")}>
             {moves.map((move) => (
-              <MoveItem key={move.id} move={move} onDismiss={dismissMove} />
+              <MoveItem
+                key={move.id}
+                move={move}
+                approvingMoveId={approvingMoveId}
+                onApprove={approveMove}
+                onDismiss={dismissMove}
+              />
             ))}
           </ul>
           <Button variant="ghost" size="sm" onClick={onDismissNight}>
@@ -106,9 +137,13 @@ export function AutopilotPanel({ moves, onDismissMove, onDismissNight }: Autopil
 
 function MoveItem({
   move,
+  approvingMoveId,
+  onApprove,
   onDismiss,
 }: {
   move: AutopilotMove;
+  approvingMoveId: string | null;
+  onApprove: (move: AutopilotMove) => void;
   onDismiss: (moveId: string) => void;
 }) {
   const { t } = useTranslation();
@@ -130,8 +165,18 @@ function MoveItem({
           {t(isReseat ? "timeline.autopilot.reseatWhy" : "timeline.autopilot.offerWhy", params)}
         </Text>
       </div>
-      {/* Seam for #9493: the approve button joins this row; dismiss stays last. */}
       <div className={styles.actions}>
+        <Button
+          variant="primary"
+          size="sm"
+          data-approve-id={move.id}
+          isLoading={approvingMoveId === move.id}
+          disabled={approvingMoveId !== null}
+          aria-label={t("timeline.autopilot.approveFor", { party })}
+          onClick={() => onApprove(move)}
+        >
+          {t("timeline.autopilot.approve")}
+        </Button>
         <Button
           variant="ghost"
           size="sm"

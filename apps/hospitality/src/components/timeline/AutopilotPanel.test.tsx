@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { useState } from "react";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { AutopilotMove } from "@mbe/types";
 import { AutopilotPanel } from "./AutopilotPanel.js";
 
@@ -8,6 +8,8 @@ const reseat: AutopilotMove = {
   id: "reseat:r1>t2",
   kind: "reseat",
   partyLabel: "Ana",
+  reservationId: "r1",
+  waitlistEntryId: null,
   partySize: 2,
   fromTableId: "t6",
   fromTableName: "Booth",
@@ -22,6 +24,8 @@ const offer: AutopilotMove = {
   id: "offer:w1>t6",
   kind: "waitlist_offer",
   partyLabel: "Kim",
+  reservationId: null,
+  waitlistEntryId: "w1",
   partySize: 5,
   fromTableId: null,
   fromTableName: null,
@@ -32,13 +36,23 @@ const offer: AutopilotMove = {
   reason: "english server reason",
 };
 
-function setup(moves: readonly AutopilotMove[] = [reseat, offer]) {
+function setup(
+  moves: readonly AutopilotMove[] = [reseat, offer],
+  approvingMoveId: string | null = null
+) {
   const onDismissMove = vi.fn();
   const onDismissNight = vi.fn();
+  const onApproveMove = vi.fn().mockResolvedValue("applied");
   render(
-    <AutopilotPanel moves={moves} onDismissMove={onDismissMove} onDismissNight={onDismissNight} />
+    <AutopilotPanel
+      moves={moves}
+      approvingMoveId={approvingMoveId}
+      onApproveMove={onApproveMove}
+      onDismissMove={onDismissMove}
+      onDismissNight={onDismissNight}
+    />
   );
-  return { onDismissMove, onDismissNight };
+  return { onApproveMove, onDismissMove, onDismissNight };
 }
 
 describe("AutopilotPanel", () => {
@@ -75,11 +89,33 @@ describe("AutopilotPanel", () => {
     expect(items[1]!.textContent).toContain("Booth is free and fits them.");
   });
 
-  it("says suggestions only: it has no approve control", () => {
+  it("says nothing moves until approved", () => {
     setup();
     fireEvent.click(screen.getByRole("button", { name: /Autopilot/ }));
-    expect(screen.getByText(/Suggestions only/)).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /approve|apply|accept/i })).toBeNull();
+    expect(screen.getByText("Nothing moves until you approve it.")).toBeTruthy();
+  });
+
+  it("approves one move in one tap, with no confirm step", () => {
+    const { onApproveMove } = setup();
+    fireEvent.click(screen.getByRole("button", { name: /Autopilot/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Approve the suggestion for Kim" }));
+    expect(onApproveMove).toHaveBeenCalledWith(offer);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+  });
+
+  it("disables the move being applied and says it is busy", () => {
+    setup([reseat, offer], reseat.id);
+    fireEvent.click(screen.getByRole("button", { name: /Autopilot/ }));
+    const busy = screen.getByRole("button", { name: "Approve the suggestion for Ana" });
+    expect(busy.hasAttribute("disabled")).toBe(true);
+    expect(busy.getAttribute("aria-busy")).toBe("true");
+    // Another move can still not be double-applied: the whole row set waits for the one in flight.
+    expect(
+      screen
+        .getByRole("button", { name: "Approve the suggestion for Kim" })
+        .hasAttribute("disabled")
+    ).toBe(true);
   });
 
   it("dismisses one move by id", () => {
@@ -118,6 +154,40 @@ describe("AutopilotPanel", () => {
     ).toBeTruthy();
   });
 
+  describe("focus after approving one move", () => {
+    function ApproveHarness({ outcome }: { outcome: "applied" | "stale" | "failed" }) {
+      const [moves, setMoves] = useState<readonly AutopilotMove[]>([reseat, offer]);
+      return (
+        <AutopilotPanel
+          moves={moves}
+          approvingMoveId={null}
+          onApproveMove={async (move) => {
+            if (outcome !== "failed") setMoves((m) => m.filter((x) => x.id !== move.id));
+            return outcome;
+          }}
+          onDismissMove={() => undefined}
+          onDismissNight={() => undefined}
+        />
+      );
+    }
+
+    it("lands on the next row once the approved move leaves the list", async () => {
+      render(<ApproveHarness outcome="applied" />);
+      fireEvent.click(screen.getByRole("button", { name: /Autopilot/ }));
+      fireEvent.click(screen.getByRole("button", { name: "Approve the suggestion for Ana" }));
+      const next = await screen.findByRole("button", { name: "Dismiss the suggestion for Kim" });
+      await waitFor(() => expect(document.activeElement).toBe(next));
+    });
+
+    it("returns to the same Approve button when the move failed", async () => {
+      render(<ApproveHarness outcome="failed" />);
+      fireEvent.click(screen.getByRole("button", { name: /Autopilot/ }));
+      const approve = screen.getByRole("button", { name: "Approve the suggestion for Ana" });
+      fireEvent.click(approve);
+      await waitFor(() => expect(document.activeElement).toBe(approve));
+    });
+  });
+
   describe("focus after dismissing one move", () => {
     const third: AutopilotMove = { ...offer, id: "offer:w2>t9", partyLabel: "Lee" };
 
@@ -126,6 +196,8 @@ describe("AutopilotPanel", () => {
       return (
         <AutopilotPanel
           moves={moves}
+          approvingMoveId={null}
+          onApproveMove={async () => "applied"}
           onDismissMove={(id) => setMoves((m) => m.filter((x) => x.id !== id))}
           onDismissNight={() => undefined}
         />

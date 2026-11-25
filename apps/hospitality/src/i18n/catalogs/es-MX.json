@@ -988,11 +988,20 @@
       "toggleName_one": "Piloto automático: {{count}} sugerencia",
       "toggleName_many": "Piloto automático: {{count}} de sugerencias",
       "toggleName_other": "Piloto automático: {{count}} sugerencias",
-      "intro": "Solo son sugerencias. Nada se mueve hasta que tú lo muevas.",
+      "intro": "Nada se mueve hasta que lo apruebes.",
       "reseat": "Mover a {{party}} ({{size}}) de {{from}} a {{to}}",
       "offer": "Sentar a {{party}} ({{size}}) en {{to}}",
       "reseatWhy": "Libera {{from}} para un grupo en espera.",
       "offerWhy": "{{to}} está libre y les queda bien.",
+      "approve": "Aprobar",
+      "approveFor": "Aprobar la sugerencia para {{party}}",
+      "reseatDone": "Se movió a {{party}} a {{to}}",
+      "offerDone": "Se sentó a {{party}} en {{to}}",
+      "undo": "Deshacer",
+      "undoReseatDone": "Se devolvió a {{party}} a {{from}}",
+      "undoFailed": "No se pudo devolver a {{party}}. No se cambió nada.",
+      "stale": "Esa sugerencia ya no aplica, así que no se movió nada. La lista se actualizó.",
+      "applyFailed": "No se pudo hacer ese movimiento. No se cambió nada.",
       "dismissMove": "Descartar",
       "dismissMoveFor": "Descartar la sugerencia para {{party}}",
       "dismissNight": "Descartar por esta noche",
@@ -1775,6 +1784,7 @@
       "activate_floor_plan": "Cambiar el plano activo",
       "seat_reservation": "Sentar a un grupo con reserva",
       "mark_no_show": "Marcar como no presentado",
+      "approve_autopilot_move": "Aprobar un movimiento del piloto automático",
       "pause_online_booking": "Pausar las reservas en línea",
       "resume_online_booking": "Reanudar las reservas en línea",
       "pause_tables": "Pausar mesas",
@@ -1838,7 +1848,8 @@
         "reminderEmailEnabled": "Correos de recordatorio",
         "type": "Tipo",
         "cuisines": "Cocinas",
-        "website": "Sitio web"
+        "website": "Sitio web",
+        "party": "Grupo"
       },
       "yesNo": {
         "yes": "Sí",
@@ -4356,7 +4367,7 @@
       },
       "tonightAutopilot": {
         "label": "Piloto automático de la noche",
-        "detail": "Un asistente que observa la sala y propone por sí mismo los cambios de mesa y los mensajes a comensales."
+        "detail": "Observa la sala y sugiere los cambios de mesa y los grupos en espera por sentar. Apruebas un movimiento con un toque, y un cambio de mesa se puede deshacer."
       },
       "guestSignals": {
         "label": "Voy tarde, o ya llegué",
