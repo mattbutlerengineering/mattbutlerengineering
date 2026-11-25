@@ -15,7 +15,13 @@ import {
   type GroupChoice,
 } from "./close-draft.js";
 import { outcomeSummary } from "./outcome-label.js";
-import { refusalOf, refusalText, type Refusal, type RefusalContext } from "./step-two-refusal.js";
+import {
+  mayHaveSaved,
+  refusalOf,
+  refusalText,
+  type Refusal,
+  type RefusalContext,
+} from "./step-two-refusal.js";
 import { useSaveAttempts } from "./use-save-attempts.js";
 
 /** Where a save that decides on bookings stands. */
@@ -51,7 +57,10 @@ export interface DecisionsSessionOptions<Out> {
    * A flow that saves several rules at once (Add special dates): the ids and dates this send
    * creates, so an attempt that shows in the config can be named. Default: the attempt's one rule.
    */
-  readonly attemptOf?: (ruleIdFor: (rowKey: string) => string) => {
+  readonly attemptOf?: (
+    ruleIdFor: (rowKey: string) => string,
+    ruleId: string
+  ) => {
     readonly ruleIds: readonly string[];
     readonly dates: readonly string[];
   };
@@ -80,7 +89,13 @@ export function useDecisionsSession<Out>(options: DecisionsSessionOptions<Out>) 
   });
   const [choices, setChoices] = useState<ChoiceMap>({});
   const [failure, setFailure] = useState<string | null>(null);
-  const [winner, setWinner] = useState<AvailabilityChangeSummary | null>(null);
+  // Set on a 409: the change that won, `null` when the server recorded none.
+  const [winner, setWinner] = useState<{
+    readonly change: AvailabilityChangeSummary | null;
+  } | null>(null);
+  // The last send was refused in a way that may have committed (a lost response, a 5xx, a
+  // `closure-exists`): "nothing was changed" is not true of it.
+  const [unconfirmed, setUnconfirmed] = useState(false);
   const [phase, setPhase] = useState<
     | { readonly kind: "idle" }
     | { readonly kind: "sending" }
@@ -139,8 +154,10 @@ export function useDecisionsSession<Out>(options: DecisionsSessionOptions<Out>) 
     const groups = sent.flatMap((i) => i.groups);
     if (!sent.every((i) => decisionsReady(i.groups, choices))) return;
     setFailure(null);
+    setUnconfirmed(false);
+    setWinner(null);
     setPhase({ kind: "sending" });
-    const { ruleIds, dates } = attemptOf?.(ruleIdFor) ?? {};
+    const { ruleIds, dates } = attemptOf?.(ruleIdFor, attempts.ruleId) ?? {};
     attempts.record(outcomeSummary(outcomeCounts(groups, choices), t), ruleIds, dates);
     try {
       const out = await send({
@@ -163,6 +180,7 @@ export function useDecisionsSession<Out>(options: DecisionsSessionOptions<Out>) 
         return;
       }
       attempts.failed(refusal);
+      setUnconfirmed(mayHaveSaved(refusal));
       setFailure(text);
       if (refusal.kind === "move-unavailable") {
         setChoices(withoutChoicesFor(groups, choices, refusal.reservationIds));
@@ -171,7 +189,7 @@ export function useDecisionsSession<Out>(options: DecisionsSessionOptions<Out>) 
         return;
       }
       if (refusal.kind === "version-conflict") {
-        setWinner(refusal.winningChange);
+        setWinner({ change: refusal.winningChange });
         onVersionConflict?.(refusal);
       }
       setPhase({ kind: "refused", refusal: refusal.kind });
@@ -189,6 +207,7 @@ export function useDecisionsSession<Out>(options: DecisionsSessionOptions<Out>) 
     attempts,
     failure,
     winner,
+    unconfirmed,
     submit,
     /** A row's rule id for the current attempt: for flows that build rules before `send`. Handlers only. */
     ruleIdFor,
@@ -198,6 +217,7 @@ export function useDecisionsSession<Out>(options: DecisionsSessionOptions<Out>) 
       setChoices({});
       setFailure(null);
       setWinner(null);
+      setUnconfirmed(false);
       setPhase({ kind: "idle" });
     },
     leave: () => attempts.leave(state.kind === "sending"),
