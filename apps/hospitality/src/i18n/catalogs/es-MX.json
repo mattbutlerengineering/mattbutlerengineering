@@ -1393,7 +1393,7 @@
       "cancelling": "Cancelando…",
       "selectTable": "Selecciona una mesa.",
       "theTable": "la mesa",
-      "splitFailure": "Se sentó en {{table}}, pero la lista de espera no se actualizó. Actualiza para ordenarla.",
+      "alreadySeated": "{{name}} ya estaba sentado.",
       "notNotified": "No se notificó.",
       "notRemoved": "No se quitó.",
       "notSeated": "No se sentó."

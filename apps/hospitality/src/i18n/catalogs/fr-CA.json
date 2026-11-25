@@ -1393,7 +1393,7 @@
       "cancelling": "Annulation…",
       "selectTable": "Veuillez sélectionner une table.",
       "theTable": "la table",
-      "splitFailure": "Installé à {{table}}, mais la liste d’attente n’a pas été mise à jour. Actualisez pour la remettre en ordre.",
+      "alreadySeated": "{{name}} était déjà installé.",
       "notNotified": "Non avisé.",
       "notRemoved": "Non retiré.",
       "notSeated": "Non installé."

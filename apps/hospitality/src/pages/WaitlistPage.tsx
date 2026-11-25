@@ -23,7 +23,7 @@ import {
   useCancelWaitlistEntry,
   useCreateWaitlistEntry,
   useNotifyWaitlistEntry,
-  useSeatWaitlistEntry,
+  useRefreshWaitlist,
   useWaitlist,
 } from "../hooks/useWaitlist.js";
 import { useTables } from "../hooks/useTables.js";
@@ -45,6 +45,14 @@ import { describeApiError } from "../lib/describe-api-error.js";
 import { deviceDate } from "../utils/service-day.js";
 import { tablesThatFit } from "../utils/seating.js";
 import styles from "./WaitlistPage.module.css";
+
+/** Problem `type` the walk-in route answers a 409 with when its waitlist party is already seated. */
+const WAITLIST_ENTRY_NOT_WAITING = "urn:mbe:problem:waitlist-entry-not-waiting";
+
+function isWaitlistEntryNotWaiting(error: unknown): boolean {
+  const details = (error as { problemDetails?: { type?: unknown } } | null)?.problemDetails;
+  return details?.type === WAITLIST_ENTRY_NOT_WAITING;
+}
 
 const PARTY_SIZE_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8];
 
@@ -286,7 +294,7 @@ function WaitlistRow({
   const { t } = useTranslation();
   const { mutateAsync: notify, isPending: isNotifying } = useNotifyWaitlistEntry();
   const { mutateAsync: cancelEntry, isPending: isCancelling } = useCancelWaitlistEntry();
-  const { mutateAsync: markSeated } = useSeatWaitlistEntry();
+  const refreshWaitlist = useRefreshWaitlist();
   const api = useApiClient();
   const [failure, setFailure] = useState<ActionFailure | null>(null);
   const [isSeating, setIsSeating] = useState(false);
@@ -338,26 +346,26 @@ function WaitlistRow({
     setIsSeating(true);
     const tableName =
       availableTables.find((table) => table.id === tableId)?.name ?? t("waitlist.row.theTable");
-    let reservation: Reservation | null = null;
     try {
-      reservation = await api.reservations.walkIn({
+      // The server marks the waitlist entry seated in the walk-in's own transaction (#9606), so
+      // there is no second call that can fail and leave the party seated yet still waiting.
+      const reservation = await api.reservations.walkIn({
         partySize: entry.partySize,
         tableId,
         venueId,
         guestName: entry.guestName,
+        waitlistEntryId: entry.id,
       });
-      await markSeated(entry.id);
+      refreshWaitlist();
       onSeated(entry, reservation, tableName);
     } catch (err) {
-      // The split failure: the guest IS seated (reservation created); only the waitlist row is stale.
-      setFailure(
-        reservation
-          ? {
-              detail: t("waitlist.row.splitFailure", { table: tableName }),
-              raw: describeApiError(err).raw,
-            }
-          : actionFailure(t("waitlist.row.notSeated"), err)
-      );
+      if (isWaitlistEntryNotWaiting(err)) {
+        // Another device seated this party first; nothing was written here.
+        refreshWaitlist();
+        setFailure({ detail: t("waitlist.row.alreadySeated", { name: entry.guestName }) });
+      } else {
+        setFailure(actionFailure(t("waitlist.row.notSeated"), err));
+      }
       setIsSeating(false);
     }
   };
