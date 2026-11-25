@@ -1,5 +1,13 @@
 # @mattbutlerengineering/rialto
 
+## 3.1.3
+
+### Patch Changes
+
+- [#9613](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9613) [`dc70290`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/dc7029072eb85e1ce6eb0ba62a2042881a7ce26e) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add FeedbackDialog and FeedbackButton: a modal for reporting a bug, idea or other note with a message, optional email and the context that will be attached. The consumer supplies every string, so the dialog needs no new locale keys.
+
+- [#9615](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9615) [`84d1682`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/84d168226db428a5877dcd423a931e0c4d91bd7c) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add a Gen Playground link (`/gen/`) to GlobalNav, current when `currentApp="gen"`, with a `labels.gen` override for localization.
+
 ## 3.1.2
 
 ### Patch Changes
