@@ -50,7 +50,7 @@
   padding-block: var(--rialto-space-xs);
   text-align: center;
   font-variant-numeric: tabular-nums;
-  border-radius: var(--rialto-radius-sm);
+  border-radius: var(--rialto-radius-sharp);
 }
 
 /* text-secondary, not tertiary: tertiary on surface-recessed is ~4.08:1 in light, under AA for 11px text. */
@@ -61,6 +61,8 @@
 
 /* Shade scales with the count but stays light enough for primary text to keep its contrast. */
 .hot {
+  /* Default; the component sets --heat inline per cell (count / max). */
+  --heat: 0;
   color: var(--rialto-text-primary);
   font-weight: var(--rialto-weight-medium);
   background: color-mix(
