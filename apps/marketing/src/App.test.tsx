@@ -117,7 +117,6 @@ describe("App", () => {
       "/status",
       "/ai-health",
       "/acmm",
-      "/gen/",
     ]);
     const current = Array.from(menu.children).filter(
       (li) => li.getAttribute("data-current") === "true"

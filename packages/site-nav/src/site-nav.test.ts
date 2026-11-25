@@ -31,14 +31,11 @@ describe("isEngineeringPageCurrent", () => {
 });
 
 describe("engineeringMenu", () => {
-  it("lists every engineering page in order, then Gen", () => {
+  it("lists every engineering page in order, and not Gen (a top-level GlobalNav item)", () => {
     const menu = engineeringMenu("/");
     expect(menu.label).toBe("Engineering");
-    expect(menu.items.map((i) => i.label)).toEqual([
-      ...ENGINEERING_PAGES.map((p) => p.label),
-      "Gen",
-    ]);
-    expect(menu.items.at(-1)?.href).toBe("/gen/");
+    expect(menu.items.map((i) => i.label)).toEqual(ENGINEERING_PAGES.map((p) => p.label));
+    expect(menu.items.some((i) => i.href === "/gen/")).toBe(false);
   });
 
   it("marks only the page the pathname is on as current", () => {
@@ -46,7 +43,7 @@ describe("engineeringMenu", () => {
     expect(current.map((i) => i.href)).toEqual(["/shipped"]);
   });
 
-  it("marks nothing current off the engineering pages, and never marks Gen", () => {
+  it("marks nothing current off the engineering pages, and never marks a page for /gen/", () => {
     expect(engineeringMenu("/gen/").items.some((i) => i.current)).toBe(false);
     expect(engineeringMenu("/").items.some((i) => i.current)).toBe(false);
   });

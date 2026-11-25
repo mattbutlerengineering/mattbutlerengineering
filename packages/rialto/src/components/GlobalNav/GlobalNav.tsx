@@ -19,13 +19,14 @@ import styles from "./GlobalNav.module.css";
 interface NavItem {
   readonly label: string;
   readonly href: string;
-  readonly app: "marketing" | "hospitality" | "rialto";
+  readonly app: "marketing" | "hospitality" | "rialto" | "gen";
 }
 
 const NAV_ITEMS: readonly NavItem[] = [
   { label: "Home", href: "/", app: "marketing" },
   { label: "Hospitality", href: "/hospitality", app: "hospitality" },
   { label: "Design System", href: "/rialto", app: "rialto" },
+  { label: "Gen Playground", href: "/gen/", app: "gen" },
 ];
 
 /** A dropdown of same-site links that sits after the app links (a group in the mobile menu). */
@@ -51,7 +52,6 @@ export interface GlobalNavProps extends Pick<
 > {
   /**
    * Which app is currently active — drives the active link indicator.
-   * `"gen"` is a sibling app with no nav link of its own, so no link is marked active.
    */
   currentApp: "marketing" | "hospitality" | "rialto" | "gen";
   /**

@@ -5,7 +5,8 @@
     "globalNav": {
       "marketing": "Home",
       "hospitality": "Hospitality",
-      "rialto": "Design System"
+      "rialto": "Design System",
+      "gen": "Gen Playground"
     },
     "copyright": "© {{year}} {{brand}}",
     "dashboardDocumentTitle": "Dashboard - {{brand}}"

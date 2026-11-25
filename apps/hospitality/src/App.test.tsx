@@ -264,6 +264,7 @@ describe("App", () => {
       marketing: "Home",
       hospitality: "Hospitality",
       rialto: "Design System",
+      gen: "Gen Playground",
     });
   });
 
