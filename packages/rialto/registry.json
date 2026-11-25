@@ -2280,7 +2280,7 @@
           "name": "currentApp",
           "type": "\"marketing\" | \"hospitality\" | \"rialto\" | \"gen\"",
           "required": true,
-          "description": "Which app is currently active — drives the active link indicator.\n`\"gen\"` is a sibling app with no nav link of its own, so no link is marked active."
+          "description": "Which app is currently active — drives the active link indicator."
         },
         {
           "name": "currentPath",
@@ -2302,7 +2302,7 @@
         },
         {
           "name": "labels",
-          "type": "Partial<Record<\"marketing\" | \"hospitality\" | \"rialto\", string>> | undefined",
+          "type": "Partial<Record<\"marketing\" | \"hospitality\" | \"rialto\" | \"gen\", string>> | undefined",
           "required": false,
           "description": "Link labels per app, for consumers that localize them. Omitted apps keep the English defaults."
         },

@@ -5,7 +5,8 @@
     "globalNav": {
       "marketing": "Accueil",
       "hospitality": "Hôtellerie",
-      "rialto": "Système de design"
+      "rialto": "Système de design",
+      "gen": "Laboratoire Gen"
     },
     "copyright": "© {{year}} {{brand}}",
     "dashboardDocumentTitle": "Tableau de bord - {{brand}}"
