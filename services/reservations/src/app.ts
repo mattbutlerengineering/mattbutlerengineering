@@ -43,6 +43,7 @@ import { publicUnsubscribeRoutes } from "./routes/public-unsubscribe.js";
 import { briefingRoutes } from "./routes/briefing.js";
 import { bookingMetricsRoutes } from "./routes/booking-metrics.js";
 import { reservationEventRoutes } from "./routes/reservation-events.js";
+import { reservationDepositStatusRoutes } from "./routes/reservation-deposit-status.js";
 import { createNotificationPort } from "./notifications.js";
 import {
   createDefaultWaitlistNotifier,
@@ -315,6 +316,7 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   await fastify.register(tableRoutes, { prefix: "/api/v1/tables" });
   await fastify.register(reservationRoutes, { prefix: "/api/v1/reservations" });
   await fastify.register(reservationEventRoutes, { prefix: "/api/v1/reservations" });
+  await fastify.register(reservationDepositStatusRoutes, { prefix: "/api/v1/reservations" });
   const venuesPrefix = "/api/v1/venues";
   await fastify.register(venueRoutes, { prefix: venuesPrefix });
   await fastify.register(venueTeamRoutes, { prefix: venuesPrefix });

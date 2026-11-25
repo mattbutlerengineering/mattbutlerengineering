@@ -22,6 +22,7 @@ function createMockApiClient() {
   return {
     reservations: { get: vi.fn() },
     deposits: {
+      getStatusByReservation: vi.fn(),
       getByReservation: vi.fn(),
       create: vi.fn(),
       capture: vi.fn(),
@@ -90,11 +91,11 @@ describe("get_deposit_status", () => {
     ["pending", { status: "pending" }],
     ["uncollectable", { status: "uncollectable", uncollectableAt: "2026-11-21T05:00:00.000Z" }],
   ])("returns the %s state with amount and currency", async (state, fields) => {
-    api.deposits.getByReservation.mockResolvedValue(deposit(fields));
+    api.deposits.getStatusByReservation.mockResolvedValue(deposit(fields));
 
     const result = await run();
 
-    expect(api.deposits.getByReservation).toHaveBeenCalledWith("r1");
+    expect(api.deposits.getStatusByReservation).toHaveBeenCalledWith("r1");
     expect(result).toMatchObject({
       hasDeposit: true,
       status: state,
@@ -106,8 +107,31 @@ describe("get_deposit_status", () => {
     }
   });
 
+  it("surfaces the refunded amount of a partial refund", async () => {
+    api.deposits.getStatusByReservation.mockResolvedValue(
+      deposit({
+        status: "partial_refunded",
+        refundedAt: "2026-11-21T03:00:00.000Z",
+        refundAmountCents: 3500,
+      })
+    );
+
+    const result = await run();
+
+    expect(result).toMatchObject({ status: "partial_refunded", refundAmountCents: 3500 });
+  });
+
+  it("reads through the member status route, never the admin lookup", async () => {
+    api.deposits.getStatusByReservation.mockResolvedValue(deposit());
+
+    await run();
+
+    expect(api.deposits.getStatusByReservation).toHaveBeenCalledWith("r1");
+    expect(api.deposits.getByReservation).not.toHaveBeenCalled();
+  });
+
   it("says plainly when the reservation has no deposit", async () => {
-    api.deposits.getByReservation.mockResolvedValue(null);
+    api.deposits.getStatusByReservation.mockResolvedValue(null);
 
     const result = await run();
 
@@ -121,7 +145,7 @@ describe("get_deposit_status", () => {
     const result = await run();
 
     expect(result).toMatchObject({ error: expect.stringMatching(/isn't at this venue/) });
-    expect(api.deposits.getByReservation).not.toHaveBeenCalled();
+    expect(api.deposits.getStatusByReservation).not.toHaveBeenCalled();
   });
 
   it("refuses an unknown reservation", async () => {
@@ -130,7 +154,7 @@ describe("get_deposit_status", () => {
     const result = await run({ reservationId: "nope" });
 
     expect(result).toMatchObject({ refused: true });
-    expect(api.deposits.getByReservation).not.toHaveBeenCalled();
+    expect(api.deposits.getStatusByReservation).not.toHaveBeenCalled();
   });
 
   it("asks for a venue when none is selected", async () => {
@@ -145,7 +169,7 @@ describe("get_deposit_status", () => {
   });
 
   it("says the user lacks permission on a 403", async () => {
-    api.deposits.getByReservation.mockRejectedValue(problem(403));
+    api.deposits.getStatusByReservation.mockRejectedValue(problem(403));
 
     const result = await run();
 
@@ -156,7 +180,7 @@ describe("get_deposit_status", () => {
   });
 
   it("never returns Stripe identifiers or internal ids", async () => {
-    api.deposits.getByReservation.mockResolvedValue(deposit());
+    api.deposits.getStatusByReservation.mockResolvedValue(deposit());
 
     const text = JSON.stringify(await run());
 
@@ -164,7 +188,7 @@ describe("get_deposit_status", () => {
   });
 
   it("never calls a deposit write", async () => {
-    api.deposits.getByReservation.mockResolvedValue(deposit());
+    api.deposits.getStatusByReservation.mockResolvedValue(deposit());
 
     await run();
 
@@ -205,8 +229,9 @@ describe("deposits in the prompt", () => {
     expect(prompt).not.toMatch(/reservation page/);
   });
 
-  it("never states a partial refund amount it cannot see", () => {
-    expect(prompt).toMatch(/partial_refunded.*refunded amount isn't shown/);
+  it("tells chat to state a partial refund amount only from refundAmountCents", () => {
+    expect(prompt).toMatch(/partial_refunded.*refundAmountCents/);
+    expect(prompt).not.toMatch(/refunded amount isn't shown/);
   });
 
   it("warns that a no-show or cancellation may capture or refund the deposit", () => {

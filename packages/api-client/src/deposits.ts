@@ -1,9 +1,10 @@
 import { z } from "zod";
-import type { Deposit } from "@mbe/types";
-import { DepositSchema } from "@mbe/types";
+import type { Deposit, DepositStatusView } from "@mbe/types";
+import { DepositSchema, DepositStatusViewSchema } from "@mbe/types";
 import type { ApiClient } from "./client.js";
 
 const DEPOSIT_BASE_PATH = "/api/v1/deposits";
+const RESERVATION_BASE_PATH = "/api/v1/reservations";
 
 const depositListSchema = z.array(DepositSchema);
 
@@ -52,6 +53,19 @@ export class DepositsClient {
       DEPOSIT_BASE_PATH,
       { reservationId },
       DepositSchema.nullable()
+    );
+  }
+
+  /**
+   * Venue-member read of a reservation's deposit (#9558): the narrow, allowlisted
+   * view (no Stripe ids), open to any venue member rather than platform admins
+   * only. `null` when the reservation has no deposit.
+   */
+  async getStatusByReservation(reservationId: string): Promise<DepositStatusView | null> {
+    return this.client.getOne<DepositStatusView | null>(
+      `${RESERVATION_BASE_PATH}/${encodeURIComponent(reservationId)}/deposit-status`,
+      undefined,
+      DepositStatusViewSchema.nullable()
     );
   }
 

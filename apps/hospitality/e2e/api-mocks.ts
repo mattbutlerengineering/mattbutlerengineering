@@ -928,16 +928,12 @@ export async function mockApi(page: Page): Promise<SseMock> {
   // (useDashboardStatsQuery's DEPOSITS_QUERY_KEY). Two pending/held deposits
   // (depositAtRiskCount) plus one forfeited (noShowExposureCents), matching
   // the shape computeDepositStats expects.
-  // `?reservationId=` is the details surface's single-deposit lookup (getByReservation), which
-  // expects one deposit or null: these reservations have none.
   await page.route("**/api/v1/deposits?*", (route) =>
-    jsonOk(
-      route,
-      new URL(route.request().url()).searchParams.has("reservationId")
-        ? null
-        : buildDepositsFixture(new Date())
-    )
+    jsonOk(route, buildDepositsFixture(new Date()))
   );
+  // The details surface's single-deposit lookup (getStatusByReservation, #9558)
+  // expects one deposit status or null: these reservations have none.
+  await page.route("**/api/v1/reservations/*/deposit-status", (route) => jsonOk(route, null));
 
   // Waitlist
   // Per-context stateful store, empty at session start (unlike reservations,

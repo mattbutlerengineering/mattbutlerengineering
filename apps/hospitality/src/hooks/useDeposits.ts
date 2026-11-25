@@ -1,4 +1,4 @@
-import type { Deposit } from "@mbe/types";
+import type { Deposit, DepositStatusView } from "@mbe/types";
 import type { CreateDepositRequest } from "@mbe/api-client";
 import { createQueryHook } from "./create-query-hook.js";
 import { createMutationHook } from "./create-mutation-hook.js";
@@ -9,16 +9,19 @@ const DEPOSITS_QUERY_KEY = "deposits" as const;
 /* ── useDepositByReservation ───────────────────────────── */
 
 /**
- * Operator visibility (#5725 item 1): reads a reservation's deposit through
- * the venue-scoped `GET /api/v1/deposits?reservationId=` route, or `null`
- * when the reservation has none yet (a normal state, not an error).
+ * Operator visibility (#5725 item 1): reads a reservation's deposit status
+ * through the venue-member `GET /api/v1/reservations/:id/deposit-status` route
+ * (#9558; the admin `/deposits` route would refuse a non-admin host), or `null`
+ * when the reservation has none yet (a normal state, not an error). The section
+ * only renders status, amount, currency and post-capture refunds, all of which
+ * the narrow view carries.
  */
 const useDepositByReservationQuery = createQueryHook<
-  Deposit | null,
+  DepositStatusView | null,
   { reservationId: string | null | undefined }
 >({
   key: DEPOSITS_QUERY_KEY,
-  fetcher: (params, api) => api.deposits.getByReservation(params!.reservationId!),
+  fetcher: (params, api) => api.deposits.getStatusByReservation(params!.reservationId!),
   getEnabled: (params) => !!params?.reservationId,
 });
 
