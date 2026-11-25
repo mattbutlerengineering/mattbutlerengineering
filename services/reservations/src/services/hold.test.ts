@@ -213,6 +213,92 @@ describe("holdService", () => {
       });
     });
 
+    describe("member window (#9625)", () => {
+      const settings = { maxAdvanceBooking: 3, memberLeadDays: 4 }; // NOW 05-05 -> public 05-08, member 05-12
+      const request = (date: string) => ({
+        venueId: "venue-1",
+        date,
+        time: `${date}T22:00:00Z`,
+        partySize: 2,
+        tableId: "table-1",
+      });
+
+      function stubCreate() {
+        vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce({
+          id: "venue-1",
+          ianaTimezone: "America/New_York",
+          settings,
+        } as never);
+        vi.mocked(estimateDuration).mockReturnValueOnce(90);
+        const create = vi.fn().mockResolvedValue(makePrismaHold({ memberWindow: true }));
+        vi.mocked(prisma.$transaction).mockImplementationOnce(
+          async (fn: (tx: any) => Promise<unknown>) =>
+            fn({
+              $executeRawUnsafe: vi.fn().mockResolvedValue(0),
+              $executeRaw: vi.fn().mockResolvedValue(0),
+              reservation: { findFirst: vi.fn().mockResolvedValue(null) },
+              reservationHold: {
+                findFirst: vi.fn().mockResolvedValue(null),
+                deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+                create,
+              },
+            })
+        );
+        return create;
+      }
+
+      it("lets a member hold past the public window and records it on the hold", async () => {
+        const create = stubCreate();
+
+        const result = await holdService.create(request("2026-05-10"), "session-abc", {
+          member: true,
+        });
+
+        expect(result.success).toBe(true);
+        expect(create).toHaveBeenCalledWith({
+          data: expect.objectContaining({ memberWindow: true }),
+        });
+      });
+
+      it("does not flag a member's hold that is inside the public window", async () => {
+        const create = stubCreate();
+
+        await holdService.create(request("2026-05-07"), "session-abc", { member: true });
+
+        expect(create).toHaveBeenCalledWith({
+          data: expect.objectContaining({ memberWindow: false }),
+        });
+      });
+
+      it("refuses the same slot without a member token", async () => {
+        vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce({
+          id: "venue-1",
+          ianaTimezone: "America/New_York",
+          settings,
+        } as never);
+
+        const result = await holdService.create(request("2026-05-10"), "session-abc");
+
+        expect(result.success).toBe(false);
+        expect(result.error).toMatch(/booking window/i);
+      });
+
+      it("refuses a member slot past memberLeadDays", async () => {
+        vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce({
+          id: "venue-1",
+          ianaTimezone: "America/New_York",
+          settings,
+        } as never);
+
+        const result = await holdService.create(request("2026-05-20"), "session-abc", {
+          member: true,
+        });
+
+        expect(result.success).toBe(false);
+        expect(result.error).toMatch(/booking window/i);
+      });
+    });
+
     it("returns error when venue not found", async () => {
       vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce(null as never);
 

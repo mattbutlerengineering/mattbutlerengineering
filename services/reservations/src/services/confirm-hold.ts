@@ -12,7 +12,13 @@ import {
 } from "./reservation-events.js";
 
 type ConfirmHoldErrorCode =
-  "NOT_FOUND" | "EXPIRED" | "SESSION_MISMATCH" | "CONFLICT" | "PACING_EXCEEDED" | "NOT_BOOKABLE";
+  | "NOT_FOUND"
+  | "EXPIRED"
+  | "SESSION_MISMATCH"
+  | "CONFLICT"
+  | "PACING_EXCEEDED"
+  | "NOT_BOOKABLE"
+  | "MEMBER_REQUIRED";
 
 export interface ConfirmHoldInput {
   holdId: string;
@@ -39,6 +45,11 @@ export interface ConfirmHoldInput {
    * booking widget's locale. Closure notices are written in it; omitted keeps the column's en-US.
    */
   locale?: GuestNoticeLocale;
+  /**
+   * The email of a verified Regulars Club member token (#9625), resolved by the public route.
+   * A hold made in the member window is confirmed only when this equals the guest email.
+   */
+  memberEmail?: string | null;
   /** Who confirmed; recorded on the `created` event. Defaults to {@link SYSTEM_ACTOR}. */
   actor?: ReservationEventActor;
   /**
@@ -57,6 +68,14 @@ export type ConfirmHoldResult =
       /** Set with `NOT_BOOKABLE`: the availability gate's refusal (route answers 422). */
       rejection?: GateRejection;
     };
+
+const normalizeEmail = (email: string) => email.trim().toLowerCase();
+
+function isMemberBooking(memberEmail?: string | null, guestEmail?: string | null): boolean {
+  return (
+    !!memberEmail && !!guestEmail && normalizeEmail(memberEmail) === normalizeEmail(guestEmail)
+  );
+}
 
 /**
  * Orchestrates hold-to-reservation confirmation.
@@ -97,6 +116,16 @@ export async function confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldR
       success: false,
       error: "Session ID does not match the hold",
       errorCode: "SESSION_MISMATCH",
+    };
+  }
+
+  // Step 2.5: A member-window hold (#9625) books only for the verified member it was made for,
+  // so a leaked hold id cannot turn the early window public. The hold survives for a retry.
+  if (hold.memberWindow && !isMemberBooking(input.memberEmail, guestDetails.guestEmail)) {
+    return {
+      success: false,
+      error: "A valid member link for this email is required to book this time",
+      errorCode: "MEMBER_REQUIRED",
     };
   }
 

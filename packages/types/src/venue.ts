@@ -84,6 +84,8 @@ export interface VenueSettings {
   phone?: string;
   minAdvanceBooking?: number; // hours
   maxAdvanceBooking?: number; // days
+  /** Regulars Club members may book this many days past `maxAdvanceBooking` (#9625). */
+  memberLeadDays?: number;
   requirePhone?: boolean;
   requireEmail?: boolean;
   confirmationEmailEnabled?: boolean;

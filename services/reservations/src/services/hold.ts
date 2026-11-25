@@ -48,7 +48,11 @@ export const holdService = {
   /**
    * Creates a hold on a time slot for a session.
    */
-  async create(data: CreateHoldRequest, sessionId: string): Promise<CreateHoldResult> {
+  async create(
+    data: CreateHoldRequest,
+    sessionId: string,
+    options: { member?: boolean } = {}
+  ): Promise<CreateHoldResult> {
     const { venueId, date, time, partySize, tableId, holdDurationMinutes } = data;
 
     // Get venue settings for hold duration
@@ -71,9 +75,21 @@ export const holdService = {
     // Guests may only hold a slot inside the venue's booking window (not in
     // the past, within min/max advance) - the same rule generateTimeSlots
     // applies when listing slots, so a hand-crafted request can't bypass it.
-    if (
-      !isSlotInBookingWindow(startTime, bookingWindow(settings, new Date(), venue.ianaTimezone))
-    ) {
+    const now = new Date();
+    const inPublicWindow = isSlotInBookingWindow(
+      startTime,
+      bookingWindow(settings, now, venue.ianaTimezone)
+    );
+    // A verified member (#9625) may hold past the public limit; the hold is flagged so confirm
+    // re-checks the member and a leaked hold id cannot turn the early window into a public one.
+    const memberWindow =
+      !inPublicWindow &&
+      options.member === true &&
+      isSlotInBookingWindow(
+        startTime,
+        bookingWindow(settings, now, venue.ianaTimezone, { member: true })
+      );
+    if (!inPublicWindow && !memberWindow) {
       return { success: false, error: BOOKING_WINDOW_ERROR };
     }
     const duration = estimateDuration(partySize, settings);
@@ -157,6 +173,7 @@ export const holdService = {
             partySize,
             sessionId,
             expiresAt,
+            memberWindow,
           },
         });
       },

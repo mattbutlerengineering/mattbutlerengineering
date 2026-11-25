@@ -11,6 +11,7 @@ import {
 import { validateDateRange, validatePartySize } from "@mbe/database";
 import { publicRateLimitHook } from "../middleware/public-rate-limit.js";
 import { publicVenueScoped } from "./public-venue-scope.js";
+import { verifiedMember } from "./public-member.js";
 
 /** The longest range the dates listing accepts; matches the engine's own cap. */
 const MAX_DATES_RANGE_DAYS = 60;
@@ -113,7 +114,7 @@ export const publicAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
           date,
           partySizeResult.value,
           undefined,
-          { logger: request.log }
+          { logger: request.log, member: (await verifiedMember(request, venue.id)) !== null }
         );
 
         const open = slots.filter((s) => s.available);
@@ -199,7 +200,7 @@ export const publicAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
           from,
           to,
           DATES_LISTING_PARTY_SIZE,
-          { logger: request.log }
+          { logger: request.log, member: (await verifiedMember(request, venue.id)) !== null }
         );
 
         return reply.send({
