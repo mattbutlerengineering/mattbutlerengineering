@@ -40,7 +40,7 @@ export const THRESHOLDS = Object.freeze({
   rate4xx: 0.1,
   min4xx: 50,
   p95Ms: 2000,
-  minP95: 20,
+  minP95: 100,
 });
 const API_PREFIX = "/api";
 export const QUERY_ROW_LIMIT = 10000;
@@ -179,7 +179,7 @@ export function classify(group) {
     );
   }
   if (group.total >= THRESHOLDS.minP95 && group.p95 >= THRESHOLDS.p95Ms) {
-    reasons.push(`p95 ${Math.round(group.p95)} ms`);
+    reasons.push(`p95 ${Math.round(group.p95)} ms over ${group.total} requests`);
   }
   return reasons;
 }
