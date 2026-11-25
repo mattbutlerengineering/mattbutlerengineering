@@ -107,7 +107,7 @@ jobs:
         # `...` builds the service's transitive deps only, not the whole
         # workspace, so an unrelated package's TS error can't red this job —
         # the same scoping the Architecture Audit job uses.
-        run: pnpm build --filter @mbe/users-service...
+        run: pnpm build --filter @mbe/users-service... --filter @mbe/reservations-service...
 
       - name: Run mutation tests
         run: pnpm test:mutations
@@ -128,6 +128,29 @@ jobs:
       - name: Write mutation score to job summary
         if: always()
         run: node scripts/print-mutation-summary.mjs reports/mutation/mutation.json "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> "$GITHUB_STEP_SUMMARY"
+
+      # Second scope (#9597): services/reservations, the booking/deposit state
+      # machine. Same job so it reuses the install, Prisma clients and build
+      # above. `continue-on-error` + its own report, summary and artifact keep
+      # it from ever changing the services/users result: the gate step below
+      # reads only `steps.score`, never these.
+      - name: Run reservations mutation tests
+        id: reservations-run
+        if: always()
+        continue-on-error: true
+        run: tools/mutation-testing/node_modules/.bin/stryker run stryker.reservations.config.mjs
+
+      - name: Upload reservations mutation test results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mutation-report-reservations
+          path: reports/mutation-reservations/
+          retention-days: 30
+
+      - name: Write reservations mutation score to job summary
+        if: always()
+        run: node scripts/print-mutation-summary.mjs reports/mutation-reservations/mutation.json "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" services/reservations >> "$GITHUB_STEP_SUMMARY"
 
       - name: Comment mutation score on PR
         # workflow_dispatch carries no implicit PR context (this workflow has

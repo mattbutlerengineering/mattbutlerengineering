@@ -1,3 +1,16 @@
+const PACKAGE_PATTERN = /^((?:services|packages|apps|tools)\/[^/]+)\//;
+
+/** Groups mutants by owning package, keeping first-seen package order. */
+function groupByPackage(mutants) {
+  const groups = new Map();
+  for (const mutant of mutants) {
+    const name = PACKAGE_PATTERN.exec(mutant.file)?.[1] ?? "other";
+    if (!groups.has(name)) groups.set(name, []);
+    groups.get(name).push(mutant);
+  }
+  return groups;
+}
+
 /**
  * Formats a mutation-testing run as GitHub Actions job-summary markdown:
  * score, threshold, status, and the top surviving mutants (the actionable
@@ -10,10 +23,11 @@
  * @param {ReturnType<typeof import("./collect-mutation-score.mjs").collectMutationScore>} params.scoreResult
  * @param {Array<{file: string, line: number, mutator: string}>} [params.survivedMutants]
  * @param {string} [params.runUrl] - link to the Actions run, for the report artifact link
+ * @param {string} [params.scope] - package this run measured, named in the heading
  * @returns {string} Markdown for $GITHUB_STEP_SUMMARY
  */
-export function formatMutationSummary({ scoreResult, survivedMutants = [], runUrl }) {
-  const lines = ["## Mutation Testing Results", ""];
+export function formatMutationSummary({ scoreResult, survivedMutants = [], runUrl, scope }) {
+  const lines = [`## Mutation Testing Results${scope ? ` — ${scope}` : ""}`, ""];
 
   if (scoreResult?.state === "harness-broken") {
     // Deliberately prints no percentage and no surviving-mutant list. Both
@@ -37,9 +51,14 @@ export function formatMutationSummary({ scoreResult, survivedMutants = [], runUr
 
     if (survivedMutants.length > 0) {
       lines.push("", "### Top Surviving Mutants", "");
-      for (const mutant of survivedMutants) {
-        lines.push(`- \`${mutant.file}:${mutant.line}\` — ${mutant.mutator}`);
+      for (const [name, mutants] of groupByPackage(survivedMutants)) {
+        lines.push(`#### ${name}`, "");
+        for (const mutant of mutants) {
+          lines.push(`- \`${mutant.file}:${mutant.line}\` — ${mutant.mutator}`);
+        }
+        lines.push("");
       }
+      lines.pop();
     }
   }
 

@@ -4,7 +4,7 @@
  * markdown (score, threshold, status, top surviving mutants) for
  * `$GITHUB_STEP_SUMMARY`.
  *
- * Usage: node scripts/print-mutation-summary.mjs [reportPath] [runUrl]
+ * Usage: node scripts/print-mutation-summary.mjs [reportPath] [runUrl] [scope]
  */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -19,11 +19,11 @@ function readReport(path) {
   }
 }
 
-const [, , reportPathArg, runUrl] = process.argv;
+const [, , reportPathArg, runUrl, scope] = process.argv;
 const reportPath = resolve(reportPathArg ?? "reports/mutation/mutation.json");
 const report = readReport(reportPath);
 
 const scoreResult = collectMutationScore(report);
 const survivedMutants = collectTopSurvivedMutants(report);
 
-process.stdout.write(formatMutationSummary({ scoreResult, survivedMutants, runUrl }));
+process.stdout.write(formatMutationSummary({ scoreResult, survivedMutants, runUrl, scope }));
