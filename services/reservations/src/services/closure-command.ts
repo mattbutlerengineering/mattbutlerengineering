@@ -646,7 +646,7 @@ export async function createClosure(
     });
     return { kind: "saved", ...saved };
   } catch (error) {
-    if (error instanceof Refused) return error.outcome;
+    if (error instanceof Refused) return error.outcome as CreateClosureOutcome;
     throw error;
   }
 }
@@ -712,7 +712,7 @@ export async function createClosures(
       postCommit: saved.flatMap((s) => (s.postCommit ? [s.postCommit] : [])),
     };
   } catch (error) {
-    if (error instanceof Refused) return error.outcome;
+    if (error instanceof Refused) return error.outcome as CreateClosuresOutcome;
     throw error;
   }
 }
@@ -936,7 +936,7 @@ export async function reopenClosure(
       };
     });
   } catch (error) {
-    if (error instanceof Refused) return error.outcome;
+    if (error instanceof Refused) return error.outcome as ReopenOutcome;
     throw error;
   }
 }

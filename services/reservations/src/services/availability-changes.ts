@@ -192,42 +192,46 @@ export async function revertAvailabilityChange(
 ): Promise<RevertOutcome> {
   const { venueId, changeId, actorId, actorName, expectedVersion, now } = input;
   return inAvailabilityTransaction<SaveOutcome, RevertOutcome>(client, venueId, (tx) =>
-    commitSave(tx, { venueId, actorId, actorName, expectedVersion, now }, async (state) => {
-      const change = await tx.availabilityChange.findFirst({ where: { id: changeId, venueId } });
-      if (!change) return refuse({ kind: "change_not_found" });
-      if (change.revertedById) return refuse(refused("already_reverted"));
-      if (change.kind === REVERT_KIND) return refuse(refused("not_revertable"));
-      if (change.notifiedGuests) return refuse(refused("guests_notified"));
-      const newest = await newestInForce(tx, venueId);
-      if (newest?.id !== change.id) return refuse(refused("superseded"));
-      const inverse = readInverse(change.inverse);
-      if (!inverse) return refuse(refused("not_revertable"));
+    commitSave(
+      tx,
+      { venueId, actorId, actorName, version: { expected: expectedVersion }, now },
+      async (state) => {
+        const change = await tx.availabilityChange.findFirst({ where: { id: changeId, venueId } });
+        if (!change) return refuse({ kind: "change_not_found" });
+        if (change.revertedById) return refuse(refused("already_reverted"));
+        if (change.kind === REVERT_KIND) return refuse(refused("not_revertable"));
+        if (change.notifiedGuests) return refuse(refused("guests_notified"));
+        const newest = await newestInForce(tx, venueId);
+        if (newest?.id !== change.id) return refuse(refused("superseded"));
+        const inverse = readInverse(change.inverse);
+        if (!inverse) return refuse(refused("not_revertable"));
 
-      const stored = new Set(state.stored.dateRules.map((r) => r.id));
-      const restore = inverse.restore;
-      return {
-        changes: { upsert: restore, remove: inverse.remove },
-        scopeConflicts: "keep",
-        // The inverse is the exact prior state: no scope-conflict skips on top.
-        exact: true,
-        kind: REVERT_KIND,
-        summary: `Reverted: ${change.summary}`,
-        detail: revertedDetail(change.summaryDetail),
-        // The column exactly as it was (null included), so undoing a venue's first
-        // save puts its hours back rather than projecting an empty week over them.
-        operatingHours: inverse.operatingHours == null ? Prisma.DbNull : inverse.operatingHours,
-        allowNoHours: true,
-        revive: new Set(restore.dateRules.map((r) => r.id).filter((id) => !stored.has(id))),
-        afterChange: async (db, revertId) => {
-          await db.availabilityChange.update({
-            where: { id: changeId },
-            data: { revertedById: revertId },
-          });
-          // A growth that moved the old series' outcomes onto its new id gives them back.
-          await returnCarriedOutcomes(db, change.inverse);
-        },
-      };
-    })
+        const stored = new Set(state.stored.dateRules.map((r) => r.id));
+        const restore = inverse.restore;
+        return {
+          changes: { upsert: restore, remove: inverse.remove },
+          scopeConflicts: "keep",
+          // The inverse is the exact prior state: no scope-conflict skips on top.
+          exact: true,
+          kind: REVERT_KIND,
+          summary: `Reverted: ${change.summary}`,
+          detail: revertedDetail(change.summaryDetail),
+          // The column exactly as it was (null included), so undoing a venue's first
+          // save puts its hours back rather than projecting an empty week over them.
+          operatingHours: inverse.operatingHours == null ? Prisma.DbNull : inverse.operatingHours,
+          allowNoHours: true,
+          revive: new Set(restore.dateRules.map((r) => r.id).filter((id) => !stored.has(id))),
+          afterChange: async (db, revertId) => {
+            await db.availabilityChange.update({
+              where: { id: changeId },
+              data: { revertedById: revertId },
+            });
+            // A growth that moved the old series' outcomes onto its new id gives them back.
+            await returnCarriedOutcomes(db, change.inverse);
+          },
+        };
+      }
+    )
   );
 }
 
