@@ -49,6 +49,18 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
 }));
 
 describe("App", () => {
+  it("does not focus main on the initial load, so the first Tab can reach the skip link", () => {
+    // The mount effect used to call main.focus() while the lazy route was still
+    // a non-tabbable skeleton. Chrome then continues Tab from after <main>,
+    // so the first stops are the footer links.
+    render(
+      <MemoryRouter initialEntries={["/"]}>
+        <App theme="light" onThemeToggle={vi.fn()} />
+      </MemoryRouter>
+    );
+    expect(document.getElementById("main-content")).not.toHaveFocus();
+  });
+
   it("renders the root app with routing", () => {
     render(
       <MemoryRouter>
@@ -73,6 +85,7 @@ describe("App", () => {
     const fallback = screen.getByTestId("home-fallback");
     expect(fallback).toHaveAttribute("data-variant", "rect");
     expect(fallback).toHaveAttribute("data-height", "90vh");
+    expect(fallback.parentElement).toHaveAttribute("data-route-fallback", "");
   });
 
   it.each(["/acmm", "/metrics", "/ai-health"])(
@@ -85,6 +98,7 @@ describe("App", () => {
       );
       const status = screen.getByRole("status", { name: "Loading page" });
       expect(status).toHaveAttribute("aria-busy", "true");
+      expect(status).toHaveAttribute("data-route-fallback", "");
       expect(status.closest("main")).not.toBeNull();
     }
   );
@@ -140,6 +154,15 @@ describe("App", () => {
       </MemoryRouter>
     );
     expect(screen.getByTestId("global-nav").getAttribute("data-current-path")).toBe("/");
+  });
+
+  it("does not focus main when a load-time redirect settles, before any click", () => {
+    render(
+      <MemoryRouter initialEntries={["/weekly"]}>
+        <App theme="light" onThemeToggle={vi.fn()} />
+      </MemoryRouter>
+    );
+    expect(document.getElementById("main-content")).not.toHaveFocus();
   });
 
   it.each(["/", "/metrics", "/shipped", "/not-a-page"])(

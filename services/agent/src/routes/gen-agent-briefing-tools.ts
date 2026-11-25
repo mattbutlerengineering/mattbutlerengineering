@@ -3,6 +3,7 @@ import type { ToolSet } from "ai";
 import { z } from "zod";
 import type { FastifyBaseLogger } from "fastify";
 import { lastServiceDate } from "@mbe/availability";
+import { estimateAddedSeating } from "@mbe/types";
 import {
   NO_VENUE,
   failureLog,
@@ -33,6 +34,12 @@ const WEEKDAYS = [
 const BUSIEST_LIMIT = 10;
 
 const UNREADABLE_DATE = "The date can't be read. Use a real date as YYYY-MM-DD.";
+
+/** Minutes since midnight for a 24-hour HH:MM time, or null when it isn't one. */
+function minuteOfDay(time: string): number | null {
+  const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(time);
+  return match ? Number(match[1]) * 60 + Number(match[2]) : null;
+}
 
 /** True for a real calendar date written YYYY-MM-DD (2026-02-30 is not one). */
 function isRealDate(date: string): boolean {
@@ -160,6 +167,48 @@ export function createBriefingTools(
           };
         } catch (err) {
           log.error({ venueId, ...failureLog(err) }, "get_turned_away_demand failed");
+          return readFailure(err, "the turned-away numbers", {
+            notEmpty: "nobody was turned away",
+          });
+        }
+      },
+    }),
+    estimate_added_seating: tool({
+      description:
+        'Estimate how many turned-away searches a new seating would have satisfied: the recorded searches in the last 28 days for that weekday and hour (counts only). Use it for "what if I added a 9:30 seating on Fridays". It is an estimate, not a forecast. Read only; it adds nothing to the schedule.',
+      inputSchema: z.object({
+        weekday: z.enum(WEEKDAYS).describe("The weekday of the candidate seating, in English"),
+        time: z.string().describe("Start time of the candidate seating, 24-hour HH:MM"),
+      }),
+      execute: async ({ weekday, time }) => {
+        if (!venueId) return NO_VENUE;
+        const minute = minuteOfDay(time);
+        const weekdayIndex = WEEKDAYS.indexOf(weekday);
+        if (minute === null || weekdayIndex < 0) {
+          return {
+            rejected: true,
+            error: "The weekday or time can't be read. Use a weekday name and 24-hour HH:MM.",
+          };
+        }
+        log.info({ venueId, weekday, time }, "estimate_added_seating tool called");
+        try {
+          const demand = await api.reservations.getLostDemand({ venueId });
+          const { searches, nights, perNight } = estimateAddedSeating(demand, {
+            weekday: weekdayIndex,
+            minute,
+          });
+          return {
+            estimate: true,
+            weekday,
+            time,
+            from: demand.from,
+            to: demand.to,
+            searches,
+            nights,
+            perNight,
+          };
+        } catch (err) {
+          log.error({ venueId, ...failureLog(err) }, "estimate_added_seating failed");
           return readFailure(err, "the turned-away numbers", {
             notEmpty: "nobody was turned away",
           });

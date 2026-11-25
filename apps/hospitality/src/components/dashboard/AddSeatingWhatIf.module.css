@@ -1,0 +1,10 @@
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-sm);
+  margin-block: var(--rialto-space-md);
+}
+
+.note {
+  margin-block-start: var(--rialto-space-sm);
+}

@@ -1,7 +1,8 @@
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router";
 import { Footer, GlobalNav, Skeleton, Text } from "@mattbutlerengineering/rialto";
 import { engineeringMenu, siteCopyright, siteFooterColumns } from "@mbe/site-nav";
+import { routeFallbackProps, useMainContentFocus } from "./main-content-focus";
 import { useRouteMeta } from "./utils/route-meta";
 import styles from "./App.module.css";
 
@@ -38,14 +39,18 @@ const CURRENT_YEAR = new Date().getFullYear();
 // in-viewport only to be shoved off-screen once the real content mounts
 // (#4835 — measured CLS 0.28, single shift sourced from the footer).
 function HomeRouteFallback() {
-  return <Skeleton variant="rect" width="100%" height="90vh" />;
+  return (
+    <div {...routeFallbackProps}>
+      <Skeleton variant="rect" width="100%" height="90vh" />
+    </div>
+  );
 }
 
 // Outer Suspense fallback for every non-home route: without it the main area
 // is blank until the page's lazy chunk arrives (#8640).
 function RouteFallback() {
   return (
-    <div role="status" aria-busy="true" aria-label="Loading page">
+    <div {...routeFallbackProps} role="status" aria-busy="true" aria-label="Loading page">
       <Skeleton variant="rect" width="100%" height="60vh" />
     </div>
   );
@@ -53,13 +58,11 @@ function RouteFallback() {
 
 export function App({ theme, onThemeToggle }: AppProps) {
   useRouteMeta();
-  const { pathname } = useLocation();
-  useEffect(() => {
-    const main = document.getElementById("main-content");
-    if (main && !window.location.hash) {
-      main.focus({ preventScroll: true });
-    }
-  }, []);
+  const { pathname, hash } = useLocation();
+  // Not on the initial load. Focusing <main> while the lazy route is still
+  // the skeleton above makes the next Tab the footer, ahead of the skip link.
+  // Client-side navigations still move focus once that skeleton is gone.
+  useMainContentFocus(pathname, hash);
 
   return (
     <div className={styles.layout}>
