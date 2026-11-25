@@ -119,7 +119,10 @@ export function useDecisionsSession<Out>(options: DecisionsSessionOptions<Out>) 
   };
 
   const submit = async () => {
-    if (state.kind !== "editing" && state.kind !== "deciding" && state.kind !== "refused") return;
+    // An attempt that may have saved can be sent again: the same request replays its truth, and a
+    // changed one is a new attempt. Only one already in the config ends the sending.
+    const open = state.kind === "settled" ? state.reason === "maybeSaved" : true;
+    if (state.kind === "sending" || state.kind === "saved" || !open) return;
     if (!ready) return;
     setFailure(null);
     setPhase({ kind: "sending" });
@@ -173,6 +176,13 @@ export function useDecisionsSession<Out>(options: DecisionsSessionOptions<Out>) 
     winner,
     submit,
     edited: afterEdit,
+    /** A new plan begins: choices, failure and refusal go; the attempt ids are the flow's to restart. */
+    reset: () => {
+      setChoices({});
+      setFailure(null);
+      setWinner(null);
+      setPhase({ kind: "idle" });
+    },
     leave: () => attempts.leave(state.kind === "sending"),
   };
 }

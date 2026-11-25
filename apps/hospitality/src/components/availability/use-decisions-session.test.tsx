@@ -297,6 +297,50 @@ describe("useDecisionsSession attempt ids", () => {
   });
 });
 
+describe("useDecisionsSession after a save with no definite answer", () => {
+  it("still sends again: the same request replays the truth, a changed one is a new attempt", async () => {
+    const h = setup({ impact: [ONE_GROUP] });
+    choose(h);
+    h.send.mockRejectedValueOnce(REFUSALS.unknown());
+    await submit(h);
+    expect(h.hook.result.current.state).toEqual({ kind: "settled", reason: "maybeSaved" });
+    const firstKey = h.send.mock.calls[0]![0].idempotencyKey;
+    await submit(h);
+    expect(h.send).toHaveBeenCalledTimes(2);
+    expect(h.send.mock.calls[1]![0].idempotencyKey).toBe(firstKey);
+  });
+
+  it("does not send once an attempt shows in the config", async () => {
+    const h = setup({
+      impact: [NO_GROUPS],
+      firstRuleId: "rule-1",
+      rules: [{ id: "rule-1" } as DateRule],
+    });
+    h.send.mockRejectedValueOnce(REFUSALS.other());
+    await submit(h);
+    expect(h.hook.result.current.state).toEqual({ kind: "settled", reason: "earlier" });
+    await submit(h);
+    expect(h.send).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("useDecisionsSession reset", () => {
+  it("clears choices, failure, winner and a refusal, keeping the attempt ids", async () => {
+    const h = setup({ impact: [ONE_GROUP] });
+    const { ruleId } = h.hook.result.current.attempts;
+    choose(h);
+    h.send.mockRejectedValueOnce(problem(409, "version-conflict", { winningChange: null }));
+    await submit(h);
+    expect(h.hook.result.current.state.kind).toBe("refused");
+    act(() => h.hook.result.current.reset());
+    expect(h.hook.result.current.state.kind).toBe("deciding");
+    expect(h.hook.result.current.choices).toEqual({});
+    expect(h.hook.result.current.failure).toBeNull();
+    expect(h.hook.result.current.winner).toBeNull();
+    expect(h.hook.result.current.attempts.ruleId).toBe(ruleId);
+  });
+});
+
 describe("useDecisionsSession leave", () => {
   it("leaves at once when nothing was sent, with no reload", () => {
     const h = setup({ impact: [NO_GROUPS] });

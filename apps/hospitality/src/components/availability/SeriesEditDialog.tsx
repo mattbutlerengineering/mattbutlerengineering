@@ -1,12 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, Button, Checkbox, DatePicker, Dialog } from "@mattbutlerengineering/rialto";
-import type {
-  AvailabilityConfigChanges,
-  AvailabilityConfigState,
-  ClosureImpact,
-  DateRule,
-} from "@mbe/types";
+import type { AvailabilityConfigChanges, AvailabilityConfigState, DateRule } from "@mbe/types";
 import { firstOccurrenceOnOrAfter } from "@mbe/availability";
 import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { usePreviewClosureImpact } from "../../hooks/useClosures.js";
@@ -28,7 +23,7 @@ import {
 import { ScopeChoice, type Scope } from "./ScopeDialog.js";
 import { LeaveSaveDialog } from "./LeaveSaveDialog.js";
 import { SeriesGrowthStepTwo } from "./SeriesGrowthStepTwo.js";
-import { useSaveAttempts } from "./use-save-attempts.js";
+import { useSeriesGrowthSession, type SeriesGrowth } from "./use-series-growth-session.js";
 import { StrandedBookings } from "./StrandedBookings.js";
 import { useScheduleSave } from "./use-schedule-save.js";
 import styles from "./CloseDialog.module.css";
@@ -83,10 +78,26 @@ export function SeriesEditDialog(props: SeriesEditDialogProps) {
   const [invalid, setInvalid] = useState<"date" | "edit" | "taken" | "skipped" | null>(null);
   const previewImpact = usePreviewClosureImpact();
   const [previewFailure, setPreviewFailure] = useState<string | null>(null);
-  const [growth, setGrowth] = useState<
-    (GrowthPlan & { impact: ClosureImpact; expectedVersion: number }) | null
-  >(null);
-  const attempts = useSaveAttempts(state.config.dateRules, { reload: onStale, onLeave: onClose });
+  const [growth, setGrowth] = useState<SeriesGrowth | null>(null);
+  const session = useSeriesGrowthSession({
+    venueId,
+    rules: state.config.dateRules,
+    growth,
+    refetch: async () => {
+      if (!growth) return;
+      const { rule, alongside } = growth;
+      const impact = await previewImpact.mutateAsync({ venueId, rule, alongside });
+      setGrowth((current) => (current ? { ...current, impact } : current));
+    },
+    reload: onStale,
+    onLeave: onClose,
+    onStale: (message) => {
+      onStale();
+      setGrowth(null);
+      setPreviewFailure(message);
+    },
+  });
+  const { attempts } = session;
   const [seen, setSeen] = useState(series);
   const [changedUnderneath, setChangedUnderneath] = useState(false);
   // What the last config save sent for this row: its response can be lost after it committed.
@@ -177,6 +188,7 @@ export function SeriesEditDialog(props: SeriesEditDialogProps) {
       if (impact.groups.length === 0) return await saveAsConfig();
       // A new plan is a new request: a retry must not replay the save of an earlier one.
       attempts.restart(plan.rule.id);
+      session.reset();
       // `state` is the one `plan` was built from: the config can reload during the preview.
       setGrowth({ ...plan, impact, expectedVersion: state.version });
     } catch (error) {
@@ -223,23 +235,12 @@ export function SeriesEditDialog(props: SeriesEditDialogProps) {
           venueId={venueId}
           timezone={timezone}
           today={today}
-          {...growth}
-          attempts={attempts}
+          growth={growth}
+          session={session}
           onBack={() => {
             // The choices go with Step 2; only a save that may have applied is still worth a warning.
             if (!attempts.maybeSaved) attempts.setDirty(false);
             setGrowth(null);
-          }}
-          onClose={onClose}
-          onReload={async () => {
-            const { rule, alongside } = growth;
-            const impact = await previewImpact.mutateAsync({ venueId, rule, alongside });
-            setGrowth((current) => (current ? { ...current, impact } : current));
-          }}
-          onStale={(message) => {
-            onStale();
-            setGrowth(null);
-            setPreviewFailure(message);
           }}
         />
         <LeaveSaveDialog attempts={attempts} />

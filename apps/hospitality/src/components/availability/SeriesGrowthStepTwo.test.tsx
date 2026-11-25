@@ -2,7 +2,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
 import { ApiClientError } from "@mbe/api-client";
-import type { ClosureImpact, DateRule } from "@mbe/types";
+import type { ClosureAlongside, ClosureImpact, DateRule } from "@mbe/types";
 
 const create = vi.hoisted(() => vi.fn());
 const refresh = vi.hoisted(() => vi.fn());
@@ -22,7 +22,7 @@ vi.mock("../../contexts/VenueContext.js", () => ({
 
 import { LeaveSaveDialog } from "./LeaveSaveDialog.js";
 import { SeriesGrowthStepTwo } from "./SeriesGrowthStepTwo.js";
-import { useSaveAttempts } from "./use-save-attempts.js";
+import { useSeriesGrowthSession } from "./use-series-growth-session.js";
 import { fixtureConfig } from "./resolved-day-fixtures.js";
 
 const DATE = "2026-12-24";
@@ -72,19 +72,37 @@ const refusal = (code: string, extra: Record<string, unknown> = {}) =>
     "closures"
   );
 
-type StepProps = Omit<React.ComponentProps<typeof SeriesGrowthStepTwo>, "attempts">;
+type StepProps = {
+  readonly venueId: string;
+  readonly expectedVersion: number;
+  readonly timezone: string;
+  readonly today: string;
+  readonly rule: DateRule;
+  readonly alongside: ClosureAlongside;
+  readonly impact: ClosureImpact;
+  readonly onBack: () => void;
+  readonly onClose: () => void;
+  readonly onReload: () => Promise<void>;
+  readonly onStale: (message: string) => void;
+};
 
-/** The step with the attempts `SeriesEditDialog` would give it. */
+/** The step with the session `SeriesEditDialog` would give it. */
 function Step(props: StepProps) {
-  const attempts = useSaveAttempts(fixtureConfig().dateRules, {
-    firstRuleId: props.rule.id,
+  const { expectedVersion, rule, alongside, impact, onReload, onStale, onClose, ...rest } = props;
+  const growth = { rule, alongside, impact, expectedVersion };
+  const session = useSeriesGrowthSession({
+    venueId: props.venueId,
+    rules: fixtureConfig().dateRules,
+    growth,
+    refetch: onReload,
     reload: refresh,
-    onLeave: props.onClose,
+    onLeave: onClose,
+    onStale,
   });
   return (
     <>
-      <SeriesGrowthStepTwo {...props} attempts={attempts} />
-      <LeaveSaveDialog attempts={attempts} />
+      <SeriesGrowthStepTwo {...rest} growth={growth} session={session} />
+      <LeaveSaveDialog attempts={session.attempts} />
     </>
   );
 }
@@ -121,7 +139,9 @@ const chooseCancelAndSave = (dialog: HTMLElement) => {
   fireEvent.click(within(dialog).getByRole("button", { name: /Close and cancel/ }));
 };
 
-describe("SeriesGrowthStepTwo refusals", () => {
+// Which refusal does what next is the session suite's (use-decisions-session.test.tsx); these pin
+// the wiring: what is sent, and what the dialog does with the flow-supplied reactions.
+describe("SeriesGrowthStepTwo wiring", () => {
   beforeAll(() => {
     window.HTMLElement.prototype.scrollIntoView = vi.fn();
   });
@@ -130,7 +150,18 @@ describe("SeriesGrowthStepTwo refusals", () => {
     refresh.mockReset();
   });
 
-  it("drops stale choices and reloads the bookings when a group changed", async () => {
+  it("sends the pinned version, the plan and the chosen decisions", async () => {
+    create.mockResolvedValue({ outcomes: { cancel: 2, move: 0, keep_notify: 0, keep_silent: 0 } });
+    const { dialog, onClose } = renderStep();
+    chooseCancelAndSave(dialog);
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    const body = create.mock.calls[0]![0].body;
+    expect(body.expectedVersion).toBe(7);
+    expect(body.decisions[0].reservationIds).toEqual(["r1", "r2"]);
+  });
+
+  it("asks for the bookings again when a group changed, and the old choice is void", async () => {
     create.mockRejectedValue(refusal("decision-required", { groupKeys: [`${DATE}:closed`] }));
     const { dialog, onReload } = renderStep();
     chooseCancelAndSave(dialog);
@@ -139,31 +170,10 @@ describe("SeriesGrowthStepTwo refusals", () => {
       await within(dialog).findByText(/bookings changed while you were deciding/i)
     ).toBeTruthy();
     expect(onReload).toHaveBeenCalledTimes(1);
-    // The old choice is void: the Manager decides again on the fresh group.
     expect(within(dialog).getByRole("button", { name: "Choose for each group" })).toBeDisabled();
     expect(
       within(dialog).getByRole("button", { name: "Choose for each group" })
     ).toHaveAccessibleDescription(/each group/i);
-  });
-
-  it("reloads the bookings after a refused move, so the proposals match what the save will do (#7983)", async () => {
-    create.mockRejectedValue(refusal("move-unavailable", { reservationIds: ["r1"] }));
-    const { dialog, onReload } = renderStep();
-    chooseCancelAndSave(dialog);
-
-    expect(await within(dialog).findByText(/Couldn't move r1/)).toBeTruthy();
-    expect(onReload).toHaveBeenCalledTimes(1);
-  });
-
-  it("sends the reservation ids it was given after a reload, never the old ones", async () => {
-    create.mockRejectedValueOnce(refusal("decision-required"));
-    const { dialog } = renderStep();
-    chooseCancelAndSave(dialog);
-    await within(dialog).findByText(/bookings changed while you were deciding/i);
-    create.mockResolvedValue({ outcomes: { cancel: 3, move: 0, keep_notify: 0, keep_silent: 0 } });
-    chooseCancelAndSave(dialog);
-    await waitFor(() => expect(create).toHaveBeenCalledTimes(2));
-    expect(create.mock.calls[1]![0].body.decisions[0].reservationIds).toEqual(["r1", "r2"]);
   });
 
   it("refreshes the calendar and returns to step 1 on a version conflict", async () => {
