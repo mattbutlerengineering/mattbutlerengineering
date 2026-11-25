@@ -99,19 +99,21 @@ jobs:
           LEVEL=$(git show HEAD:.claude/acmm/state.json | jq -r '.currentLevel // empty')
           echo "level=$LEVEL" >> "$GITHUB_OUTPUT"
 
-      - name: Merge issuesCreated from a stale daily-audit branch
+      - name: Merge issuesCreated and history from a stale daily-audit branch
         # A prior day's automation/acmm-regression PR may still be open (its
-        # ledger only reaches `main` when that PR merges). Without this,
-        # audit.js --apply below reads a ledger missing that PR's entries and
-        # can refile an issue it already filed. `git ls-remote` is a plain
-        # remote query (no local fetch needed to check existence).
+        # ledger and history row only reach `main` when that PR merges).
+        # Without this, audit.js --apply below reads state missing that PR's
+        # entries and can both refile an issue it already filed (#5854) and
+        # drop that day's /metrics history row entirely (#9544). `git
+        # ls-remote` is a plain remote query (no local fetch needed to check
+        # existence).
         run: |
           set -o pipefail
           if git ls-remote --exit-code --heads origin automation/acmm-regression > /dev/null 2>&1; then
             git fetch origin automation/acmm-regression
             git show FETCH_HEAD:.claude/acmm/state.json > /tmp/branch-acmm-state.json
             node scripts/acmm-merge-issues-created.mjs --branch-state-file /tmp/branch-acmm-state.json
-            echo "Merged issuesCreated from the still-open automation/acmm-regression branch."
+            echo "Merged issuesCreated and history from the still-open automation/acmm-regression branch."
           else
             echo "No open automation/acmm-regression branch -- nothing to merge."
           fi
