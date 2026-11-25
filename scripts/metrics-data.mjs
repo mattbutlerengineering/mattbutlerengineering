@@ -137,7 +137,10 @@ export function pullDataBranch({ root = ROOT, runGit, log = emit }) {
     runGit(["fetch", "-q", "origin", DATA_BRANCH]);
     // Drop a registration left behind when someone deleted the directory.
     runGit(["worktree", "prune"]);
-    runGit(["worktree", "add", "-q", "-B", DATA_BRANCH, dir, REMOTE_REF]);
+    // Detached: a branch can be checked out in only one worktree, and local
+    // sessions run in many worktrees of one clone. Push targets the branch by
+    // refspec (HEAD:metrics-data), so no local branch is needed.
+    runGit(["worktree", "add", "-q", "--detach", dir, REMOTE_REF]);
   }
   log(`[metrics-data] ${dir} is at ${REMOTE_REF}.`);
 }

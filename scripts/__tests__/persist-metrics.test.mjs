@@ -116,6 +116,50 @@ describe("persistMetrics", () => {
     expect(gh).toEqual([]);
   });
 
+  it("pushes telemetry to the data branch first, with the routine's commit subject", () => {
+    const { git, gh, runGit, runGh } = collect();
+    const pushed = [];
+
+    const result = persistMetrics({
+      routine: "learning-loop",
+      today: "2026-08-03",
+      paths: PATHS,
+      listChanged: () => [],
+      pushData: (message) => {
+        pushed.push(message);
+        return { pushed: true, attempts: 1 };
+      },
+      runGit,
+      runGh,
+      log: () => {},
+    });
+
+    expect(pushed).toEqual(["chore(metrics): learning-loop 2026-08-03"]);
+    // Nothing left on main to commit, so no branch and no PR.
+    expect(result).toEqual({ committed: false, paths: [], dataPushed: true });
+    expect(git).toEqual([]);
+    expect(gh).toEqual([]);
+  });
+
+  it("still opens a PR for main-located durable files after the data push", () => {
+    const { gh, runGit, runGh } = collect();
+
+    const result = persistMetrics({
+      routine: "learning-loop",
+      today: "2026-08-03",
+      paths: PATHS,
+      listChanged: () => [".claude/improvement-loop/log.md"],
+      pushData: () => ({ pushed: false, attempts: 0 }),
+      runGit,
+      runGh,
+      log: () => {},
+    });
+
+    expect(result.committed).toBe(true);
+    expect(result.dataPushed).toBe(false);
+    expect(gh).toHaveLength(1);
+  });
+
   it("stages exactly the durable paths with a diff", () => {
     const { git, runGit, runGh } = collect();
 

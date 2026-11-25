@@ -146,6 +146,23 @@ describe("pullDataBranch", () => {
     );
   });
 
+  it("works in a second worktree of a clone that already has a checkout", () => {
+    // Local sessions run in many worktrees of one clone. A branch can be
+    // checked out in only one worktree, so the data checkout must be detached.
+    pullDataBranch({ root: first, runGit: createRunGit(first), log: quiet });
+    const sibling = join(base, "first-sibling");
+    git(first, ["worktree", "add", "-q", "--detach", sibling]);
+    pullDataBranch({ root: sibling, runGit: createRunGit(sibling), log: quiet });
+    appendFileSync(join(sibling, DATA_DIRNAME, "queue-telemetry.jsonl"), '{"n":"s"}\n');
+    const result = pushDataBranch({
+      root: sibling,
+      message: "from sibling",
+      runGit: createRunGit(sibling),
+      log: quiet,
+    });
+    expect(result.pushed).toBe(true);
+  });
+
   it("refuses to pull over uncommitted metric writes", () => {
     pullDataBranch({ root: first, runGit: createRunGit(first), log: quiet });
     appendFileSync(join(first, DATA_DIRNAME, "queue-telemetry.jsonl"), '{"n":2}\n');

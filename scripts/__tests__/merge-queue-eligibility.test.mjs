@@ -29,14 +29,10 @@ const WORKFLOW = readFileSync(resolve(ROOT, ".github/workflows/merge-queue.yml")
 const AUTO_MERGE_WORKFLOW = readFileSync(resolve(ROOT, ".github/workflows/auto-merge.yml"), "utf8");
 const SKILL_MD = readFileSync(resolve(ROOT, ".claude/implement-queue.md"), "utf8");
 
-// The four opt-in automation-PR producers (#3966) — each opens a PR from an
+// The three opt-in automation-PR producers (#3966) — each opens a PR from an
 // automation/* branch and, since auto-merge.yml never runs on GITHUB_TOKEN/
 // AUTOMATION_PAT-authored PRs either (#3684), enables auto-merge itself.
 const PRODUCER_WORKFLOWS = {
-  "production-feedback.yml": readFileSync(
-    resolve(ROOT, ".github/workflows/production-feedback.yml"),
-    "utf8"
-  ),
   "drift-fix.yml": readFileSync(resolve(ROOT, ".github/workflows/drift-fix.yml"), "utf8"),
   "pr-metrics.yml": readFileSync(resolve(ROOT, ".github/workflows/pr-metrics.yml"), "utf8"),
   "acmm-regression.yml": readFileSync(
@@ -225,9 +221,8 @@ describe("implement-queue profile wiring (#3807, revised #3861; moved to the que
 //
 // `auto-merge.yml` gates a different, hand-maintained sensitive-path regex
 // than merge-queue.yml's tier check, and never read `tier:*` at all — the
-// same hole #3787/#3796 closed in merge-queue.yml. The four workflows that
-// apply the `auto-merge` label (production-feedback, pr-metrics, drift-fix,
-// acmm-regression) never carry `has-pr` — that label gates the
+// same hole #3787/#3796 closed in merge-queue.yml. The three workflows that
+// apply the `auto-merge` label (pr-metrics, drift-fix, acmm-regression) never carry `has-pr` — that label gates the
 // implement-queue's own review boundary and is deliberately NOT loosened
 // here (see the docstring on isAutomationAutoMergeEligible). Instead this is
 // a distinct, explicit automation path: same tier gate, `auto-merge` label
@@ -531,8 +526,8 @@ describe("auto-merge.yml wiring (#3857)", () => {
 
 describe("isTrustedAutomationAuthor", () => {
   it("trusts app/github-actions — the verified author of every auto-merge-labeled PR today", () => {
-    // The 4 workflows that apply the `auto-merge` label (production-feedback,
-    // pr-metrics, drift-fix, acmm-regression) all push via peter-evans/
+    // The 3 workflows that apply the `auto-merge` label (pr-metrics,
+    // drift-fix, acmm-regression) all push via peter-evans/
     // create-pull-request with `token: AUTOMATION_PAT || GITHUB_TOKEN`.
     // AUTOMATION_PAT is not configured (docs/SECRETS.md), so they fall back
     // to GITHUB_TOKEN, which `gh` reports as `app/github-actions`. Confirmed

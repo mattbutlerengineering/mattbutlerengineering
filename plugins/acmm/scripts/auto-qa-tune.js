@@ -26,6 +26,7 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import prettier from "prettier";
+import { resolvePath } from "../../../scripts/metrics-store.mjs";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -189,7 +190,7 @@ async function main() {
   const DRY_RUN = process.argv.includes("--dry-run");
   const cwd = process.cwd();
   const configPath = resolve(cwd, ".github/auto-qa-tuning.json");
-  const metricsPath = resolve(cwd, "metrics/pr-acceptance.json");
+  const metricsPath = resolvePath("pr-acceptance", { root: cwd });
 
   // --- Read config ---
   if (!existsSync(configPath)) {

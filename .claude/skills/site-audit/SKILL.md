@@ -42,7 +42,7 @@ node scripts/record-audit-check.mjs --surface gen:playground --auth-gated "curl 
 ```
 
 The weekly `audit-sweep.yml` run records the same per-surface state automatically in the
-**tracked** `metrics/audit-coverage.jsonl` (auth0 surfaces reachable only at the login page are
+**durable** `.metrics-data/audit-coverage.jsonl` (auth0 surfaces reachable only at the login page are
 `auth-gated`, failures `error`, never-visited `unchecked`); the `auditCoverage` sensor and
 `/ideate` read that, not the gitignored inventory (#8419).
 

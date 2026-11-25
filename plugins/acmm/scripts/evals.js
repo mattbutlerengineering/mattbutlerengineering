@@ -12,9 +12,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { classifyEvalsReading } from "./evals-freshness.js";
-
-const DEFAULT_PATH = "metrics/acmm-evals.jsonl";
-const JUDGED_PATH = "metrics/eval-reports.jsonl";
+import { resolveDataFile } from "../../../scripts/metrics-store.mjs";
 
 /**
  * @typedef {Object} EvalsSummary
@@ -41,7 +39,9 @@ const JUDGED_PATH = "metrics/eval-reports.jsonl";
  * @returns {EvalsSummary}
  */
 export function measureEvals(cwd, opts = {}) {
-  const path = join(cwd, opts.path ?? DEFAULT_PATH);
+  const path = opts.path
+    ? join(cwd, opts.path)
+    : resolveDataFile("acmm-evals.jsonl", { root: cwd });
   const windowDays = opts.windowDays ?? 30;
   const now = opts.now ?? new Date();
 
@@ -79,7 +79,9 @@ export function measureEvals(cwd, opts = {}) {
  * @returns {EvalsSummary}
  */
 export function measureJudgedEvals(cwd, opts = {}) {
-  const path = join(cwd, opts.path ?? JUDGED_PATH);
+  const path = opts.path
+    ? join(cwd, opts.path)
+    : resolveDataFile("eval-reports.jsonl", { root: cwd });
   const windowDays = opts.windowDays ?? 30;
   const now = opts.now ?? new Date();
 

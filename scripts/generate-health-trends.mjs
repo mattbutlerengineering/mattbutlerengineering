@@ -24,6 +24,7 @@
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { resolvePath } from "./metrics-store.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -205,13 +206,9 @@ export function buildHealthTrends({ root = ROOT, now = new Date(), windowDays } 
   const options = { windowDays, today };
 
   const acmmHistory = readAcmmHistory(root);
-  const processRows = parseJsonl(
-    readOrFallback(resolve(root, "metrics/process-metrics.jsonl"), "")
-  );
+  const processRows = parseJsonl(readOrFallback(resolvePath("process-metrics", { root }), ""));
 
-  const mutationRows = parseJsonl(
-    readOrFallback(resolve(root, "metrics/mutation-score.jsonl"), "")
-  );
+  const mutationRows = parseJsonl(readOrFallback(resolvePath("mutation-score", { root }), ""));
 
   return {
     generated_at: now.toISOString(),

@@ -45,12 +45,8 @@ const PRODUCERS = [
   "acmm-regression",
   "docs-audit",
   "drift-fix",
-  "metrics-collectors",
   "pr-metrics",
-  "production-feedback",
-  "record-summary-rows",
   "shipped-features-snapshot",
-  "stale-human-blocked",
   "visual-baseline-regen",
 ].map((name) => ({ file: `.github/workflows/${name}.yml` }));
 
@@ -74,7 +70,7 @@ describe("every workflow dispatches tier-classifier from the default branch", ()
     expect(offenders).toEqual([]);
   });
 
-  it("each of the ten producers still contains a dispatch (cannot pass by finding nothing)", () => {
+  it("each of the six producers still contains a dispatch (cannot pass by finding nothing)", () => {
     const missing = PRODUCERS.filter(
       ({ file }) => dispatchLines(readFileSync(resolve(ROOT, file), "utf8")).length === 0
     ).map(({ file }) => file);
@@ -82,10 +78,10 @@ describe("every workflow dispatches tier-classifier from the default branch", ()
   });
 });
 
-// The four `auto-merge`-labeled producers also wait for the label and then arm
-// auto-merge; the other six only dispatch (covered above).
+// The three `auto-merge`-labeled producers also wait for the label and then arm
+// auto-merge; the other three only dispatch (covered above).
 const AUTO_MERGE_PRODUCERS = PRODUCERS.filter(({ file }) =>
-  /\/(production-feedback|drift-fix|pr-metrics|acmm-regression)\.yml$/.test(file)
+  /\/(drift-fix|pr-metrics|acmm-regression)\.yml$/.test(file)
 );
 
 describe.each(AUTO_MERGE_PRODUCERS)("$file dispatches tier-classifier", ({ file }) => {
