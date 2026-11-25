@@ -981,6 +981,7 @@
       "offerNotice": "Seats them now. This can't be undone.",
       "reseatDone": "Moved {{party}} to {{to}}",
       "offerDone": "Seated {{party}} at {{to}}",
+      "splitFailure": "Seated at {{table}}, but the waitlist didn't update. Remove {{party}} from the Waitlist page so they aren't offered a table again.",
       "undo": "Undo",
       "undoReseatDone": "Moved {{party}} back to {{from}}",
       "undoFailed": "Couldn't put {{party}} back. Nothing was changed.",

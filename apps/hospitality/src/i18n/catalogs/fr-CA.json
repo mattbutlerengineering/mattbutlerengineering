@@ -1005,6 +1005,7 @@
       "offerNotice": "Les assoit maintenant. Impossible à annuler.",
       "reseatDone": "{{party}} déplacé à {{to}}",
       "offerDone": "{{party}} assis à {{to}}",
+      "splitFailure": "Installé à {{table}}, mais la liste d’attente n’a pas été mise à jour. Retirez {{party}} de la page Liste d’attente pour qu’on ne lui offre pas une autre table.",
       "undo": "Annuler",
       "undoReseatDone": "{{party}} remis à {{from}}",
       "undoFailed": "Impossible de remettre {{party}} en place. Rien n'a été modifié.",

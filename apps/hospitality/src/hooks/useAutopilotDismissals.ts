@@ -3,10 +3,16 @@ import { useCallback, useState } from "react";
 interface Dismissals {
   readonly night: boolean;
   readonly moves: readonly string[];
+  /** Waitlist entries left half-seated: never offered again tonight (#9590). */
+  readonly entries: readonly string[];
 }
 
-const NONE: Dismissals = { night: false, moves: [] };
+const NONE: Dismissals = { night: false, moves: [], entries: [] };
 const storageKey = (venueId: string, date: string) => `mbe-autopilot-dismissed:${venueId}:${date}`;
+
+function strings(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
+}
 
 function read(key: string): Dismissals {
   try {
@@ -15,7 +21,8 @@ function read(key: string): Dismissals {
     const parsed = JSON.parse(raw) as Partial<Dismissals>;
     return {
       night: parsed.night === true,
-      moves: Array.isArray(parsed.moves) ? parsed.moves.filter((m) => typeof m === "string") : [],
+      moves: strings(parsed.moves),
+      entries: strings(parsed.entries),
     };
   } catch {
     // Storage blocked or the value is junk: nothing is dismissed.
@@ -38,6 +45,8 @@ export interface AutopilotDismissals {
   isMoveDismissed: (moveId: string) => boolean;
   dismissNight: () => void;
   dismissMove: (moveId: string) => void;
+  isEntryHeld: (waitlistEntryId: string) => boolean;
+  holdEntry: (waitlistEntryId: string) => void;
 }
 
 /**
@@ -53,21 +62,27 @@ export function useAutopilotDismissals(venueId: string, date: string): Autopilot
   }));
   const current = held.key === key ? held.value : read(key);
 
+  // Builds from the latest state, not this render's snapshot: a callback captured before an
+  // await (an in-flight approval's hold) must not overwrite dismissals made meanwhile.
   const update = useCallback(
-    (next: Dismissals) => {
-      write(key, next);
-      setHeld({ key, value: next });
+    (change: (base: Dismissals) => Dismissals) => {
+      setHeld((prev) => {
+        const next = change(prev.key === key ? prev.value : read(key));
+        write(key, next);
+        return { key, value: next };
+      });
     },
     [key]
   );
 
+  const add = (list: readonly string[], id: string) => (list.includes(id) ? list : [...list, id]);
+
   return {
     nightDismissed: current.night,
     isMoveDismissed: (moveId) => current.moves.includes(moveId),
-    dismissNight: () => update({ ...current, night: true }),
-    dismissMove: (moveId) =>
-      current.moves.includes(moveId)
-        ? undefined
-        : update({ ...current, moves: [...current.moves, moveId] }),
+    dismissNight: () => update((base) => ({ ...base, night: true })),
+    dismissMove: (moveId) => update((base) => ({ ...base, moves: add(base.moves, moveId) })),
+    isEntryHeld: (id) => current.entries.includes(id),
+    holdEntry: (id) => update((base) => ({ ...base, entries: add(base.entries, id) })),
   };
 }

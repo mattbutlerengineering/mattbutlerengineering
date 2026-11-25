@@ -24,7 +24,11 @@ export type ApproveOutcome = "applied" | "stale" | "failed";
  * has taken it since). A waitlist seating offers none: it takes the party off the waitlist, and
  * putting them back would text the guest again.
  */
-export function useApproveAutopilotMove(venueId: string | null, date: string) {
+export function useApproveAutopilotMove(
+  venueId: string | null,
+  date: string,
+  onSplitFailure?: (waitlistEntryId: string) => void
+) {
   const { t } = useTranslation();
   const { toast } = useToast();
   const api = useApiClient();
@@ -103,9 +107,10 @@ export function useApproveAutopilotMove(venueId: string | null, date: string) {
         await api.waitlist.seat(move.waitlistEntryId);
       } catch {
         // The party is seated (the walk-in exists) but still waiting on the list, so the engine
-        // would offer them another table: say so rather than report success. The caller refreshes.
+        // would offer them another table: hold their offers, and say so rather than report success.
+        onSplitFailure?.(move.waitlistEntryId);
         toast({
-          title: t("waitlist.row.splitFailure", { table: move.toTableName }),
+          title: t("timeline.autopilot.splitFailure", { table: move.toTableName, party }),
           variant: "error",
           duration: 10000,
         });
@@ -117,7 +122,7 @@ export function useApproveAutopilotMove(venueId: string | null, date: string) {
         duration: 5000,
       });
     },
-    [api, offerUndo, t, toast]
+    [api, offerUndo, onSplitFailure, t, toast]
   );
 
   const approve = useCallback(

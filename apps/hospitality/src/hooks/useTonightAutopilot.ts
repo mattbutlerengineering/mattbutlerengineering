@@ -8,6 +8,8 @@ export interface TonightAutopilot {
   readonly moves: readonly AutopilotMove[];
   readonly dismissMove: (moveId: string) => void;
   readonly dismissNight: () => void;
+  /** After a split failure: hide every offer for this party until the waitlist row is resolved. */
+  readonly holdWaitlistEntry: (waitlistEntryId: string) => void;
 }
 
 const NONE: readonly AutopilotMove[] = [];
@@ -24,12 +26,22 @@ export function useTonightAutopilot(
   const proposals = useAutopilotProposals({ venueId: isTonight ? venueId : null, date });
   const dismissals = useAutopilotDismissals(venueId ?? "", date);
   const all = proposals.data?.moves ?? NONE;
-  const { nightDismissed, isMoveDismissed } = dismissals;
+  const { nightDismissed, isMoveDismissed, isEntryHeld } = dismissals;
 
   const moves = useMemo(
-    () => (!isTonight || nightDismissed ? NONE : all.filter((m) => !isMoveDismissed(m.id))),
-    [isTonight, nightDismissed, all, isMoveDismissed]
+    () =>
+      !isTonight || nightDismissed
+        ? NONE
+        : all.filter(
+            (m) => !isMoveDismissed(m.id) && !(m.waitlistEntryId && isEntryHeld(m.waitlistEntryId))
+          ),
+    [isTonight, nightDismissed, all, isMoveDismissed, isEntryHeld]
   );
 
-  return { moves, dismissMove: dismissals.dismissMove, dismissNight: dismissals.dismissNight };
+  return {
+    moves,
+    dismissMove: dismissals.dismissMove,
+    dismissNight: dismissals.dismissNight,
+    holdWaitlistEntry: dismissals.holdEntry,
+  };
 }
