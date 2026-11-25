@@ -34,7 +34,6 @@ const SKILL_MD = readFileSync(resolve(ROOT, ".claude/implement-queue.md"), "utf8
 // AUTOMATION_PAT-authored PRs either (#3684), enables auto-merge itself.
 const PRODUCER_WORKFLOWS = {
   "drift-fix.yml": readFileSync(resolve(ROOT, ".github/workflows/drift-fix.yml"), "utf8"),
-  "pr-metrics.yml": readFileSync(resolve(ROOT, ".github/workflows/pr-metrics.yml"), "utf8"),
   "acmm-regression.yml": readFileSync(
     resolve(ROOT, ".github/workflows/acmm-regression.yml"),
     "utf8"

@@ -45,7 +45,6 @@ const PRODUCERS = [
   "acmm-regression",
   "docs-audit",
   "drift-fix",
-  "pr-metrics",
   "shipped-features-snapshot",
   "visual-baseline-regen",
 ].map((name) => ({ file: `.github/workflows/${name}.yml` }));
@@ -81,7 +80,7 @@ describe("every workflow dispatches tier-classifier from the default branch", ()
 // The three `auto-merge`-labeled producers also wait for the label and then arm
 // auto-merge; the other three only dispatch (covered above).
 const AUTO_MERGE_PRODUCERS = PRODUCERS.filter(({ file }) =>
-  /\/(drift-fix|pr-metrics|acmm-regression)\.yml$/.test(file)
+  /\/(drift-fix|acmm-regression)\.yml$/.test(file)
 );
 
 describe.each(AUTO_MERGE_PRODUCERS)("$file dispatches tier-classifier", ({ file }) => {

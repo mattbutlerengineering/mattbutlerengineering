@@ -22,9 +22,10 @@ const DATA_ONLY_WRITERS = [
   "routine-liveness",
   "stale-human-blocked",
   "acmm-cold-start",
+  "pr-metrics",
 ];
-/** Also commits a main-located file (marketing metrics.json) through a PR. */
-const MIXED_WRITERS = ["pr-metrics"];
+/** Also commits a main-located file through a PR (none today). */
+const MIXED_WRITERS = [];
 /** Read telemetry without writing it. */
 const READERS = ["acmm-regression", "nightly-compliance", "auto-qa-tune"];
 
