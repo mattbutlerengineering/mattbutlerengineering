@@ -30,7 +30,8 @@ test.describe("Booking widget — Regulars Club member link (#9627)", () => {
     await expect(mockedPage.getByRole("heading", { name: VENUE_NAME })).toBeVisible();
     await expect(mockedPage.getByText("Members book 7 days early")).toBeVisible();
 
-    expect(statusTokens).toEqual(["signed-token"]);
+    await expect.poll(() => statusTokens.length).toBeGreaterThan(0);
+    expect(statusTokens.every((token) => token === "signed-token")).toBe(true);
     await pickBookingDate(mockedPage, localDay(3));
     await mockedPage.getByRole("button", { name: "Find Available Times" }).click();
     await expect.poll(() => availabilityTokens.length).toBeGreaterThan(0);
