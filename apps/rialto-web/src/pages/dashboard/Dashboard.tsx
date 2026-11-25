@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import {
   Alert,
@@ -13,7 +13,6 @@ import {
   Pagination,
   Progress,
   Select,
-  Skeleton,
   Slider,
   Stack,
   Table,
@@ -165,14 +164,7 @@ export function Dashboard() {
   const [brakeBias, setBrakeBias] = useState(56);
   const [lapPage, setLapPage] = useState(1);
   const [channels, setChannels] = useState<Set<string>>(new Set(["Track", "Box", "Strategy"]));
-  const [loading, setLoading] = useState(true);
   const [bannerDismissed, setBannerDismissed] = useState(false);
-
-  // Simulate loading delay
-  useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 1500);
-    return () => clearTimeout(timer);
-  }, []);
 
   /* Derived data */
   const totalLapPages = Math.ceil(ALL_LAP_DATA.length / LAPS_PER_PAGE);
@@ -238,291 +230,272 @@ export function Dashboard() {
           </Banner>
         )}
 
-        {/* ── Row 1: Stat cards ──────────── */}
-        {loading ? (
-          <div className={styles.statGrid}>
-            <Skeleton variant="card" width="100%" height={120} />
-            <Skeleton variant="card" width="100%" height={120} />
-            <Skeleton variant="card" width="100%" height={120} />
-          </div>
-        ) : (
-          <div className={styles.statGrid}>
-            {/* Lap Progress */}
-            <Card variant="elevated">
-              <Text variant="label">Lap Progress</Text>
-              <Progress value={72} showValue aria-label="Lap progress" />
-              <Stack direction="row" gap="xs" align="center">
-                <Tooltip content="Current position in stint" placement="bottom">
-                  <Text variant="caption" as="span">
-                    Lap 12 of 17
-                  </Text>
-                </Tooltip>
-                <Badge variant="accent" size="sm">
-                  S2
-                </Badge>
-              </Stack>
-            </Card>
-
-            {/* Best Lap */}
-            <Card variant="elevated">
-              <Text variant="label">Best Lap</Text>
-              <Tooltip content="Set on lap 5, soft compound" placement="bottom">
-                <Text variant="display">1:24.892</Text>
+        {/* Stat cards and the grid below render on first paint. Holding them
+            behind a skeleton timer unmounts the tablist, sort buttons, channel
+            tags, and quick actions, so Tab skips straight to the footer. */}
+        <div className={styles.statGrid}>
+          {/* Lap Progress */}
+          <Card variant="elevated">
+            <Text variant="label">Lap Progress</Text>
+            <Progress value={72} showValue aria-label="Lap progress" />
+            <Stack direction="row" gap="xs" align="center">
+              <Tooltip content="Current position in stint" placement="bottom">
+                <Text variant="caption" as="span">
+                  Lap 12 of 17
+                </Text>
               </Tooltip>
-              <Stack direction="row" gap="xs" align="center">
-                <Badge variant="success" size="sm">
-                  -0.342s
-                </Badge>
-                <Badge variant="neutral" size="sm">
-                  Qualifying
-                </Badge>
-              </Stack>
-            </Card>
+              <Badge variant="accent" size="sm">
+                S2
+              </Badge>
+            </Stack>
+          </Card>
 
-            {/* Tire Health */}
-            <Card variant="elevated">
-              <Text variant="label">Tire Health</Text>
-              <Stack direction="row" gap="xs" wrap>
-                <Tooltip content="Front Left: 98°C" placement="bottom">
-                  <Badge variant="success" size="sm">
-                    FL 98°
-                  </Badge>
-                </Tooltip>
-                <Tooltip content="Front Right: 101°C" placement="bottom">
-                  <Badge variant="success" size="sm">
-                    FR 101°
-                  </Badge>
-                </Tooltip>
-                <Tooltip content="Rear Left: 112°C — above optimal" placement="bottom">
-                  <Badge variant="error" size="sm">
-                    RL 112°
-                  </Badge>
-                </Tooltip>
-                <Tooltip content="Rear Right: 104°C" placement="bottom">
-                  <Badge variant="success" size="sm">
-                    RR 104°
-                  </Badge>
-                </Tooltip>
-              </Stack>
-              <Stack direction="row" gap="xs" align="center">
-                <Text variant="detail">Medium compound — 7 laps old</Text>
-              </Stack>
-            </Card>
-          </div>
-        )}
+          {/* Best Lap */}
+          <Card variant="elevated">
+            <Text variant="label">Best Lap</Text>
+            <Tooltip content="Set on lap 5, soft compound" placement="bottom">
+              <Text variant="display">1:24.892</Text>
+            </Tooltip>
+            <Stack direction="row" gap="xs" align="center">
+              <Badge variant="success" size="sm">
+                -0.342s
+              </Badge>
+              <Badge variant="neutral" size="sm">
+                Qualifying
+              </Badge>
+            </Stack>
+          </Card>
+
+          {/* Tire Health */}
+          <Card variant="elevated">
+            <Text variant="label">Tire Health</Text>
+            <Stack direction="row" gap="xs" wrap>
+              <Tooltip content="Front Left: 98°C" placement="bottom">
+                <Badge variant="success" size="sm">
+                  FL 98°
+                </Badge>
+              </Tooltip>
+              <Tooltip content="Front Right: 101°C" placement="bottom">
+                <Badge variant="success" size="sm">
+                  FR 101°
+                </Badge>
+              </Tooltip>
+              <Tooltip content="Rear Left: 112°C — above optimal" placement="bottom">
+                <Badge variant="error" size="sm">
+                  RL 112°
+                </Badge>
+              </Tooltip>
+              <Tooltip content="Rear Right: 104°C" placement="bottom">
+                <Badge variant="success" size="sm">
+                  RR 104°
+                </Badge>
+              </Tooltip>
+            </Stack>
+            <Stack direction="row" gap="xs" align="center">
+              <Text variant="detail">Medium compound — 7 laps old</Text>
+            </Stack>
+          </Card>
+        </div>
 
         {/* ── Row 2: Main grid ───────────── */}
-        {loading ? (
-          <div className={styles.mainGrid}>
-            <Skeleton variant="card" width="100%" height={400} />
-            <Stack gap="md">
-              <Skeleton variant="card" width="100%" height={180} />
-              <Skeleton variant="card" width="100%" height={100} />
-            </Stack>
-          </div>
-        ) : (
-          <div className={styles.mainGrid}>
-            {/* Left — Telemetry tabs */}
-            <Card variant="elevated">
-              <Tabs
-                tabs={[
-                  {
-                    id: "speed",
-                    label: "Speed Data",
-                    content: (
-                      <div className={styles.tabPanel}>
-                        <Table
-                          columns={[
-                            { key: "zone", header: "Zone", sortable: true },
-                            {
-                              key: "speed",
-                              header: "Speed (km/h)",
-                              sortable: true,
-                              align: "right",
+        <div className={styles.mainGrid}>
+          {/* Left — Telemetry tabs */}
+          <Card variant="elevated">
+            <Tabs
+              tabs={[
+                {
+                  id: "speed",
+                  label: "Speed Data",
+                  content: (
+                    <div className={styles.tabPanel}>
+                      <Table
+                        columns={[
+                          { key: "zone", header: "Zone", sortable: true },
+                          {
+                            key: "speed",
+                            header: "Speed (km/h)",
+                            sortable: true,
+                            align: "right",
+                          },
+                          {
+                            key: "best",
+                            header: "Best",
+                            sortable: true,
+                            align: "right",
+                          },
+                          {
+                            key: "delta",
+                            header: "Delta",
+                            sortable: true,
+                            align: "right",
+                            render: (row) => {
+                              const d = row.delta as number;
+                              return (
+                                <Text style={{ color: deltaColor(d), fontWeight: 500 }}>
+                                  {d > 0 ? "+" : ""}
+                                  {d}
+                                </Text>
+                              );
                             },
-                            {
-                              key: "best",
-                              header: "Best",
-                              sortable: true,
-                              align: "right",
-                            },
-                            {
-                              key: "delta",
-                              header: "Delta",
-                              sortable: true,
-                              align: "right",
-                              render: (row) => {
-                                const d = row.delta as number;
-                                return (
-                                  <Text style={{ color: deltaColor(d), fontWeight: 500 }}>
-                                    {d > 0 ? "+" : ""}
-                                    {d}
-                                  </Text>
-                                );
-                              },
-                            },
-                          ]}
-                          data={SPEED_DATA}
-                          rowKey={(row) => row.id as number}
-                          striped
+                          },
+                        ]}
+                        data={SPEED_DATA}
+                        rowKey={(row) => row.id as number}
+                        striped
+                      />
+                    </div>
+                  ),
+                },
+                {
+                  id: "laps",
+                  label: "Lap Times",
+                  content: (
+                    <div className={styles.tabPanel}>
+                      <Table
+                        columns={[
+                          {
+                            key: "lap",
+                            header: "Lap",
+                            sortable: true,
+                            align: "center",
+                            width: "60px",
+                          },
+                          { key: "time", header: "Time", sortable: true },
+                          { key: "sector1", header: "S1", align: "right" },
+                          { key: "sector2", header: "S2", align: "right" },
+                          { key: "sector3", header: "S3", align: "right" },
+                          {
+                            key: "tires",
+                            header: "Tires",
+                            render: (row) => (
+                              <Badge variant={row.tires === "Soft" ? "error" : "neutral"} size="sm">
+                                {row.tires as string}
+                              </Badge>
+                            ),
+                          },
+                        ]}
+                        data={pagedLaps}
+                        rowKey={(row) => row.id as number}
+                        density="compact"
+                      />
+                      <div style={{ marginTop: "var(--rialto-space-sm)" }}>
+                        <Pagination
+                          page={lapPage}
+                          totalPages={totalLapPages}
+                          onChange={setLapPage}
                         />
                       </div>
-                    ),
+                    </div>
+                  ),
+                },
+                {
+                  id: "engine",
+                  label: "Engine",
+                  content: (
+                    <Stack gap="lg" style={{ padding: "var(--rialto-space-sm) 0" }}>
+                      <Toggle
+                        label="DRS Override"
+                        checked={drsEnabled}
+                        onCheckedChange={setDrsEnabled}
+                      />
+                      <Select
+                        label="Engine Mode"
+                        value={engineMode}
+                        onChange={setEngineMode}
+                        options={[
+                          { value: "mode1", label: "Mode 1 — Harvest" },
+                          { value: "mode2", label: "Mode 2 — Balanced" },
+                          { value: "mode3", label: "Mode 3 — Push" },
+                          { value: "mode4", label: "Mode 4 — Overtake" },
+                          {
+                            value: "mode5",
+                            label: "Mode 5 — Qualifying",
+                            disabled: true,
+                          },
+                        ]}
+                      />
+                      <Slider
+                        label="Brake Bias"
+                        value={brakeBias}
+                        onChange={setBrakeBias}
+                        min={50}
+                        max={65}
+                        step={0.5}
+                        showValue
+                        formatValue={(v) => `${v}% front`}
+                      />
+                    </Stack>
+                  ),
+                },
+              ]}
+            />
+          </Card>
+
+          {/* Right — Strategy sidebar */}
+          <Stack gap="md">
+            {/* Upcoming actions */}
+            <Card variant="flat" title="Upcoming Actions">
+              <Timeline
+                compact
+                events={[
+                  {
+                    title: "Pit stop — box this lap",
+                    timestamp: "L14",
+                    status: "active",
+                    description: "Medium → Hard, +2.4s estimated",
                   },
                   {
-                    id: "laps",
-                    label: "Lap Times",
-                    content: (
-                      <div className={styles.tabPanel}>
-                        <Table
-                          columns={[
-                            {
-                              key: "lap",
-                              header: "Lap",
-                              sortable: true,
-                              align: "center",
-                              width: "60px",
-                            },
-                            { key: "time", header: "Time", sortable: true },
-                            { key: "sector1", header: "S1", align: "right" },
-                            { key: "sector2", header: "S2", align: "right" },
-                            { key: "sector3", header: "S3", align: "right" },
-                            {
-                              key: "tires",
-                              header: "Tires",
-                              render: (row) => (
-                                <Badge
-                                  variant={row.tires === "Soft" ? "error" : "neutral"}
-                                  size="sm"
-                                >
-                                  {row.tires as string}
-                                </Badge>
-                              ),
-                            },
-                          ]}
-                          data={pagedLaps}
-                          rowKey={(row) => row.id as number}
-                          density="compact"
-                        />
-                        <div style={{ marginTop: "var(--rialto-space-sm)" }}>
-                          <Pagination
-                            page={lapPage}
-                            totalPages={totalLapPages}
-                            onChange={setLapPage}
-                          />
-                        </div>
-                      </div>
-                    ),
+                    title: "DRS enabled",
+                    timestamp: "L15",
+                    status: "upcoming",
                   },
                   {
-                    id: "engine",
-                    label: "Engine",
-                    content: (
-                      <Stack gap="lg" style={{ padding: "var(--rialto-space-sm) 0" }}>
-                        <Toggle
-                          label="DRS Override"
-                          checked={drsEnabled}
-                          onCheckedChange={setDrsEnabled}
-                        />
-                        <Select
-                          label="Engine Mode"
-                          value={engineMode}
-                          onChange={setEngineMode}
-                          options={[
-                            { value: "mode1", label: "Mode 1 — Harvest" },
-                            { value: "mode2", label: "Mode 2 — Balanced" },
-                            { value: "mode3", label: "Mode 3 — Push" },
-                            { value: "mode4", label: "Mode 4 — Overtake" },
-                            {
-                              value: "mode5",
-                              label: "Mode 5 — Qualifying",
-                              disabled: true,
-                            },
-                          ]}
-                        />
-                        <Slider
-                          label="Brake Bias"
-                          value={brakeBias}
-                          onChange={setBrakeBias}
-                          min={50}
-                          max={65}
-                          step={0.5}
-                          showValue
-                          formatValue={(v) => `${v}% front`}
-                        />
-                      </Stack>
-                    ),
+                    title: "Fuel mixture adjust",
+                    timestamp: "L16",
+                    status: "upcoming",
+                    description: "Switch to harvest mode",
+                  },
+                  {
+                    title: "Final stint push",
+                    timestamp: "L17",
+                    status: "upcoming",
                   },
                 ]}
               />
             </Card>
 
-            {/* Right — Strategy sidebar */}
-            <Stack gap="md">
-              {/* Upcoming actions */}
-              <Card variant="flat" title="Upcoming Actions">
-                <Timeline
-                  compact
-                  events={[
-                    {
-                      title: "Pit stop — box this lap",
-                      timestamp: "L14",
-                      status: "active",
-                      description: "Medium → Hard, +2.4s estimated",
-                    },
-                    {
-                      title: "DRS enabled",
-                      timestamp: "L15",
-                      status: "upcoming",
-                    },
-                    {
-                      title: "Fuel mixture adjust",
-                      timestamp: "L16",
-                      status: "upcoming",
-                      description: "Switch to harvest mode",
-                    },
-                    {
-                      title: "Final stint push",
-                      timestamp: "L17",
-                      status: "upcoming",
-                    },
-                  ]}
-                />
-              </Card>
+            {/* Active channels */}
+            <Card variant="flat" title="Active Channels">
+              <Stack direction="row" gap="xs" wrap>
+                {["Track", "Box", "Strategy", "Engineer"].map((ch) => (
+                  <Tag
+                    key={ch}
+                    onClick={() => toggleChannel(ch)}
+                    selected={channels.has(ch)}
+                    variant={channels.has(ch) ? "accent" : "default"}
+                  >
+                    {ch}
+                  </Tag>
+                ))}
+              </Stack>
+            </Card>
 
-              {/* Active channels */}
-              <Card variant="flat" title="Active Channels">
-                <Stack direction="row" gap="xs" wrap>
-                  {["Track", "Box", "Strategy", "Engineer"].map((ch) => (
-                    <Tag
-                      key={ch}
-                      onClick={() => toggleChannel(ch)}
-                      selected={channels.has(ch)}
-                      variant={channels.has(ch) ? "accent" : "default"}
-                    >
-                      {ch}
-                    </Tag>
-                  ))}
-                </Stack>
-              </Card>
-
-              {/* Quick actions */}
-              <Card variant="flat" title="Quick Actions">
-                <Stack gap="xs">
-                  <Button variant="primary" size="sm">
-                    Call to Pit
-                  </Button>
-                  <Button variant="secondary" size="sm">
-                    Send Message
-                  </Button>
-                  <Button variant="ghost" size="sm">
-                    View Replay
-                  </Button>
-                </Stack>
-              </Card>
-            </Stack>
-          </div>
-        )}
+            {/* Quick actions */}
+            <Card variant="flat" title="Quick Actions">
+              <Stack gap="xs">
+                <Button variant="primary" size="sm">
+                  Call to Pit
+                </Button>
+                <Button variant="secondary" size="sm">
+                  Send Message
+                </Button>
+                <Button variant="ghost" size="sm">
+                  View Replay
+                </Button>
+              </Stack>
+            </Card>
+          </Stack>
+        </div>
 
         {/* ── Row 3: Alerts ──────────────── */}
         <Stack gap="sm" style={{ marginTop: "var(--rialto-space-md)" }}>
