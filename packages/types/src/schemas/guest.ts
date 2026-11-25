@@ -88,3 +88,14 @@ export const InviteMemberBodySchema = z.object({
 
 /** POST /api/v1/guests/:id/revoke-membership result. */
 export const RevokeMemberResultSchema = z.object({ revoked: z.boolean() });
+
+/**
+ * GET /public/v1/venues/:slug/member: whether the request's member link is valid at the venue,
+ * and how many days early it books. A missing, invalid, expired, revoked or other-venue link is
+ * all `{ member: false, leadDays: 0 }`, so the reply never says why (#9627).
+ */
+export const PublicMemberStatusSchema = z.object({
+  member: z.boolean(),
+  leadDays: z.number().int().min(0),
+});
+export type PublicMemberStatus = z.infer<typeof PublicMemberStatusSchema>;

@@ -218,6 +218,26 @@ const publicFunnelFixtures: Record<string, RouteFixture> = {
       );
     },
   },
+  "GET /public/v1/venues/:slug/member": {
+    kind: "ok",
+    run: async (ctx) => {
+      expectOk(
+        await asAdmin(ctx, {
+          method: "GET",
+          url: `/public/v1/venues/${ctx.venueA.slug}/member`,
+        }),
+        "read member status under the slug-resolved venue"
+      );
+
+      expectDenied(
+        await asAdmin(ctx, {
+          method: "GET",
+          url: `/public/v1/venues/${UNKNOWN_SLUG}/member`,
+        }),
+        "unknown slug"
+      );
+    },
+  },
   "POST /public/v1/venues/:slug/holds": {
     kind: "ok",
     run: async (ctx) => {

@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { usePublicApiClient } from "../../hooks/usePublicApiClient.js";
-import { EmptyState, Steps, Text } from "@mattbutlerengineering/rialto";
+import { Alert, EmptyState, Steps, Text } from "@mattbutlerengineering/rialto";
 import type { StepItem } from "@mattbutlerengineering/rialto";
 import { quoteDeposit } from "@mbe/cancellation-policy";
 import { addDays, venueDate } from "../../utils/service-day.js";
@@ -14,6 +14,7 @@ import { ConfirmationView } from "./ConfirmationView";
 import { WaitlistJoinView } from "./WaitlistJoinView";
 import { LiveWaitlistConfirmation } from "./LiveWaitlistConfirmation";
 import { useBookingFlow } from "./useBookingFlow.js";
+import { useMemberStatus } from "./useMemberStatus.js";
 import { useDepositCancellationTerms } from "./formatDepositCancellationTerms.js";
 import styles from "./BookingWidget.module.css";
 
@@ -65,6 +66,11 @@ export interface BookingWidgetProps {
    * the venue's clock rather than the guest's device timezone (#4976).
    */
   venueTimezone?: string;
+  /**
+   * Regulars Club member link from the invite email (#9627). Sent on availability, hold and
+   * confirm calls; the venue decides whether it is valid.
+   */
+  memberToken?: string;
 }
 
 const STEP_LABEL_KEYS = {
@@ -92,9 +98,11 @@ export function BookingWidget({
   audience = "guest",
   onSetHours,
   venueTimezone,
+  memberToken,
 }: BookingWidgetProps) {
   // API client - no auth token for public booking
-  const api = usePublicApiClient({ baseUrl: apiBaseUrl });
+  const api = usePublicApiClient({ baseUrl: apiBaseUrl, memberToken });
+  const member = useMemberStatus(api, venueSlug, memberToken);
 
   // useBookingFlow owns the availability + Hold effects (slot fetch, Hold
   // create/confirm/release, hold-expiry timer), the venue deposit-config
@@ -129,7 +137,12 @@ export function BookingWidget({
 
   // The venue's own maxAdvanceBooking (days) bounds the date picker; an
   // explicit `maxDate` prop still wins.
-  const maxAdvanceDays = data.venueConfig?.settings.maxAdvanceBooking;
+  // A verified member's window runs `leadDays` further (#9627).
+  const publicAdvanceDays = data.venueConfig?.settings.maxAdvanceBooking;
+  const maxAdvanceDays =
+    publicAdvanceDays === undefined
+      ? undefined
+      : publicAdvanceDays + (member.kind === "member" ? member.leadDays : 0);
   const effectiveMaxDate =
     maxDate ??
     (maxAdvanceDays === undefined
@@ -174,6 +187,13 @@ export function BookingWidget({
               : t("bookingWidget.timeSlot.noHoursGuestDescription")
           }
         />
+      )}
+
+      {state === "date-party" && member.kind === "member" && (
+        <Alert variant="info">{t("bookingWidget.member_banner", { count: member.leadDays })}</Alert>
+      )}
+      {state === "date-party" && member.kind === "invalid" && (
+        <Alert variant="info">{t("bookingWidget.member_invalid")}</Alert>
       )}
 
       {state === "date-party" && (hasOperatingHours || audience === "staff") && (

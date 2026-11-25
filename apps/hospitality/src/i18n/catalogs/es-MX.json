@@ -1449,6 +1449,10 @@
     "guests_many": "{{count}} de personas",
     "guests_other": "{{count}} personas",
     "back": "← Atrás",
+    "member_banner_one": "Los miembros reservan {{count}} día antes",
+    "member_banner_many": "Los miembros reservan {{count}} de días antes",
+    "member_banner_other": "Los miembros reservan {{count}} días antes",
+    "member_invalid": "Este enlace de miembro no está activo. Mostramos las fechas abiertas para todos.",
     "estimatedWait": "Espera estimada: ~{{minutes}} min",
     "dateParty": {
       "startDate": "Fecha de inicio",

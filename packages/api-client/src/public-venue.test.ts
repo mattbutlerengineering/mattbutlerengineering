@@ -228,3 +228,27 @@ describe("PublicVenueClient.waitlistEstimate", () => {
     );
   });
 });
+
+describe("PublicVenueClient.memberStatus", () => {
+  beforeEach(() => {
+    mockFetch.mockReset();
+  });
+
+  it("requests GET /public/v1/venues/:slug/member and returns the validated status", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: { member: true, leadDays: 14 } }));
+
+    const result = await makeClient().memberStatus("the-oak-table");
+
+    const [url] = mockFetch.mock.calls[0]!;
+    expect(new URL(url as string).pathname).toBe("/public/v1/venues/the-oak-table/member");
+    expect(result).toEqual({ member: true, leadDays: 14 });
+  });
+
+  it("rejects a malformed status", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: { member: "yes" } }));
+
+    await expect(makeClient().memberStatus("the-oak-table")).rejects.toBeInstanceOf(
+      ApiValidationError
+    );
+  });
+});

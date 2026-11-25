@@ -401,6 +401,15 @@ describe("createServiceApp", () => {
     expect(opts.origin).toContain("https://mattbutlerengineering.com");
   });
 
+  it("allows the x-member-token and x-session-id request headers (#9627)", async () => {
+    const cors = await import("@fastify/cors");
+    app = await createServiceApp(createTestConfig());
+    const opts = getPluginOpts(vi.mocked(cors.default)) as { allowedHeaders: string[] };
+    expect(opts.allowedHeaders).toEqual(
+      expect.arrayContaining(["Content-Type", "Authorization", "x-member-token", "x-session-id"])
+    );
+  });
+
   it("includes dev origins in development mode", async () => {
     process.env.NODE_ENV = "development";
     const cors = await import("@fastify/cors");

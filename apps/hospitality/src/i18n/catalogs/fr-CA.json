@@ -1449,6 +1449,10 @@
     "guests_many": "{{count}} de convives",
     "guests_other": "{{count}} convives",
     "back": "← Retour",
+    "member_banner_one": "Les membres réservent {{count}} jour à l'avance",
+    "member_banner_many": "Les membres réservent {{count}} de jours à l'avance",
+    "member_banner_other": "Les membres réservent {{count}} jours à l'avance",
+    "member_invalid": "Ce lien de membre n'est pas actif. Voici les dates ouvertes à tous.",
     "estimatedWait": "Attente estimée : ~{{minutes}} min",
     "dateParty": {
       "startDate": "Date de début",

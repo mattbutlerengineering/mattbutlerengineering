@@ -219,7 +219,7 @@ export async function createServiceApp(
   await fastify.register(cors, {
     origin: corsOrigins,
     credentials: true,
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: ["Content-Type", "Authorization", "x-member-token", "x-session-id"],
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   });
 

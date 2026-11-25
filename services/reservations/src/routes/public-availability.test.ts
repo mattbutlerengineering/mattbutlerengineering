@@ -177,6 +177,53 @@ describe("GET /public/v1/venues/:slug/availability", () => {
     });
   });
 
+  describe("member status (#9627)", () => {
+    const URL = "/public/v1/venues/the-oak-table/member";
+
+    beforeEach(() => {
+      vi.mocked(venueService.getBySlug).mockResolvedValue({
+        ...mockVenue,
+        settings: { ...mockVenue.settings, memberLeadDays: 14 },
+      });
+      vi.mocked(verifyMemberToken).mockReset();
+    });
+
+    it("reports the lead days for a token that verifies at this venue", async () => {
+      vi.mocked(verifyMemberToken).mockResolvedValueOnce({
+        valid: true,
+        venueId: "venue_1",
+        email: "ada@example.com",
+      });
+
+      const response = await app.inject({
+        method: "GET",
+        url: URL,
+        headers: { "x-member-token": "t" },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({ data: { member: true, leadDays: 14 } });
+    });
+
+    it.each([
+      ["no token", undefined, undefined],
+      ["an invalid or revoked token", "t", { valid: false, expired: false }],
+      ["an expired token", "t", { valid: false, expired: true }],
+      ["a token for another venue", "t", { valid: true, venueId: "other", email: "a@b.co" }],
+    ] as const)("says only member: false for %s", async (_label, token, verdict) => {
+      if (verdict) vi.mocked(verifyMemberToken).mockResolvedValueOnce(verdict);
+
+      const response = await app.inject({
+        method: "GET",
+        url: URL,
+        headers: token ? { "x-member-token": token } : {},
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({ data: { member: false, leadDays: 0 } });
+    });
+  });
+
   it("returns the closure message for a closed date", async () => {
     vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
     vi.mocked(availabilityService.getDayAvailability).mockResolvedValueOnce({

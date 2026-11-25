@@ -27,6 +27,16 @@ describe("usePublicApiClient", () => {
     expect(callArgs.getAccessToken()).toBeNull();
   });
 
+  it("sends a member link as x-member-token on every call, and nothing without one (#9627)", () => {
+    renderHook(() => usePublicApiClient({ memberToken: "tok" }));
+    renderHook(() => usePublicApiClient());
+
+    const withToken = vi.mocked(createApiClient).mock.calls[0]![0] as any;
+    const without = vi.mocked(createApiClient).mock.calls[1]![0] as any;
+    expect(withToken.defaultHeaders).toEqual({ "x-member-token": "tok" });
+    expect(without.defaultHeaders).toBeUndefined();
+  });
+
   it("defaults baseUrl to VITE_API_URL when no override is passed", () => {
     renderHook(() => usePublicApiClient());
 

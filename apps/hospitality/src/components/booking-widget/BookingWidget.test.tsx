@@ -182,6 +182,7 @@ describe("BookingWidget", () => {
     },
     publicVenue: {
       depositIntent: vi.fn(),
+      memberStatus: vi.fn(),
     },
   };
 
@@ -230,6 +231,76 @@ describe("BookingWidget", () => {
     await waitFor(() =>
       expect((screen.getByLabelText("Date") as HTMLInputElement).max).toBe(expectedMax)
     );
+  });
+
+  describe("Regulars Club member link (#9627)", () => {
+    const venueConfig = {
+      name: "The Oak Table",
+      slug: "the-oak-table",
+      ianaTimezone: "America/New_York",
+      currencyCode: "USD",
+      operatingHours: null,
+      settings: { maxAdvanceBooking: 14 },
+      deposit: {
+        enabled: false,
+        depositType: null,
+        amountCents: null,
+        freeCancellationHours: null,
+        lateCancellationFeePercent: null,
+        noShowFeePercent: null,
+      },
+    };
+    const renderMember = () =>
+      render(<BookingWidget venueId="v1" venueSlug="the-oak-table" memberToken="tok" />);
+
+    it("hands the member link to the public client, so every call carries it", () => {
+      mockApi.venues.getPublicConfig.mockResolvedValue(venueConfig);
+      mockApi.publicVenue.memberStatus.mockResolvedValue({ member: true, leadDays: 7 });
+      renderMember();
+
+      expect(usePublicApiClient).toHaveBeenCalledWith(
+        expect.objectContaining({ memberToken: "tok" })
+      );
+    });
+
+    it("tells a member how many days early they book and opens those dates", async () => {
+      mockApi.venues.getPublicConfig.mockResolvedValue(venueConfig);
+      mockApi.publicVenue.memberStatus.mockResolvedValue({ member: true, leadDays: 7 });
+      renderMember();
+
+      expect(await screen.findByText("Members book 7 days early")).toBeDefined();
+      const expectedMax = addDays(venueDate(new Date(), "America/New_York"), 14 + 7);
+      await waitFor(() =>
+        expect((screen.getByLabelText("Date") as HTMLInputElement).max).toBe(expectedMax)
+      );
+    });
+
+    it("shows a public guest nothing new, and never asks the member route", async () => {
+      mockApi.venues.getPublicConfig.mockResolvedValue(venueConfig);
+      renderWidget();
+
+      const expectedMax = addDays(venueDate(new Date(), "America/New_York"), 14);
+      await waitFor(() =>
+        expect((screen.getByLabelText("Date") as HTMLInputElement).max).toBe(expectedMax)
+      );
+      expect(screen.queryByText(/Members book/)).toBeNull();
+      expect(screen.queryByText(/member link/i)).toBeNull();
+      expect(mockApi.publicVenue.memberStatus).not.toHaveBeenCalled();
+    });
+
+    it("degrades an invalid or revoked link to the public window with a plain notice", async () => {
+      mockApi.venues.getPublicConfig.mockResolvedValue(venueConfig);
+      mockApi.publicVenue.memberStatus.mockResolvedValue({ member: false, leadDays: 0 });
+      renderMember();
+
+      expect(
+        await screen.findByText(
+          "This member link isn't active. Showing the dates open to everyone."
+        )
+      ).toBeDefined();
+      const expectedMax = addDays(venueDate(new Date(), "America/New_York"), 14);
+      expect((screen.getByLabelText("Date") as HTMLInputElement).max).toBe(expectedMax);
+    });
   });
 
   it("completes the full booking flow", async () => {
