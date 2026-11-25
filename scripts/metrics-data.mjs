@@ -41,6 +41,12 @@ const DEFAULT_MAX_ATTEMPTS = 5;
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const REMOTE_REF = `origin/${DATA_BRANCH}`;
+/**
+ * Explicit refspec: a single-branch clone (`--single-branch`, implied by
+ * `--depth`) maps only main into origin/*, so a bare `fetch origin
+ * metrics-data` would never create origin/metrics-data.
+ */
+const FETCH_REFSPEC = `+refs/heads/${DATA_BRANCH}:refs/remotes/${REMOTE_REF}`;
 const METRICS_PREFIX = "metrics/";
 
 /**
@@ -130,14 +136,17 @@ export function pullDataBranch({ root = ROOT, runGit, log = emit }) {
         `Uncommitted metric writes in ${dir}. Run \`node scripts/metrics-data.mjs push\` first.`
       );
     }
-    runGit(["-C", dir, "fetch", "-q", "origin", DATA_BRANCH]);
+    runGit(["-C", dir, "fetch", "-q", "origin", FETCH_REFSPEC]);
     // Rebase, not reset: a commit left by a failed push must survive the pull.
     runGit(["-C", dir, "rebase", "-q", "-X", "theirs", REMOTE_REF]);
   } else {
-    runGit(["fetch", "-q", "origin", DATA_BRANCH]);
+    runGit(["fetch", "-q", "origin", FETCH_REFSPEC]);
     // Drop a registration left behind when someone deleted the directory.
     runGit(["worktree", "prune"]);
-    runGit(["worktree", "add", "-q", "-B", DATA_BRANCH, dir, REMOTE_REF]);
+    // Detached: a branch can be checked out in only one worktree, and local
+    // sessions run in many worktrees of one clone. Push targets the branch by
+    // refspec (HEAD:metrics-data), so no local branch is needed.
+    runGit(["worktree", "add", "-q", "--detach", dir, REMOTE_REF]);
   }
   log(`[metrics-data] ${dir} is at ${REMOTE_REF}.`);
 }
@@ -182,7 +191,7 @@ export function pushDataBranch({
       lastError = error;
       if (attempt === maxAttempts) break;
       log(`[metrics-data] Push rejected (attempt ${attempt}); rebasing on ${REMOTE_REF}.`);
-      runGit(["-C", dir, "fetch", "-q", "origin", DATA_BRANCH]);
+      runGit(["-C", dir, "fetch", "-q", "origin", FETCH_REFSPEC]);
       runGit(["-C", dir, "rebase", "-q", "-X", "theirs", REMOTE_REF]);
     }
   }

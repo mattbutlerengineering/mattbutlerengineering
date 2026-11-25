@@ -269,7 +269,17 @@ export function applyDurableGitignoreBlock(content, block = renderDurableGitigno
  * `ai-antipattern-baselines` feeds the antipattern ratchet; the ui-quality
  * ledger feeds `regen --check` and the visual e2e route lists.
  */
-export const REPO_LOCATED = new Set(["ai-antipattern-baselines", "ui-quality-ledger"]);
+export const REPO_LOCATED = new Set([
+  "ai-antipattern-baselines",
+  "ui-quality-ledger",
+  // The ui-quality routine keeps its loop state on its own `ui-quality/ledger`
+  // branch and stages these paths under metrics/ by name
+  // (docs/routines/mbe-ui-quality.md). They move only when that flow does.
+  "ui-quality-runs",
+  "ui-quality-ratings",
+  "ui-quality-calibrations",
+  "ui-quality-findings",
+]);
 
 /** EXTERNAL files with no live writer; they are not copied to the data branch. */
 const RETIRED_EXTERNAL = new Set(["last-audit.json"]);
@@ -326,6 +336,19 @@ export function metricsDir(root = DEFAULT_ROOT) {
  */
 export function resolvePath(name, { root = DEFAULT_ROOT } = {}) {
   return join(dirFor(name, root), entryFor(name).file);
+}
+
+/**
+ * Absolute path of a data file that has no METRICS entry (an EXTERNAL file or
+ * directory such as `production-health`): inside the data checkout when it
+ * exists, else under `metrics/`.
+ * @param {string} relative — path relative to the metrics root
+ * @param {{ root?: string }} [opts]
+ * @returns {string}
+ */
+export function resolveDataFile(relative, { root = DEFAULT_ROOT } = {}) {
+  const dataDir = resolve(root, DATA_DIRNAME);
+  return join(existsSync(dataDir) ? dataDir : metricsDir(root), relative);
 }
 
 /**
@@ -409,7 +432,7 @@ function parseJsonl(content) {
  */
 export function read(name, { root = DEFAULT_ROOT, readFile = defaultReadFile } = {}) {
   const entry = entryFor(name);
-  const content = readFile(join(metricsDir(root), entry.file));
+  const content = readFile(resolvePath(name, { root }));
   if (content == null) return null;
   if (entry.format === "jsonl") return parseJsonl(content);
   return JSON.parse(content);
@@ -457,7 +480,7 @@ export function readWeekly(name, { root = DEFAULT_ROOT, readFile = defaultReadFi
  */
 export function write(name, data, { root = DEFAULT_ROOT, writeFile = defaultWriteFile } = {}) {
   const entry = entryFor(name);
-  const filePath = join(metricsDir(root), entry.file);
+  const filePath = resolvePath(name, { root });
   if (entry.format === "jsonl") {
     const rows = Array.isArray(data) ? data : [];
     const content = rows.map((row) => JSON.stringify(row)).join("\n") + (rows.length ? "\n" : "");
@@ -509,7 +532,7 @@ export function append(name, entry, opts = {}) {
     appendFile = defaultAppendFile,
   } = opts;
   const meta = entryFor(name);
-  const filePath = join(metricsDir(root), meta.file);
+  const filePath = resolvePath(name, { root });
 
   if (meta.format === "jsonl") {
     appendFile(filePath, JSON.stringify(entry) + "\n");

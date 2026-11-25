@@ -75,19 +75,26 @@ describe("metrics-collectors workflow runs the review-burden collector", () => {
   });
 });
 
+// The rows go to the orphan metrics-data branch by direct push
+// (scripts/metrics-data.mjs): no PR, no CI run, and no fixed automation
+// branch to reset and drop an unmerged row.
 describe("metrics-collectors workflow persists what it collected", () => {
-  it("commits the review-burden metrics file back through a PR", () => {
-    expect(WORKFLOW).toMatch(/peter-evans\/create-pull-request/);
-    expect(WORKFLOW).toMatch(/metrics\/review-burden\.json/);
-    expect(WORKFLOW).not.toMatch(/metrics\/domain-metrics\.jsonl/);
+  const job = getJob(loadWorkflow(WORKFLOW_PATH), "collect");
+  const at = (re) => job.steps.findIndex((s) => re.test(s.run ?? ""));
+
+  it("checks out metrics-data before the first collector writes", () => {
+    const pullAt = at(/node scripts\/metrics-data\.mjs pull/);
+    expect(pullAt).toBeGreaterThan(-1);
+    expect(pullAt).toBeLessThan(at(/node scripts\/acmm\/review-burden-metrics\.js/));
   });
 
-  it("dispatches CI on its own branch, or the PR can never become mergeable", () => {
-    // GITHUB_TOKEN-authored PRs do not fire `pull_request` workflows, so the
-    // required CI Gate check never appears. scripts/check-ci-dispatch.mjs
-    // enforces this repo-wide; asserted here too so the reason is local.
-    expect(WORKFLOW).toMatch(/gh workflow run ci\.yml --ref/);
-    expect(WORKFLOW).toMatch(/actions:\s*write/);
+  it("pushes to metrics-data after the self-checks, and opens no PR", () => {
+    const pushAt = at(/node scripts\/metrics-data\.mjs push -m /);
+    expect(pushAt).toBe(job.steps.length - 1);
+    expect(pushAt).toBeGreaterThan(at(/node scripts\/metrics-freshness\.mjs/));
+    expect(WORKFLOW).not.toMatch(/peter-evans\/create-pull-request/);
+    expect(WORKFLOW).not.toMatch(/gh workflow run ci\.yml/);
+    expect(WORKFLOW).not.toMatch(/metrics\/domain-metrics\.jsonl/);
   });
 });
 
@@ -207,14 +214,14 @@ describe("metrics-collectors workflow self-check is not decorative", () => {
 });
 
 describe("metrics-collectors workflow collects queue telemetry (#5921)", () => {
-  it("runs the GitHub-derived queue-telemetry collector before the PR step", () => {
+  it("runs the GitHub-derived queue-telemetry collector before the push step", () => {
     const run = WORKFLOW.indexOf("node scripts/collect-queue-telemetry-from-github.mjs");
-    const pr = WORKFLOW.indexOf("peter-evans/create-pull-request");
+    const pr = WORKFLOW.indexOf("node scripts/metrics-data.mjs push");
     expect(run).toBeGreaterThan(-1);
     expect(run).toBeLessThan(pr);
   });
 
-  it("isolates the collector step's failure so the review-burden PR flow still runs", () => {
+  it("isolates the collector step's failure so the review-burden push still runs", () => {
     const step = WORKFLOW.match(
       /- name: Collect queue telemetry from merged agent PRs\n((?:(?! {6}- name:).*\n)+)/
     )?.[1];
@@ -222,14 +229,14 @@ describe("metrics-collectors workflow collects queue telemetry (#5921)", () => {
     expect(step).toMatch(/^\s+continue-on-error: true$/m);
   });
 
-  it("reconciles the rows it just appended, between the collector and the PR step (#6931)", () => {
+  it("reconciles the rows it just appended, between the collector and the push step (#6931)", () => {
     const job = getJob(loadWorkflow(WORKFLOW_PATH), "collect");
     const at = (re) => job.steps.findIndex((s) => re.test(s.run ?? ""));
     const reconcileAt = at(/node scripts\/reconcile-queue-telemetry\.mjs/);
     expect(reconcileAt).toBeGreaterThan(-1);
     expect(reconcileAt).toBeGreaterThan(at(/collect-queue-telemetry-from-github\.mjs/));
     expect(reconcileAt).toBeLessThan(
-      job.steps.findIndex((s) => s.name === "Open PR with collected metrics")
+      job.steps.findIndex((s) => s.name === "Push metrics to metrics-data")
     );
     // queueEfficiency must read the reconciled sink, not yesterday's.
     expect(reconcileAt).toBeLessThan(at(/record-queue-efficiency\.mjs/));
@@ -242,11 +249,6 @@ describe("metrics-collectors workflow collects queue telemetry (#5921)", () => {
     );
     expect(step.env.GH_TOKEN).toBe("${{ secrets.GITHUB_TOKEN }}");
     expect(step["continue-on-error"]).toBe(true);
-  });
-
-  it("commits metrics/queue-telemetry.jsonl in the automation PR", () => {
-    const block = WORKFLOW.match(/add-paths: \|\n((?:\s+\S.*\n)+)/)?.[1] ?? "";
-    expect(block).toContain("metrics/queue-telemetry.jsonl");
   });
 });
 
@@ -276,15 +278,11 @@ describe("metrics-collectors workflow runs the credential-blocked collectors (#6
     expect(buildAt).toBeLessThan(indexOfStep(/record-queue-efficiency/));
   });
 
-  it("commits both collectors' output files in the automation PR", () => {
-    const addPaths = getStep(job, "Open PR with collected metrics").with["add-paths"];
-    expect(addPaths).toContain("metrics/ai-issue-feedback.json");
-    expect(addPaths).toContain("metrics/process-metrics.jsonl");
-  });
-
   it("grants the scopes the collectors' queries need", () => {
     expect(workflow.permissions.issues).toBeDefined();
     expect(workflow.permissions["pull-requests"]).toBeDefined();
-    expect(workflow.permissions.actions).toBe("write");
+    expect(workflow.permissions.contents).toBe("write");
+    // No PR, so no CI dispatch: actions:write is no longer needed.
+    expect(workflow.permissions.actions).toBeUndefined();
   });
 });

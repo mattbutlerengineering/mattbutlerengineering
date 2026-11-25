@@ -26,6 +26,15 @@ export {
   type EndOfServiceSummary,
 } from "./end-of-service.js";
 export {
+  autopilotProposalsEndpoints,
+  AUTOPILOT_PROPOSALS_PATH,
+  AutopilotProposalsQuerySchema,
+  AutopilotMoveSchema,
+  AutopilotProposalsSchema,
+  type AutopilotMove,
+  type AutopilotProposals,
+} from "./autopilot.js";
+export {
   lostDemandEndpoints,
   LOST_DEMAND_PATH,
   LostDemandQuerySchema,

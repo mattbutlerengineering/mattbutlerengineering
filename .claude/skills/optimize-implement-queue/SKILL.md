@@ -61,7 +61,7 @@ if (!DRY_RUN) {
 }
 ```
 
-`METRICS_PATH` = `metrics/process-metrics.jsonl`
+`METRICS_PATH` = `.metrics-data/process-metrics.jsonl`
 
 ## Step 3: Append Dated Log Entry
 
@@ -165,7 +165,7 @@ Do NOT enumerate paths by hand. Durability is declared once as `durable: true` i
 
 The guard-railed model-routing tier adjustment pattern lives in `scripts/threshold-tuner.mjs`. When a regression persists across 3+ consecutive daily runs, phase-2 will:
 
-1. Query `metrics/threshold-changes.jsonl` for recent guard-rail usage.
+1. Query `.metrics-data/threshold-changes.jsonl` for recent guard-rail usage.
 2. Call `determineAdjustment()` from `threshold-tuner.mjs` with per-sensor metrics.
 3. Propose a model-tier bump via a `ready` issue (human approves before any config change).
 

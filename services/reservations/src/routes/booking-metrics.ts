@@ -1,11 +1,17 @@
 import type { FastifyPluginAsync } from "fastify";
 import type { ProblemDetails } from "@mbe/types";
-import { createProblemDetails, endOfServiceEndpoints, lostDemandEndpoints } from "@mbe/types";
+import {
+  autopilotProposalsEndpoints,
+  createProblemDetails,
+  endOfServiceEndpoints,
+  lostDemandEndpoints,
+} from "@mbe/types";
 import { requireAuth } from "@mbe/auth/fastify";
 import { registerEndpoint } from "@mbe/service-bootstrap";
 import { validateDateString } from "@mbe/database";
 import { venueScoped } from "./venue-scope.js";
 import { bookingMetricsService, type DailyBookingMetrics } from "../services/booking-metrics.js";
+import { autopilotProposalsService } from "../services/autopilot-proposals.js";
 import { endOfServiceSummaryService } from "../services/end-of-service-summary.js";
 import {
   MAX_WINDOW_DAYS,
@@ -51,6 +57,46 @@ export const bookingMetricsRoutes: FastifyPluginAsync = async (fastify) => {
           return reply.code(400).send(createProblemDetails(400, "Bad Request", dateResult.error));
         }
         return { data: await endOfServiceSummaryService.getSummary({ venueId, date }) };
+      }
+    ),
+  });
+
+  // Autopilot proposals (#9492): read-only suggestions for tonight; nothing here applies a move.
+  registerEndpoint(fastify, autopilotProposalsEndpoints.get, {
+    docs: {
+      summary: "Get tonight's Autopilot proposals",
+      operationId: "getAutopilotProposals",
+      description:
+        "Up to three moves the rule-based engine suggests for the venue's current service date: " +
+        "reseating a booked party or offering a table to a waiting party, each with a plain " +
+        "reason. Suggestions only; nothing is applied. Requires venue membership.",
+      tags: ["Metrics"],
+      security: [{ bearerAuth: [] }],
+    },
+    preHandler: requireAuth,
+    handler: venueScoped(
+      {
+        venue: {
+          from: "query",
+          field: "venueId",
+          missing: "venueId query parameter is required",
+        },
+      },
+      async (request, reply, { venueId }) => {
+        const { date } = request.query;
+        if (date !== undefined) {
+          const dateResult = validateDateString(date);
+          if (!dateResult.valid) {
+            return reply.code(400).send(createProblemDetails(400, "Bad Request", dateResult.error));
+          }
+        }
+        // No date: the service resolves the venue's current service date (ADR-029), not the calendar day.
+        return {
+          data: await autopilotProposalsService.getProposals({
+            venueId,
+            ...(date === undefined ? {} : { date }),
+          }),
+        };
       }
     ),
   });

@@ -131,6 +131,11 @@
             "type": "command",
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/session-logger.sh\"",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/cloud-session-bootstrap.mjs\" --push-metrics",
+            "timeout": 60
           }
         ]
       }

@@ -116,6 +116,11 @@ jobs:
             echo "No open automation/acmm-regression branch -- nothing to merge."
           fi
 
+      - name: Check out metrics-data
+        # Telemetry lives on the orphan metrics-data branch, not main
+        # (scripts/metrics-data.mjs). metrics-store reads and writes it in .metrics-data/.
+        run: node scripts/metrics-data.mjs pull
+
       - name: Run ACMM audit
         # Moves the issue-filing pass over from the retired auto-issue.yml.
         # --badge rewrites the README scorecard badge; --label ready tags

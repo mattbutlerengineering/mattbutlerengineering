@@ -368,6 +368,13 @@ describe("menu chat tools", () => {
       expect(api.menus.create).not.toHaveBeenCalled();
     });
 
+    it("won't make a menu whose slug collides with an existing one", async () => {
+      const result = await run("create_menu", { name: "Dinner!" });
+
+      expect(result).toMatchObject({ error: expect.stringContaining("already") });
+      expect(api.menus.create).not.toHaveBeenCalled();
+    });
+
     it("asks for a name with letters or digits in it", async () => {
       const result = await run("create_menu", { name: "!!!" });
 
@@ -407,6 +414,28 @@ describe("menu chat tools", () => {
       expect(result).toMatchObject({ error: expect.stringContaining("Mains") });
       expect(api.menus.reorderSections).not.toHaveBeenCalled();
     });
+
+    it("refuses a reorder that lists a section twice", async () => {
+      const result = await run("reorder_menu_sections", {
+        menu: "Dinner",
+        sections: ["Desserts", "Desserts", "Starters"],
+      });
+
+      expect(result).toMatchObject({ error: expect.stringMatching(/Desserts is listed twice/) });
+      expect(api.menus.reorderSections).not.toHaveBeenCalled();
+    });
+
+    it("refuses to reorder sections when two share a name", async () => {
+      api.menus.getById.mockResolvedValue({
+        ...DINNER,
+        sections: [DINNER.sections[0], { ...DINNER.sections[0], id: "s1b" }],
+      });
+
+      const result = await run("reorder_menu_sections", { menu: "Dinner", sections: ["Starters"] });
+
+      expect(result).toMatchObject({ error: expect.stringMatching(/Rename one/) });
+      expect(api.menus.reorderSections).not.toHaveBeenCalled();
+    });
   });
 
   describe("reorder_menu_items (#9478)", () => {
@@ -440,6 +469,7 @@ describe("menu chat tools", () => {
       });
 
       expect(result).toMatchObject({ error: expect.stringContaining("Starters, Desserts") });
+      expect(api.menus.reorderItems).not.toHaveBeenCalled();
     });
   });
 

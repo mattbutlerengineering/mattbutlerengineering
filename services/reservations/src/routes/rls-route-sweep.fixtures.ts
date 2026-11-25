@@ -4,6 +4,7 @@ import type { FastifyInstance, InjectOptions, LightMyRequestResponse } from "fas
 import {
   AVAILABILITY_CONFIG_PREFIX,
   ClosureSummariesSchema,
+  autopilotProposalsEndpoints,
   endOfServiceEndpoints,
   lostDemandEndpoints,
 } from "@mbe/types";
@@ -2277,6 +2278,9 @@ const bookingMetricsFixtures: Record<string, RouteFixture> = {
   "GET /api/v1/reservations/metrics/end-of-service": okScopedByQuery(
     endOfServiceEndpoints.get.path,
     "&date=2026-10-01"
+  ),
+  "GET /api/v1/reservations/metrics/autopilot-proposals": okScopedByQuery(
+    autopilotProposalsEndpoints.get.path
   ),
   "GET /api/v1/reservations/metrics/lost-demand": okScopedByQuery(
     lostDemandEndpoints.get.path,

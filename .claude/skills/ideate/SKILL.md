@@ -134,10 +134,10 @@ the charter, and stop.
 ### 2. Read grounding (tracked files + gh only)
 
 - `PRODUCT.md` — themes, non-goals, guardrails (mandatory).
-- Signals: `metrics/process-metrics.jsonl`, `metrics/last-audit.json`,
-  `metrics/pr-acceptance.json`,
-  `metrics/queue-telemetry.jsonl`,
-  `metrics/audit-coverage.jsonl` (per-surface sweep status; zones with no row are
+- Signals: `.metrics-data/process-metrics.jsonl`, `metrics/last-audit.json`,
+  `.metrics-data/pr-acceptance.json`,
+  `.metrics-data/queue-telemetry.jsonl`,
+  `.metrics-data/audit-coverage.jsonl` (per-surface sweep status; zones with no row are
   "never recorded" — `.audit-state/` is gitignored and invisible to you), `.claude/acmm/state.json`,
   `docs/incidents/` (if present).
 - `metrics/ui-quality-findings.json` (if consulted): only records with

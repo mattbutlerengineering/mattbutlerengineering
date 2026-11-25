@@ -6,12 +6,14 @@ import type {
   CreateReservationRequest,
   UpdateReservationRequest,
   WalkInRequest,
+  AutopilotProposals,
   EndOfServiceSummary,
   LostDemand,
 } from "@mbe/types";
 import {
   ReservationSchema,
   ReservationStatusSchema,
+  autopilotProposalsEndpoints,
   endOfServiceEndpoints,
   lostDemandEndpoints,
   paginatedResponseSchema,
@@ -218,6 +220,17 @@ const RESERVATION_BASE_PATH = "/api/v1/reservations";
 
 export class ReservationsClient {
   constructor(private client: ApiClient) {}
+
+  /**
+   * Moves Autopilot suggests for a service date (read-only; nothing is applied). Omit `date`
+   * for the venue's current service date.
+   */
+  async getAutopilotProposals(params: {
+    venueId: string;
+    date?: string;
+  }): Promise<AutopilotProposals> {
+    return (await this.client.call(autopilotProposalsEndpoints.get, { query: params })).data;
+  }
 
   /**
    * End-of-service summary for a venue's service date (counts only). Omit

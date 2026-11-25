@@ -1063,18 +1063,20 @@ export async function mockApi(page: Page): Promise<SseMock> {
   // render the grid mount their own route after mockApi (locale-sweep, visual).
   // `from`/`to` must be real service dates: LostDemandSchema rejects "", which turned every
   // dashboard load into a heatmap error banner (#9583).
-  await page.route("**/api/v1/reservations/metrics/lost-demand?*", (route) => {
-    const to = new Date();
-    const from = new Date(to.getTime() - 27 * 24 * 60 * 60 * 1000);
-    return jsonOk(route, {
+  await page.route("**/api/v1/reservations/metrics/lost-demand?*", (route) =>
+    jsonOk(route, {
       venueId: "venue_e2e",
-      from: from.toISOString().slice(0, 10),
-      to: to.toISOString().slice(0, 10),
+      from: localDay(-27),
+      to: localDay(),
       total: 0,
       cells: [],
       anyTime: [],
-    });
-  });
+    })
+  );
+  // The Timeline's Autopilot panel (#9492): no suggestions by default, so it renders nothing.
+  await page.route("**/api/v1/reservations/metrics/autopilot-proposals?*", (route) =>
+    jsonOk(route, { date: "", venueId: "", moves: [] })
+  );
   await page.route("**/api/v1/guests/find-or-create", (route) => {
     const guests = JSON.parse(loadFixture("guests-list"));
     return jsonOk(route, guests.data[0]);

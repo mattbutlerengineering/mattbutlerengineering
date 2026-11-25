@@ -1,7 +1,9 @@
 import { formatHourLabel } from "../../utils/format.js";
 import { useMemo, useState, useEffect, useRef, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
-import type { Reservation, Table, TableStatus } from "@mbe/types";
+import type { AutopilotMove, Reservation, Table, TableStatus } from "@mbe/types";
+import { partyName } from "./autopilot-party.js";
+import { GhostBlock } from "./GhostBlock.js";
 import { ReservationBlock } from "./ReservationBlock";
 import type { GuestSignalBadge } from "./guest-signal-badge.js";
 import { TableStatusMenu } from "./TableStatusMenu.js";
@@ -45,6 +47,8 @@ export interface TimelineGridProps {
   emptyNight?: TimelineEmptyNightProps | null;
   /** The table whose status change is in flight — its trigger is disabled and gold. */
   pendingTableId?: string | null;
+  /** Autopilot's suggested moves, drawn as ghost blocks at their target table. Never bookings. */
+  ghosts?: readonly AutopilotMove[];
 }
 
 /**
@@ -96,6 +100,7 @@ export function TimelineGrid({
   bottomInset,
   emptyNight,
   pendingTableId,
+  ghosts,
 }: TimelineGridProps) {
   const fmt = useVenueFormat();
   const { t } = useTranslation();
@@ -338,6 +343,22 @@ export function TimelineGrid({
                     />
                   );
                 })}
+
+                {(ghosts ?? [])
+                  .filter((ghost) => ghost.toTableId === table.id)
+                  .map((ghost) => (
+                    <GhostBlock
+                      key={ghost.id}
+                      party={partyName(t, ghost.partyLabel, ghost.partySize)}
+                      style={computeReservationLayout(ghost.startTime, ghost.endTime, {
+                        startHour,
+                        hourWidth,
+                        isMobile,
+                        serviceDate: date,
+                        timeZone,
+                      })}
+                    />
+                  ))}
               </div>
             </div>
           ))}

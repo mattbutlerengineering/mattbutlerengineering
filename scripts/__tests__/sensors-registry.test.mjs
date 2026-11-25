@@ -1877,6 +1877,14 @@ describe("productionHealth sensor (#9525)", () => {
     });
   });
 
+  it("reads from the metrics-data checkout when one exists", () => {
+    tmpDir = mkdtempSync(join(tmpdir(), "production-health-sensor-"));
+    const dir = join(tmpDir, ".metrics-data", "production-health");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "2026-11-25.jsonl"), row("2026-11-25T06:00:00Z") + "\n");
+    expect(sensor().collect({ root: tmpDir }).collected_at).toBe("2026-11-25T06:00:00Z");
+  });
+
   it("is unavailable when the directory is empty", () => {
     dirOf();
     expect(sensor().collect({ root: tmpDir })).toEqual({ available: false });

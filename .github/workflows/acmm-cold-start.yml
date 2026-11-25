@@ -18,10 +18,8 @@ on:
   workflow_dispatch:
 
 permissions:
+  # contents: push the measurement to the metrics-data branch.
   contents: write
-  pull-requests: write
-  # Required for the `gh workflow run` dispatch after the PR is created.
-  actions: write
 
 concurrency:
   group: acmm-cold-start
@@ -95,6 +93,11 @@ jobs:
           echo "::warning::ACMM cold-start test run failed (exit ${TEST_STATUS}) -- test_passed: false will be recorded in metrics/acmm-cold-start.json"
           echo "### ACMM cold-start: test run FAILED (exit ${TEST_STATUS})" >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Check out metrics-data
+        # Telemetry lives on the orphan metrics-data branch, not main
+        # (scripts/metrics-data.mjs). metrics-store reads and writes it in .metrics-data/.
+        run: node scripts/metrics-data.mjs pull
+
       - name: Compose record
         env:
           INSTALL_S: ${{ steps.install.outputs.install_seconds }}
@@ -106,7 +109,7 @@ jobs:
           export TS
           node -e '
             const fs = require("node:fs");
-            const path = "metrics/acmm-cold-start.json";
+            const path = ".metrics-data/acmm-cold-start.json";
             const installS = Number(process.env.INSTALL_S || 0);
             const testS = Number(process.env.TEST_S || 0);
             const record = {
@@ -126,49 +129,17 @@ jobs:
             if (!Array.isArray(history)) history = [];
             history.push(record);
             history = history.slice(-26);
-            fs.mkdirSync("metrics", { recursive: true });
             fs.writeFileSync(path, JSON.stringify(history, null, 2) + "\n");
             console.log("Wrote", path, "with", history.length, "records (latest:", JSON.stringify(record), ")");
           '
 
-      - name: Open PR with cold-start measurement
+      - name: Push metrics to metrics-data
+        # A direct push: no PR, no CI run (no workflow triggers on this
+        # branch), and a rejected push rebases and retries instead of
+        # resetting a fixed branch and dropping the earlier row.
         env:
-          INSTALL_S: ${{ steps.install.outputs.install_seconds }}
-          INSTALL_STATUS: ${{ steps.install.outputs.install_status }}
-          TEST_S: ${{ steps.test.outputs.test_seconds || 'skipped' }}
-          TEST_STATUS: ${{ steps.test.outputs.test_status || 'n/a' }}
-        run: |
-          # `git diff --quiet` cannot see an untracked file -- the metric was
-          # gitignored for its whole life, so this always reported "no
-          # change" even on the file's very first write. `git status
-          # --porcelain` sees both untracked (first run) and modified
-          # (append) states.
-          if [ -z "$(git status --porcelain -- metrics/acmm-cold-start.json)" ]; then
-            echo "No metric change to commit"
-            exit 0
-          fi
-
-          DATE="$(date +%Y-%m-%d)"
-          BRANCH="chore/acmm-cold-start-${DATE}"
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout -b "$BRANCH"
-          git add metrics/acmm-cold-start.json
-          git commit -m "chore(acmm): cold-start measurement ${DATE}"
-          git push -u origin "$BRANCH"
-
-          BODY="Auto-generated weekly cold-start measurement.
-
-          - install: ${INSTALL_S}s (status: ${INSTALL_STATUS})
-          - test: ${TEST_S}s (status: ${TEST_STATUS})
-
-          See \`metrics/acmm-cold-start.json\` for the full record."
-
-          gh pr create \
-            --title "chore(acmm): cold-start measurement ${DATE}" \
-            --body "$BODY" \
-            --label "acmm,meta-improvement"
-
-          # GITHUB_TOKEN-authored PRs don't trigger the pull_request event, so
-          # the required CI Gate check never reports without an explicit dispatch.
-          gh workflow run ci.yml --ref "$BRANCH"
+          GIT_AUTHOR_NAME: "github-actions[bot]"
+          GIT_AUTHOR_EMAIL: "41898282+github-actions[bot]@users.noreply.github.com"
+          GIT_COMMITTER_NAME: "github-actions[bot]"
+          GIT_COMMITTER_EMAIL: "41898282+github-actions[bot]@users.noreply.github.com"
+        run: 'node scripts/metrics-data.mjs push -m "chore(metrics): acmm cold-start"'
