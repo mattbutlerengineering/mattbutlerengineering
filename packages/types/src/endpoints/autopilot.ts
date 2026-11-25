@@ -22,6 +22,10 @@ export const AutopilotMoveSchema = z.object({
   kind: z.enum(["reseat", "waitlist_offer"]),
   /** The party the move is about: the guest's name, or null when the booking has none. */
   partyLabel: z.string().nullable(),
+  /** The booking a `reseat` moves; null for a waitlist offer. Approving applies it (#9493). */
+  reservationId: z.string().nullable(),
+  /** The waiting party a `waitlist_offer` seats; null for a reseat. */
+  waitlistEntryId: z.string().nullable(),
   partySize: z.number().int().min(1),
   /** Table the party sits at now; null for a waitlist offer. */
   fromTableId: z.string().nullable(),

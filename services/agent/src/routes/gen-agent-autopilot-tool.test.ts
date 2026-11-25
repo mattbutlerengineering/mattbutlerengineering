@@ -26,6 +26,8 @@ const move = {
   id: "reseat:r1>t2",
   kind: "reseat",
   partyLabel: "Ana",
+  reservationId: "r1",
+  waitlistEntryId: null,
   partySize: 2,
   fromTableId: "t6",
   fromTableName: "Booth",
@@ -67,6 +69,7 @@ describe("get_autopilot_suggestions chat tool", () => {
       count: 1,
       moves: [
         {
+          moveId: "reseat:r1>t2",
           party: "Ana",
           partySize: 2,
           from: "Booth",

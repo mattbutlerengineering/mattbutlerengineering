@@ -74,6 +74,9 @@ vi.mock("../hooks/useGuests.js", () => ({
 vi.mock("../hooks/useLostDemand.js", () => ({
   useLostDemand: () => ({ data: null, error: null, refetch: vi.fn() }),
 }));
+vi.mock("../hooks/useApproveAutopilotMove.js", () => ({
+  useApproveAutopilotMove: () => ({ approve: vi.fn(), pendingMoveId: null }),
+}));
 vi.mock("../hooks/useAutopilotProposals.js", () => ({
   useAutopilotProposals: () => ({
     data: {
@@ -84,6 +87,8 @@ vi.mock("../hooks/useAutopilotProposals.js", () => ({
           id: "offer:w1>t1",
           kind: "waitlist_offer",
           partyLabel: "Kim",
+          reservationId: null,
+          waitlistEntryId: "w1",
           partySize: 4,
           fromTableId: null,
           fromTableName: null,

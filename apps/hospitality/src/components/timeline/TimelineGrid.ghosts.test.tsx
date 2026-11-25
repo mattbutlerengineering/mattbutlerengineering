@@ -40,6 +40,8 @@ const ghost: AutopilotMove = {
   id: "reseat:res-1>t2",
   kind: "reseat",
   partyLabel: "Ana",
+  reservationId: "res-1",
+  waitlistEntryId: null,
   partySize: 2,
   fromTableId: "t1",
   fromTableName: "Table 1",

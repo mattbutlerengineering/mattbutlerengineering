@@ -971,11 +971,21 @@
       "heading": "Autopilot",
       "toggleName_one": "Autopilot: {{count}} suggestion",
       "toggleName_other": "Autopilot: {{count}} suggestions",
-      "intro": "Suggestions only. Nothing moves until you move it.",
+      "intro": "Nothing moves until you approve it.",
       "reseat": "Move {{party}} ({{size}}) from {{from}} to {{to}}",
       "offer": "Seat {{party}} ({{size}}) at {{to}}",
       "reseatWhy": "Frees {{from}} for a waiting party.",
       "offerWhy": "{{to}} is free and fits them.",
+      "approve": "Approve",
+      "approveFor": "Approve the suggestion for {{party}}",
+      "offerNotice": "Seats them now. This can't be undone.",
+      "reseatDone": "Moved {{party}} to {{to}}",
+      "offerDone": "Seated {{party}} at {{to}}",
+      "undo": "Undo",
+      "undoReseatDone": "Moved {{party}} back to {{from}}",
+      "undoFailed": "Couldn't put {{party}} back. Nothing was changed.",
+      "stale": "That suggestion no longer holds, so nothing was moved. The list is updated.",
+      "applyFailed": "Couldn't make that move. Nothing was changed.",
       "dismissMove": "Dismiss",
       "dismissMoveFor": "Dismiss the suggestion for {{party}}",
       "dismissNight": "Dismiss for tonight",
@@ -1745,6 +1755,7 @@
       "activate_floor_plan": "Switch the active floor plan",
       "seat_reservation": "Seat a booked party",
       "mark_no_show": "Mark a no-show",
+      "approve_autopilot_move": "Approve an Autopilot move",
       "pause_online_booking": "Pause online booking",
       "resume_online_booking": "Resume online booking",
       "pause_tables": "Pause tables",
@@ -1808,7 +1819,8 @@
         "reminderEmailEnabled": "Reminder emails",
         "type": "Type",
         "cuisines": "Cuisines",
-        "website": "Website"
+        "website": "Website",
+        "party": "Party"
       },
       "yesNo": {
         "yes": "Yes",
@@ -4248,7 +4260,7 @@
       },
       "tonightAutopilot": {
         "label": "Tonight Autopilot",
-        "detail": "An assistant that watches the room and proposes the reseats and guest messages itself."
+        "detail": "Watches the room and suggests the reseats and waitlist seatings. You approve a move in one tap, and a reseat can be undone."
       },
       "guestSignals": {
         "label": "Running late, or here",

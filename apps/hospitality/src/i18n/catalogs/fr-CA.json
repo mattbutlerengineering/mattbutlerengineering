@@ -995,11 +995,21 @@
       "toggleName_one": "Pilote automatique : {{count}} suggestion",
       "toggleName_many": "Pilote automatique : {{count}} de suggestions",
       "toggleName_other": "Pilote automatique : {{count}} suggestions",
-      "intro": "Ce sont seulement des suggestions. Rien ne bouge avant que vous le déplaciez.",
+      "intro": "Rien ne bouge avant que vous l'approuviez.",
       "reseat": "Déplacer {{party}} ({{size}}) de {{from}} à {{to}}",
       "offer": "Asseoir {{party}} ({{size}}) à {{to}}",
       "reseatWhy": "Libère {{from}} pour un groupe en attente.",
       "offerWhy": "{{to}} est libre et convient au groupe.",
+      "approve": "Approuver",
+      "approveFor": "Approuver la suggestion pour {{party}}",
+      "offerNotice": "Les assoit maintenant. Impossible à annuler.",
+      "reseatDone": "{{party}} déplacé à {{to}}",
+      "offerDone": "{{party}} assis à {{to}}",
+      "undo": "Annuler",
+      "undoReseatDone": "{{party}} remis à {{from}}",
+      "undoFailed": "Impossible de remettre {{party}} en place. Rien n'a été modifié.",
+      "stale": "Cette suggestion ne tient plus, donc rien n'a été déplacé. La liste est à jour.",
+      "applyFailed": "Impossible de faire ce déplacement. Rien n'a été modifié.",
       "dismissMove": "Ignorer",
       "dismissMoveFor": "Ignorer la suggestion pour {{party}}",
       "dismissNight": "Ignorer pour ce soir",
@@ -1782,6 +1792,7 @@
       "activate_floor_plan": "Changer le plan de salle actif",
       "seat_reservation": "Placer un groupe réservé",
       "mark_no_show": "Marquer une absence",
+      "approve_autopilot_move": "Approuver un déplacement du pilote automatique",
       "pause_online_booking": "Suspendre les réservations en ligne",
       "resume_online_booking": "Reprendre les réservations en ligne",
       "pause_tables": "Suspendre des tables",
@@ -1845,7 +1856,8 @@
         "reminderEmailEnabled": "Courriels de rappel",
         "type": "Type",
         "cuisines": "Cuisines",
-        "website": "Site web"
+        "website": "Site web",
+        "party": "Groupe"
       },
       "yesNo": {
         "yes": "Oui",
@@ -4363,7 +4375,7 @@
       },
       "tonightAutopilot": {
         "label": "Pilote automatique de la soirée",
-        "detail": "Un assistant qui observe la salle et propose lui-même les changements de table et les messages aux clients."
+        "detail": "Observe la salle et suggère les changements de table et les groupes en attente à placer. Vous approuvez un mouvement d'un geste, et un changement de table peut être annulé."
       },
       "guestSignals": {
         "label": "En retard, ou arrivés",

@@ -379,6 +379,12 @@ describe("briefing, dashboard stats and page-only areas in the prompt", () => {
     expect(prompt).toMatch(/couldn't read the Autopilot suggestions.*never say there is nothing/);
   });
 
+  it("applies a suggested move only through approve_autopilot_move, on the host's say-so", () => {
+    expect(prompt).toMatch(/approve_autopilot_move.*moveId.*get_autopilot_suggestions/s);
+    expect(prompt).toMatch(/approve_autopilot_move.*only when the host asks/s);
+    expect(prompt).toMatch(/approve_autopilot_move.*no longer suggested/s);
+  });
+
   it("answers when guests are turned away with get_turned_away_demand, never as zeros", () => {
     expect(prompt).toMatch(/when are we turning people away.*get_turned_away_demand/);
     expect(prompt).toMatch(/get_turned_away_demand.*anyTime.*no time/s);

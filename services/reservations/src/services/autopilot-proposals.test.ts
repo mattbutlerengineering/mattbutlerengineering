@@ -73,6 +73,8 @@ describe("autopilotProposalsService.getProposals", () => {
     expect(result.moves[0]).toMatchObject({
       kind: "reseat",
       partyLabel: "Ana",
+      reservationId: "r1",
+      waitlistEntryId: null,
       partySize: 2,
       fromTableId: "t6",
       fromTableName: "Booth",
@@ -172,6 +174,8 @@ describe("autopilotProposalsService.getProposals", () => {
     expect(result.moves[0]).toMatchObject({
       kind: "waitlist_offer",
       partyLabel: "Kim",
+      reservationId: null,
+      waitlistEntryId: "w1",
       fromTableId: null,
       toTableId: "t6",
       startTime: NOW.toISOString(),
