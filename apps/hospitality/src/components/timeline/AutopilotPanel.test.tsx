@@ -104,6 +104,21 @@ describe("AutopilotPanel", () => {
     expect(screen.queryByRole("alertdialog")).toBeNull();
   });
 
+  it("says before the tap that seating a waiting party can't be undone, and not for a reseat", () => {
+    setup();
+    fireEvent.click(screen.getByRole("button", { name: /Autopilot/ }));
+    const notice = "Seats them now. This can't be undone.";
+
+    const items = screen.getAllByRole("listitem");
+    expect(items[0]!.textContent).not.toContain(notice);
+    expect(items[1]!.textContent).toContain(notice);
+
+    const offerApprove = screen.getByRole("button", { name: "Approve the suggestion for Kim" });
+    expect(offerApprove).toHaveAccessibleDescription(notice);
+    const reseatApprove = screen.getByRole("button", { name: "Approve the suggestion for Ana" });
+    expect(reseatApprove.hasAttribute("aria-describedby")).toBe(false);
+  });
+
   it("disables the move being applied and says it is busy", () => {
     setup([reseat, offer], reseat.id);
     fireEvent.click(screen.getByRole("button", { name: /Autopilot/ }));

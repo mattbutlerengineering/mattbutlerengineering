@@ -995,6 +995,7 @@
       "offerWhy": "{{to}} est libre et convient au groupe.",
       "approve": "Approuver",
       "approveFor": "Approuver la suggestion pour {{party}}",
+      "offerNotice": "Les assoit maintenant. Impossible à annuler.",
       "reseatDone": "{{party}} déplacé à {{to}}",
       "offerDone": "{{party}} assis à {{to}}",
       "undo": "Annuler",

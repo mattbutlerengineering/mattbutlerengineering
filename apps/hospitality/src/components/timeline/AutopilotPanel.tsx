@@ -20,7 +20,8 @@ export interface AutopilotPanelProps {
 /**
  * The accessible source for Autopilot's suggestions (the ghost blocks on the grid are
  * `aria-hidden`). Collapsed by default with a count; renders nothing when there is nothing to say.
- * Each move has one-tap Approve (no confirm: the toast's Undo is the safety net) and Dismiss.
+ * Each move has one-tap Approve and Dismiss. A reseat has no confirm because its toast offers Undo;
+ * seating a waiting party can't be undone, so that row says so beside its Approve button.
  */
 export function AutopilotPanel({
   moves,
@@ -155,6 +156,7 @@ function MoveItem({
     to: move.toTableName,
   };
   const isReseat = move.kind === "reseat";
+  const noticeId = useId();
   return (
     <li className={styles.item}>
       <div className={styles.itemText}>
@@ -164,11 +166,17 @@ function MoveItem({
         <Text as="span" variant="caption" color="secondary">
           {t(isReseat ? "timeline.autopilot.reseatWhy" : "timeline.autopilot.offerWhy", params)}
         </Text>
+        {!isReseat && (
+          <Text as="span" variant="caption" color="secondary" id={noticeId}>
+            {t("timeline.autopilot.offerNotice")}
+          </Text>
+        )}
       </div>
       <div className={styles.actions}>
         <Button
           variant="primary"
           size="sm"
+          {...(isReseat ? {} : { "aria-describedby": noticeId })}
           data-approve-id={move.id}
           isLoading={approvingMoveId === move.id}
           disabled={approvingMoveId !== null}

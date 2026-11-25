@@ -176,6 +176,20 @@ describe("useApproveAutopilotMove", () => {
     expect(outcome).toBe("applied");
   });
 
+  it("warns, never claims success, when the walk-in is made but the waitlist did not update", async () => {
+    api.waitlist.seat.mockRejectedValue(new Error("boom"));
+    const { invalidate } = renderApprove(offer);
+
+    expect(
+      await screen.findByText(
+        "Seated at Booth, but the waitlist didn't update. Refresh to tidy up."
+      )
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Seated Kim at Booth")).toBeNull();
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["autopilot-proposals"] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["waitlist"] });
+  });
+
   it("reports a failed write and leaves the move on the list", async () => {
     api.reservations.update.mockRejectedValue(new Error("boom"));
     renderApprove(reseat);

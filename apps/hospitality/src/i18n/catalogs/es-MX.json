@@ -995,6 +995,7 @@
       "offerWhy": "{{to}} está libre y les queda bien.",
       "approve": "Aprobar",
       "approveFor": "Aprobar la sugerencia para {{party}}",
+      "offerNotice": "Los sienta ahora. No se puede deshacer.",
       "reseatDone": "Se movió a {{party}} a {{to}}",
       "offerDone": "Se sentó a {{party}} en {{to}}",
       "undo": "Deshacer",

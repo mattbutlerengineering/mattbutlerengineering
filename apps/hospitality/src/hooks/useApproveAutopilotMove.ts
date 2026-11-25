@@ -8,12 +8,11 @@ import { RESERVATIONS_QUERY_KEY } from "./useReservations.js";
 import { TABLES_QUERY_KEY } from "./useTables.js";
 import { focusOffToast, UNDO_TOAST_MS } from "./useAvailabilityUndo.js";
 import { useApiClient } from "./useApiClient.js";
+import { PROPOSALS_QUERY_KEY } from "./useAutopilotProposals.js";
 import { WAITLIST_QUERY_KEY } from "./useWaitlist.js";
 
 /** `stale`: the move no longer holds, nothing was applied and the list was refreshed. */
 export type ApproveOutcome = "applied" | "stale" | "failed";
-
-const PROPOSALS_QUERY_KEY = "autopilot-proposals";
 
 /**
  * Applies one Autopilot move the host approved (#9493), through the same reservation and waitlist
@@ -100,8 +99,18 @@ export function useApproveAutopilotMove(venueId: string | null, date: string) {
         tableId: move.toTableId,
         ...(move.partyLabel ? { guestName: move.partyLabel } : {}),
       });
-      // The walk-in is the seating; a failure after it leaves only the waitlist row stale.
-      await api.waitlist.seat(move.waitlistEntryId).catch(() => undefined);
+      try {
+        await api.waitlist.seat(move.waitlistEntryId);
+      } catch {
+        // The party is seated (the walk-in exists) but still waiting on the list, so the engine
+        // would offer them another table: say so rather than report success. The caller refreshes.
+        toast({
+          title: t("waitlist.row.splitFailure", { table: move.toTableName }),
+          variant: "error",
+          duration: 10000,
+        });
+        return;
+      }
       toast({
         title: t("timeline.autopilot.offerDone", { party, to: move.toTableName }),
         variant: "success",

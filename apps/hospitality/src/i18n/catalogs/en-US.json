@@ -972,6 +972,7 @@
       "offerWhy": "{{to}} is free and fits them.",
       "approve": "Approve",
       "approveFor": "Approve the suggestion for {{party}}",
+      "offerNotice": "Seats them now. This can't be undone.",
       "reseatDone": "Moved {{party}} to {{to}}",
       "offerDone": "Seated {{party}} at {{to}}",
       "undo": "Undo",
