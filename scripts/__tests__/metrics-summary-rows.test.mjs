@@ -82,6 +82,33 @@ describe("buildMutationRow", () => {
   it("returns null when the run measured nothing", () => {
     expect(buildMutationRow(null, { date: "d", commit: "c" })).toBeNull();
   });
+
+  describe("extra per-package reports", () => {
+    const reservations = {
+      thresholds: { high: 80 },
+      files: {
+        "services/reservations/src/transitions/plan.ts": {
+          mutants: [mutant("Killed"), mutant("Survived")],
+        },
+      },
+    };
+
+    it("adds the extra report's packages without touching the overall score", () => {
+      const row = buildMutationRow(report, { date: "d", commit: "c" }, [reservations]);
+      expect(row.mutation_score).toBe(80);
+      expect(row.killed).toBe(4);
+      expect(row.packages).toEqual({
+        "services/users": 66.67,
+        "packages/types": 100,
+        "services/reservations": 50,
+      });
+    });
+
+    it("ignores an unusable extra report and keeps the base row", () => {
+      const row = buildMutationRow(report, { date: "d", commit: "c" }, [null, { files: {} }]);
+      expect(row.packages).toEqual({ "services/users": 66.67, "packages/types": 100 });
+    });
+  });
 });
 
 describe("sensors read the committed summary rows", () => {

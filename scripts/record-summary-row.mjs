@@ -50,7 +50,11 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     row = buildLighthouseRow(lhrs, meta);
     metric = "lighthouse";
   } else if (kind === "mutation") {
-    row = buildMutationRow(readJson(input), meta);
+    // `--extra <mutation.json>` (repeatable) adds another scope's per-package scores.
+    const extras = process.argv
+      .flatMap((arg, i, all) => (arg === "--extra" ? [readJson(all[i + 1])] : []))
+      .filter(Boolean);
+    row = buildMutationRow(readJson(input), meta, extras);
     metric = "mutation-score";
   } else if (kind === "audit-coverage") {
     const text = readText(input); // missing file = sweep produced nothing → no row
@@ -68,7 +72,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     process.exit(0);
   } else {
     console.error(
-      "usage: record-summary-row.mjs <lighthouse|mutation|audit-coverage> <input> [--commit sha]"
+      "usage: record-summary-row.mjs <lighthouse|mutation|audit-coverage> <input> [--commit sha] [--extra <mutation.json>]"
     );
     process.exit(2);
   }

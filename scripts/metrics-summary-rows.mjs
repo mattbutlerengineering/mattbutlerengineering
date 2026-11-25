@@ -64,15 +64,12 @@ export function buildLighthouseRow(lhrs, { date, commit }) {
 }
 
 /**
- * @param {object|null|undefined} reportJson Parsed Stryker mutation.json.
- * @param {{ date: string, commit: string }} meta
+ * Per-package kill rate of one Stryker report, keyed by `<dir>/<name>`.
+ * @param {object} reportJson Parsed Stryker mutation.json.
  */
-export function buildMutationRow(reportJson, { date, commit }) {
-  const overall = collectMutationScore(reportJson);
-  if (!overall.available) return null;
-
+function packageScores(reportJson) {
   const tally = {};
-  for (const [file, result] of Object.entries(reportJson.files)) {
+  for (const [file, result] of Object.entries(reportJson.files ?? {})) {
     const pkg = file.split("/").slice(0, 2).join("/");
     const t = (tally[pkg] ??= { killed: 0, graded: 0 });
     for (const m of result.mutants ?? []) {
@@ -83,6 +80,24 @@ export function buildMutationRow(reportJson, { date, commit }) {
   const packages = {};
   for (const [pkg, t] of Object.entries(tally)) {
     if (t.graded > 0) packages[pkg] = round2((t.killed / t.graded) * 100);
+  }
+  return packages;
+}
+
+/**
+ * @param {object|null|undefined} reportJson Parsed Stryker mutation.json.
+ * @param {{ date: string, commit: string }} meta
+ * @param {Array<object|null|undefined>} [extraReports] Further scopes' reports (e.g.
+ *   services/reservations). Only their per-package scores are added; the overall score
+ *   stays the primary report's, and an unusable extra report is skipped, never fatal.
+ */
+export function buildMutationRow(reportJson, { date, commit }, extraReports = []) {
+  const overall = collectMutationScore(reportJson);
+  if (!overall.available) return null;
+
+  const packages = packageScores(reportJson);
+  for (const extra of extraReports) {
+    if (collectMutationScore(extra).available) Object.assign(packages, packageScores(extra));
   }
 
   const { available, state, last_run, ...score } = overall;
