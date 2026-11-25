@@ -22,4 +22,11 @@ describe("Pagination narrow-column overflow", () => {
     expect(source).toMatch(/dataset\.overflowing/);
     expect(source).toMatch(/scrollWidth\s*>\s*nav\.clientWidth/);
   });
+
+  it("wraps the page buttons so a narrow column shows every control", () => {
+    const list = /\.list\s*\{([^}]+)\}/.exec(css)?.[1] ?? "";
+    expect(list).toMatch(/flex-wrap:\s*wrap/);
+    expect(list).toMatch(/min-inline-size:\s*0/);
+    expect(list).toMatch(/max-inline-size:\s*100%/);
+  });
 });

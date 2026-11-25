@@ -22,11 +22,18 @@
 /* ── List (resets UA list styles; layout matches the old flat nav) ── */
 .list {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--rialto-space-2xs);
   margin: 0;
   padding: 0;
   list-style: none;
+  /* The nav is a flex item that can be narrower than this row. Without a
+     floor of 0 the list refuses to shrink, paints past the column, and the
+     scrollport never engages — the next button is clipped with no scrollbar
+     you can see. Wrapping keeps every control inside the column. */
+  min-inline-size: 0;
+  max-inline-size: 100%;
 }
 
 .listItem {
