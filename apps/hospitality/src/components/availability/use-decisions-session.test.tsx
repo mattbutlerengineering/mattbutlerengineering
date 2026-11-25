@@ -51,6 +51,7 @@ function setup(
     firstRuleId?: string;
     rules?: DateRule[];
     send?: ReturnType<typeof vi.fn>;
+    attemptOf?: () => { ruleIds: readonly string[]; dates: readonly string[] };
   } = {}
 ) {
   const send = options.send ?? vi.fn().mockResolvedValue("out");
@@ -64,6 +65,7 @@ function setup(
       rules: options.rules ?? [],
       impact: { data: options.impact, refetch },
       firstRuleId: options.firstRuleId,
+      attemptOf: options.attemptOf,
       send: send as (a: DecisionsSend) => Promise<string>,
       onSaved,
       onVersionConflict,
@@ -321,6 +323,31 @@ describe("useDecisionsSession after a save with no definite answer", () => {
     expect(h.hook.result.current.state).toEqual({ kind: "settled", reason: "earlier" });
     await submit(h);
     expect(h.send).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("useDecisionsSession a flow that previews and saves in one go", () => {
+  it("sends the impacts it is handed, not the ones of the last render", async () => {
+    const h = setup({ impact: [ONE_GROUP] });
+    await act(async () => {
+      await h.hook.result.current.submit([NO_GROUPS]);
+    });
+    expect(h.send).toHaveBeenCalledTimes(1);
+    expect(h.send.mock.calls[0]![0].decisions).toEqual([[]]);
+    expect(h.hook.result.current.state.kind).toBe("saved");
+  });
+
+  it("records the rule ids and dates the flow sends, so an earlier attempt can be named", async () => {
+    const send = vi.fn().mockRejectedValue(REFUSALS.other());
+    const rules = [{ id: "rule-a" } as DateRule];
+    const h = setup({
+      impact: [NO_GROUPS],
+      send,
+      rules,
+      attemptOf: () => ({ ruleIds: ["rule-a", "rule-b"], dates: ["2026-12-24", "2026-12-25"] }),
+    });
+    await submit(h);
+    expect(h.hook.result.current.attempts.earlier?.dates).toEqual(["2026-12-24", "2026-12-25"]);
   });
 });
 

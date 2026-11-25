@@ -47,6 +47,14 @@ export interface DecisionsSessionOptions<Out> {
   };
   /** Entry from a refused first send: straight into deciding, under that rule id. */
   readonly firstRuleId?: string;
+  /**
+   * A flow that saves several rules at once (Add special dates): the ids and dates this send
+   * creates, so an attempt that shows in the config can be named. Default: the attempt's one rule.
+   */
+  readonly attemptOf?: (ruleIdFor: (rowKey: string) => string) => {
+    readonly ruleIds: readonly string[];
+    readonly dates: readonly string[];
+  };
   readonly send: (attempt: DecisionsSend) => Promise<Out>;
   readonly onSaved: (out: Out) => void;
   /** Flow-supplied: Close and Tonight show the winner, Add resets, Series returns to the form. */
@@ -63,7 +71,7 @@ export interface DecisionsSessionOptions<Out> {
  * comes from, and its own reaction to a version conflict. `refusalOf` stays the only classifier.
  */
 export function useDecisionsSession<Out>(options: DecisionsSessionOptions<Out>) {
-  const { impact, firstRuleId, send, onSaved, onVersionConflict, format } = options;
+  const { impact, firstRuleId, attemptOf, send, onSaved, onVersionConflict, format } = options;
   const { t } = useTranslation();
   const attempts = useSaveAttempts(options.rules, {
     firstRuleId,
@@ -84,7 +92,6 @@ export function useDecisionsSession<Out>(options: DecisionsSessionOptions<Out>) 
 
   const impacts = impact.data ?? [];
   const groups = impacts.flatMap((i) => i.groups);
-  const ready = impacts.every((i) => decisionsReady(i.groups, choices));
 
   let state: DecisionsState;
   if (phase.kind === "saved") state = { kind: "saved" };
@@ -118,21 +125,29 @@ export function useDecisionsSession<Out>(options: DecisionsSessionOptions<Out>) 
     }
   };
 
-  const submit = async () => {
+  /**
+   * `found`: impacts a flow has just loaded and not yet rendered (previews, then saves at once).
+   * Readiness is still checked against the current render's choices, so pass only impacts that
+   * have no groups to decide.
+   */
+  const submit = async (found?: readonly ClosureImpact[]) => {
     // An attempt that may have saved can be sent again: the same request replays its truth, and a
     // changed one is a new attempt. Only one already in the config ends the sending.
     const open = state.kind === "settled" ? state.reason === "maybeSaved" : true;
     if (state.kind === "sending" || state.kind === "saved" || !open) return;
-    if (!ready) return;
+    const sent = found ?? impacts;
+    const groups = sent.flatMap((i) => i.groups);
+    if (!sent.every((i) => decisionsReady(i.groups, choices))) return;
     setFailure(null);
     setPhase({ kind: "sending" });
-    attempts.record(outcomeSummary(outcomeCounts(groups, choices), t));
+    const { ruleIds, dates } = attemptOf?.(ruleIdFor) ?? {};
+    attempts.record(outcomeSummary(outcomeCounts(groups, choices), t), ruleIds, dates);
     try {
       const out = await send({
         ruleId: attempts.ruleId,
         idempotencyKey: attempts.idempotencyKey,
         ruleIdFor,
-        decisions: impacts.map((i) => toDecisions(i.groups, choices)),
+        decisions: sent.map((i) => toDecisions(i.groups, choices)),
       });
       setPhase({ kind: "saved" });
       onSaved(out);
@@ -175,6 +190,8 @@ export function useDecisionsSession<Out>(options: DecisionsSessionOptions<Out>) 
     failure,
     winner,
     submit,
+    /** A row's rule id for the current attempt: for flows that build rules before `send`. Handlers only. */
+    ruleIdFor,
     edited: afterEdit,
     /** A new plan begins: choices, failure and refusal go; the attempt ids are the flow's to restart. */
     reset: () => {
