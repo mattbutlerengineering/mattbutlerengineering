@@ -761,11 +761,18 @@
       "title": "Agregar un turno a las…",
       "day": "Día",
       "time": "Hora",
-      "estimate_one": "Estimación: cerca de {{count, number}} de las búsquedas de los últimos 28 días pidió este día y esta hora, unas {{perNight, number}} por noche. Un turno entonces pudo haberla reservado.",
-      "estimate_many": "Estimación: cerca de {{count, number}} de las búsquedas de los últimos 28 días pidieron este día y esta hora, unas {{perNight, number}} por noche. Un turno entonces pudo haberlas reservado.",
-      "estimate_other": "Estimación: cerca de {{count, number}} de las búsquedas de los últimos 28 días pidieron este día y esta hora, unas {{perNight, number}} por noche. Un turno entonces pudo haberlas reservado.",
-      "none": "Estimación: ninguna búsqueda sin mesa de los últimos 28 días pidió este día y esta hora, así que un turno entonces no habría captado ninguna.",
-      "note": "Una estimación basada en búsquedas pasadas, no un pronóstico. No se cuentan los invitados que no indicaron hora."
+      "estimate_one": "Estimación: cerca de {{count, number}} búsqueda de los últimos 28 días sin mesa a menos de 30 minutos de las {{time}} un {{weekday}}, unas {{perNight, number}} por noche. Un turno entonces pudo haberla reservado.",
+      "estimate_many": "Estimación: cerca de {{count, number}} de búsquedas de los últimos 28 días sin mesa a menos de 30 minutos de las {{time}} un {{weekday}}, unas {{perNight, number}} por noche. Un turno entonces pudo haberlas reservado.",
+      "estimate_other": "Estimación: cerca de {{count, number}} búsquedas de los últimos 28 días sin mesa a menos de 30 minutos de las {{time}} un {{weekday}}, unas {{perNight, number}} por noche. Un turno entonces pudo haberlas reservado.",
+      "none": "Estimación: ninguna búsqueda sin mesa de los últimos 28 días pidió una hora cercana a las {{time}} un {{weekday}} que este turno pudiera atender, así que no habría captado ninguna.",
+      "anyTime_one": "{{count, number}} búsqueda más un {{weekday}} no indicó hora y no encontró mesa. No está en esta cuenta.",
+      "anyTime_many": "{{count, number}} de búsquedas más un {{weekday}} no indicaron hora y no encontraron mesa. No están en esta cuenta.",
+      "anyTime_other": "{{count, number}} búsquedas más un {{weekday}} no indicaron hora y no encontraron mesa. No están en esta cuenta.",
+      "closed": "No das servicio el {{weekday}}, así que no hay a qué agregarle un turno.",
+      "alreadyOffered": "Las {{time}} ya se pueden reservar un {{weekday}}, o ninguna mesa cabe a los grupos que buscaron, así que agregarlas no cambiaría nada.",
+      "blocked": "Un turno a las {{time}} un {{weekday}} chocaría con otro servicio o rompería una regla. Cambia tu horario primero para probarlo.",
+      "loadFailed": "No se pudo estimar este turno.",
+      "note": "Una estimación basada en búsquedas pasadas, no un pronóstico."
     },
     "deposit": {
       "title": "Exposición de depósitos",

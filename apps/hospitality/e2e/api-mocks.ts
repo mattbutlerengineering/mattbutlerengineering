@@ -1064,6 +1064,27 @@ export async function mockApi(page: Page): Promise<SseMock> {
   await page.route("**/api/v1/reservations/metrics/lost-demand?*", (route) =>
     jsonOk(route, { venueId: "", from: "", to: "", total: 0, cells: [], anyTime: [] })
   );
+  // Its "add a seating" what-if (#9577): hidden on the empty heatmap above, so this only keeps a
+  // stray request off the network. Registered explicitly: the lost-demand glob above does not
+  // match `/lost-demand/what-if?` (Playwright 1.65 reads `?` in a glob as a literal).
+  await page.route("**/api/v1/reservations/metrics/lost-demand/what-if?*", (route) =>
+    jsonOk(route, {
+      venueId: "",
+      from: "2026-01-01",
+      to: "2026-01-28",
+      weekday: 5,
+      minute: 1170,
+      outcome: "estimated",
+      searches: 0,
+      windowStart: 1140,
+      windowEnd: 1200,
+      minParty: null,
+      maxParty: null,
+      anyTimeSearches: 0,
+      nights: 4,
+      perNight: 0,
+    })
+  );
   // The Timeline's Autopilot panel (#9492): no suggestions by default, so it renders nothing.
   await page.route("**/api/v1/reservations/metrics/autopilot-proposals?*", (route) =>
     jsonOk(route, { date: "", venueId: "", moves: [] })

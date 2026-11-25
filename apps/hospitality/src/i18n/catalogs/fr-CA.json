@@ -761,11 +761,18 @@
       "title": "Ajouter un service à…",
       "day": "Jour",
       "time": "Heure",
-      "estimate_one": "Estimation : environ {{count, number}} des recherches des 28 derniers jours demandait ce jour et cette heure, soit environ {{perNight, number}} par soir. Un service à ce moment aurait pu la réserver.",
-      "estimate_many": "Estimation : environ {{count, number}} de recherches des 28 derniers jours demandaient ce jour et cette heure, soit environ {{perNight, number}} par soir. Un service à ce moment aurait pu les réserver.",
-      "estimate_other": "Estimation : environ {{count, number}} des recherches des 28 derniers jours demandaient ce jour et cette heure, soit environ {{perNight, number}} par soir. Un service à ce moment aurait pu les réserver.",
-      "none": "Estimation : aucune recherche sans table des 28 derniers jours ne demandait ce jour et cette heure; un service à ce moment n'en aurait capté aucune.",
-      "note": "Une estimation fondée sur les recherches passées, pas une prévision. Les clients qui n'ont précisé aucune heure ne sont pas comptés."
+      "estimate_one": "Estimation : environ {{count, number}} recherche des 28 derniers jours sans table à moins de 30 minutes de {{time}} un {{weekday}}, soit environ {{perNight, number}} par soir. Un service à ce moment aurait pu la réserver.",
+      "estimate_many": "Estimation : environ {{count, number}} de recherches des 28 derniers jours sans table à moins de 30 minutes de {{time}} un {{weekday}}, soit environ {{perNight, number}} par soir. Un service à ce moment aurait pu les réserver.",
+      "estimate_other": "Estimation : environ {{count, number}} recherches des 28 derniers jours sans table à moins de 30 minutes de {{time}} un {{weekday}}, soit environ {{perNight, number}} par soir. Un service à ce moment aurait pu les réserver.",
+      "none": "Estimation : aucune recherche sans table des 28 derniers jours ne demandait une heure près de {{time}} un {{weekday}} que ce service pouvait accueillir; il n'en aurait capté aucune.",
+      "anyTime_one": "{{count, number}} autre recherche un {{weekday}} n'indiquait aucune heure et n'a trouvé aucune table. Elle n'est pas dans ce compte.",
+      "anyTime_many": "{{count, number}} d'autres recherches un {{weekday}} n'indiquaient aucune heure et n'ont trouvé aucune table. Elles ne sont pas dans ce compte.",
+      "anyTime_other": "{{count, number}} autres recherches un {{weekday}} n'indiquaient aucune heure et n'ont trouvé aucune table. Elles ne sont pas dans ce compte.",
+      "closed": "Vous n'avez pas de service le {{weekday}}; il n'y a donc rien à quoi ajouter un service.",
+      "alreadyOffered": "{{time}} est déjà réservable un {{weekday}}, ou aucune table ne convient aux groupes qui ont cherché; l'ajouter ne changerait rien.",
+      "blocked": "Un service à {{time}} un {{weekday}} chevaucherait un autre service ou enfreindrait une règle. Modifiez d'abord vos heures pour l'essayer.",
+      "loadFailed": "Impossible d'estimer ce service.",
+      "note": "Une estimation fondée sur les recherches passées, pas une prévision."
     },
     "deposit": {
       "title": "Exposition aux dépôts",

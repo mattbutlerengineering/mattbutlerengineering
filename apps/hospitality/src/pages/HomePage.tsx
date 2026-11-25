@@ -198,7 +198,7 @@ export function HomePage() {
             ) : (
               <>
                 <TurnedAwayHeatmap demand={lostDemand} />
-                <AddSeatingWhatIf demand={lostDemand} />
+                <AddSeatingWhatIf venueId={selectedVenueId} demand={lostDemand} />
               </>
             )}
           </div>

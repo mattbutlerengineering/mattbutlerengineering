@@ -147,8 +147,14 @@ vi.mock("../components/dashboard", () => ({
   TurnedAwayHeatmap: ({ demand }: { demand: LostDemand | null | undefined }) => (
     <div data-testid="turned-away-heatmap" data-total={demand?.total ?? 0} />
   ),
-  AddSeatingWhatIf: ({ demand }: { demand: LostDemand | null | undefined }) => (
-    <div data-testid="add-seating-what-if" data-total={demand?.total ?? 0} />
+  AddSeatingWhatIf: ({
+    demand,
+    venueId,
+  }: {
+    demand: LostDemand | null | undefined;
+    venueId: string | null;
+  }) => (
+    <div data-testid="add-seating-what-if" data-total={demand?.total ?? 0} data-venue={venueId} />
   ),
   DepositExposureWidget: ({
     depositAtRiskCount,
