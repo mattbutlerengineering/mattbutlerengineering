@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Banner } from "./Banner";
 
@@ -103,6 +103,77 @@ describe("Banner", () => {
       render(<Banner dismissible>Dismiss me</Banner>);
       await user.click(screen.getByRole("button", { name: /dismiss/i }));
       expect(screen.queryByText("Dismiss me")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("dismiss focus", () => {
+    it("moves focus to the next banner's dismiss button after Enter", async () => {
+      const user = userEvent.setup();
+      render(
+        <>
+          <Banner dismissible>First strip</Banner>
+          <Banner dismissible>Second strip</Banner>
+        </>
+      );
+      const [first, second] = screen.getAllByRole("button", { name: "Dismiss" });
+      first!.focus();
+      await user.keyboard("{Enter}");
+
+      expect(document.activeElement).not.toBe(document.body);
+      expect(second).toHaveFocus();
+      await waitFor(() => expect(screen.queryByText("First strip")).not.toBeInTheDocument());
+      expect(second).toHaveFocus();
+      expect(screen.getByText("Second strip")).toBeInTheDocument();
+    });
+
+    it("moves focus to the next control after a click on Dismiss", async () => {
+      const user = userEvent.setup();
+      render(
+        <>
+          <Banner dismissible action={<button type="button">Review</button>}>
+            Closable strip
+          </Banner>
+          <button type="button">Next</button>
+        </>
+      );
+      await user.click(screen.getByRole("button", { name: "Dismiss" }));
+
+      const next = screen.getByRole("button", { name: "Next" });
+      expect(document.activeElement).not.toBe(document.body);
+      expect(next).toHaveFocus();
+      expect(screen.queryByRole("button", { name: "Review" })).not.toBeInTheDocument();
+    });
+
+    it("moves focus to the previous control when nothing follows the banner", async () => {
+      const user = userEvent.setup();
+      render(
+        <>
+          <button type="button">Previous</button>
+          <Banner dismissible>Only strip</Banner>
+        </>
+      );
+      screen.getByRole("button", { name: "Dismiss" }).focus();
+      await user.keyboard("{Enter}");
+
+      expect(screen.getByRole("button", { name: "Previous" })).toHaveFocus();
+      expect(document.activeElement).not.toBe(document.body);
+    });
+
+    it("leaves focus alone when the banner is dismissed from outside", async () => {
+      render(
+        <>
+          <Banner dismissible>Stays focused elsewhere</Banner>
+          <button type="button">Elsewhere</button>
+        </>
+      );
+      const elsewhere = screen.getByRole("button", { name: "Elsewhere" });
+      elsewhere.focus();
+      fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+
+      await waitFor(() =>
+        expect(screen.queryByText("Stays focused elsewhere")).not.toBeInTheDocument()
+      );
+      expect(elsewhere).toHaveFocus();
     });
   });
 });

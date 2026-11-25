@@ -1,7 +1,8 @@
-import { forwardRef, useState, type ReactNode } from "react";
+import { forwardRef, useState, type MouseEvent, type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
+import { focusAfterRemoval } from "../../utils/focus-after-removal";
 import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 import styles from "./Alert.module.css";
 
@@ -105,7 +106,9 @@ export const Alert = forwardRef<HTMLDivElement, AlertProps>(
     const [visible, setVisible] = useState(true);
     const { precision, reduced: shouldReduceMotion } = useMotionPreset();
 
-    function handleDismiss() {
+    function handleDismiss(event: MouseEvent<HTMLButtonElement>) {
+      const root = event.currentTarget.closest<HTMLElement>('[role="alert"], [role="status"]');
+      if (root) focusAfterRemoval(root);
       setVisible(false);
       onDismiss?.();
     }

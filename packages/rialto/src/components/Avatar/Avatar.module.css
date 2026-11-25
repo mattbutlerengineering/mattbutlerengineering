@@ -107,6 +107,10 @@
 .group {
   display: inline-flex;
   flex-direction: row-reverse;
+  /* flex-end is the inline-start when direction is row-reverse, so a
+     stretched column (the docs section) packs the stack to the start
+     edge. Overlap order is unchanged in LTR and RTL. */
+  justify-content: flex-end;
 }
 
 .group .avatar {
