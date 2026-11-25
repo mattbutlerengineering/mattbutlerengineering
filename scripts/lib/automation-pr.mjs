@@ -15,8 +15,8 @@
 export const AUTOMATION_BRANCH_PREFIX = "automation/";
 
 /**
- * Label the four opt-in producers (production-feedback, drift-fix,
- * pr-metrics, acmm-regression) apply to their PR. `auto-qa-tune.yml`
+ * Label the opt-in producers (production-feedback, drift-fix,
+ * acmm-regression) apply to their PR. `auto-qa-tune.yml`
  * deliberately omits it (touches `.github/`, needs a human merge).
  */
 export const AUTOMATION_LABEL = "auto-merge";

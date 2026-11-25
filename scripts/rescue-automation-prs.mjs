@@ -4,7 +4,7 @@
  * rescue-automation-prs.mjs — scheduled follow-up pass for automation/* PRs
  * that fall behind `main` after creation (#3966).
  *
- * production-feedback.yml (and its siblings drift-fix.yml, pr-metrics.yml,
+ * production-feedback.yml (and its siblings drift-fix.yml and
  * acmm-regression.yml) each open a PR from an `automation/*` branch, dispatch
  * CI on it, and now enable auto-merge directly right after creating the PR.
  * That direct enable exists because the workflow that would normally do it —
