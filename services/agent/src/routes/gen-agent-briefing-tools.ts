@@ -121,6 +121,32 @@ export function createBriefingTools(
         }
       },
     }),
+    get_autopilot_suggestions: tool({
+      description:
+        'Read the moves Autopilot suggests for tonight: reseating a booked party or offering a table to a waiting party, each with a plain reason (at most three). Read only: it suggests, never moves anyone. Use it for "anything I should move tonight?".',
+      inputSchema: z.object({}),
+      execute: async () => {
+        if (!venueId) return NO_VENUE;
+        log.info({ venueId }, "get_autopilot_suggestions tool called");
+        try {
+          const proposals = await api.reservations.getAutopilotProposals({ venueId });
+          return {
+            date: proposals.date,
+            count: proposals.moves.length,
+            moves: proposals.moves.map((m) => ({
+              party: m.partyLabel,
+              partySize: m.partySize,
+              from: m.fromTableName,
+              to: m.toTableName,
+              reason: m.reason,
+            })),
+          };
+        } catch (err) {
+          log.error({ venueId, ...failureLog(err) }, "get_autopilot_suggestions failed");
+          return readFailure(err, "the Autopilot suggestions");
+        }
+      },
+    }),
     get_turned_away_demand: tool({
       description:
         'Read when guests are turned away: public availability searches that found no slot, counted by weekday and hour (counts only, no guests). Use it for "when are we turning people away". Defaults to the last 28 days.',

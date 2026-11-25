@@ -21,6 +21,7 @@ import {
   TimelineMobileView,
   TimelineSkeleton,
 } from "../components/timeline";
+import { AutopilotPanel } from "../components/timeline/AutopilotPanel.js";
 import { CancelReservationDialog } from "../components/timeline/CancelReservationDialog";
 import { MarkNoShowDialog } from "../components/timeline/MarkNoShowDialog.js";
 import { EditReservationDrawer } from "../components/timeline/EditReservationDrawer";
@@ -39,6 +40,7 @@ import { useVenue } from "../contexts/VenueContext.js";
 import { useSSEStatus } from "../hooks/useSSESync.js";
 import { useGuestSignalBadges } from "../hooks/useGuestSignalBadges.js";
 import { useTimelineData } from "../hooks/useTimelineData.js";
+import { useTonightAutopilot } from "../hooks/useTonightAutopilot.js";
 import { useCancellationQuote } from "../hooks/useCancellationQuote.js";
 import { UNLESS_COVERED, useFocusAfter } from "../hooks/useFocusAfter.js";
 import { useNow } from "../hooks/useNow.js";
@@ -461,6 +463,12 @@ function LiveTimelinePage() {
 
   const formattedDate = formatLongDateWithYear(selectedDate, fmt.locale);
   const isToday = selectedDate === todayStr;
+  const autopilot = useTonightAutopilot(selectedVenueId, selectedDate, isToday);
+  // The panel unmounts when dismissed for the night, so focus moves to the grid it sat above.
+  function handleDismissAutopilotNight() {
+    autopilot.dismissNight();
+    focusAfter({ kind: "testId", testId: "timeline-grid" });
+  }
 
   const loadFailure = fetchError ? describeApiError(fetchError) : null;
   const nothingLoaded = fetchError !== null && tables.length === 0;
@@ -539,6 +547,7 @@ function LiveTimelinePage() {
         seatedIds={seatedIds}
         guestSignalBadges={guestSignalBadges}
         pendingTableId={pendingTableId}
+        ghosts={autopilot.moves}
         bottomInset={
           viewport === "tablet" && selectedReservation
             ? SHEET_BLOCK_SIZE[reservationSheetSize(selectedReservation.notes, sheetExpanded)]
@@ -672,6 +681,11 @@ function LiveTimelinePage() {
               onDismiss={() => setTableStatusFailure(null)}
             />
           )}
+          <AutopilotPanel
+            moves={autopilot.moves}
+            onDismissMove={autopilot.dismissMove}
+            onDismissNight={handleDismissAutopilotNight}
+          />
           {renderGridArea()}
         </div>
 

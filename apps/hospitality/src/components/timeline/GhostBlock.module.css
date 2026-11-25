@@ -1,0 +1,31 @@
+/* A suggestion, not a booking: dashed outline, no fill, never interactive. */
+.ghost {
+  position: absolute;
+  inset-block-start: 4px;
+  inset-block-end: 4px;
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-2xs);
+  padding-inline: var(--rialto-space-xs);
+  overflow: hidden;
+  box-sizing: border-box;
+  border: 2px dashed var(--rialto-text-secondary);
+  border-radius: var(--rialto-radius-default);
+  background: transparent;
+  color: var(--rialto-text-secondary);
+  font-size: var(--rialto-text-xs);
+  font-style: italic;
+  pointer-events: none;
+  user-select: none;
+}
+
+.spark {
+  flex: none;
+  color: inherit;
+}
+
+.label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

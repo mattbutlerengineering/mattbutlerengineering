@@ -972,6 +972,22 @@
       "cancel": "Cancelar",
       "seatNow": "Sentar ahora",
       "seating": "Sentando…"
+    },
+    "autopilot": {
+      "heading": "Piloto automático",
+      "toggleName_one": "Piloto automático: {{count}} sugerencia",
+      "toggleName_many": "Piloto automático: {{count}} de sugerencias",
+      "toggleName_other": "Piloto automático: {{count}} sugerencias",
+      "intro": "Solo son sugerencias. Nada se mueve hasta que tú lo muevas.",
+      "reseat": "Mover a {{party}} ({{size}}) de {{from}} a {{to}}",
+      "offer": "Sentar a {{party}} ({{size}}) en {{to}}",
+      "reseatWhy": "Libera {{from}} para un grupo en espera.",
+      "offerWhy": "{{to}} está libre y les queda bien.",
+      "dismissMove": "Descartar",
+      "dismissMoveFor": "Descartar la sugerencia para {{party}}",
+      "dismissNight": "Descartar por esta noche",
+      "ghostLabel": "Sugerido: {{party}}",
+      "listLabel": "Movimientos sugeridos"
     }
   },
   "onMyWayBadge": {
