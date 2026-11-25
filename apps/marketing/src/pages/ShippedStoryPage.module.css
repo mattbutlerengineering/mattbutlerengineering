@@ -21,6 +21,24 @@
   }
 }
 
+@media (max-width: 360px) {
+  /* Size 2 is text-3xl (~48px, Bricolage). "Decomposition" is one word and
+     paints ~313px wide — past the 256px content box a 320px viewport leaves
+     after the presenting vibe's 32px padding, so the glyphs end near x=345
+     and the page scrolls. One step down fits that word. anywhere wraps a
+     longer title token ("venue-onboarding-floor-plan:") instead of widening
+     the page. Stops at 360px: the 375px visual baseline already keeps
+     text-3xl inside the viewport, and a size change there shifts the shot. */
+  h1.heading,
+  .section h2 {
+    overflow-wrap: anywhere;
+  }
+
+  .section h2 {
+    font-size: var(--rialto-text-2xl);
+  }
+}
+
 .subtitle {
   color: var(--rialto-text-secondary);
   margin-bottom: var(--rialto-space-2xl);
