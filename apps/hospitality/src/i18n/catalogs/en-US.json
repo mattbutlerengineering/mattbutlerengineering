@@ -3270,6 +3270,7 @@
         "impactError": "Couldn't check the bookings after the new close.",
         "retry": "Try again",
         "discardMaybeSaved": "The last save didn't finish, so it may have gone through and cancelled guests. Check tonight's changes before closing again.",
+        "maybeSaved": "We couldn't confirm this save. It may have gone through and cancelled guests. Save again without changes to see what happened, or check tonight's changes.",
         "savedEarlier": {
           "body": "An earlier try was saved: {{summary}}. Guests were handled as that try chose; changes you made afterwards did not apply.",
           "bodyPlain": "An earlier try was saved. Changes you made afterwards did not apply."

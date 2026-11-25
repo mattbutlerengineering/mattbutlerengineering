@@ -27,7 +27,8 @@ const refresh = vi.hoisted(() => vi.fn());
 vi.mock("../../hooks/useRefreshAvailability.js", () => ({ useRefreshAvailability: () => refresh }));
 vi.mock("@mbe/auth/react", () => ({ useAuth: () => ({ user: { id: "auth0|me" } }) }));
 vi.mock("../../hooks/useViewport.js", () => ({ useViewport: () => viewport.value }));
-const refetchImpact = vi.hoisted(() => vi.fn());
+// A real refetch is a promise; the session waits on it.
+const refetchImpact = vi.hoisted(() => vi.fn(() => Promise.resolve({})));
 const impactError = vi.hoisted(() => ({ value: null as unknown }));
 const callListState = vi.hoisted(() => ({ ruleIds: [] as unknown[] }));
 vi.mock("../../hooks/useClosures.js", () => ({
@@ -727,6 +728,20 @@ describe("TonightControl", () => {
 
         expect(await within(step2).findByText(/may have gone through/)).toBeTruthy();
         expect(within(step2).queryByText(/nothing was changed/)).toBeNull();
+      });
+
+      it("gives closure-exists the settled maybe-saved text and reloads the calendar", async () => {
+        const step2 = await toStep2();
+        refresh.mockClear();
+        setTonight.mockRejectedValueOnce(conflict("closure-exists"));
+        fireEvent.click(within(step2).getByRole("button", CANCEL));
+
+        expect(
+          await within(step2).findByText(/may have gone through and cancelled guests/)
+        ).toBeTruthy();
+        expect(within(step2).queryByText(/already saved/)).toBeNull();
+        expect(refresh).toHaveBeenCalled();
+        expect(within(step2).getByRole("button", CANCEL)).toBeEnabled();
       });
 
       it("warns and reloads when the Manager leaves after it", async () => {

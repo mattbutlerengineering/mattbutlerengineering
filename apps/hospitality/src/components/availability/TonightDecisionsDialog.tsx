@@ -1,25 +1,21 @@
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, Button, Dialog, Skeleton, Text } from "@mattbutlerengineering/rialto";
-import type { AvailabilityChangeSummary, ClosureDecision, DateRule } from "@mbe/types";
+import type { ClosureDecision, DateRule } from "@mbe/types";
 import { useClosureImpact } from "../../hooks/useClosures.js";
 import { useRefreshAvailability } from "../../hooks/useRefreshAvailability.js";
 import {
   decisionsReady,
-  withoutChoicesFor,
   isUrgent,
   outcomeCounts,
   stepTwoNote,
   stepTwoNoteId,
-  toDecisions,
-  type ChoiceMap,
 } from "./close-draft.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { CloseStepTwo } from "./CloseStepTwo.js";
 import { LeaveSaveDialog } from "./LeaveSaveDialog.js";
-import { outcomeLabel, outcomeSummary } from "./outcome-label.js";
-import { refusalOf, refusalText } from "./step-two-refusal.js";
-import { useSaveAttempts } from "./use-save-attempts.js";
+import { outcomeLabel } from "./outcome-label.js";
+import { refusalOf } from "./step-two-refusal.js";
+import { useDecisionsSession } from "./use-decisions-session.js";
 import { useWinningChangeText } from "./use-winning-change-text.js";
 import styles from "./CloseDialog.module.css";
 
@@ -53,54 +49,37 @@ export function TonightDecisionsDialog(props: TonightDecisionsDialogProps) {
   const impactQuery = useClosureImpact({ venueId, rule });
   const impact = impactQuery.data ?? null;
   const groups = impact?.groups ?? [];
-  const [choices, setChoices] = useState<ChoiceMap>({});
-  const [failure, setFailure] = useState<string | null>(null);
-  // Set on a 409 version conflict: the change that won, `null` when none is recorded.
-  const [winner, setWinner] = useState<{
-    readonly change: AvailabilityChangeSummary | null;
-  } | null>(null);
-  const winnerText = useWinningChangeText(winner?.change ?? null);
-  const [saving, setSaving] = useState(false);
-  // The preview keeps `rule`'s id: only what is sent becomes a new attempt.
-  const attempts = useSaveAttempts(rules, {
+  // The preview keeps `rule`'s id (`firstRuleId`): only what is sent becomes a new attempt.
+  const session = useDecisionsSession<void>({
+    rules,
+    impact: { data: impact ? [impact] : undefined, refetch: impactQuery.refetch },
     firstRuleId: rule.id,
+    format,
     reload: refresh,
     onLeave: onClose,
+    send: async (attempt) => {
+      try {
+        await onConfirm(attempt.decisions[0] ?? [], attempt.ruleId);
+      } catch (error) {
+        const { kind } = refusalOf(error);
+        // The next try is against the version that won, and the calendar on screen is out of date.
+        if (kind === "version-conflict" || kind === "closure-exists") refresh();
+        throw error;
+      }
+    },
+    onSaved: () => undefined,
   });
+  const winnerText = useWinningChangeText(session.winner?.change ?? null);
+  const { attempts, choices } = session;
   const { earlier } = attempts;
-
-  const save = async () => {
-    setSaving(true);
-    setFailure(null);
-    setWinner(null);
-    attempts.record(outcomeSummary(outcomeCounts(groups, choices), t));
-    try {
-      await onConfirm(toDecisions(groups, choices), attempts.ruleId);
-    } catch (error) {
-      const refused = refusalOf(error);
-      setFailure(refusalText(refused, t, { groups, format }));
-      if (refused.kind === "move-unavailable") {
-        setChoices(withoutChoicesFor(groups, choices, refused.reservationIds));
-        void impactQuery.refetch();
-      }
-      if (refused.kind === "groups-changed") {
-        // The group changed since the Manager chose: drop the stale choices and load the new one.
-        setChoices({});
-        void impactQuery.refetch();
-        return;
-      }
-      attempts.failed(refused);
-      if (refused.kind === "version-conflict") {
-        // The next try is against the version that won, not the one this dialog was opened on.
-        setWinner({ change: refused.winningChange });
-        refresh();
-      } else if (refused.kind === "closure-exists") {
-        refresh();
-      }
-    } finally {
-      setSaving(false);
-    }
-  };
+  const saving = session.state.kind === "sending";
+  const maybeSaved = session.state.kind === "settled" && session.state.reason === "maybeSaved";
+  // A save that may have gone through says so, whatever the server's sentence was, and keeps
+  // saying so after an edit drops the session's own text.
+  const failure =
+    session.unconfirmed || (maybeSaved && session.failure === null)
+      ? t("availability.tonight.decisions.maybeSaved")
+      : session.failure;
 
   if (earlier) {
     const earlierRuleId = earlier.ruleIds[0]!;
@@ -142,7 +121,7 @@ export function TonightDecisionsDialog(props: TonightDecisionsDialogProps) {
     <>
       <Dialog
         open
-        onClose={() => attempts.leave(saving)}
+        onClose={() => session.leave()}
         title={t("availability.tonight.decisions.title")}
         footer={
           <div className={styles.footer}>
@@ -154,13 +133,13 @@ export function TonightDecisionsDialog(props: TonightDecisionsDialogProps) {
             >
               {stepTwoNote(decisionsReady(groups, choices), t)}
             </Text>
-            <Button variant="secondary" disabled={saving} onClick={() => attempts.leave(saving)}>
+            <Button variant="secondary" disabled={saving} onClick={() => session.leave()}>
               {t("availability.close.cancel")}
             </Button>
             <Button
               variant="primary"
               aria-describedby={stepTwoNoteId}
-              onClick={() => void save()}
+              onClick={() => void session.submit()}
               isLoading={saving}
               disabled={impact === null || !decisionsReady(groups, choices)}
             >
@@ -172,7 +151,7 @@ export function TonightDecisionsDialog(props: TonightDecisionsDialogProps) {
         {failure && (
           <Alert variant="error" title={t("availability.tonight.error")}>
             {failure}
-            {winner && <Text variant="body">{winnerText}</Text>}
+            {session.winner && <Text variant="body">{winnerText}</Text>}
           </Alert>
         )}
         {impactQuery.error !== null && (
@@ -194,8 +173,7 @@ export function TonightDecisionsDialog(props: TonightDecisionsDialogProps) {
             urgent={isUrgent({ startsOn: today, fromMinute: closeAt }, today, nowMinute)}
             guestMessage=""
             onChoose={(key, choice) => {
-              attempts.edited(choices[key], choice);
-              setChoices({ ...choices, [key]: choice });
+              session.setChoice(key, choice);
               attempts.setDirty(true);
             }}
           />
