@@ -25,6 +25,7 @@ import { VenueProfileCard } from "../components/venue-profile/VenueProfileCard.j
 import { TonightNoteCard } from "../components/venue-tonight-note/TonightNoteCard.js";
 import { VenueThemeCard } from "../components/venue-theme/VenueThemeCard.js";
 import { TeamRolesCard } from "../components/venue-team/TeamRolesCard.js";
+import { AccessTokensCard } from "../components/access-tokens/AccessTokensCard.js";
 import { describeApiError } from "../lib/describe-api-error.js";
 import { availabilityPath } from "../components/availability/availability-address.js";
 import styles from "./SettingsPage.module.css";
@@ -393,6 +394,8 @@ export function SettingsPage() {
             </Card>
 
             <VenueThemeCard />
+
+            <AccessTokensCard />
 
             <Card title={t("settings.account.title")}>
               <Stack gap="md">

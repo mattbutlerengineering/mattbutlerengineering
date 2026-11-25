@@ -4094,6 +4094,42 @@
       "title": "Compte",
       "signedInAs": "Connecté en tant que",
       "signOut": "Se déconnecter"
+    },
+    "accessTokens": {
+      "title": "Connecter un assistant IA",
+      "description": "Laissez un assistant IA comme Claude consulter des informations pour vous. Un jeton est en lecture seule et couvre tous les établissements auxquels vous appartenez. Traitez-le comme un mot de passe.",
+      "nameLabel": "Nom du jeton",
+      "nameRequired": "Donnez un nom au jeton, par exemple celui de l'assistant concerné.",
+      "expiryLabel": "Expire",
+      "expiry": {
+        "30": "Dans 30 jours",
+        "90": "Dans 90 jours",
+        "365": "Dans 1 an",
+        "never": "Jamais"
+      },
+      "create": "Créer un jeton",
+      "empty": "Aucun jeton pour l'instant.",
+      "loadError": "Impossible de charger vos jetons",
+      "created": "{{prefix}}… · créé le {{date}}",
+      "lastUsed": "Dernière utilisation : {{date}}",
+      "neverUsed": "Jamais utilisé",
+      "expires": "Expire le {{date}}",
+      "neverExpires": "N'expire jamais",
+      "revoke": "Révoquer",
+      "revokeNamed": "Révoquer {{name}}",
+      "revokeConfirm": {
+        "title": "Révoquer {{name}} ?",
+        "description": "Tout ce qui utilise ce jeton cesse de fonctionner immédiatement. Cette action est irréversible.",
+        "cancel": "Le garder"
+      },
+      "mintedTitle": "Jeton créé pour {{name}}",
+      "tokenLabel": "Votre jeton",
+      "shownOnce": "Copiez-le maintenant. Vous ne le reverrez plus.",
+      "copy": "Copier le jeton",
+      "copied": "Copié",
+      "copyFailed": "Copie impossible. Sélectionnez le jeton et copiez-le manuellement.",
+      "done": "Terminé",
+      "limitReached": "Vous avez atteint la limite de jetons actifs. Révoquez-en un pour en créer un autre."
     }
   },
   "admin": {

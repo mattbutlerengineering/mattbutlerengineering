@@ -627,6 +627,47 @@ export async function mockApi(page: Page): Promise<SseMock> {
     );
   });
 
+  // Settings → Connect an AI assistant (#9665): a stateful token list. POST
+  // mints (the plaintext is in the response once), DELETE revokes, GET lists
+  // without the plaintext.
+  const accessTokens: Array<Record<string, unknown>> = [
+    {
+      id: "tok_e2e_1",
+      name: "Claude Desktop",
+      prefix: "mbe_pat_e2e1",
+      createdAt: "2026-11-01T10:00:00.000Z",
+      lastUsedAt: null,
+      expiresAt: null,
+    },
+  ];
+  await page.route(/\/api\/v1\/me\/tokens(\/[^/?]+)?$/, (route) => {
+    const request = route.request();
+    const id = request.url().match(/\/tokens\/([^/?]+)$/)?.[1];
+    if (request.method() === "DELETE") {
+      const at = accessTokens.findIndex((token) => token.id === id);
+      if (at >= 0) accessTokens.splice(at, 1);
+      return route.fulfill({ status: 204 });
+    }
+    if (request.method() === "POST") {
+      const body = (request.postDataJSON() ?? {}) as { name?: string };
+      const token = {
+        id: `tok_e2e_${accessTokens.length + 2}`,
+        name: body.name ?? "token",
+        prefix: "mbe_pat_e2e9",
+        createdAt: new Date().toISOString(),
+        lastUsedAt: null,
+        expiresAt: null,
+      };
+      accessTokens.push(token);
+      return route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: JSON.stringify({ data: { ...token, token: "mbe_pat_e2e9_fake" } }),
+      });
+    }
+    return jsonOk(route, accessTokens);
+  });
+
   // Availability drawer editing (#7515): a save that always lands (PUT answers the next version).
   // GETs fall back so the shared days/config mocks (#7616) answer them, whatever the
   // registration order.

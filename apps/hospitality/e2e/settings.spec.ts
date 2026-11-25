@@ -57,3 +57,37 @@ test.describe("Staff locale switcher", () => {
     await expect(mockedPage.getByText("Idioma y región")).toBeVisible();
   });
 });
+
+test.describe("Connect an AI assistant (#9665)", () => {
+  test("mint shows the token once, copy works, revoke removes it", async ({
+    mockedPage,
+    context,
+  }) => {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await mockedPage.goto("settings");
+
+    await expect(
+      mockedPage.getByRole("heading", { name: "Connect an AI assistant" })
+    ).toBeVisible();
+    await expect(mockedPage.getByRole("listitem", { name: "Claude Desktop" })).toBeVisible();
+
+    await mockedPage.getByLabel("Token name").fill("Cursor");
+    await mockedPage.getByRole("button", { name: "Create token" }).click();
+
+    await expect(mockedPage.getByLabel("Your token")).toHaveValue("mbe_pat_e2e9_fake");
+    await expect(mockedPage.getByText(/won.t see this again/)).toBeVisible();
+    await mockedPage.getByRole("button", { name: "Copy token" }).click();
+    await expect(mockedPage.getByRole("status").filter({ hasText: "Copied" })).toBeVisible();
+
+    await mockedPage.getByRole("button", { name: "Done" }).click();
+    await expect(mockedPage.getByLabel("Your token")).toHaveCount(0);
+    await expect(mockedPage.getByRole("listitem", { name: "Cursor" })).toBeVisible();
+
+    await mockedPage.getByRole("button", { name: "Revoke Claude Desktop" }).click();
+    await mockedPage
+      .getByRole("alertdialog")
+      .getByRole("button", { name: "Revoke", exact: true })
+      .click();
+    await expect(mockedPage.getByRole("listitem", { name: "Claude Desktop" })).toHaveCount(0);
+  });
+});

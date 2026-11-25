@@ -66,6 +66,11 @@ vi.mock("../components/venue-team/TeamRolesCard.js", () => ({
   TeamRolesCard: () => <div data-testid="team-roles-card" />,
 }));
 
+// Settings → Connect an AI assistant has its own suite at components/access-tokens/AccessTokensCard.test.tsx.
+vi.mock("../components/access-tokens/AccessTokensCard.js", () => ({
+  AccessTokensCard: () => <div data-testid="access-tokens-card" />,
+}));
+
 vi.mock("../components/PageHeader", () => ({
   PageHeader: ({ title, description }: { title: string; description?: string }) => (
     <div data-testid="page-header">

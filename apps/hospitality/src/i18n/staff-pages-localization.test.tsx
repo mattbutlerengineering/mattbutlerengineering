@@ -51,6 +51,11 @@ vi.mock("../hooks/useVenueTeam.js", () => ({
   useSetTeamRole: () => ({ mutateAsync: vi.fn() }),
   useSetHostEmergencyClose: () => ({ mutateAsync: vi.fn() }),
 }));
+vi.mock("../hooks/useAccessTokens.js", () => ({
+  useAccessTokens: () => ({ data: [], isLoading: false, error: null, refetch: vi.fn() }),
+  useMintAccessToken: () => vi.fn(),
+  useRevokeAccessToken: () => ({ mutateAsync: vi.fn() }),
+}));
 vi.mock("../contexts/VenueContext.js", () => ({
   useVenue: () => ({ selectedVenue: null, selectedVenueId: null }),
 }));
@@ -76,6 +81,7 @@ interface Expected {
   readonly profileAgo: string;
   readonly settingsTitle: string;
   readonly settingsAppearance: string;
+  readonly settingsAccessTokens: string;
   readonly adminUsers: string;
   readonly adminShown: string;
   readonly widgetTitle: string;
@@ -93,6 +99,7 @@ const CASES: readonly Expected[] = [
     profileAgo: "hace 5 min",
     settingsTitle: "Configuración",
     settingsAppearance: "Apariencia",
+    settingsAccessTokens: "Conecta un asistente de IA",
     adminUsers: "Usuarios totales",
     adminShown: "1 usuario mostrado",
     widgetTitle: "Widget de reservas",
@@ -108,6 +115,7 @@ const CASES: readonly Expected[] = [
     profileAgo: "il y a 5 min",
     settingsTitle: "Paramètres",
     settingsAppearance: "Apparence",
+    settingsAccessTokens: "Connecter un assistant IA",
     adminUsers: "Total des utilisateurs",
     adminShown: "1 utilisateur affiché",
     widgetTitle: "Widget de réservation",
@@ -135,6 +143,7 @@ describe.each(CASES)("staff pages in $tag", (c) => {
     );
     expect(screen.getByRole("heading", { name: c.settingsTitle })).toBeInTheDocument();
     expect(screen.getByText(c.settingsAppearance)).toBeInTheDocument();
+    expect(screen.getByText(c.settingsAccessTokens)).toBeInTheDocument();
   });
 
   it("translates the admin page", async () => {
