@@ -4,7 +4,7 @@ import type { ServicePacing } from "./quick-setup-draft.js";
 import styles from "./QuickSetupForm.module.css";
 
 /** The windows a cap can count covers over; a stored one that is not here is still shown. */
-export const PACING_WINDOWS = [15, 30, 60, 90, 120] as const;
+const PACING_WINDOWS = [15, 30, 60, 90, 120] as const;
 const DEFAULT_WINDOW = 30;
 
 export interface ServicePacingFieldsProps {
