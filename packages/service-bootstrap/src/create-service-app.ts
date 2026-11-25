@@ -85,6 +85,12 @@ export interface ServiceAppConfig {
    * bearer ahead of it. Receives the default verifier as the fallback.
    */
   readonly wrapAuthVerifier?: (fallback: JwtVerifier) => JwtVerifier;
+  /**
+   * Path prefixes the global auth hook skips, for a route that authenticates
+   * its own bearer (e.g. a personal access token the service can't verify).
+   * Such a route must do its own check.
+   */
+  readonly authExcludePaths?: readonly string[];
 }
 
 export interface AppOptions {
@@ -322,7 +328,13 @@ export async function createServiceApp(
 
   // --- Auth ---
   if (process.env.AUTH_AUTHORITY && process.env.AUTH_AUDIENCE) {
-    const authOptions = getAuthPluginOptionsFromEnv();
+    const envOptions = getAuthPluginOptionsFromEnv();
+    const authOptions = config.authExcludePaths?.length
+      ? {
+          ...envOptions,
+          excludePaths: [...(envOptions.excludePaths ?? []), ...config.authExcludePaths],
+        }
+      : envOptions;
     await fastify.register(
       authPlugin,
       config.wrapAuthVerifier

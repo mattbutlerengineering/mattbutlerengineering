@@ -279,6 +279,24 @@ describe("createServiceApp", () => {
     expect(auth.getAuthPluginOptionsFromEnv).toHaveBeenCalled();
   });
 
+  it("adds the service's authExcludePaths to the auth plugin's excluded paths", async () => {
+    process.env.AUTH_AUTHORITY = "https://auth.example.com";
+    process.env.AUTH_AUDIENCE = "https://api.example.com";
+    const auth = await import("@mbe/auth/fastify");
+    vi.mocked(auth.authPlugin).mockClear();
+    vi.mocked(auth.getAuthPluginOptionsFromEnv).mockReturnValueOnce({
+      authority: "https://auth.example.com",
+      audience: "https://api.example.com",
+      excludePaths: ["/health"],
+    });
+    app = await createServiceApp({ ...createTestConfig(), authExcludePaths: ["/api/gen/mcp"] });
+    const [, opts] = vi.mocked(auth.authPlugin).mock.calls[0] as unknown as [
+      unknown,
+      { excludePaths: string[] },
+    ];
+    expect(opts.excludePaths).toEqual(["/health", "/api/gen/mcp"]);
+  });
+
   it("skips auth plugin when AUTH_AUTHORITY is not set in non-production", async () => {
     process.env.NODE_ENV = "development";
     const auth = await import("@mbe/auth/fastify");

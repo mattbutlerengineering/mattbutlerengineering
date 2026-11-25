@@ -11,6 +11,7 @@ import { genSpecsRoutes } from "./routes/gen-specs.js";
 import { genAgentRoutes } from "./routes/gen-agent.js";
 import { genOnboardingRoutes } from "./routes/gen-onboarding.js";
 import { feedbackRoutes } from "./routes/feedback.js";
+import { MCP_PATH, mcpRoutes } from "./routes/mcp.js";
 import { db } from "./services/database.js";
 
 /**
@@ -25,6 +26,8 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
         serverUrl: "http://localhost:3003",
       },
       registerSchemas,
+      // /api/gen/mcp authenticates a personal access token itself (a PAT is not a JWT).
+      authExcludePaths: [MCP_PATH],
       database: {
         db,
         healthRoutes: [
@@ -47,6 +50,7 @@ export async function buildApp(options: AppOptions = {}): Promise<FastifyInstanc
   await fastify.register(genAgentRoutes);
   await fastify.register(genOnboardingRoutes);
   await fastify.register(feedbackRoutes);
+  await fastify.register(mcpRoutes);
 
   return fastify;
 }
