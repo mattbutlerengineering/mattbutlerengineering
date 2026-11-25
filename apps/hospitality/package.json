@@ -171,9 +171,9 @@
       "limit": "64 kB"
     },
     {
-      "name": "Rialto Vendor (design system; 91.84 kB before typed dates in DatePicker: +1 kB at #8798, availability-hub C2.1, for the typed-date reader, the field's problem state and four message keys in three locales, 92.84 kB measured; +0.95 kB at #8972 for the framer-motion/motion-dom 14.12 → 14.14 bump that rialto bundles, 93.85 kB (93,846 B) measured, 92.9 kB on main before; re-measured at 93,846 B after merging main at #8978; +0.21 kB at #9031 for the Table scroll wrapper switching role=region to role=group, 94,061 B measured twice in CI, limit 95 kB for room against hash-driven drift); #9156 moved the three rialto locale dictionaries out to lazy chunks, 91.76 kB measured, limit 93 kB; #9378 removed Guilloche and the chunk measured 93.06 kB in CI against 92.97 kB on main (+0.09 kB; cause not isolated, likely brotli or chunk-composition drift, and hospitality imports nothing from Guilloche), limit 93.5 kB for room; #9518 added ConfirmDialog, HoverCard, ContextMenu and CommandPalette to the catalog registry, 94.35 kB measured in CI, limit 95 kB; #9519 added Navbar, GlobalNav, PageHeader, Heading and Hero, 95.32 kB measured in CI, limit 96 kB",
+      "name": "Rialto Vendor (design system; 91.84 kB before typed dates in DatePicker: +1 kB at #8798, availability-hub C2.1, for the typed-date reader, the field's problem state and four message keys in three locales, 92.84 kB measured; +0.95 kB at #8972 for the framer-motion/motion-dom 14.12 → 14.14 bump that rialto bundles, 93.85 kB (93,846 B) measured, 92.9 kB on main before; re-measured at 93,846 B after merging main at #8978; +0.21 kB at #9031 for the Table scroll wrapper switching role=region to role=group, 94,061 B measured twice in CI, limit 95 kB for room against hash-driven drift); #9156 moved the three rialto locale dictionaries out to lazy chunks, 91.76 kB measured, limit 93 kB; #9378 removed Guilloche and the chunk measured 93.06 kB in CI against 92.97 kB on main (+0.09 kB; cause not isolated, likely brotli or chunk-composition drift, and hospitality imports nothing from Guilloche), limit 93.5 kB for room; #9518 added ConfirmDialog, HoverCard, ContextMenu and CommandPalette to the catalog registry, 94.35 kB measured in CI, limit 95 kB; #9519 added Navbar, GlobalNav, PageHeader, Heading and Hero, 95.32 kB measured in CI, limit 96 kB; #9521 added MasterOverride, ImageUpload and Tree, 103.23 kB measured in CI, limit 104 kB",
       "path": "dist/assets/rialto-vendor-*.js",
-      "limit": "96 kB"
+      "limit": "104 kB"
     },
     {
       "name": "Router Vendor (react-router)",
@@ -201,9 +201,9 @@
       "limit": "8 kB"
     },
     {
-      "name": "Copilot context + catalog registry (shared by dashboard drawer and chat page; 16.5 kB since #9519 widened it by 5 more, 15.5 kB since #9518 widened it by 4 more, 14.5 kB since #9516 widened the catalog by 5 more components, 13.5 kB after #8455 widened it by 8, 11.24 kB before)",
+      "name": "Copilot context + catalog registry (shared by dashboard drawer and chat page; 17.5 kB since #9521 added MasterOverride, ImageUpload and Tree adapters (over 16.5 kB by 204 B in CI), 16.5 kB since #9519 widened it by 5 more, 15.5 kB since #9518 widened it by 4 more, 14.5 kB since #9516 widened the catalog by 5 more components, 13.5 kB after #8455 widened it by 8, 11.24 kB before)",
       "path": "dist/assets/useRefreshingChatStream-*.js",
-      "limit": "16.5 kB"
+      "limit": "17.5 kB"
     },
     {
       "name": "Availability map page (lazy chunk; Venue Setup before #8864)",

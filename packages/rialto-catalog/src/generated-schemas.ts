@@ -76,6 +76,10 @@ export const generatedSchemas = {
     title: z.string().max(60).optional(),
     subtitle: z.string().max(80).optional(),
   }),
+  ChatPanel: z.object({
+    api: z.string(),
+    standalone: z.boolean().optional(),
+  }),
   Checkbox: z.object({
     label: z.string().max(80).optional(),
     checked: z.boolean().optional(),
@@ -271,6 +275,18 @@ export const generatedSchemas = {
     size: z.enum(["lg", "md", "sm"]).optional(),
     variant: z.enum(["ghost", "primary", "secondary"]).optional(),
   }),
+  ImageUpload: z.object({
+    value: z.string().optional(),
+    progress: z.number().optional(),
+    done: z.boolean().optional(),
+    error: z.string().max(120).optional(),
+    accept: z.string().optional(),
+    maxSize: z.number().optional(),
+    size: z.enum(["lg", "md", "sm"]).optional(),
+    label: z.string().max(40).optional(),
+    hint: z.string().max(120).optional(),
+    disabled: z.boolean().optional(),
+  }),
   Input: z.object({
     label: z.string().max(40).optional(),
     hint: z.string().max(80).optional(),
@@ -283,6 +299,22 @@ export const generatedSchemas = {
   InputGroup: z.object({}),
   Kbd: z.object({
     children: z.string().max(12),
+  }),
+  MasterOverride: z.object({
+    on: z.boolean(),
+    label: z.string().max(40),
+    description: z.string().optional(),
+    idleLabel: z.string().max(20).optional(),
+    activeLabel: z.string().max(20).optional(),
+    coverLabel: z.string().max(30).optional(),
+    size: z.enum(["lg", "md", "sm"]).optional(),
+    variant: z.enum(["danger", "default", "warning"]).optional(),
+    disabled: z.boolean().optional(),
+    labelTransition: z.enum(["fade", "splitflap"]).optional(),
+    labelLength: z.number().optional(),
+    feedback: z.enum(["both", "click", "haptic", "none"]).optional(),
+    autoReclose: z.boolean().optional(),
+    autoRecloseMs: z.number().optional(),
   }),
   Meter: z.object({
     value: z.number().nullable(),
@@ -504,5 +536,10 @@ export const generatedSchemas = {
     placement: z.enum(["bottom", "left", "right", "top"]).optional(),
     delay: z.number().optional(),
     showOnFocus: z.boolean().optional(),
+  }),
+  Tree: z.object({
+    data: z.array(z.object({ id: z.string(), label: z.string(), disabled: z.boolean().optional(), children: z.array(z.any()).optional() })),
+    selectionMode: z.enum(["none", "single"]).optional(),
+    indent: z.number().optional(),
   }),
 } as const;
