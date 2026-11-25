@@ -1,13 +1,3 @@
-## 2026-11-08 — mbe-learning-loop
-
-**Sensors:** 17/18 available (e2eStability not available). Status: Healthy. acmm L5 (73/84), ciHealth 100% (22/22), mutationScore 99.07% PASS, flakyTests 0, metricsFreshness 0 unhealthy.
-**Regressions:** 0 detected, 0 issues created.
-**Sentry triage:** skipped — stored Sentry MCP token expired/unauthorized; no human available in this scheduled run to re-authorize.
-**Verifications:** 5 closed issues checked (48h window) — all 5 skipped ("no matching verifier for labels": #8518, #8519, #8520, #8521, #8522). 0 verified, 0 failed, 0 reopened.
-**AI issue feedback:** 7 categories collected, 0 unhealthy (>40% rejected) — meta-improvement 0%, ci-fix 0%, feature 4%, audit 4%, sentry 0%, dependencies 0%, acmm 0%. All budgets stay at default 3.
-**Skill proposals:** 0 (Sunday — Friday-only).
-**Threshold notes:** last-30-days verifications.jsonl: 10 non-skip verifications, 6 verified / 4 not-verified → fix-effectiveness 60% (>50%, healthy, no review needed). False-positive proxy (category rejection rates above) max 4%, well under the 30% loosen-threshold trigger. Auto-tuner applied 1 adjustment this run: acmm 1.523 → 1.545 (headroom).
-
 ## 2026-11-09
 
 **queueEfficiency:** composite 0.896 (baseline n/a) — healthy
@@ -1182,3 +1172,47 @@ No `blocker: no-browser` (Chromium resolved at `/opt/pw-browsers/chromium_headle
 **AI issue feedback:** budgets refreshed — ci-fix 16% rejected (n=62), feature 4% (n=54), audit 19% (n=43), meta-improvement 0% (n=27), sentry 0% (n=9), acmm 33% (n=3), agent-failed 100% (n=1, budget stays halved to 1), dependencies 0% (n=1); 1 linked-PR lookup failed (non-fatal); no category newly crossed the >40% halving line this run.
 **Skill proposals:** 0 (not Friday — Step 4 session-log analysis skipped)
 **Threshold notes:** auto-tuner applied 3 adjustments — `acmm` 1.878 → 1.896 (headroom), `ci-fix` 1.198 → 1.228 (headroom), `bug` 1 → 0.95 (high-fp-rate, tightened). 30-day fix-effectiveness (non-skip verifications): 9 verified / 12 scored (~75%), above the 50% floor — no review-trigger. Overall false-positive rate across feedback categories ~11% (22/200 rejected), below the 30% loosen-trigger — no additional threshold changes recommended this run.
+
+## 2026-11-25 — mbe-evening (progress-tracker)
+
+### Metrics (7d; `audit`+`ci-fix` labels, REST issue search, `created_at`/`closed_at` exact)
+
+| Metric                 | Value                                                                                                                                                                                       | Status                                       |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| Created (7d)           | 25 (12 audit + 13 ci-fix)                                                                                                                                                                   | -                                            |
+| Closed (7d)            | 30 (15 audit + 15 ci-fix)                                                                                                                                                                   | -                                            |
+| Closure Rate           | 30/25 = 120%                                                                                                                                                                                | Green (>80%)                                 |
+| Time-to-Close          | mean 119.4h over 30 closures (7d) — not decomposed into outlier vs. steady-state this run; treat as a rough signal only                                                                     | Red by the raw formula                       |
+| Agent Success          | has-pr/(has-pr+failed) = 2/(2+0) = 100% (snapshot of current open state, not a 7d rate)                                                                                                     | Green (>70%), tiny sample                    |
+| CI Pass                | 6/6 = 100% (last 20 main-branch `ci.yml` runs: 6 success, 12 cancelled by rapid successive pushes, 2 still in-flight at read time — cancelled/null excluded, 0 failures)                    | Green (>95%)                                 |
+| Queue (ready)          | 7 (includes #9417, deferred this run in favor of the higher-priority #9563 for the same global zone slot; see Patterns)                                                                     | Green (<5 target not quite met, but 0 stale) |
+| Stale (ready>7d)       | 0                                                                                                                                                                                           | Green                                        |
+| Blocked (agent-failed) | 0                                                                                                                                                                                           | Green                                        |
+| Skipped (agent-skip)   | 0                                                                                                                                                                                           | Green                                        |
+| Daily Spend            | $0 attributed `recordSpend` today; this run's 3 queue workers + 1 retry worker (474,790 tokens combined across #9563/#9568/#9551 + the ADR-010 retry) have cost unknown, not reported as $0 | n/a                                          |
+| 7d Spend               | $2 attributed (5 agent-core sessions) + 6 queue-worker sessions, 812,808 tokens, cost unknown (55 rows without usage)                                                                       | n/a                                          |
+| Cost/Issue             | unknown — denominator mismatch (attributed spend tracks `agent-core` sessions, not audit/ci-fix closures); not reported as a number                                                         | n/a                                          |
+| Reverts (7d)           | 0                                                                                                                                                                                           | Green                                        |
+
+### Patterns
+
+- **This run's implement-queue iteration (batch: #9563, #9568, #9551) produced three PRs, all merged (#9582, #9581, #9580) — a clean iteration with one real rework cycle.** #9563 (hospitality Profile/Settings 401, HOSPITALITY-D) was prioritized ahead of the lower-tier `#9417` (a marketing/ACMM audit finding) for the one global-zone slot `selectZoneSpreadBatch` allows under strict main, per the focus filter (hospitality guest/venue-facing work outranks a metrics audit). `#9417` stays `ready` for a future iteration.
+- **First observed case of the adr-compliance-reviewer specialist blocking a PR, and of the gate's retry policy actually firing.** #9582 (closing #9563) was blocked twice by `adr-compliance-reviewer` for ADR-010: the worker's fix (an OIDC userinfo-endpoint fallback for Auth0 access tokens missing profile claims) was implemented as a one-off `fetch()` inside `services/users` instead of the shared `@mbe/auth` package ADR-010 designates as the single owner of JWT-claims-to-`AuthUser` mapping — leaving `services/reservations` and `services/agent`, which have the identical latent bug, with no path to the fix. Dispatched one retry worker (per the documented retry policy) on the same branch, no new PR; it relocated the fix into a new `packages/auth/src/fastify/userinfo-fallback.ts` (`fetchUserInfoClaims`/`resolveProfileClaims`), rewired `services/users` to the shared API, and deleted the now-redundant service-local copy. The universal reviewer passed both heads (8/10, then 9/10); the specialist's concern was architectural placement, not correctness, and was resolved by relocation alone.
+- **The PR head moved out from under the gate twice during this run, both legitimately.** Once when another Claude session pushed a small timeout fix (`AbortSignal.timeout(2000)`) addressing the universal reviewer's own non-blocking finding before this session's verdict comment landed; once when the retry worker pushed the ADR-010 relocation. Per protocol (gate step 1), both moves voided the prior review and restarted the gate from step 1 on the new head — handled without incident, just extra review cycles.
+- **The Owner merged all three of this run's PRs by hand** (#9580, #9581 within ~1 minute of the fast-path/verdict comments; #9582 by enabling auto-merge directly, superseding this session's own merge gate mid-retry). This session's own `gh pr merge`/REST-merge attempts were denied by the session's permission classifier (`[Destructive or Unwanted Actions]`, the same substance as the documented `#6125` `[Merge Without Review]` denial even though the reason string differed) — per the skill's documented fallback, not retried; the fast-path/verdict comments stood as this session's review record and the Owner's own merges completed the loop. This confirms the `#6125` pattern generalizes beyond the exact string match previously logged.
+- **Discovered and corroborated a pre-existing, reproducible hospitality E2E flake pair, independent of #9583's filing.** `dashboard.spec.ts:75` (duplicate Retry button, strict-mode violation) and `availability-phone.spec.ts:470` (keyboard column selection) both failed repeatedly across all three of this run's PRs — none of which touch hospitality, the dashboard, or the availability calendar — confirming #9583 (filed earlier the same run by another process) rather than needing a new issue. Added 8 occurrence comments as evidence across #9580/#9581/#9582 and #9583 itself.
+- **One backlog leak found and fixed in Phase 0/1: issue #9558 had an open PR (#9571) but had lost its `has-pr` state label** (stateless with a live PR, a case `reconcile-issue-states.mjs` doesn't classify). Transitioned it to `has-pr` directly; not a reconciler bug, just an edge case outside its current scope.
+- **PR #9575 (closes #9486) is held at the gate's Holds step** — its issue carries the `needs-review` hold label (from a prior partial attempt), so the gate correctly dispatched no reviewer and left it for a human, per `merge: auto`'s own exclusion list.
+- **PR #9556 (closes #9521) was merged by the Owner mid-review**, before this session's dispatched reviewers (universal + 3 specialists, all passed, 8/10) finished. Posted the verdict comment anyway for `review_coverage` telemetry, since the review itself was valid evidence even though the merge decision was no longer this session's to make.
+- CI on main: of the last 20 sampled `ci.yml` runs, 6 completed `success`, 12 `cancelled` (rapid pushes superseding in-flight runs during this active session — expected, not instability), 2 still running at read time, 0 `failure` — healthy.
+- 0 reverts in 7d.
+
+### Recommendations
+
+- No circuit-breaker or threshold action needed — every signal is in range except the raw time-to-close mean, consistent with prior entries' note that this metric is backlog-clearing noise, not a flow-speed signal.
+- Consider giving `reconcile-issue-states.mjs` a fourth category — "stateless, has an open PR" — so the #9558-style leak this run fixed by hand gets caught automatically next time, rather than relying on the Phase 0 pre-claim PR-collision read to notice it. Not filing a `meta-improvement` issue for this yet (one occurrence), but flagging for the next `claude-automation-recommender` pass.
+- #9417 (ACMM detection coverage churn, deferred this run for zone-slot priority) is next in line for the global zone slot once it's free.
+
+### Skipped Issues
+
+0 skipped after max retries (`agent-skip` label: empty).
