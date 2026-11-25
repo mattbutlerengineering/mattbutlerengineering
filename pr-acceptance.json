@@ -1,0 +1,154 @@
+[
+  {
+    "date": "2026-05-02",
+    "window_days": 30,
+    "total_ai_prs": 40,
+    "merged": 40,
+    "rejected": 0,
+    "acceptance_rate": 1
+  },
+  {
+    "date": "2026-07-31",
+    "window_days": 30,
+    "total_ai_prs": 65,
+    "merged": 65,
+    "rejected": 0,
+    "acceptance_rate": 1
+  },
+  {
+    "date": "2026-08-03",
+    "window_days": 30,
+    "total_ai_prs": 77,
+    "merged": 76,
+    "rejected": 1,
+    "acceptance_rate": 0.99
+  },
+  {
+    "date": "2026-08-10",
+    "window_days": 30,
+    "total_ai_prs": 177,
+    "merged": 174,
+    "rejected": 3,
+    "acceptance_rate": 0.98
+  },
+  {
+    "date": "2026-08-17",
+    "window_days": 30,
+    "total_ai_prs": 130,
+    "merged": 128,
+    "rejected": 2,
+    "acceptance_rate": 0.98
+  },
+  {
+    "date": "2026-08-24",
+    "window_days": 30,
+    "total_ai_prs": 87,
+    "merged": 85,
+    "rejected": 2,
+    "acceptance_rate": 0.98
+  },
+  {
+    "date": "2026-08-31",
+    "window_days": 30,
+    "total_ai_prs": 92,
+    "merged": 91,
+    "rejected": 1,
+    "acceptance_rate": 0.99
+  },
+  {
+    "date": "2026-09-07",
+    "window_days": 30,
+    "total_ai_prs": 115,
+    "merged": 115,
+    "rejected": 0,
+    "acceptance_rate": 1
+  },
+  {
+    "date": "2026-09-14",
+    "window_days": 30,
+    "total_ai_prs": 183,
+    "merged": 177,
+    "rejected": 6,
+    "acceptance_rate": 0.97
+  },
+  {
+    "date": "2026-09-21",
+    "window_days": 30,
+    "total_ai_prs": 172,
+    "merged": 170,
+    "rejected": 2,
+    "acceptance_rate": 0.99
+  },
+  {
+    "date": "2026-09-28",
+    "window_days": 30,
+    "total_ai_prs": 150,
+    "merged": 145,
+    "rejected": 5,
+    "acceptance_rate": 0.97
+  },
+  {
+    "date": "2026-10-05",
+    "window_days": 30,
+    "total_ai_prs": 123,
+    "merged": 114,
+    "rejected": 9,
+    "acceptance_rate": 0.93
+  },
+  {
+    "date": "2026-10-12",
+    "window_days": 30,
+    "total_ai_prs": 155,
+    "merged": 148,
+    "rejected": 7,
+    "acceptance_rate": 0.95
+  },
+  {
+    "date": "2026-10-19",
+    "window_days": 30,
+    "total_ai_prs": 150,
+    "merged": 150,
+    "rejected": 0,
+    "acceptance_rate": 1
+  },
+  {
+    "date": "2026-10-26",
+    "window_days": 30,
+    "total_ai_prs": 86,
+    "merged": 86,
+    "rejected": 0,
+    "acceptance_rate": 1
+  },
+  {
+    "date": "2026-11-02",
+    "window_days": 30,
+    "total_ai_prs": 94,
+    "merged": 94,
+    "rejected": 0,
+    "acceptance_rate": 1
+  },
+  {
+    "date": "2026-11-09",
+    "window_days": 30,
+    "total_ai_prs": 72,
+    "merged": 70,
+    "rejected": 2,
+    "acceptance_rate": 0.97
+  },
+  {
+    "date": "2026-11-16",
+    "window_days": 30,
+    "total_ai_prs": 91,
+    "merged": 90,
+    "rejected": 1,
+    "acceptance_rate": 0.99
+  },
+  {
+    "date": "2026-11-23",
+    "window_days": 30,
+    "total_ai_prs": 69,
+    "merged": 67,
+    "rejected": 2,
+    "acceptance_rate": 0.97
+  }
+]

@@ -1,0 +1,74 @@
+[
+  {
+    "ts": "2026-10-04T11:47:35Z",
+    "install_seconds": 20,
+    "test_seconds": 359,
+    "total_seconds": 379,
+    "test_passed": false,
+    "install_passed": true,
+    "commit": "cac6ea8746fa8aade187908a881ca81932266dea"
+  },
+  {
+    "ts": "2026-10-11T12:05:42Z",
+    "install_seconds": 20,
+    "test_seconds": 372,
+    "total_seconds": 392,
+    "test_passed": false,
+    "install_passed": true,
+    "commit": "3668aee10faf57dfd33c9e781910637236661a50"
+  },
+  {
+    "ts": "2026-10-18T10:22:18Z",
+    "install_seconds": 21,
+    "test_seconds": 380,
+    "total_seconds": 401,
+    "test_passed": false,
+    "install_passed": true,
+    "commit": "7724b7dcc406e2754228a88d50fdf8761380af8d"
+  },
+  {
+    "ts": "2026-10-25T10:40:47Z",
+    "install_seconds": 20,
+    "test_seconds": 344,
+    "total_seconds": 364,
+    "test_passed": false,
+    "install_passed": true,
+    "commit": "f8ad5dbe84b62455c1b03b3dcaf04781214af1c5"
+  },
+  {
+    "ts": "2026-11-01T12:37:43Z",
+    "install_seconds": 15,
+    "test_seconds": 264,
+    "total_seconds": 279,
+    "test_passed": false,
+    "install_passed": true,
+    "commit": "cc90be7cc6968e82fb670992a69818648402a123"
+  },
+  {
+    "ts": "2026-11-08T12:44:46Z",
+    "install_seconds": 16,
+    "test_seconds": 342,
+    "total_seconds": 358,
+    "test_passed": false,
+    "install_passed": true,
+    "commit": "c5ab2ddf60e7a5c4f238e7a58f610f7dec47ff64"
+  },
+  {
+    "ts": "2026-11-15T13:27:31Z",
+    "install_seconds": 20,
+    "test_seconds": 427,
+    "total_seconds": 447,
+    "test_passed": false,
+    "install_passed": true,
+    "commit": "18501170e5b3721deb12f69e746afb8ae7d489e2"
+  },
+  {
+    "ts": "2026-11-22T14:04:49Z",
+    "install_seconds": 21,
+    "test_seconds": 486,
+    "total_seconds": 507,
+    "test_passed": false,
+    "install_passed": true,
+    "commit": "ae62ee9ad13753d9c84ef0bcd19ce14cd90846bc"
+  }
+]
