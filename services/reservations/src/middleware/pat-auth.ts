@@ -4,8 +4,8 @@ import { ACCESS_TOKENS_PREFIX, createProblemDetails } from "@mbe/types";
 import { isAccessToken } from "../services/access-token.js";
 
 /** Claim set on the identity of a request authenticated by a personal access token. */
-export const PAT_CLAIM = "mbePat";
-export const TOKEN_READ_ONLY_PROBLEM = "urn:mbe:problem:token-read-only";
+const PAT_CLAIM = "mbePat";
+const TOKEN_READ_ONLY_PROBLEM = "urn:mbe:problem:token-read-only";
 const READ_METHODS = new Set(["GET", "HEAD"]);
 
 type Authenticate = (token: string) => Promise<{ id: string; userSub: string } | null>;
