@@ -72,6 +72,30 @@ describe("proposeMoves", () => {
     expect(out[1]).toMatchObject({ kind: "waitlist_offer", entryId: "w2", tableId: "T3" });
   });
 
+  it("holds the only 6-top for the party of 6 instead of giving it to a party of 2", () => {
+    const state: NightState = {
+      tables: [table("T1", 6), table("T2", 4)],
+      reservations: [],
+      waitlist: [waiter("w1", 4, 0), waiter("w2", 2, 1), waiter("w3", 6, 2, "the Garcias")],
+    };
+    const out = proposeMoves(state, 10);
+    expect(
+      out.map((p) => (p.kind === "waitlist_offer" ? `${p.entryId}>${p.tableId}` : ""))
+    ).toEqual(["w1>T2", "w3>T1"]);
+    expect(out.find((p) => p.kind === "waitlist_offer" && p.entryId === "w3")!.reason).toBe(
+      "Seat the Garcias (6) at T1 — T1 is the only table that fits them, so it is held back from smaller parties; they've waited 8 min"
+    );
+  });
+
+  it("still gives a big table to a smaller party when no larger party needs it", () => {
+    const state: NightState = {
+      tables: [table("T1", 6)],
+      reservations: [],
+      waitlist: [waiter("w1", 2, 0), waiter("w2", 3, 1)],
+    };
+    expect(proposeMoves(state, 10)[0]).toMatchObject({ entryId: "w1", tableId: "T1" });
+  });
+
   it("caps proposals at three", () => {
     const state: NightState = {
       tables: [table("T1", 2), table("T2", 2), table("T3", 2), table("T4", 2), table("T5", 2)],

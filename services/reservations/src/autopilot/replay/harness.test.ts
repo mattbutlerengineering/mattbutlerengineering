@@ -146,8 +146,24 @@ describe("replay", () => {
 });
 
 describe("corpus breadth", () => {
-  it("has at least six nights", () => {
-    expect(NIGHTS.length).toBeGreaterThanOrEqual(6);
+  it("has at least eight nights", () => {
+    expect(NIGHTS.length).toBeGreaterThanOrEqual(8);
+  });
+
+  it("has a night where the only 6-top must go to the party of 6, not a party of 2", () => {
+    const night = NIGHTS.find((n) => n.id === "scarce-big-table")!;
+    expect(night.goodMoves.map((m) => m.suggestion)).toEqual([
+      { kind: "waitlist_offer", entryId: "w3", tableId: "T1" },
+      { kind: "waitlist_offer", entryId: "w1", tableId: "T2" },
+    ]);
+    const greedy: Proposer = {
+      name: "greedy-small-first",
+      propose: ({ at }) =>
+        at === 13 ? [{ kind: "waitlist_offer", entryId: "w2", tableId: "T1" }] : [],
+    };
+    const report = runHarness(greedy, [night]);
+    expect(report.aggregate.harmful).toBe(0);
+    expect(report.aggregate.falsePositives).toBe(1);
   });
 
   it("has a night whose only correct move is the best-fit of two legal tables", () => {

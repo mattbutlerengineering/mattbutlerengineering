@@ -199,6 +199,48 @@ const oversizedParty: Night = {
   goodMoves: [],
 };
 
+/**
+ * The 6-top turns first with a party of 4, a party of 2 and a party of 6 waiting. It must go to
+ * the party of 6 (nothing else seats them), not to the party that has waited longest. The 4-top
+ * turns later and takes the party of 4. The party of 2 is never offered either table.
+ */
+const scarceBigTable: Night = {
+  id: "scarce-big-table",
+  description:
+    "Hold the only 6-top for the waiting party of 6; the party of 4 takes the 4-top; the party of 2 is not offered a table.",
+  initial: {
+    tables: [table("T1", 6, "OCCUPIED"), table("T2", 4, "OCCUPIED")],
+    reservations: [res("r1", 6, "T1", "seated"), res("r2", 4, "T2", "seated")],
+    waitlist: [
+      { ...waiting("w1", 4), joinedAt: -30 },
+      { ...waiting("w2", 2), joinedAt: -20 },
+      { ...waiting("w3", 6), joinedAt: -10 },
+    ],
+  },
+  events: [
+    { at: 10, type: "reservation_completed", reservationId: "r1" },
+    { at: 11, type: "table_status", tableId: "T1", status: "DIRTY" },
+    { at: 12, type: "table_status", tableId: "T1", status: "READY" },
+    { at: 13, type: "table_status", tableId: "T1", status: "AVAILABLE" },
+    { at: 20, type: "reservation_completed", reservationId: "r2" },
+    { at: 21, type: "table_status", tableId: "T2", status: "DIRTY" },
+    { at: 22, type: "table_status", tableId: "T2", status: "READY" },
+    { at: 23, type: "table_status", tableId: "T2", status: "AVAILABLE" },
+  ],
+  goodMoves: [
+    {
+      suggestion: { kind: "waitlist_offer", entryId: "w3", tableId: "T1" },
+      windowStart: 13,
+      windowEnd: 22,
+    },
+    {
+      suggestion: { kind: "waitlist_offer", entryId: "w1", tableId: "T2" },
+      windowStart: 23,
+      windowEnd: 33,
+    },
+  ],
+};
+
 export const NIGHTS: readonly Night[] = [
   bigPartyReseat,
   earlyTurnWaitlist,
@@ -207,4 +249,5 @@ export const NIGHTS: readonly Night[] = [
   bestFitChoice,
   lateOffer,
   oversizedParty,
+  scarceBigTable,
 ];

@@ -48,32 +48,81 @@ function waitingByWait(state: NightState): NightWaitlistEntry[] {
     .sort((a, b) => (a.joinedAt ?? 0) - (b.joinedAt ?? 0));
 }
 
-/** Longest-waiting party first; each gets the legal free table that wastes the fewest seats. */
+/**
+ * A waiting party this much larger than another counts as materially larger: when a table is
+ * the only one that seats them, it is held back from the smaller party.
+ */
+const MIN_LARGER_PARTY_GAP = 2;
+
+/** Free tables that may legally seat each waiting party right now, ignoring other offers. Fewest seats wasted first. */
+function legalTablesByEntry(
+  state: NightState,
+  waiting: readonly NightWaitlistEntry[]
+): Map<string, NightTable[]> {
+  const byEntry = new Map<string, NightTable[]>();
+  for (const entry of waiting) {
+    const legal = state.tables
+      .filter(
+        (t) =>
+          harmReason(state, { kind: "waitlist_offer", entryId: entry.id, tableId: t.id }) === null
+      )
+      .sort((a, b) => a.capacity - b.capacity);
+    byEntry.set(entry.id, legal);
+  }
+  return byEntry;
+}
+
+/** True when a party still waiting in `later`, materially larger than `entry`, can only be seated at `table`. */
+function needsTable(
+  table: NightTable,
+  entry: NightWaitlistEntry,
+  later: readonly NightWaitlistEntry[],
+  legal: ReadonlyMap<string, NightTable[]>,
+  claimed: ReadonlySet<string>
+): boolean {
+  return later.some((l) => {
+    if (l.partySize < entry.partySize + MIN_LARGER_PARTY_GAP) return false;
+    const open = (legal.get(l.id) ?? []).filter((t) => !claimed.has(t.id));
+    return open.length === 1 && open[0]!.id === table.id;
+  });
+}
+
+/**
+ * Parties that need a scarce big table get it; the rest are filled longest-waiting first, each
+ * with the legal free table that wastes the fewest seats. A table is held back from a party when
+ * a materially larger party still waiting has no other table that seats them.
+ */
 function offerCandidates(state: NightState, at: number, waiting: NightWaitlistEntry[]) {
   const claimed = new Set<string>();
+  const held = new Set<string>();
+  const legal = legalTablesByEntry(state, waiting);
   const out: Candidate[] = [];
-  for (const entry of waiting) {
-    let best: NightTable | null = null;
-    for (const t of state.tables) {
-      if (claimed.has(t.id)) continue;
-      if (harmReason(state, { kind: "waitlist_offer", entryId: entry.id, tableId: t.id })) continue;
-      if (best === null || t.capacity < best.capacity) best = t;
-    }
-    if (best === null) continue;
+  waiting.forEach((entry, i) => {
+    const later = waiting.slice(i + 1);
+    const open = (legal.get(entry.id) ?? []).filter((t) => !claimed.has(t.id));
+    const best = open.find((t) => {
+      if (!needsTable(t, entry, later, legal, claimed)) return true;
+      held.add(t.id);
+      return false;
+    });
+    if (best === undefined) return;
     claimed.add(best.id);
     const waited = waitedMinutes(entry, at);
     const since = waited > 0 ? `; they've waited ${waited} min` : "";
+    const why = held.has(best.id)
+      ? `${tableName(best)} is the only table that fits them, so it is held back from smaller parties`
+      : `${tableName(best)} is free and the best fit`;
     out.push({
       proposal: {
         kind: "waitlist_offer",
         entryId: entry.id,
         tableId: best.id,
-        reason: `Seat ${entryLabel(entry)} (${entry.partySize}) at ${tableName(best)} — ${tableName(best)} is free and the best fit${since}`,
+        reason: `Seat ${entryLabel(entry)} (${entry.partySize}) at ${tableName(best)} — ${why}${since}`,
       },
       waited,
       waste: best.capacity - entry.partySize,
     });
-  }
+  });
   return { candidates: out, claimed };
 }
 
