@@ -1,6 +1,6 @@
 {
   "schema": "acmm-metrics/v1",
-  "generatedAt": "2026-11-24T14:39:30.441Z",
+  "generatedAt": "2026-11-23T17:27:56.038Z",
   "level": 5,
   "levelName": "Semi-Automated",
   "role": "Operator",
@@ -14,9 +14,9 @@
     "total": 8
   },
   "behavioral": {
-    "ciFlakeRate": 0.022022022022022022,
-    "agentPrAcceptanceRate": 0.9811320754716981,
-    "agentPrRevertRate": 0.0038461538461538464,
+    "ciFlakeRate": 0.024024024024024024,
+    "agentPrAcceptanceRate": 0.9817518248175182,
+    "agentPrRevertRate": 0.0037174721189591076,
     "evalPassRate": 0.8,
     "evalsStale": false,
     "evalsLastRun": "2026-11-20T15:59:17.181Z",
@@ -712,134 +712,128 @@
       "level": 5,
       "detected": 71,
       "total": 84
-    },
-    {
-      "date": "2026-11-24",
-      "level": 5,
-      "detected": 71,
-      "total": 84
     }
   ],
   "recentAgentChanges": [
     {
-      "number": 9515,
-      "title": "feat(reservations): one-shot demo-venue seed command and slug docs (mbe-feature-drain #9506)",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9515",
-      "mergedAt": "2026-11-24T13:54:02Z"
+      "number": 9384,
+      "title": "docs: harden worker prompts against repeated tool failures (#9312)",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9384",
+      "mergedAt": "2026-11-22T07:51:42Z"
     },
     {
-      "number": 9514,
-      "title": "feat(agent-core): site-audit smoke check for the public demo venue (mbe-feature-drain #9508)",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9514",
-      "mergedAt": "2026-11-24T13:24:06Z"
+      "number": 9375,
+      "title": "fix(marketing): no fake 0,000 in the proof strip; word build time as \"built in\"",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9375",
+      "mergedAt": "2026-11-22T05:18:19Z"
     },
     {
-      "number": 9513,
-      "title": "feat(reservations): demo venue offers 30 days of bookable slots (mbe-feature-drain #9505)",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9513",
-      "mergedAt": "2026-11-24T13:14:16Z"
+      "number": 9373,
+      "title": "fix(sensors): classify e2eStability PR runs via GitHub API when SHA is not local",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9373",
+      "mergedAt": "2026-11-22T04:19:47Z"
     },
     {
-      "number": 9512,
-      "title": "feat(reservations): seed demo-venue floor plan and tables (mbe-feature-drain #9504)",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9512",
-      "mergedAt": "2026-11-24T12:58:07Z"
+      "number": 9366,
+      "title": "arch: move scope reach and current service day into @mbe/availability",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9366",
+      "mergedAt": "2026-11-22T03:24:09Z"
     },
     {
-      "number": 9511,
-      "title": "feat(marketing): link the demo venue booking page from the projects section (mbe-feature-drain #9507)",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9511",
-      "mergedAt": "2026-11-24T12:12:36Z"
+      "number": 9363,
+      "title": "feat(rialto): Champagne ambient backdrop",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9363",
+      "mergedAt": "2026-11-21T21:40:47Z"
     },
     {
-      "number": 9510,
-      "title": "feat(reservations): idempotent demo-venue seeder (mbe-feature-drain #9503)",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9510",
-      "mergedAt": "2026-11-24T12:08:21Z"
+      "number": 9359,
+      "title": "feat(rialto): Contour ambient backdrop",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9359",
+      "mergedAt": "2026-11-21T20:37:53Z"
     },
     {
-      "number": 9501,
-      "title": "fix(agent): log provider, step and class of failed chat turns; say when upstream is busy (mbe-feature-drain #9469)",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9501",
-      "mergedAt": "2026-11-24T08:12:30Z"
+      "number": 9353,
+      "title": "feat(rialto): Guilloche ambient backdrop",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9353",
+      "mergedAt": "2026-11-21T19:59:37Z"
     },
     {
-      "number": 9500,
-      "title": "fix(agent): ask for 12-hour times in chat replies (mbe-feature-drain #9471)",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9500",
-      "mergedAt": "2026-11-24T07:41:53Z"
+      "number": 9349,
+      "title": "fix(marketing): refresh the shipped-features snapshot daily, not weekly",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9349",
+      "mergedAt": "2026-11-21T19:05:28Z"
     },
     {
-      "number": 9498,
-      "title": "fix(gen): sort ReservationList rows by date in multi-date chat replies (mbe-feature-drain #9472)",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9498",
-      "mergedAt": "2026-11-24T06:47:42Z"
+      "number": 9345,
+      "title": "chore(rialto)!: remove Ferrofluid component",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9345",
+      "mergedAt": "2026-11-21T18:48:36Z"
     },
     {
-      "number": 9465,
-      "title": "fix(gen): add skip link to signed-out and auth-failure screens (mbe-feature-drain #9457)",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9465",
-      "mergedAt": "2026-11-24T01:41:13Z"
+      "number": 9327,
+      "title": "fix(rialto): resolve overlay transitions via useMotionPreset (mbe-feature-drain #9326)",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9327",
+      "mergedAt": "2026-11-21T11:17:33Z"
     },
     {
-      "number": 9454,
-      "title": "fix(deps): align playwright to 1.65.1 with @playwright/test (mbe-feature-drain #9452)",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9454",
-      "mergedAt": "2026-11-23T19:05:10Z"
+      "number": 9248,
+      "title": "fix(scripts): deploy secret provisioning check covers SENTRY_DSN",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9248",
+      "mergedAt": "2026-11-21T05:40:26Z"
     },
     {
-      "number": 9443,
-      "title": "feat(gen): catalog NumberInput, Slider, SegmentedControl for AI generation",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9443",
-      "mergedAt": "2026-11-23T17:37:24Z"
+      "number": 9228,
+      "title": "fix(edge): rate limit with the Workers Rate Limiting binding instead of a KV write per request (part of #9209)",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9228",
+      "mergedAt": "2026-11-21T04:44:47Z"
     },
     {
-      "number": 9442,
-      "title": "feat(mutation): add services/reservations Stryker scope config",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9442",
-      "mergedAt": "2026-11-23T17:36:23Z"
+      "number": 9247,
+      "title": "fix(scripts): check-env-sync sees env reads through helper parameters",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9247",
+      "mergedAt": "2026-11-21T04:21:46Z"
     },
     {
-      "number": 9444,
-      "title": "feat(marketing): mutation-score trend panel on AI-health page",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9444",
-      "mergedAt": "2026-11-23T17:35:51Z"
+      "number": 9297,
+      "title": "fix(agent-eval): skip fixture verification for a task that did not run",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9297",
+      "mergedAt": "2026-11-21T04:07:11Z"
     },
     {
-      "number": 9436,
-      "title": "fix(ci): tolerate KV 429 in synthetic-monitoring and uptime-snapshot",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9436",
-      "mergedAt": "2026-11-23T06:06:55Z"
+      "number": 9284,
+      "title": "fix(cli): report a failed eval worktree removal on stderr",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9284",
+      "mergedAt": "2026-11-21T04:04:32Z"
     },
     {
-      "number": 9433,
-      "title": "fix(process): make ready and ready-for-human mutually exclusive",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9433",
-      "mergedAt": "2026-11-23T01:46:06Z"
+      "number": 9301,
+      "title": "fix(metrics): self-heal a dropped weekly sdlcSpeed row",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9301",
+      "mergedAt": "2026-11-21T03:05:57Z"
     },
     {
-      "number": 9430,
-      "title": "feat(learning-loop): close regression issues once the metric recovers (mbe-feature-drain #9429)",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9430",
-      "mergedAt": "2026-11-23T00:43:45Z"
+      "number": 9271,
+      "title": "fix(marketing): reload once when a lazy route chunk fails to preload (mbe-feature-drain #9266)",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9271",
+      "mergedAt": "2026-11-20T22:54:42Z"
     },
     {
-      "number": 9420,
-      "title": "feat(rialto): Constellation ambient backdrop (mbe-feature-drain #9382)",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9420",
-      "mergedAt": "2026-11-22T19:19:31Z"
+      "number": 9263,
+      "title": "fix(hospitality): guest lookup keeps the previous results while you type",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9263",
+      "mergedAt": "2026-11-20T22:21:08Z"
     },
     {
-      "number": 9413,
-      "title": "feat(rialto): DustMotes ambient backdrop (mbe-feature-drain #9382)",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9413",
-      "mergedAt": "2026-11-22T17:34:48Z"
+      "number": 9255,
+      "title": "test(reservations): the in-memory payments fake refuses unscripted calls",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9255",
+      "mergedAt": "2026-11-20T22:08:13Z"
     },
     {
-      "number": 9403,
-      "title": "feat(rialto)!: remove the Odometer component and its consumers (mbe-feature-drain #9389)",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9403",
-      "mergedAt": "2026-11-22T16:46:36Z"
+      "number": 9259,
+      "title": "fix(scripts): antipattern ratchet stops counting test files for routes and any",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9259",
+      "mergedAt": "2026-11-20T22:07:23Z"
     }
   ],
   "detectedByLevel": {
@@ -854,35 +848,35 @@
       "level": 3,
       "name": "ci-flake-rate",
       "passed": true,
-      "value": 0.022022022022022022,
+      "value": 0.024024024024024024,
       "threshold": 0.2
     },
     {
       "level": 4,
       "name": "agent-pr-acceptance",
       "passed": true,
-      "value": 0.9811320754716981,
+      "value": 0.9817518248175182,
       "threshold": 0.5
     },
     {
       "level": 5,
       "name": "auto-qa-tuning-history",
       "passed": true,
-      "value": 65,
+      "value": 63,
       "threshold": 1
     },
     {
       "level": 6,
       "name": "agent-pr-revert-rate",
       "passed": true,
-      "value": 0.0038461538461538464,
+      "value": 0.0037174721189591076,
       "threshold": 0.1
     },
     {
       "level": 6,
       "name": "human-touch-ratio",
       "passed": true,
-      "value": 0.023076923076923078,
+      "value": 0.02973977695167286,
       "threshold": 0.5
     }
   ]

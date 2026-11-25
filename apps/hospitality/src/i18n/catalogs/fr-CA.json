@@ -11,6 +11,65 @@
     "dashboardDocumentTitle": "Tableau de bord - {{brand}}"
   },
   "onboarding": {
+    "chat": {
+      "heading": "Parlez-nous de votre restaurant",
+      "region": "Assistant de configuration",
+      "filledTag": "Rempli depuis le clavardage",
+      "filledGroup": "{{field}}, rempli depuis le clavardage",
+      "filledAnnouncement": "{{fields}} : rempli depuis le clavardage",
+      "fallbackNote": "Terminons cette étape avec le formulaire.",
+      "rejected": "Cela ne convient pas à cette étape ({{errors}}); j'ai donc laissé votre formulaire tel quel.",
+      "tryAgain": "Réessayer le clavardage",
+      "review": "Vérifier",
+      "reviewLabel": "Vérifier les champs remplis depuis le clavardage",
+      "summary": {
+        "ianaTimezone": "Fuseau horaire : {{value}}",
+        "currencyCode": "Devise : {{value}}",
+        "defaultReservationDuration": "Durée de la réservation : {{value}} min",
+        "maxPartySize": "Groupes jusqu'à {{value}}",
+        "advanceBookingDays_one": "Réservable jusqu'à {{count}} jour à l'avance",
+        "advanceBookingDays_many": "Réservable jusqu'à {{count}} de jours à l'avance",
+        "advanceBookingDays_other": "Réservable jusqu'à {{count}} jours à l'avance",
+        "advanceBookingToday": "Réservable le jour même seulement",
+        "serviceName": "Service : {{value}}",
+        "opens": "Ouvre à {{value}}",
+        "closes": "Ferme à {{value}}",
+        "lastSeating": "Dernière table à {{value}}",
+        "days": "Ouvert : {{value}}",
+        "templateId": "Salle : {{value}}",
+        "roomSize": "Taille : {{value}}"
+      },
+      "floorPlanEdited": "Vous avez modifié cette disposition à la main, alors je l'ai laissée telle quelle. Choisissez une autre salle dans la liste pour recommencer.",
+      "notOffered": {
+        "ianaTimezone": "le fuseau horaire « {{value}} » n'est pas dans la liste",
+        "currencyCode": "la devise « {{value}} » n'est pas dans la liste",
+        "time": "« {{value}} » n'est pas une heure de 24 heures comme 17:30",
+        "days": "« {{value}} » n'est pas une liste de jours comme mon,tue,fri",
+        "serviceName": "le service doit avoir un nom",
+        "templateId": "la salle « {{value}} » n'est pas offerte",
+        "roomSize": "la taille « {{value}} » n'est pas offerte"
+      },
+      "suggestion": {
+        "locationTime": "Nous sommes à Lisbonne et nous facturons en euros",
+        "settings": "Groupes jusqu'à 8, 90 minutes par table, réservations 60 jours à l'avance",
+        "hours": "Souper du mardi au samedi, de 17 h à 22 h 30",
+        "floorPlan": "Un bistro décontracté, un peu plus grand que l'intime"
+      },
+      "fields": {
+        "ianaTimezone": "fuseau horaire",
+        "currencyCode": "devise",
+        "defaultReservationDuration": "durée de la réservation",
+        "maxPartySize": "plus grand groupe",
+        "advanceBookingDays": "jours à l'avance",
+        "serviceName": "nom du service",
+        "opens": "heure d'ouverture",
+        "closes": "heure de fermeture",
+        "lastSeating": "dernière table",
+        "days": "jours d'ouverture",
+        "templateId": "disposition de la salle",
+        "roomSize": "taille de la salle"
+      }
+    },
     "steps": {
       "welcome": {
         "label": "Bienvenue",
@@ -309,6 +368,7 @@
       "settings": "Paramètres",
       "users": "Utilisateurs",
       "tonightsService": "Service de ce soir",
+      "night": "La soirée en chiffres",
       "timeline": "Chronologie",
       "reservations": "Réservations",
       "waitlist": "Liste d'attente",
@@ -334,6 +394,7 @@
       "guests": "Clients",
       "waitlist": "Liste d'attente",
       "briefing": "Service de ce soir",
+      "night": "La soirée en chiffres",
       "floorPlan": "Plan de salle",
       "bookingWidget": "Widget de réservation",
       "onboarding": "Nouvel établissement",
@@ -1656,6 +1717,8 @@
       "end_tonight_change": "Mettre fin à un changement de ce soir",
       "undo_availability_change": "Annuler un changement de disponibilité",
       "close_dates": "Fermer à certaines dates",
+      "close_repeating_days": "Fermer certains jours de la semaine",
+      "set_regular_hours": "Modifier l'horaire régulier",
       "set_special_hours": "Définir des heures spéciales pour une date",
       "reopen_closure": "Rouvrir une fermeture",
       "add_guest": "Ajouter un client",
@@ -1668,9 +1731,18 @@
       "remove_from_waitlist": "Retirer de la liste d'attente",
       "set_menu_item_availability": "Marquer un article comme épuisé ou disponible",
       "update_menu_item": "Modifier un article du menu",
+      "create_menu": "Créer un menu",
+      "reorder_menu_sections": "Réorganiser les sections d'un menu",
+      "reorder_menu_items": "Réorganiser les articles d'une section",
       "activate_floor_plan": "Changer le plan de salle actif",
       "seat_reservation": "Placer un groupe réservé",
       "mark_no_show": "Marquer une absence",
+      "pause_online_booking": "Suspendre les réservations en ligne",
+      "resume_online_booking": "Reprendre les réservations en ligne",
+      "pause_tables": "Suspendre des tables",
+      "resume_tables": "Rouvrir des tables aux réservations",
+      "update_venue_settings": "Modifier les paramètres de l'établissement",
+      "update_venue_profile": "Modifier le profil de l'établissement",
       "fields": {
         "guestName": "Client",
         "partySize": "Personnes",
@@ -1705,6 +1777,8 @@
         "menu": "Menu",
         "item": "Article",
         "section": "Section",
+        "sections": "Nouvel ordre",
+        "items": "Nouvel ordre",
         "availability": "Disponibilité",
         "price": "Prix",
         "description": "Description",
@@ -1714,7 +1788,19 @@
         "lastSeating": "Dernier placement",
         "closesAt": "Fermeture",
         "tellCancelledGuests": "Aviser les clients annulés",
-        "scope": "S'applique à"
+        "scope": "S'applique à",
+        "weekdays": "Jours de la semaine",
+        "until": "Jusqu'au",
+        "message": "Message aux clients",
+        "maxPartySize": "Plus grand groupe",
+        "defaultReservationDuration": "Durée de la réservation (minutes)",
+        "requirePhone": "Exiger un téléphone",
+        "requireEmail": "Exiger un courriel",
+        "confirmationEmailEnabled": "Courriels de confirmation",
+        "reminderEmailEnabled": "Courriels de rappel",
+        "type": "Type",
+        "cuisines": "Cuisines",
+        "website": "Site web"
       },
       "yesNo": {
         "yes": "Oui",
@@ -1725,6 +1811,7 @@
         "service": "Un seul service"
       },
       "untilReopened": "Jusqu'à la réouverture",
+      "cleared": "Effacé",
       "menuAvailability": {
         "sold_out": "Épuisé",
         "available": "Disponible"
@@ -3710,6 +3797,25 @@
       "heading": "Rien au livre pour le {{date}}.",
       "description": "Changez la date ou placez des clients sans réservation depuis la Chronologie.",
       "action": "Ouvrir la Chronologie"
+    }
+  },
+  "night": {
+    "title": "La soirée en chiffres",
+    "description": "Le déroulement du service, sur un seul écran",
+    "loading": "Chargement de la soirée en chiffres…",
+    "loaded": "La soirée en chiffres du {{date}} est chargée.",
+    "serviceDate": "Date du service",
+    "previous": "Soirée précédente",
+    "next": "Soirée suivante",
+    "hoursUnknown": "Impossible de lire votre horaire; la date du calendrier est affichée. Choisissez une autre date au besoin.",
+    "loadError": "Impossible de charger la soirée en chiffres.",
+    "covers": "Couverts servis",
+    "tableTurns": "Rotations de table",
+    "noShows": "Absences",
+    "turnedAway": "Clients refusés",
+    "empty": {
+      "heading": "Aucune table n'a été servie le {{date}}.",
+      "description": "Choisissez une autre date de service pour revenir en arrière."
     }
   },
   "profile": {

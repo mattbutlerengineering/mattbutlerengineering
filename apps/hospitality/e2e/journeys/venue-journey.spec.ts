@@ -66,8 +66,8 @@ test("venue onboarding journey against the live site", async ({ page }) => {
 
   await journey.step("Step 3 — operating hours", async () => {
     // The quick-setup card (F-ONB): a Dinner service on weekdays.
-    await page.getByRole("button", { name: "Dinner" }).click();
-    await page.getByRole("button", { name: "Weekdays" }).click();
+    await page.getByRole("button", { name: "Dinner", exact: true }).click();
+    await page.getByRole("button", { name: "Weekdays", exact: true }).click();
     await expect(page.getByRole("checkbox", { name: "Monday" })).toBeChecked();
     await page.getByRole("button", { name: "Next" }).click();
   });

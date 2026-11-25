@@ -317,6 +317,20 @@ describe("useOnboardingWizard", () => {
       ]);
     });
 
+    it("takes a whole floor plan draft from a chat patch and clears the step's error", () => {
+      const { result } = renderHook(() => useOnboardingWizard());
+      advanceToStep5(result);
+      act(() => result.current.actions.next());
+      expect(result.current.errors.floorPlan).not.toBeNull();
+
+      act(() =>
+        result.current.actions.setStepData("floorPlan", draftFromTemplate("cafe", "grand"))
+      );
+
+      expect(result.current.data.floorPlan).toEqual(draftFromTemplate("cafe", "grand"));
+      expect(result.current.errors.floorPlan).toBeNull();
+    });
+
     it("clears errors.floorPlan", () => {
       const { result } = renderHook(() => useOnboardingWizard());
       advanceToStep5(result);

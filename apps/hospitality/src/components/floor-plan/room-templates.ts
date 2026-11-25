@@ -32,19 +32,11 @@
  * No React, no Konva, no network.
  */
 
-import type { WallLayout } from "@mbe/types";
+import type { RoomSizeId, RoomTemplateId, WallLayout } from "@mbe/types";
 import { CANVAS_WIDTH, CANVAS_HEIGHT, type TableShapeName } from "./floor-plan-geometry.js";
 
-export type RoomTemplateId =
-  | "blank"
-  | "fine-dining"
-  | "casual-bistro"
-  | "bar-lounge"
-  | "cafe"
-  | "banquet-hall"
-  | "open-kitchen";
-
-export type RoomSizeId = "cozy" | "standard" | "spacious" | "grand";
+// The id sets are shared with the onboarding chat route (`@mbe/types`, #9475).
+export type { RoomSizeId, RoomTemplateId };
 
 export interface RoomSize {
   readonly id: RoomSizeId;

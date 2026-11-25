@@ -11,6 +11,64 @@
     "dashboardDocumentTitle": "Dashboard - {{brand}}"
   },
   "onboarding": {
+    "chat": {
+      "heading": "Tell us about your restaurant",
+      "region": "Setup assistant",
+      "filledTag": "Filled from chat",
+      "filledGroup": "{{field}}, filled from chat",
+      "filledAnnouncement": "{{fields}} filled from chat",
+      "fallbackNote": "Let's finish this step with the form.",
+      "rejected": "That doesn't fit this step ({{errors}}), so I left your form as it was.",
+      "tryAgain": "Try chat again",
+      "review": "Review",
+      "reviewLabel": "Review the fields filled from chat",
+      "summary": {
+        "ianaTimezone": "Time zone: {{value}}",
+        "currencyCode": "Currency: {{value}}",
+        "defaultReservationDuration": "Reservation length: {{value}} min",
+        "maxPartySize": "Parties up to {{value}}",
+        "advanceBookingDays_one": "Bookable up to {{count}} day ahead",
+        "advanceBookingDays_other": "Bookable up to {{count}} days ahead",
+        "advanceBookingToday": "Bookable today only",
+        "serviceName": "Service: {{value}}",
+        "opens": "Opens {{value}}",
+        "closes": "Closes {{value}}",
+        "lastSeating": "Last seating {{value}}",
+        "days": "Open {{value}}",
+        "templateId": "Room: {{value}}",
+        "roomSize": "Size: {{value}}"
+      },
+      "floorPlanEdited": "You've changed this layout by hand, so I left it as it was. Pick another room from the list to start over.",
+      "notOffered": {
+        "ianaTimezone": "time zone \"{{value}}\" isn't in the list",
+        "currencyCode": "currency \"{{value}}\" isn't in the list",
+        "time": "\"{{value}}\" isn't a 24-hour time like 17:30",
+        "days": "\"{{value}}\" isn't a list of days like mon,tue,fri",
+        "serviceName": "the service needs a name",
+        "templateId": "room layout \"{{value}}\" isn't offered",
+        "roomSize": "room size \"{{value}}\" isn't offered"
+      },
+      "suggestion": {
+        "locationTime": "We're in Lisbon and charge euros",
+        "settings": "Parties up to 8, 90 minutes a table, bookable 60 days ahead",
+        "hours": "Dinner Tuesday to Saturday, 5 to 10:30",
+        "floorPlan": "A casual bistro, a bit bigger than cozy"
+      },
+      "fields": {
+        "ianaTimezone": "time zone",
+        "currencyCode": "currency",
+        "defaultReservationDuration": "reservation length",
+        "maxPartySize": "largest party",
+        "advanceBookingDays": "days ahead",
+        "serviceName": "service name",
+        "opens": "opening time",
+        "closes": "closing time",
+        "lastSeating": "last seating",
+        "days": "open days",
+        "templateId": "room layout",
+        "roomSize": "room size"
+      }
+    },
     "steps": {
       "welcome": {
         "label": "Welcome",
@@ -302,6 +360,7 @@
       "settings": "Settings",
       "users": "Users",
       "tonightsService": "Tonight's Service",
+      "night": "The night in numbers",
       "timeline": "Timeline",
       "reservations": "Reservations",
       "waitlist": "Waitlist",
@@ -327,6 +386,7 @@
       "guests": "Guests",
       "waitlist": "Waitlist",
       "briefing": "Tonight's Service",
+      "night": "The night in numbers",
       "floorPlan": "Floor Plan",
       "bookingWidget": "Booking Widget",
       "onboarding": "New Venue",
@@ -1624,6 +1684,8 @@
       "end_tonight_change": "End a Tonight change",
       "undo_availability_change": "Undo an availability change",
       "close_dates": "Close on dates",
+      "close_repeating_days": "Close on repeating weekdays",
+      "set_regular_hours": "Change regular hours",
       "set_special_hours": "Set special hours for a date",
       "reopen_closure": "Reopen a closure",
       "add_guest": "Add a guest",
@@ -1636,9 +1698,18 @@
       "remove_from_waitlist": "Remove from the waitlist",
       "set_menu_item_availability": "Mark a menu item sold out or available",
       "update_menu_item": "Change a menu item",
+      "create_menu": "Create a menu",
+      "reorder_menu_sections": "Reorder a menu's sections",
+      "reorder_menu_items": "Reorder a section's items",
       "activate_floor_plan": "Switch the active floor plan",
       "seat_reservation": "Seat a booked party",
       "mark_no_show": "Mark a no-show",
+      "pause_online_booking": "Pause online booking",
+      "resume_online_booking": "Resume online booking",
+      "pause_tables": "Pause tables",
+      "resume_tables": "Put tables back in booking",
+      "update_venue_settings": "Change venue settings",
+      "update_venue_profile": "Change the venue profile",
       "fields": {
         "guestName": "Guest",
         "partySize": "Party size",
@@ -1673,6 +1744,8 @@
         "menu": "Menu",
         "item": "Item",
         "section": "Section",
+        "sections": "New order",
+        "items": "New order",
         "availability": "Availability",
         "price": "Price",
         "description": "Description",
@@ -1682,7 +1755,19 @@
         "lastSeating": "Last seating",
         "closesAt": "Closes",
         "tellCancelledGuests": "Tell cancelled guests",
-        "scope": "Applies to"
+        "scope": "Applies to",
+        "weekdays": "Weekdays",
+        "until": "Until",
+        "message": "Message to guests",
+        "maxPartySize": "Largest party",
+        "defaultReservationDuration": "Booking length (minutes)",
+        "requirePhone": "Require a phone number",
+        "requireEmail": "Require an email",
+        "confirmationEmailEnabled": "Confirmation emails",
+        "reminderEmailEnabled": "Reminder emails",
+        "type": "Type",
+        "cuisines": "Cuisines",
+        "website": "Website"
       },
       "yesNo": {
         "yes": "Yes",
@@ -1693,6 +1778,7 @@
         "service": "One service"
       },
       "untilReopened": "Until reopened",
+      "cleared": "Cleared",
       "menuAvailability": {
         "sold_out": "Sold out",
         "available": "Available"
@@ -3602,6 +3688,25 @@
       "heading": "Nothing on the book for {{date}}.",
       "description": "Change the date, or seat walk-ins from the Timeline.",
       "action": "Open Timeline"
+    }
+  },
+  "night": {
+    "title": "The night in numbers",
+    "description": "How service went, on one screen",
+    "loading": "Loading the night in numbers…",
+    "loaded": "The night in numbers for {{date}} loaded.",
+    "serviceDate": "Service date",
+    "previous": "Previous night",
+    "next": "Next night",
+    "hoursUnknown": "Couldn't read your hours, so this shows the calendar day. Pick another date if you need to.",
+    "loadError": "Couldn't load the night in numbers.",
+    "covers": "Covers served",
+    "tableTurns": "Table turns",
+    "noShows": "No-shows",
+    "turnedAway": "Turned away",
+    "empty": {
+      "heading": "No seatings were completed on {{date}}.",
+      "description": "Pick another service date to look back."
     }
   },
   "profile": {

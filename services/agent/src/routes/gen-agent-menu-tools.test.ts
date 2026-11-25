@@ -17,7 +17,16 @@ function createMockLogger(): FastifyBaseLogger {
 }
 
 function createMockApiClient() {
-  return { menus: { list: vi.fn(), getById: vi.fn(), updateItem: vi.fn() } };
+  return {
+    menus: {
+      list: vi.fn(),
+      getById: vi.fn(),
+      updateItem: vi.fn(),
+      create: vi.fn(),
+      reorderSections: vi.fn(),
+      reorderItems: vi.fn(),
+    },
+  };
 }
 
 /** What `ApiClientError` looks like to the tools: a status-bearing ProblemDetails. */
@@ -92,6 +101,9 @@ describe("menu chat tools", () => {
     api.menus.list.mockResolvedValue(MENUS);
     api.menus.getById.mockResolvedValue(DINNER);
     api.menus.updateItem.mockResolvedValue(item({}));
+    api.menus.create.mockResolvedValue(MENUS[0]);
+    api.menus.reorderSections.mockResolvedValue([]);
+    api.menus.reorderItems.mockResolvedValue([]);
   });
 
   function read(toolName: string, input: Record<string, unknown>) {
@@ -326,6 +338,147 @@ describe("menu chat tools", () => {
       expect(schema.safeParse({ menu: "Dinner", item: "Burrata", price: "16.1" }).success).toBe(
         true
       );
+    });
+  });
+
+  describe("create_menu (#9478)", () => {
+    it("creates a draft menu with a slug made from its name", async () => {
+      const result = await run("create_menu", {
+        name: "Late Night & Bar Bites",
+        description: "After 10",
+      });
+
+      expect(api.menus.create).toHaveBeenCalledWith("v1", {
+        name: "Late Night & Bar Bites",
+        slug: "late-night-bar-bites",
+        description: "After 10",
+        status: "DRAFT",
+      });
+      expect(result).toMatchObject({
+        created: true,
+        menu: "Late Night & Bar Bites",
+        status: "DRAFT",
+      });
+    });
+
+    it("won't make a second menu with a name the venue already has", async () => {
+      const result = await run("create_menu", { name: "dinner" });
+
+      expect(result).toMatchObject({ error: expect.stringContaining("already") });
+      expect(api.menus.create).not.toHaveBeenCalled();
+    });
+
+    it("asks for a name with letters or digits in it", async () => {
+      const result = await run("create_menu", { name: "!!!" });
+
+      expect(result).toMatchObject({ error: expect.stringMatching(/letters or digits/) });
+      expect(api.menus.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("reorder_menu_sections (#9478)", () => {
+    it("saves the new order of the sections by id", async () => {
+      const result = await run("reorder_menu_sections", {
+        menu: "Dinner",
+        sections: ["desserts", "Starters"],
+      });
+
+      expect(api.menus.reorderSections).toHaveBeenCalledWith("v1", "m1", ["s2", "s1"]);
+      expect(result).toMatchObject({
+        reordered: true,
+        menu: "Dinner",
+        order: ["Desserts", "Starters"],
+      });
+    });
+
+    it("needs every section named once, so none is dropped by accident", async () => {
+      const result = await run("reorder_menu_sections", { menu: "Dinner", sections: ["Desserts"] });
+
+      expect(result).toMatchObject({ error: expect.stringMatching(/Starters/) });
+      expect(api.menus.reorderSections).not.toHaveBeenCalled();
+    });
+
+    it("refuses a section the menu doesn't have", async () => {
+      const result = await run("reorder_menu_sections", {
+        menu: "Dinner",
+        sections: ["Desserts", "Starters", "Mains"],
+      });
+
+      expect(result).toMatchObject({ error: expect.stringContaining("Mains") });
+      expect(api.menus.reorderSections).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("reorder_menu_items (#9478)", () => {
+    it("saves the new order of a section's items by id", async () => {
+      const result = await run("reorder_menu_items", {
+        menu: "Dinner",
+        section: "Starters",
+        items: ["Soup", "Burrata"],
+      });
+
+      expect(api.menus.reorderItems).toHaveBeenCalledWith("v1", "m1", "s1", ["i2", "i1"]);
+      expect(result).toMatchObject({ reordered: true, section: "Starters" });
+    });
+
+    it("needs every item in the section named", async () => {
+      const result = await run("reorder_menu_items", {
+        menu: "Dinner",
+        section: "Starters",
+        items: ["Soup"],
+      });
+
+      expect(result).toMatchObject({ error: expect.stringMatching(/Burrata/) });
+      expect(api.menus.reorderItems).not.toHaveBeenCalled();
+    });
+
+    it("names the sections there are when one isn't found", async () => {
+      const result = await run("reorder_menu_items", {
+        menu: "Dinner",
+        section: "Mains",
+        items: ["Soup"],
+      });
+
+      expect(result).toMatchObject({ error: expect.stringContaining("Starters, Desserts") });
+    });
+  });
+
+  describe.each([
+    ["create_menu", { name: "Late Night" }],
+    ["reorder_menu_sections", { menu: "Dinner", sections: ["Desserts", "Starters"] }],
+    ["reorder_menu_items", { menu: "Dinner", section: "Starters", items: ["Soup", "Burrata"] }],
+  ])("%s holds for confirmation", (toolName, input) => {
+    it("writes nothing until the user confirms", async () => {
+      const tools = createAgentTools(log, api as never, { venueId: "v1" });
+
+      const result = await tools[toolName]!.execute!(input as never, toolCtx);
+
+      expect(result).toMatchObject({ pendingConfirmation: true });
+      expect(api.menus.create).not.toHaveBeenCalled();
+      expect(api.menus.reorderSections).not.toHaveBeenCalled();
+      expect(api.menus.reorderItems).not.toHaveBeenCalled();
+    });
+
+    it("passes on a 403 in plain words", async () => {
+      const denied = problem(403);
+      api.menus.create.mockRejectedValue(denied);
+      api.menus.reorderSections.mockRejectedValue(denied);
+      api.menus.reorderItems.mockRejectedValue(denied);
+
+      const result = await run(toolName, input);
+
+      expect(result).toMatchObject({ refused: true, error: expect.stringMatching(/permission/i) });
+    });
+
+    it("says it may have saved after a lost response", async () => {
+      const lost = new TypeError("fetch failed");
+      api.menus.create.mockRejectedValue(lost);
+      api.menus.reorderSections.mockRejectedValue(lost);
+      api.menus.reorderItems.mockRejectedValue(lost);
+
+      const result = await run(toolName, input);
+
+      expect(result).toMatchObject({ error: expect.stringMatching(/Couldn't confirm/) });
     });
   });
 

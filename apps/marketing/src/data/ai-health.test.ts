@@ -509,3 +509,53 @@ describe("normalizeSensorReport — prCategoryBreakdown", () => {
     expect(stats.lowSample).toBe(false);
   });
 });
+
+describe("normalizeSensorReport — productionHealth", () => {
+  // Matches scripts/sensors-registry.mjs's productionHealth registry entry (#9525).
+  const report = (productionHealth: unknown) => ({
+    generated_at: "2026-11-24T12:00:00.000Z",
+    sensors: { productionHealth },
+    regressions: [],
+  });
+
+  it("extracts per-endpoint status when the sensor is available", () => {
+    const metrics = normalizeSensorReport(
+      report({
+        available: true,
+        collected_at: "2026-11-24T06:00:00.000Z",
+        endpoints: [
+          { name: "api", status: "healthy", http_code: 200, latency_ms: 120 },
+          { name: "web", status: "degraded", http_code: 503, latency_ms: null },
+        ],
+      })
+    );
+    expect(metrics.productionHealth.available).toBe(true);
+    expect(metrics.productionHealth.collectedAt).toBe("2026-11-24T06:00:00.000Z");
+    expect(metrics.productionHealth.endpoints).toEqual([
+      { name: "api", status: "healthy", httpCode: 200, latencyMs: 120 },
+      { name: "web", status: "degraded", httpCode: 503, latencyMs: null },
+    ]);
+    expect(metrics.productionHealth.healthyCount).toBe(1);
+  });
+
+  it("normalizes an unavailable or missing sensor to a safe shape", () => {
+    for (const sensor of [{ available: false }, undefined]) {
+      const metrics = normalizeSensorReport(report(sensor));
+      expect(metrics.productionHealth).toEqual({
+        available: false,
+        collectedAt: null,
+        endpoints: [],
+        healthyCount: 0,
+      });
+    }
+  });
+
+  it("drops malformed endpoint entries", () => {
+    const metrics = normalizeSensorReport(
+      report({ available: true, endpoints: [null, "x", { name: "api", status: "healthy" }] })
+    );
+    expect(metrics.productionHealth.endpoints).toEqual([
+      { name: "api", status: "healthy", httpCode: null, latencyMs: null },
+    ]);
+  });
+});

@@ -173,6 +173,18 @@ const CASES: readonly Case[] = [
     writes: (api) => [api.availability!.createClosure!],
   },
   {
+    tool: "close_repeating_days",
+    input: { scope: "whole_venue", weekdays: ["Monday"], from: "nope", to: "nope" },
+    arrange: () => undefined,
+    writes: (api) => [api.availability!.createClosure!],
+  },
+  {
+    tool: "set_regular_hours",
+    input: { service: "Dinner", opensAt: "17:00", lastSeating: "21:00", closesAt: "17:00" },
+    arrange: () => undefined,
+    writes: (api) => [api.availability!.saveConfig!],
+  },
+  {
     tool: "reopen_closure",
     input: {
       from: "nope",

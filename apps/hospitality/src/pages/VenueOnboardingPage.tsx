@@ -14,12 +14,22 @@ import { SettingsStep } from "../components/venue-onboarding/SettingsStep";
 import { FloorPlanStep } from "../components/venue-onboarding/FloorPlanStep";
 import { LaunchStep } from "../components/venue-onboarding/LaunchStep";
 import { layoutCounts } from "../components/venue-onboarding/floor-plan-copy.js";
+import {
+  draftFromTemplate,
+  resizeDraft,
+} from "../components/venue-onboarding/floor-plan-templates.js";
 import { runLaunchSequence } from "../components/venue-onboarding/launch-sequence.js";
 import {
   buildOnboardingPayload,
   TOTAL_STEPS,
 } from "../components/venue-onboarding/useOnboardingWizard.js";
 import { useOnboardingWizardContext } from "../components/venue-onboarding/OnboardingWizardContext.js";
+import { OnboardingChat } from "../components/venue-onboarding/OnboardingChat.js";
+import { chatStepFor } from "../components/venue-onboarding/onboarding-chat-types.js";
+import type { AppliedPatch } from "../components/venue-onboarding/onboarding-chat-stream.js";
+import { useOnboardingChatState } from "../components/venue-onboarding/useOnboardingChatState.js";
+import { LiveStatus } from "../components/LiveStatus.js";
+import { useStatusMessage } from "../hooks/useStatusMessage.js";
 import styles from "./VenueOnboardingPage.module.css";
 
 export function VenueOnboardingPage() {
@@ -43,6 +53,31 @@ export function VenueOnboardingPage() {
   // dispatched SUBMIT_START since actions.submit was retired in #4804, so
   // that flag was permanently false and never actually guarded anything.
   const launchInFlight = launch.inFlightStage !== null;
+
+  // Chat beside the form (#9474, #9475). The venue's name (1) and Launch (6) have no chat.
+  const { status, announce } = useStatusMessage();
+  const chatStep = chatStepFor(step);
+  const applyPatch = (patch: AppliedPatch) => {
+    switch (patch.step) {
+      case "locationTime":
+        return actions.setStepData("locationTime", patch.data);
+      case "settings":
+        return actions.setStepData("settings", patch.data);
+      case "hours":
+        return actions.setStepData("hoursDraft", patch.data);
+      case "floorPlan":
+        return actions.setStepData("floorPlan", patch.data);
+    }
+  };
+  const chat = useOnboardingChatState({
+    step: chatStep,
+    locationTime: data.locationTime,
+    settings: data.settings,
+    hours: data.hoursDraft,
+    floorPlan: data.floorPlan,
+    setStepData: applyPatch,
+    announce,
+  });
 
   // Debounced slug-uniqueness check — the actual check-and-dispatch lifecycle
   // (checking -> taken/available) lives entirely inside actions.checkSlugAvailability.
@@ -165,13 +200,26 @@ export function VenueOnboardingPage() {
     navigate,
   ]);
 
+  // Chat beside the form on the steps with patch support (#9474). A step the chat stepped aside
+  // from (cost ceiling or a failed stream) shows the form alone, with a calm note.
+  const chatSteppedAside = chatStep !== undefined && chat.asideReason !== undefined;
+  // Once Launch has created the venue the floor plan is frozen (#4825), so a patch cannot apply.
+  const planFrozen = chatStep === "floorPlan" && launch.venueId !== null;
+  const showChat = chatStep !== undefined && !chatSteppedAside && !planFrozen;
+
   // The floor plan canvas wants more room than the 40rem review card — widen
-  // the container on step 5 only.
-  const containerClassName =
-    step === 5 ? `${styles.wizardContainer} ${styles.wizardContainerWide}` : styles.wizardContainer;
+  // the container on step 5 only; the chat steps need room for two columns.
+  const containerClassName = [
+    styles.wizardContainer,
+    step === 5 ? styles.wizardContainerWide : null,
+    showChat ? styles.wizardContainerChat : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <div className={containerClassName}>
+      <LiveStatus status={status} />
       {/* Condensed progress indicator — mobile only; desktop uses the vertical
           rail in the OnboardingLayout brand panel (hidden here at >= 768px). */}
       <div className={styles.mobileProgress}>
@@ -183,108 +231,157 @@ export function VenueOnboardingPage() {
         />
       </div>
 
-      <Card>
-        <Stack gap="lg">
-          {step === 1 && (
-            <WelcomeStep
-              data={data.basicInfo}
-              errors={errors.basicInfo}
-              onChange={(basicInfo) => actions.setStepData("basicInfo", basicInfo)}
-              onValidate={actions.validateStep}
-              slugStatus={slugStatus}
+      <div className={showChat ? styles.chatLayoutHost : undefined}>
+        <div className={showChat ? styles.chatLayout : undefined}>
+          {showChat && (
+            <OnboardingChat
+              key={chatStep}
+              step={chatStep}
+              target={chat.target}
+              onApplied={chat.onApplied}
+              onFallback={(reason) => chat.onFallback(chatStep, reason)}
+              filled={chat.filledItems}
             />
           )}
 
-          {step === 2 && (
-            <>
-              <Text variant="label">{t("onboarding.locationTime.heading")}</Text>
-              <Text variant="caption" color="secondary">
-                {t("onboarding.locationTime.intro")}
-              </Text>
-              <LocationTimeStep
-                data={data.locationTime}
-                errors={errors.locationTime}
-                onChange={(locationTime) => actions.setStepData("locationTime", locationTime)}
-                onValidate={actions.validateStep}
-              />
-            </>
-          )}
+          <Card>
+            <Stack gap="lg">
+              {chatStep !== undefined && chat.asideReason !== undefined && (
+                <Stack direction="row" gap="sm" align="center" wrap>
+                  <Text variant="caption" color="secondary">
+                    {t("onboarding.chat.fallbackNote")}
+                  </Text>
+                  {/* Only the cost ceiling is final; a network or stream failure may pass. */}
+                  {chat.asideReason === "error" && (
+                    <Button variant="secondary" onClick={() => chat.retry(chatStep)}>
+                      {t("onboarding.chat.tryAgain")}
+                    </Button>
+                  )}
+                </Stack>
+              )}
 
-          {step === 3 && (
-            <>
-              <Text variant="label">{t("onboarding.hours.heading")}</Text>
-              <Text variant="caption" color="secondary">
-                {t("onboarding.hours.intro")}
-              </Text>
-              <QuickSetupHoursStep
-                draft={data.hoursDraft}
-                errors={errors.operatingHours ?? undefined}
-                onChange={(hoursDraft) => actions.setStepData("hoursDraft", hoursDraft)}
-              />
-            </>
-          )}
+              {step === 1 && (
+                <WelcomeStep
+                  data={data.basicInfo}
+                  errors={errors.basicInfo}
+                  onChange={(basicInfo) => actions.setStepData("basicInfo", basicInfo)}
+                  onValidate={actions.validateStep}
+                  slugStatus={slugStatus}
+                />
+              )}
 
-          {step === 4 && (
-            <>
-              <Text variant="label">{t("onboarding.settings.heading")}</Text>
-              <Text variant="caption" color="secondary">
-                {t("onboarding.settings.intro")}
-              </Text>
-              <SettingsStep
-                data={data.settings}
-                errors={errors.settings}
-                onChange={(settings) => actions.setStepData("settings", settings)}
-                onValidate={actions.validateStep}
-                onAdvance={actions.next}
-              />
-            </>
-          )}
+              {step === 2 && (
+                <>
+                  <Text variant="label">{t("onboarding.locationTime.heading")}</Text>
+                  <Text variant="caption" color="secondary">
+                    {t("onboarding.locationTime.intro")}
+                  </Text>
+                  <LocationTimeStep
+                    data={data.locationTime}
+                    errors={errors.locationTime}
+                    onChange={(locationTime) => {
+                      chat.noteEdit("locationTime", locationTime);
+                      actions.setStepData("locationTime", locationTime);
+                    }}
+                    onValidate={actions.validateStep}
+                    filled={chat.filledFields}
+                  />
+                </>
+              )}
 
-          {step === 5 && (
-            <FloorPlanStep
-              draft={data.floorPlan}
-              error={errors.floorPlan}
-              onSelectTemplate={actions.setTemplate}
-              onSelectSize={actions.setRoomSize}
-              onAddTable={actions.addDraftTable}
-              onMoveTable={actions.moveDraftTable}
-              onRemoveTable={actions.removeDraftTable}
-              readOnly={launch.venueId !== null}
-            />
-          )}
+              {step === 3 && (
+                <>
+                  <Text variant="label">{t("onboarding.hours.heading")}</Text>
+                  <Text variant="caption" color="secondary">
+                    {t("onboarding.hours.intro")}
+                  </Text>
+                  <QuickSetupHoursStep
+                    draft={data.hoursDraft}
+                    errors={errors.operatingHours ?? undefined}
+                    onChange={(hoursDraft) => {
+                      chat.noteEdit("hours", hoursDraft);
+                      actions.setStepData("hoursDraft", hoursDraft);
+                    }}
+                  />
+                </>
+              )}
 
-          {step === 6 && (
-            <LaunchStep
-              basicInfo={data.basicInfo}
-              locationTime={data.locationTime}
-              hoursDraft={data.hoursDraft}
-              settings={data.settings}
-              onLaunch={handleLaunch}
-              onCelebrationDone={handleCelebrationDone}
-              onRehearse={handleRehearse}
-              floorPlan={data.floorPlan}
-              launch={launch}
-              onRetry={handleRetry}
-            />
-          )}
+              {step === 4 && (
+                <>
+                  <Text variant="label">{t("onboarding.settings.heading")}</Text>
+                  <Text variant="caption" color="secondary">
+                    {t("onboarding.settings.intro")}
+                  </Text>
+                  <SettingsStep
+                    data={data.settings}
+                    errors={errors.settings}
+                    onChange={(settings) => {
+                      chat.noteEdit("settings", settings);
+                      actions.setStepData("settings", settings);
+                    }}
+                    onValidate={actions.validateStep}
+                    onAdvance={actions.next}
+                    filled={chat.filledFields}
+                  />
+                </>
+              )}
 
-          <Stack direction="row" gap="md" justify="between">
-            <Button
-              variant="secondary"
-              onClick={actions.back}
-              disabled={step === 1 || launchInFlight}
-            >
-              {t("onboarding.actions.back")}
-            </Button>
+              {step === 5 && (
+                <FloorPlanStep
+                  draft={data.floorPlan}
+                  error={errors.floorPlan}
+                  onSelectTemplate={(templateId) => {
+                    chat.noteEdit(
+                      "floorPlan",
+                      draftFromTemplate(templateId, data.floorPlan.sizeId)
+                    );
+                    actions.setTemplate(templateId);
+                  }}
+                  onSelectSize={(sizeId) => {
+                    chat.noteEdit("floorPlan", resizeDraft(data.floorPlan, sizeId));
+                    actions.setRoomSize(sizeId);
+                  }}
+                  onAddTable={actions.addDraftTable}
+                  onMoveTable={actions.moveDraftTable}
+                  onRemoveTable={actions.removeDraftTable}
+                  readOnly={launch.venueId !== null}
+                />
+              )}
 
-            {step < TOTAL_STEPS && (
-              <Button variant="primary" onClick={actions.next}>
-                {t("onboarding.actions.next")}
-              </Button>
-            )}
-          </Stack>
-        </Stack>
-      </Card>
+              {step === 6 && (
+                <LaunchStep
+                  basicInfo={data.basicInfo}
+                  locationTime={data.locationTime}
+                  hoursDraft={data.hoursDraft}
+                  settings={data.settings}
+                  onLaunch={handleLaunch}
+                  onCelebrationDone={handleCelebrationDone}
+                  onRehearse={handleRehearse}
+                  floorPlan={data.floorPlan}
+                  launch={launch}
+                  onRetry={handleRetry}
+                />
+              )}
+
+              <Stack direction="row" gap="md" justify="between">
+                <Button
+                  variant="secondary"
+                  onClick={actions.back}
+                  disabled={step === 1 || launchInFlight}
+                >
+                  {t("onboarding.actions.back")}
+                </Button>
+
+                {step < TOTAL_STEPS && (
+                  <Button variant="primary" onClick={actions.next}>
+                    {t("onboarding.actions.next")}
+                  </Button>
+                )}
+              </Stack>
+            </Stack>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }

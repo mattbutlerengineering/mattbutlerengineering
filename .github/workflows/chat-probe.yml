@@ -1,0 +1,128 @@
+name: Chat Probe
+
+# Daily live chat probe (#9481): sends 9 scripted prompts to PRODUCTION
+# /api/gen/agent as the E2E test user and files ONE deduplicated issue when a
+# reply fails or leaks raw text (element call text, raw tool JSON, stack traces,
+# `undefined`, unrendered placeholders, a missing element).
+#
+# NO production writes, ever. One prompt asks for a write; the probe asserts the
+# server answers with a pending confirmation (`action_request`) and stops there.
+# The request builder has no way to send a confirm resend (pinned by
+# scripts/__tests__/chat-probe.test.mjs).
+#
+# Cost ceiling: $0.05 per run (COST_CEILING_USD in scripts/lib/chat-probe.mjs),
+# enforced by counting requests against a $0.005 per-request estimate; 9 prompts
+# is $0.045. The server adds its own per-identity 30/hr limit and daily spend
+# ceiling. Runs once a day and on demand: never per deploy. Deploy Services ran
+# 18 times on 2026-11-24, and a probe per deploy (~$0.85/day) would pass the
+# shared $0.50/day GEN_DAILY_CEILING_USD and cut off real venues' chat. Daily
+# cost: 9 requests, ~$0.045, under 10% of that shared ceiling.
+#
+# Needs the `CHAT_PROBE_VENUE_ID` secret (docs/SECRETS.md). Without it, or
+# without the E2E Auth0 secrets, the job skips with a visible notice.
+on:
+  schedule:
+    - cron: "17 15 * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: chat-probe
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  probe:
+    name: Live chat probe
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+
+      - name: Check probe secrets
+        id: secrets
+        env:
+          E2E_AUTH0_DOMAIN: ${{ secrets.E2E_AUTH0_DOMAIN }}
+          E2E_AUTH0_CLIENT_ID: ${{ secrets.E2E_AUTH0_CLIENT_ID }}
+          E2E_AUTH_EMAIL: ${{ secrets.E2E_AUTH_EMAIL }}
+          CHAT_PROBE_VENUE_ID: ${{ secrets.CHAT_PROBE_VENUE_ID }}
+        run: |
+          set -o pipefail
+          if [ -z "$E2E_AUTH0_DOMAIN" ] || [ -z "$E2E_AUTH0_CLIENT_ID" ] || [ -z "$E2E_AUTH_EMAIL" ] || [ -z "$CHAT_PROBE_VENUE_ID" ]; then
+            echo "::notice::Chat probe skipped: set E2E_AUTH0_* / E2E_AUTH_* and CHAT_PROBE_VENUE_ID (docs/SECRETS.md)."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Mint E2E access token (ROPC)
+        if: steps.secrets.outputs.ready == 'true'
+        env:
+          E2E_AUTH0_DOMAIN: ${{ secrets.E2E_AUTH0_DOMAIN }}
+          E2E_AUTH0_CLIENT_ID: ${{ secrets.E2E_AUTH0_CLIENT_ID }}
+          E2E_AUTH0_AUDIENCE: ${{ secrets.E2E_AUTH0_AUDIENCE }}
+          E2E_AUTH_EMAIL: ${{ secrets.E2E_AUTH_EMAIL }}
+          E2E_AUTH_PASSWORD: ${{ secrets.E2E_AUTH_PASSWORD }}
+        run: |
+          set -euo pipefail
+          # Same grant and client as gen-live-smoke.yml and the hospitality E2E suite.
+          payload=$(jq -n \
+            --arg u "$E2E_AUTH_EMAIL" --arg p "$E2E_AUTH_PASSWORD" \
+            --arg a "$E2E_AUTH0_AUDIENCE" --arg c "$E2E_AUTH0_CLIENT_ID" \
+            '{grant_type:"http://auth0.com/oauth/grant-type/password-realm", realm:"Username-Password-Authentication", username:$u, password:$p, audience:$a, client_id:$c, scope:"openid profile email"}')
+          token=$(curl -sf --request POST "https://${E2E_AUTH0_DOMAIN}/oauth/token" \
+            --header 'content-type: application/json' \
+            --data "$payload" | jq -r .access_token)
+          if [ -z "$token" ] || [ "$token" = "null" ]; then
+            echo "::error::Auth0 ROPC login returned no access token"
+            exit 1
+          fi
+          echo "::add-mask::$token"
+          echo "CHAT_PROBE_TOKEN=$token" >> "$GITHUB_ENV"
+
+      # continue-on-error so the filing step below always runs; the job is
+      # failed explicitly at the end.
+      - name: Run chat probe
+        id: probe
+        if: steps.secrets.outputs.ready == 'true'
+        continue-on-error: true
+        env:
+          CHAT_PROBE_VENUE_ID: ${{ secrets.CHAT_PROBE_VENUE_ID }}
+          CHAT_PROBE_URL: https://api.mattbutlerengineering.com/api/gen/agent
+          CHAT_PROBE_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -o pipefail
+          node scripts/chat-probe.mjs "$RUNNER_TEMP/chat-probe" | tee "$RUNNER_TEMP/chat-probe-summary.txt"
+
+      - name: File deduplicated issue
+        if: steps.probe.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # A probe that could not run (exit 2) leaves no issue file: fail the
+          # job below without filing a product-regression issue.
+          if [ ! -f "$RUNNER_TEMP/chat-probe/issue.json" ]; then
+            echo "::warning::No issue file: the probe could not run, so nothing is filed."
+            exit 0
+          fi
+          title=$(jq -r .title "$RUNNER_TEMP/chat-probe/issue.json")
+          node scripts/lib/file-issue-cli.mjs \
+            --title "$title" \
+            --body-file "$RUNNER_TEMP/chat-probe/issue-body.md" \
+            --dedupe-key "$title" \
+            --label audit \
+            --search-label audit \
+            --contains "$title"
+
+      - name: Fail job on a failed probe
+        if: steps.probe.outcome == 'failure'
+        run: |
+          echo "::error::Chat probe found failing replies — see the filed issue and the run log."
+          exit 1
