@@ -34,6 +34,7 @@ describe("fetchUserInfoClaims", () => {
 
     expect(fetchMock).toHaveBeenCalledWith("https://test.auth0.com/userinfo", {
       headers: { Authorization: "Bearer abc123" },
+      signal: expect.any(AbortSignal),
     });
     expect(result).toEqual({
       email: "owner@example.com",

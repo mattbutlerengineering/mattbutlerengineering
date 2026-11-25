@@ -5,6 +5,9 @@ export interface UserInfoClaims {
   readonly picture?: string;
 }
 
+/** Bound the outbound call so a stalled IdP fails closed instead of hanging handlers. */
+const USERINFO_TIMEOUT_MS = 2000;
+
 /**
  * Fetches profile claims from the OIDC userinfo endpoint for the given
  * bearer token.
@@ -24,6 +27,7 @@ export async function fetchUserInfoClaims(bearerToken: string): Promise<UserInfo
   try {
     const response = await fetch(`${authority.replace(/\/$/, "")}/userinfo`, {
       headers: { Authorization: `Bearer ${bearerToken}` },
+      signal: AbortSignal.timeout(USERINFO_TIMEOUT_MS),
     });
     if (!response.ok) return null;
 
