@@ -5,7 +5,12 @@ import rateLimit from "@fastify/rate-limit";
 import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
 import ScalarApiReference from "@scalar/fastify-api-reference";
-import { authPlugin, getAuthPluginOptionsFromEnv } from "@mbe/auth/fastify";
+import {
+  authPlugin,
+  createJoseVerifier,
+  getAuthPluginOptionsFromEnv,
+  type JwtVerifier,
+} from "@mbe/auth/fastify";
 import { createFeatureFlagsPlugin } from "./feature-flags.js";
 import {
   createRequestIdMiddleware,
@@ -75,6 +80,11 @@ export interface ServiceAppConfig {
   readonly registerSchemas?: (fastify: FastifyInstance) => void;
   /** Owns the service's database: health, /ready, and pool shutdown on close. */
   readonly database?: ServiceDatabaseConfig;
+  /**
+   * Wraps the default OIDC/JWKS verifier, e.g. to accept a second kind of
+   * bearer ahead of it. Receives the default verifier as the fallback.
+   */
+  readonly wrapAuthVerifier?: (fallback: JwtVerifier) => JwtVerifier;
 }
 
 export interface AppOptions {
@@ -312,7 +322,18 @@ export async function createServiceApp(
 
   // --- Auth ---
   if (process.env.AUTH_AUTHORITY && process.env.AUTH_AUDIENCE) {
-    await fastify.register(authPlugin, getAuthPluginOptionsFromEnv());
+    const authOptions = getAuthPluginOptionsFromEnv();
+    await fastify.register(
+      authPlugin,
+      config.wrapAuthVerifier
+        ? {
+            ...authOptions,
+            verifier: config.wrapAuthVerifier(
+              createJoseVerifier(authOptions.authority, authOptions.audience)
+            ),
+          }
+        : authOptions
+    );
   } else if (process.env.NODE_ENV === "production") {
     throw new Error("Fail-closed: AUTH_AUTHORITY and AUTH_AUDIENCE are required in production");
   } else {

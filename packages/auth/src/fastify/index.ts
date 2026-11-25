@@ -3,6 +3,7 @@ export {
   requireAuth,
   optionalAuth,
   getAuthPluginOptionsFromEnv,
+  createJoseVerifier,
   hasPermission,
 } from "./plugin.js";
 export type { AuthPluginOptions, JwtVerifier } from "./plugin.js";

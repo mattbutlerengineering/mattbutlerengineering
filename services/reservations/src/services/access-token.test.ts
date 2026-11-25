@@ -54,18 +54,38 @@ function fakeClient(rows: Row[] = []) {
         .filter((r) => r.userSub === where.userSub && r.revokedAt === null)
         .map((r) => ({ ...r }))
     ),
+    findUnique: vi.fn(async ({ where }: { where: { tokenHash: string } }) => {
+      const hit = state.rows.find((r) => r.tokenHash === where.tokenHash);
+      return hit ? { ...hit } : null;
+    }),
     updateMany: vi.fn(
       async ({
         where,
         data,
       }: {
-        where: { id: string; userSub: string; revokedAt: null };
-        data: { revokedAt: Date };
+        where: {
+          id: string;
+          userSub?: string;
+          revokedAt?: null;
+          OR?: { lastUsedAt: Date | null | { lt: Date } }[];
+        };
+        data: { revokedAt?: Date; lastUsedAt?: Date };
       }) => {
         const hit = state.rows.filter(
-          (r) => r.id === where.id && r.userSub === where.userSub && r.revokedAt === null
+          (r) =>
+            r.id === where.id &&
+            (where.userSub === undefined || r.userSub === where.userSub) &&
+            (where.revokedAt === undefined || r.revokedAt === null) &&
+            (where.OR === undefined ||
+              where.OR.some((c) =>
+                c.lastUsedAt === null
+                  ? r.lastUsedAt === null
+                  : c.lastUsedAt instanceof Date
+                    ? false
+                    : r.lastUsedAt !== null && r.lastUsedAt < (c.lastUsedAt as { lt: Date }).lt
+              ))
         );
-        hit.forEach((r) => (r.revokedAt = data.revokedAt));
+        hit.forEach((r) => Object.assign(r, data));
         return { count: hit.length };
       }
     ),
@@ -187,5 +207,50 @@ describe("accessTokenService.revoke", () => {
     const svc = createAccessTokenService(client, () => NOW);
     await expect(svc.revoke("auth0|a", "old")).resolves.toBe(false);
     await expect(svc.revoke("auth0|a", "nope")).resolves.toBe(false);
+  });
+});
+
+describe("accessTokenService.authenticate", () => {
+  const mintOne = async (client: PrismaClient, at: Date, input = { name: "n" } as never) =>
+    createAccessTokenService(client, () => at).mint("auth0|a", input);
+
+  it("resolves a live token to its user sub", async () => {
+    const { client } = fakeClient();
+    const { token } = await mintOne(client, NOW);
+    const found = await createAccessTokenService(client, () => NOW).authenticate(token);
+    expect(found).toEqual({ id: "tok-1", userSub: "auth0|a" });
+  });
+
+  it("rejects unknown, revoked and expired tokens", async () => {
+    const { client, state } = fakeClient();
+    const svc = createAccessTokenService(client, () => NOW);
+    const live = await mintOne(client, NOW);
+    const expiring = await mintOne(client, NOW, { name: "e", expiresInDays: 1 } as never);
+    expect(await svc.authenticate("mbe_pat_nope")).toBeNull();
+    expect(await svc.authenticate("not-a-pat")).toBeNull();
+
+    state.rows[0]!.revokedAt = NOW;
+    expect(await svc.authenticate(live.token)).toBeNull();
+
+    const later = new Date(NOW.getTime() + 2 * 24 * 60 * 60 * 1000);
+    expect(
+      await createAccessTokenService(client, () => later).authenticate(expiring.token)
+    ).toBeNull();
+  });
+
+  it("stamps lastUsedAt at most once a minute", async () => {
+    const { client, state, personalAccessToken } = fakeClient();
+    const { token } = await mintOne(client, NOW);
+    const at = (ms: number) => createAccessTokenService(client, () => new Date(NOW.getTime() + ms));
+
+    await at(0).authenticate(token);
+    expect(state.rows[0]?.lastUsedAt).toEqual(NOW);
+    personalAccessToken.updateMany.mockClear();
+
+    await at(30_000).authenticate(token);
+    expect(state.rows[0]?.lastUsedAt).toEqual(NOW);
+
+    await at(61_000).authenticate(token);
+    expect(state.rows[0]?.lastUsedAt).toEqual(new Date(NOW.getTime() + 61_000));
   });
 });
