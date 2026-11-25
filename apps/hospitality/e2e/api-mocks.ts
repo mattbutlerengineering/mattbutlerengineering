@@ -1075,7 +1075,8 @@ export async function mockApi(page: Page): Promise<SseMock> {
   );
   // The Timeline's Autopilot panel (#9492): no suggestions by default, so it renders nothing.
   await page.route("**/api/v1/reservations/metrics/autopilot-proposals?*", (route) =>
-    jsonOk(route, { date: "", venueId: "", moves: [] })
+    // A real service date: AutopilotProposalsSchema rejects "", and the panel hides read errors.
+    jsonOk(route, { date: localDay(), venueId: "ven_e2e_001", moves: [] })
   );
   await page.route("**/api/v1/guests/find-or-create", (route) => {
     const guests = JSON.parse(loadFixture("guests-list"));
