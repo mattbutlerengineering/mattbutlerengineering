@@ -569,17 +569,24 @@ export class HoldsClient {
       /** The guest's widget locale tag; later notices are written in it. */
       locale?: string;
     }
-  ): Promise<{ reservation: Reservation; manageToken?: string }> {
-    const response = await this.client.request<{ data: Reservation; manageToken?: string }>(
-      `${publicHoldsPath(slug)}/${holdId}/confirm`,
-      {
-        method: "POST",
-        body: JSON.stringify(details),
-        headers: this.sessionHeaders("confirm"),
-      }
-    );
+  ): Promise<{ reservation: Reservation; manageToken?: string; depositRequired: boolean }> {
+    const response = await this.client.request<{
+      data: Reservation;
+      manageToken?: string;
+      depositRequired?: boolean;
+    }>(`${publicHoldsPath(slug)}/${holdId}/confirm`, {
+      method: "POST",
+      body: JSON.stringify(details),
+      headers: this.sessionHeaders("confirm"),
+    });
 
-    return { reservation: response.data, manageToken: response.manageToken };
+    return {
+      reservation: response.data,
+      manageToken: response.manageToken,
+      // The server decides the deposit for this booking (including a repeat
+      // no-show guest); absent reads as "none".
+      depositRequired: response.depositRequired ?? false,
+    };
   }
 
   /** Session-id header for the public path; throws when ownership is unprovable. */

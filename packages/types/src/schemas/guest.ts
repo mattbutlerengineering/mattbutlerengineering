@@ -40,10 +40,6 @@ export const GuestSegmentSchema = z.object({
   count: z.number(),
 });
 
-export const GuestRiskResultSchema = z.object({
-  requiresDeposit: z.boolean(),
-});
-
 export const GuestRecognitionSchema = z.object({
   recognized: z.boolean(),
   firstName: z.string().nullable(),
