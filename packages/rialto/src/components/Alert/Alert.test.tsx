@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Alert } from "./Alert";
 
@@ -152,6 +152,92 @@ describe("Alert", () => {
       await expect(
         user.click(screen.getByRole("button", { name: /dismiss/i }))
       ).resolves.not.toThrow();
+    });
+  });
+
+  describe("dismiss focus", () => {
+    it("moves focus to the next alert's dismiss button after Enter", async () => {
+      const user = userEvent.setup();
+      render(
+        <>
+          <Alert dismissible>First notice</Alert>
+          <Alert dismissible>Second notice</Alert>
+        </>
+      );
+      const [first, second] = screen.getAllByRole("button", { name: "Dismiss" });
+      first!.focus();
+      await user.keyboard("{Enter}");
+
+      expect(document.activeElement).not.toBe(document.body);
+      expect(second).toHaveFocus();
+      await waitFor(() => expect(screen.queryByText("First notice")).not.toBeInTheDocument());
+      expect(second).toHaveFocus();
+      expect(screen.getByText("Second notice")).toBeInTheDocument();
+    });
+
+    it("moves focus to the next control after Space, skipping controls inside the alert", async () => {
+      const user = userEvent.setup();
+      render(
+        <>
+          <Alert dismissible actions={<button type="button">Retry</button>}>
+            Closable notice
+          </Alert>
+          <button type="button">Next</button>
+        </>
+      );
+      screen.getByRole("button", { name: "Dismiss" }).focus();
+      await user.keyboard(" ");
+
+      const next = screen.getByRole("button", { name: "Next" });
+      expect(document.activeElement).not.toBe(document.body);
+      expect(next).toHaveFocus();
+      expect(screen.queryByRole("button", { name: "Retry" })).not.toBeInTheDocument();
+    });
+
+    it("moves focus to the next control after a click on Dismiss", async () => {
+      const user = userEvent.setup();
+      render(
+        <>
+          <Alert dismissible>Clicked notice</Alert>
+          <button type="button">After click</button>
+        </>
+      );
+      await user.click(screen.getByRole("button", { name: "Dismiss" }));
+      expect(screen.getByRole("button", { name: "After click" })).toHaveFocus();
+      expect(document.activeElement).not.toBe(document.body);
+      expect(screen.queryByText("Clicked notice")).not.toBeInTheDocument();
+    });
+
+    it("moves focus to the previous control when nothing follows the alert", async () => {
+      const user = userEvent.setup();
+      render(
+        <>
+          <button type="button">Previous</button>
+          <Alert dismissible>Only notice</Alert>
+        </>
+      );
+      screen.getByRole("button", { name: "Dismiss" }).focus();
+      await user.keyboard("{Enter}");
+
+      expect(screen.getByRole("button", { name: "Previous" })).toHaveFocus();
+      expect(document.activeElement).not.toBe(document.body);
+    });
+
+    it("leaves focus alone when the alert is dismissed from outside", async () => {
+      render(
+        <>
+          <Alert dismissible>Stays focused elsewhere</Alert>
+          <button type="button">Elsewhere</button>
+        </>
+      );
+      const elsewhere = screen.getByRole("button", { name: "Elsewhere" });
+      elsewhere.focus();
+      fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+
+      await waitFor(() =>
+        expect(screen.queryByText("Stays focused elsewhere")).not.toBeInTheDocument()
+      );
+      expect(elsewhere).toHaveFocus();
     });
   });
 });
