@@ -225,7 +225,13 @@ describe("GET /public/v1/venues/:slug/availability", () => {
 
       expect(response.statusCode).toBe(200);
       expect(lostDemandService.recordNoSlotSearch).toHaveBeenCalledWith(
-        { venueId: "venue_1", date: "2026-06-15", requestedMinute: 19 * 60, partySize: 4 },
+        {
+          venueId: "venue_1",
+          date: "2026-06-15",
+          requestedMinute: 19 * 60,
+          partySize: 4,
+          reason: "hours",
+        },
         expect.objectContaining({ sessionId: "sess-1" }),
         expect.anything()
       );
@@ -241,7 +247,13 @@ describe("GET /public/v1/venues/:slug/availability", () => {
       await search("date=2026-06-15&partySize=2");
 
       expect(lostDemandService.recordNoSlotSearch).toHaveBeenCalledWith(
-        { venueId: "venue_1", date: "2026-06-15", requestedMinute: -1, partySize: 2 },
+        {
+          venueId: "venue_1",
+          date: "2026-06-15",
+          requestedMinute: -1,
+          partySize: 2,
+          reason: "hours",
+        },
         expect.anything(),
         expect.anything()
       );
