@@ -8,13 +8,11 @@ import type {
   PublicMenuDetail,
   PublicVenue,
   PublicVenueConfig,
-  GuestRiskResult,
   VenueTeam,
 } from "@mbe/types";
 import {
   PublicVenueSchema,
   PublicVenueConfigSchema,
-  GuestRiskResultSchema,
   VenueTeamSchema,
   toPublicVenueProfile,
 } from "@mbe/types/schemas";
@@ -185,21 +183,6 @@ export function buildDepositEnabledPublicVenueConfigFixture(): PublicVenueConfig
       noShowFeePercent: 100,
     },
   });
-}
-
-/**
- * Default GET /public/v1/venues/:slug/guest-risk response — deposit not
- * required, so it never accidentally forces a deposit on a venue whose general
- * policy is disabled. Every confirm on a deposit-disabled-or-unconfigured
- * venue calls this whenever `guestRiskMatters()` is true (#4111) — which,
- * since VITE_STRIPE_PUBLISHABLE_KEY is now wired into the E2E jobs, is
- * effectively every confirm in the suite except the deposit-enabled-config
- * specs (where the venue's own policy already decides the verdict and this
- * lookup is skipped). Tests exercising the risky-guest override replace this
- * route with their own.
- */
-export function buildGuestRiskFixture(): GuestRiskResult {
-  return GuestRiskResultSchema.parse({ requiresDeposit: false });
 }
 
 /**
@@ -1318,17 +1301,6 @@ export async function mockApi(page: Page): Promise<SseMock> {
     return jsonOk(route, PUBLIC_HOLD);
   });
   await page.route("**/public/v1/venues/*/holds", (route) => jsonOk(route, PUBLIC_HOLD));
-
-  // Guest risk — confirmReservation calls this whenever guestRiskMatters()
-  // is true (venueSlug + stripePublishableKey present and the venue's own
-  // deposit policy is disabled), which is now every confirm in the suite
-  // outside deposit-enabled-config.spec.ts (#4111). Without a default here
-  // the request falls through unmocked; on a real backend (e2e.yml) that's
-  // harmless, but e2e-screenshots.yml has none, so the Vite proxy 502s and
-  // the retry delay blows every other spec's assertion timeouts.
-  await page.route("**/public/v1/venues/*/guest-risk*", (route) =>
-    jsonOk(route, buildGuestRiskFixture())
-  );
 
   // Intercept the SSE stream request so the app's SseClient (built on
   // @microsoft/fetch-event-source, which requires an Authorization header

@@ -38,12 +38,7 @@ import {
   PublicVenueSchema,
   PublicVenueConfigSchema,
 } from "./venue.js";
-import {
-  GuestSchema,
-  GuestSegmentSchema,
-  GuestRiskResultSchema,
-  GuestRecognitionSchema,
-} from "./guest.js";
+import { GuestSchema, GuestSegmentSchema, GuestRecognitionSchema } from "./guest.js";
 import {
   MenuVenueQuerySchema,
   PublicMenuSchema,
@@ -106,7 +101,6 @@ import {
   PublicAvailabilityDatesQuerySchema,
   PublicDepositBodySchema,
   PublicGuestRecognitionQuerySchema,
-  PublicGuestRiskQuerySchema,
   PublicHoldBodySchema,
   PublicHoldConfirmBodySchema,
   PublicReservationBodySchema,
@@ -338,11 +332,6 @@ export const SHARED_RESPONSE_REFS: ReadonlyMap<unknown, string> = new Map<unknow
   [GuestSegmentSchema, `${guestSegmentJsonSchema.$id}#`],
 ]);
 
-export const guestRiskResultJsonSchema = toFastifyJsonSchema(
-  "GuestRiskResult",
-  GuestRiskResultSchema
-);
-
 export const guestRecognitionJsonSchema = toFastifyJsonSchema(
   "GuestRecognition",
   GuestRecognitionSchema
@@ -484,7 +473,6 @@ export const publicDepositBodyJsonSchema = toRequestJsonSchema(PublicDepositBody
 export const publicGuestRecognitionQueryJsonSchema = toRequestJsonSchema(
   PublicGuestRecognitionQuerySchema
 );
-export const publicGuestRiskQueryJsonSchema = toRequestJsonSchema(PublicGuestRiskQuerySchema);
 export const publicHoldBodyJsonSchema = toRequestJsonSchema(PublicHoldBodySchema);
 export const publicHoldConfirmBodyJsonSchema = toRequestJsonSchema(PublicHoldConfirmBodySchema);
 export const publicReservationBodyJsonSchema = toRequestJsonSchema(PublicReservationBodySchema);

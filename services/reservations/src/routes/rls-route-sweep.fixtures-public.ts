@@ -383,26 +383,6 @@ const publicFunnelFixtures: Record<string, RouteFixture> = {
       );
     },
   },
-  "GET /public/v1/venues/:slug/guest-risk": {
-    kind: "ok",
-    run: async (ctx) => {
-      expectOk(
-        await asAdmin(ctx, {
-          method: "GET",
-          url: `/public/v1/venues/${ctx.venueA.slug}/guest-risk?email=rls-sweep-public@example.com`,
-        }),
-        "guest risk under the slug-resolved venue"
-      );
-
-      expectDenied(
-        await asAdmin(ctx, {
-          method: "GET",
-          url: `/public/v1/venues/${UNKNOWN_SLUG}/guest-risk?email=rls-sweep-public@example.com`,
-        }),
-        "unknown slug"
-      );
-    },
-  },
   // `body.venueId` is REQUIRED by this route's own schema but the handler
   // never reads it for venue resolution ("never the client-supplied
   // body.venueId, which could target another venue" — its own doc comment).

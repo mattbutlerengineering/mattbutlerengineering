@@ -1,6 +1,5 @@
 import { useReducer, useCallback, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { reportHandledError } from "@mbe/sentry/react";
 import enUS from "../../i18n/catalogs/en-US.json";
 import type {
   TimeSlot,
@@ -12,11 +11,7 @@ import type {
 } from "@mbe/types";
 import type { BookingWidgetApiClient } from "./PaymentStep.js";
 import type { GuestDetails } from "./GuestDetailsForm.js";
-import {
-  provisionalDepositRequired,
-  effectiveDepositPolicy,
-  guestRiskMatters,
-} from "./effectiveDepositPolicy.js";
+import { provisionalDepositRequired, effectiveDepositPolicy } from "./effectiveDepositPolicy.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
 import { addDays, venueDate } from "../../utils/service-day.js";
 
@@ -567,22 +562,6 @@ export function useBookingFlow({
     [api, venueSlug]
   );
 
-  // Guest-risk lookup — owned here (not the component) so the risk-gated
-  // deposit override is exercisable headlessly through this hook alone.
-  const fetchGuestRisk = useCallback(
-    async (email?: string, phone?: string): Promise<boolean> => {
-      if (!venueSlug || (!email && !phone)) return false;
-      try {
-        const result = await api.publicVenue.guestRisk(venueSlug, email ? { email } : { phone });
-        return result.requiresDeposit;
-      } catch (error) {
-        reportHandledError(error, "guest-risk");
-        return false;
-      }
-    },
-    [api, venueSlug]
-  );
-
   // Fetch the venue's public deposit config once, when venueSlug is present.
   // Owned here (not the component) so it's exercisable headlessly.
   useEffect(() => {
@@ -699,28 +678,9 @@ export function useBookingFlow({
       // otherwise), so the slug guard here is just for the type.
       if (!flowState.data.hold || !venueSlug) return;
 
-      // Only check guest risk when it could actually change the verdict
-      // (guestRiskMatters — the shared deposit-verdict module's own gating)
-      // — avoids an unnecessary lookup, and avoids sending guest PII
-      // (email/phone) when there's no deposit flow to gate.
-      const guestIsRisky = guestRiskMatters(
-        flowState.data.depositConfig,
-        venueSlug,
-        stripePublishableKey
-      )
-        ? await fetchGuestRisk(details.email || undefined, details.phone || undefined)
-        : false;
-
-      const depositConfig = effectiveDepositPolicy({
-        depositConfig: flowState.data.depositConfig,
-        venueSlug,
-        stripePublishableKey,
-        guestIsRisky,
-      });
-
       dispatch({ type: "CONFIRM_START" });
       try {
-        const { reservation, manageToken } = await api.holds.confirmForVenue(
+        const { reservation, manageToken, depositRequired } = await api.holds.confirmForVenue(
           venueSlug,
           flowState.data.hold.id,
           {
@@ -731,6 +691,15 @@ export function useBookingFlow({
             locale: i18n.language,
           }
         );
+        // The server decides, from the contact just submitted, whether this
+        // booking needs a deposit (a guest the venue requires one from
+        // included); the widget never asks beforehand.
+        const depositConfig = effectiveDepositPolicy({
+          depositConfig: flowState.data.depositConfig,
+          venueSlug,
+          stripePublishableKey,
+          serverRequiresDeposit: depositRequired,
+        });
         // `depositConfig` is the resolved output of effectiveDepositPolicy —
         // per its contract, a non-null result (which may itself carry
         // `enabled: false` on the risky-guest override path) means a deposit
@@ -778,7 +747,6 @@ export function useBookingFlow({
       flowState.data.depositConfig,
       venueSlug,
       stripePublishableKey,
-      fetchGuestRisk,
     ]
   );
 

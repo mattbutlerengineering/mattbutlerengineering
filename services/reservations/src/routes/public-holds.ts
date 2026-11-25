@@ -25,6 +25,7 @@ import {
 } from "../middleware/public-rate-limit.js";
 import { guestActor } from "../services/reservation-events.js";
 import { gateProblem } from "../services/assert-bookable.js";
+import { rebookRequiresDeposit } from "../services/manage-rebook-deps.js";
 import { resolveOriginHost } from "../config/host-brand.js";
 
 const SESSION_ID_HEADER = "x-session-id";
@@ -325,7 +326,17 @@ export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
         // active-hold cap — same bookkeeping the release path does.
         decrementHoldCount(ip);
 
-        return reply.status(201).send({ data: withoutGuestLink(result.reservation), manageToken });
+        // Whether this booking needs a deposit is decided here, from the
+        // contact just submitted. It is the only place a caller learns it, and
+        // only for the booking they are making (no standalone lookup).
+        const depositRequired = await rebookRequiresDeposit(venueId, {
+          guestEmail: guestEmail ?? null,
+          guestPhone: guestPhone ?? null,
+        });
+
+        return reply
+          .status(201)
+          .send({ data: withoutGuestLink(result.reservation), manageToken, depositRequired });
       }
     )
   );

@@ -507,6 +507,22 @@ describe("HoldsClient — public, slug-scoped (#4487)", () => {
       expect((options?.headers as Record<string, string>)["x-session-id"]).toBe("sess-abc");
       expect(result.reservation).toEqual(fakeReservation);
       expect(result.manageToken).toBe("tok_abc123");
+      expect(result.depositRequired).toBe(false);
+    });
+
+    it("surfaces the server's depositRequired verdict for the booking", async () => {
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({ data: fakeReservation, depositRequired: true })
+      );
+
+      const holdsClient = new HoldsClient(makeApiClient());
+      holdsClient.setSessionId("sess-abc");
+
+      const result = await holdsClient.confirmForVenue("the-oak-table", "h1", {
+        guestName: "Ada Lovelace",
+      });
+
+      expect(result.depositRequired).toBe(true);
     });
 
     it("throws when no session ID is set", async () => {

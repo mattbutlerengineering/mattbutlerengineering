@@ -84,7 +84,6 @@ export type {
 export type {
   Guest,
   GuestRiskScore,
-  GuestRiskResult,
   GuestRecognition,
   StaffNote,
   CommunicationPreference,
