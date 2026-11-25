@@ -1061,9 +1061,20 @@ export async function mockApi(page: Page): Promise<SseMock> {
   await page.route("**/api/v1/guests/lapsing?*", (route) => jsonOk(route, []));
   // The Home dashboard's turned-away heatmap (#9485): the empty state by default; specs that
   // render the grid mount their own route after mockApi (locale-sweep, visual).
-  await page.route("**/api/v1/reservations/metrics/lost-demand?*", (route) =>
-    jsonOk(route, { venueId: "", from: "", to: "", total: 0, cells: [], anyTime: [] })
-  );
+  // `from`/`to` must be real service dates: LostDemandSchema rejects "", which turned every
+  // dashboard load into a heatmap error banner (#9583).
+  await page.route("**/api/v1/reservations/metrics/lost-demand?*", (route) => {
+    const to = new Date();
+    const from = new Date(to.getTime() - 27 * 24 * 60 * 60 * 1000);
+    return jsonOk(route, {
+      venueId: "venue_e2e",
+      from: from.toISOString().slice(0, 10),
+      to: to.toISOString().slice(0, 10),
+      total: 0,
+      cells: [],
+      anyTime: [],
+    });
+  });
   await page.route("**/api/v1/guests/find-or-create", (route) => {
     const guests = JSON.parse(loadFixture("guests-list"));
     return jsonOk(route, guests.data[0]);

@@ -75,17 +75,12 @@ test.describe("CF-2: Dashboard morning load", () => {
   test("stats API 500 — page renders error state without crashing", async ({ mockedPage }) => {
     // Register the 500 override AFTER mockedPage has set up the default mocks.
     // Playwright resolves routes LIFO, so this handler wins over the existing 200 mock.
-    // Match the reservations list by exact pathname: in a glob `?` is any one character, so
-    // `reservations?*` also caught `reservations/metrics/lost-demand` and raised a second,
-    // independent Retry banner (#9560 added that section).
-    await mockedPage.route(
-      (url) => url.pathname.endsWith("/api/v1/reservations") && url.search !== "",
-      (route) =>
-        route.fulfill({
-          status: 500,
-          contentType: "application/json",
-          body: '{"error":"server error"}',
-        })
+    await mockedPage.route("**/api/v1/reservations?*", (route) =>
+      route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: '{"error":"server error"}',
+      })
     );
 
     await mockedPage.goto("dashboard");
@@ -93,8 +88,14 @@ test.describe("CF-2: Dashboard morning load", () => {
     // Page must not crash — Dashboard heading still visible
     await expect(mockedPage.getByRole("heading", { name: "Dashboard" })).toBeVisible();
 
-    // Error banner with retry option renders
-    await expect(mockedPage.getByRole("button", { name: /retry/i })).toBeVisible();
+    // Error banner with retry option renders. Scoped to the stats banner: the dashboard has
+    // several independent sections, each with its own Retry banner when it fails.
+    await expect(
+      mockedPage
+        .getByRole("alert")
+        .filter({ hasText: "Couldn't load the dashboard." })
+        .getByRole("button", { name: /retry/i })
+    ).toBeVisible();
     await mockedPage.screenshot({ path: "e2e/screenshots/dashboard-error.png", fullPage: true });
   });
 });
