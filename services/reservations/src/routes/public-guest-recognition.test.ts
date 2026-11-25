@@ -66,13 +66,15 @@ describe("GET /public/v1/venues/:slug/guests/recognize", () => {
     delete process.env.AUTH_BYPASS_IN_TESTS;
   });
 
-  it("returns recognized guest data for known email (no phone)", async () => {
+  it("never discloses a known guest to an unauthenticated caller", async () => {
+    // Typing an email must not reveal whether that person is a guest here, their first name or
+    // how often they visit: the caller has not proved they own the address.
     vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
     vi.mocked(recognizeGuest).mockResolvedValueOnce({
       recognized: true,
       firstName: "Jane",
       visitCount: 7,
-      hasPreferences: false,
+      hasPreferences: true,
     });
 
     const response = await app.inject({
@@ -81,14 +83,13 @@ describe("GET /public/v1/venues/:slug/guests/recognize", () => {
     });
 
     expect(response.statusCode).toBe(200);
-    const body = response.json();
-    expect(body.data).toEqual({
-      recognized: true,
-      firstName: "Jane",
-      visitCount: 7,
+    expect(response.json().data).toEqual({
+      recognized: false,
+      firstName: null,
+      visitCount: 0,
       hasPreferences: false,
     });
-    expect(body.data).not.toHaveProperty("phone");
+    expect(recognizeGuest).not.toHaveBeenCalled();
   });
 
   it("returns { recognized: false } for unknown email (not 404)", async () => {
