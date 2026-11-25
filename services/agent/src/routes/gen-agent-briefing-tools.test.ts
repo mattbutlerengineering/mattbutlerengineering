@@ -316,6 +316,100 @@ describe("get_turned_away_demand chat tool", () => {
   });
 });
 
+describe("estimate_added_seating chat tool", () => {
+  let log: FastifyBaseLogger;
+  let api: { reservations: { getLostDemandWhatIf: ReturnType<typeof vi.fn> } };
+
+  const answer = {
+    venueId: "v1",
+    from: "2026-10-05",
+    to: "2026-11-01",
+    weekday: 5,
+    minute: 21 * 60 + 30,
+    outcome: "estimated",
+    searches: 8,
+    windowStart: 1260,
+    windowEnd: 1320,
+    minParty: null,
+    maxParty: null,
+    anyTimeSearches: 3,
+    nights: 4,
+    perNight: 2,
+  };
+
+  beforeEach(() => {
+    log = createMockLogger();
+    api = { reservations: { getLostDemandWhatIf: vi.fn().mockResolvedValue(answer) } };
+  });
+
+  function run(
+    input: Record<string, unknown>,
+    options: { venueId?: string; timeZone?: string } = { venueId: "v1" }
+  ) {
+    const tools = createAgentTools(log, api as never, options);
+    return tools.estimate_added_seating!.execute!(input as never, toolCtx);
+  }
+
+  it("is a read: not confirm-gated", () => {
+    expect(GEN_WRITE_TOOL_NAMES).not.toContain("estimate_added_seating");
+  });
+
+  it("asks the same endpoint as the card, pinned to the selected venue", async () => {
+    const result = await run({ weekday: "Friday", time: "21:30" });
+
+    expect(api.reservations.getLostDemandWhatIf).toHaveBeenCalledWith({
+      venueId: "v1",
+      weekday: 5,
+      time: "21:30",
+    });
+    expect(result).toEqual({
+      estimate: true,
+      outcome: "estimated",
+      weekday: "Friday",
+      time: "21:30",
+      from: "2026-10-05",
+      to: "2026-11-01",
+      searches: 8,
+      nights: 4,
+      perNight: 2,
+      noTimeNamed: 3,
+    });
+  });
+
+  it.each(["closed", "already_offered", "blocked"])("gives no number when %s", async (outcome) => {
+    api.reservations.getLostDemandWhatIf.mockResolvedValue({ ...answer, outcome, searches: 0 });
+
+    const result = await run({ weekday: "Friday", time: "21:30" });
+
+    expect(result).toMatchObject({ outcome });
+    expect(result).not.toHaveProperty("searches");
+    expect(result).not.toHaveProperty("perNight");
+  });
+
+  it("refuses a weekday or time it cannot read without calling the API", async () => {
+    expect(await run({ weekday: "Someday", time: "21:30" })).toMatchObject({ rejected: true });
+    expect(await run({ weekday: "Friday", time: "9:30 at night" })).toMatchObject({
+      rejected: true,
+    });
+    expect(api.reservations.getLostDemandWhatIf).not.toHaveBeenCalled();
+  });
+
+  it("needs a selected venue", async () => {
+    expect(await run({ weekday: "Friday", time: "21:30" }, {})).toMatchObject({
+      error: expect.stringContaining("No venue"),
+    });
+  });
+
+  it("never turns a failed read into zeros", async () => {
+    api.reservations.getLostDemandWhatIf.mockRejectedValue(new Error("boom"));
+
+    const result = await run({ weekday: "Friday", time: "21:30" });
+
+    expect(result).toMatchObject({ unknown: true });
+    expect(result).not.toHaveProperty("searches");
+  });
+});
+
 describe("get_briefing chat tool", () => {
   let log: FastifyBaseLogger;
   let api: { briefing: { list: ReturnType<typeof vi.fn> } };

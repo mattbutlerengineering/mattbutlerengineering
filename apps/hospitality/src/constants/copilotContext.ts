@@ -116,6 +116,7 @@ const ACTION_TITLES = [
   "activate_floor_plan",
   "seat_reservation",
   "mark_no_show",
+  "approve_autopilot_move",
 ] as const;
 
 const ACTION_FIELDS = [
@@ -176,6 +177,7 @@ const ACTION_FIELDS = [
   "type",
   "cuisines",
   "website",
+  "party",
 ] as const;
 
 const TABLE_STATUSES = {
@@ -272,7 +274,8 @@ const TIME_FIELDS: ReadonlySet<string> = new Set([
   "closesAt",
 ]);
 
-const HIDDEN_FIELD = "readAs";
+/** Tokens and ids the server checks, not something the Host decides. */
+const HIDDEN_FIELDS: ReadonlySet<string> = new Set(["readAs", "moveId"]);
 
 /** A tool's YYYY-MM-DD date or HH:MM wall time as people read it; anything else as sent. */
 function formatWhen(key: string, value: string, locale?: string): string {
@@ -308,10 +311,10 @@ export function describeChatAction(
     title: hasTitle
       ? t(`chat.actions.${action.toolName}` as ChatActionKey)
       : action.toolName.replace(/_/g, " "),
-    // `readAs` is a token the server checks, not something the Host decides: it stays in the
-    // input that is sent on confirm, and is not shown.
+    // `readAs` and `moveId` are checked by the server, not decided by the Host: they stay in the
+    // input that is sent on confirm, and are not shown.
     details: Object.entries(action.toolInput)
-      .filter(([key]) => key !== HIDDEN_FIELD)
+      .filter(([key]) => !HIDDEN_FIELDS.has(key))
       .map(([key, raw]) => {
         const value = Array.isArray(raw) ? raw.join(", ") : String(raw);
         const statusKey = valueKey(key, value);

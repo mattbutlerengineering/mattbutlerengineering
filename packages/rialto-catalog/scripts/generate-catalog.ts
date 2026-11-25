@@ -164,6 +164,13 @@ export function mapTypeToZod(
     return optional ? `${schema}.optional()` : schema;
   }
 
+  // Union of numeric literals: 0 | 1 | 2 | ...
+  if (unionParts.length >= 2 && unionParts.every((p) => /^-?\d+$/.test(p))) {
+    const values = unionParts.map((p) => `z.literal(${p})`);
+    const schema = `z.union([${values.join(", ")}])`;
+    return optional ? `${schema}.optional()` : schema;
+  }
+
   // Unrecognized — warn and skip
   console.warn(`[generate-catalog] Skipping unrecognized type "${inner}"`);
   return null;

@@ -373,10 +373,27 @@ describe("briefing, dashboard stats and page-only areas in the prompt", () => {
     expect(prompt).toMatch(/couldn't read the briefing.*never.*no bookings/i);
   });
 
+  it("answers what to move tonight with get_autopilot_suggestions, suggestions only", () => {
+    expect(prompt).toMatch(/anything I should move tonight.*get_autopilot_suggestions/);
+    expect(prompt).toMatch(/get_autopilot_suggestions.*suggestions only.*never move anyone/s);
+    expect(prompt).toMatch(/couldn't read the Autopilot suggestions.*never say there is nothing/);
+  });
+
+  it("applies a suggested move only through approve_autopilot_move, on the host's say-so", () => {
+    expect(prompt).toMatch(/approve_autopilot_move.*moveId.*get_autopilot_suggestions/s);
+    expect(prompt).toMatch(/approve_autopilot_move.*only when the host asks/s);
+    expect(prompt).toMatch(/approve_autopilot_move.*no longer suggested/s);
+  });
+
   it("answers when guests are turned away with get_turned_away_demand, never as zeros", () => {
     expect(prompt).toMatch(/when are we turning people away.*get_turned_away_demand/);
     expect(prompt).toMatch(/get_turned_away_demand.*anyTime.*no time/s);
     expect(prompt).toMatch(/couldn't read the turned-away numbers.*never report zeros/);
+  });
+
+  it("answers a what-if seating with estimate_added_seating, always as an estimate", () => {
+    expect(prompt).toMatch(/what if I added a 9:30 seating on Fridays.*estimate_added_seating/);
+    expect(prompt).toMatch(/estimate_added_seating.*estimate.*never.*promise/s);
   });
 
   it("answers how the night went with get_night_summary, rendered as Stat elements", () => {

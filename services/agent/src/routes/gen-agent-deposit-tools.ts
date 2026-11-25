@@ -16,7 +16,7 @@ const NO_DEPOSIT = {
   note: "This reservation has no deposit. Say so plainly.",
 } as const;
 
-type Deposit = NonNullable<Awaited<ReturnType<ApiClient["deposits"]["getByReservation"]>>>;
+type Deposit = NonNullable<Awaited<ReturnType<ApiClient["deposits"]["getStatusByReservation"]>>>;
 
 /** The host-facing fields of a deposit; the timestamps that are unset are left out. */
 function depositView(deposit: Deposit) {
@@ -36,6 +36,7 @@ function depositView(deposit: Deposit) {
     ...(deposit.postCaptureRefundCents
       ? { postCaptureRefundCents: deposit.postCaptureRefundCents }
       : {}),
+    ...(deposit.refundAmountCents ? { refundAmountCents: deposit.refundAmountCents } : {}),
   };
 }
 
@@ -57,7 +58,7 @@ export function createDepositTools(
         try {
           const found = await venueReservation(api, venueId, reservationId);
           if ("error" in found) return found;
-          const deposit = await api.deposits.getByReservation(reservationId);
+          const deposit = await api.deposits.getStatusByReservation(reservationId);
           return deposit ? depositView(deposit) : NO_DEPOSIT;
         } catch (err) {
           log.error({ ...failureLog(err), venueId, reservationId }, "get_deposit_status failed");

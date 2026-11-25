@@ -353,14 +353,14 @@ node scripts/merge-train-lock.mjs release --zone "$ZONE" --owner "$OWNER"
 
 - More `ready` issues and time/budget remain → back to Phase 0.
 - **Circuit breaker:** 3 consecutive failures (agents or merge-train CI) → release the lock(s), then stop and report.
-- **Persist telemetry before stopping:** if `metrics/queue-telemetry.jsonl` has uncommitted appended rows (`git diff --stat -- metrics/queue-telemetry.jsonl`), commit ONLY that path on a branch and open a PR titled `chore(metrics): queue telemetry <YYYY-MM-DD>` labeled `has-pr`. A PR that touches only `metrics/**` satisfies `isLowRiskPR` (see Phase 2 step 2) and auto-merges via the low-risk fast path — but only if every changed file is metrics-only; a mixed diff (e.g. also touching a non-allowlisted file) falls through to the reviewer gate like any other PR. Ephemeral cloud checkouts lose uncommitted rows forever. This step is now best-effort, not the only path: `.github/workflows/metrics-collectors.yml` runs `scripts/collect-queue-telemetry-from-github.mjs` daily on a runner and PRs in a pending row for every merged agent PR the file lacks (#5921). Those rows carry null tokens/tool_uses/duration_ms/model_tier/reviewer_verdict (unrecoverable from GitHub), so persisting the in-session row is still worth doing for full fidelity — the in-session row wins because dedupe is by `pr_number`.
+- **Persist telemetry before stopping:** queue telemetry lives on the orphan `metrics-data` branch, checked out at `.metrics-data/` (`scripts/metrics-data.mjs`; cloud sessions pull it at start). Run `node scripts/metrics-data.mjs pull` before the first append if `.metrics-data/` is missing, and `node scripts/metrics-data.mjs push -m "chore(metrics): queue telemetry <YYYY-MM-DD>"` before stopping. That is a direct push: no PR, no CI run, and a rejected push rebases and retries. Ephemeral cloud checkouts lose unpushed rows forever. This step is best-effort, not the only path: `.github/workflows/metrics-collectors.yml` runs `scripts/collect-queue-telemetry-from-github.mjs` daily and pushes a pending row for every merged agent PR the file lacks (#5921). Those rows carry null tokens/tool_uses/duration_ms/model_tier/reviewer_verdict (unrecoverable from GitHub), so pushing the in-session row is still worth doing for full fidelity. The in-session row wins because dedupe is by `pr_number`.
 - Report per iteration: issues claimed, PRs created, PRs merged, failures.
 
 Recurring use: `/loop 30m /idea-to-prod:implement-queue`.
 
 ## telemetry
 
-After each worker completes, append one row to `metrics/queue-telemetry.jsonl` via `appendTelemetryRow` from `scripts/queue-telemetry-store.mjs`. The writer is a pure function with dependency injection — safe to call from the orchestrator without touching other files.
+After each worker completes, append one row to the queue-telemetry sink (`.metrics-data/queue-telemetry.jsonl`; `resolvePath("queue-telemetry")`) via `appendTelemetryRow` from `scripts/queue-telemetry-store.mjs`. The writer is a pure function with dependency injection — safe to call from the orchestrator without touching other files.
 
 ```js
 import { appendTelemetryRow } from "./scripts/queue-telemetry-store.mjs";
@@ -389,7 +389,7 @@ appendTelemetryRow({
 - `reviewer_verdict` is `pass` | `flag` | `skipped` (low-risk fast path, the `fast-path` hook) | `error` (the reviewer could not run). **Never record a fail-open as `pass`** — `review_coverage` in `scripts/collect-queue-efficiency.mjs` counts only `pass`/`flag` as covered, so an `error` logged as `pass` hides a dead merge gate behind a flattering pass rate.
 - The row is idempotent per `(issue_number, pr_number)` — safe to retry on transient errors.
 - Outcome fields (`merged`, `merged_at`, `ci_first_pass`, `rework_cycles`) are null at write time; `scripts/reconcile-queue-telemetry.mjs` (run by `/optimize-implement-queue` Step 0) fills them from GitHub later.
-- `metrics/queue-telemetry.jsonl` is a **tracked file** (merge=union) — rows appended in ephemeral checkouts must be committed before the session ends (see Phase 4).
+- The sink is on the `metrics-data` branch (merge=union): rows appended in ephemeral checkouts must be pushed before the session ends (see Phase 4).
 - `cost_usd`, when provided, lets `collect-queue-efficiency.mjs` use precise per-issue cost instead of the coarse ccusage-daily ÷ issues estimate.
 - **This row is the worker's spend record (#5885).** Agent-tool workers never enter `@mbe/agent-core`, so `recordSpend` and `.claude/agent-spend/sessions.jsonl` never see them. The `agentCost` sensor (`scripts/sensors-registry.mjs`) reads `subagent_tokens`/`cost_usd` from this row instead. Always pass the completion `<usage>` tokens. Never also call `recordSpend` for a worker (that counts it twice), and never estimate `cost_usd` from tokens: leave it `null` when `<usage>` has no cost. `scripts/__tests__/queue-spend-attribution.test.mjs` runs the snippet above verbatim and fails if the row stops being attributed.
 

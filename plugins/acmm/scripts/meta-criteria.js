@@ -1,7 +1,7 @@
 import { readFileSync, existsSync } from "node:fs";
-import { join } from "node:path";
 import { execFileSync as _execFileSync } from "node:child_process";
 import { AUDIT_FRESHNESS_CRITERION } from "./audit-freshness.js";
+import { resolveDataFile } from "../../../scripts/metrics-store.mjs";
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
@@ -35,7 +35,7 @@ function hasRecentEntries(entries, maxAgeMs) {
 }
 
 export function checkThresholdTuning(root) {
-  const entries = loadJsonl(join(root, "metrics", "threshold-changes.jsonl"));
+  const entries = loadJsonl(resolveDataFile("threshold-changes.jsonl", { root }));
   if (!entries) return { passed: false, evidence: "metrics/threshold-changes.jsonl not found" };
   if (!hasRecentEntries(entries, THIRTY_DAYS_MS)) {
     return { passed: false, evidence: `${entries.length} entries but none in last 30 days` };
@@ -47,7 +47,7 @@ export function checkThresholdTuning(root) {
 }
 
 export function checkInstructionEvolution(root) {
-  const entries = loadJsonl(join(root, "metrics", "instruction-changes.jsonl"));
+  const entries = loadJsonl(resolveDataFile("instruction-changes.jsonl", { root }));
   if (!entries) return { passed: false, evidence: "metrics/instruction-changes.jsonl not found" };
   if (!hasRecentEntries(entries, THIRTY_DAYS_MS)) {
     return { passed: false, evidence: `${entries.length} entries but none in last 30 days` };
@@ -59,7 +59,7 @@ export function checkInstructionEvolution(root) {
 }
 
 export function checkProcessMetrics(root) {
-  const entries = loadJsonl(join(root, "metrics", "process-metrics.jsonl"));
+  const entries = loadJsonl(resolveDataFile("process-metrics.jsonl", { root }));
   if (!entries) return { passed: false, evidence: "metrics/process-metrics.jsonl not found" };
   if (!hasRecentEntries(entries, SEVEN_DAYS_MS)) {
     return { passed: false, evidence: `${entries.length} entries but none in last 7 days` };
@@ -68,7 +68,7 @@ export function checkProcessMetrics(root) {
 }
 
 export function checkFpRate(root) {
-  const entries = loadJsonl(join(root, "metrics", "process-metrics.jsonl"));
+  const entries = loadJsonl(resolveDataFile("process-metrics.jsonl", { root }));
   if (!entries || entries.length === 0) {
     return { passed: false, evidence: "no process metrics available" };
   }

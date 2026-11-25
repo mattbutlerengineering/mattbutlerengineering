@@ -4,6 +4,7 @@ import type { FastifyInstance, InjectOptions, LightMyRequestResponse } from "fas
 import {
   AVAILABILITY_CONFIG_PREFIX,
   ClosureSummariesSchema,
+  autopilotProposalsEndpoints,
   endOfServiceEndpoints,
   lostDemandEndpoints,
 } from "@mbe/types";
@@ -2258,6 +2259,17 @@ const reservationEventFixtures: Record<string, RouteFixture> = {
   ),
 };
 
+// Read-only member deposit status (#9558): reservationA owns depositA and
+// reservationB has none, so the venue-B leg proves the denial happens before
+// any deposit read, and the venue-A legs prove the deposit RLS policy admits it.
+const reservationDepositStatusFixtures: Record<string, RouteFixture> = {
+  "GET /api/v1/reservations/:id/deposit-status": okEntityRead(
+    (id) => `/api/v1/reservations/${id}/deposit-status`,
+    (ctx) => ctx.reservationA,
+    (ctx) => ctx.reservationB
+  ),
+};
+
 const bookingMetricsFixtures: Record<string, RouteFixture> = {
   "GET /api/v1/reservations/metrics/daily": okScopedByQuery(
     "/api/v1/reservations/metrics/daily",
@@ -2267,9 +2279,16 @@ const bookingMetricsFixtures: Record<string, RouteFixture> = {
     endOfServiceEndpoints.get.path,
     "&date=2026-10-01"
   ),
+  "GET /api/v1/reservations/metrics/autopilot-proposals": okScopedByQuery(
+    autopilotProposalsEndpoints.get.path
+  ),
   "GET /api/v1/reservations/metrics/lost-demand": okScopedByQuery(
     lostDemandEndpoints.get.path,
     "&from=2026-10-01&to=2026-10-28"
+  ),
+  "GET /api/v1/reservations/metrics/lost-demand/what-if": okScopedByQuery(
+    lostDemandEndpoints.whatIf.path,
+    "&weekday=2&time=21:30&from=2026-10-01&to=2026-10-28"
   ),
 };
 
@@ -2366,5 +2385,6 @@ export const FIXTURES: Record<string, RouteFixture> = {
   ...briefingFixtures,
   ...bookingMetricsFixtures,
   ...reservationEventFixtures,
+  ...reservationDepositStatusFixtures,
   ...depositFixtures,
 };

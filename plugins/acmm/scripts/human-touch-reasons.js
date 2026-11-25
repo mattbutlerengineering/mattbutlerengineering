@@ -24,10 +24,11 @@
  */
 
 import { existsSync, readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { HUMAN_TOUCH_REASONS } from "../../../scripts/queue-telemetry-store.mjs";
+import { resolvePath } from "../../../scripts/metrics-store.mjs";
 
 export const QUEUE_TELEMETRY_PATH = "metrics/queue-telemetry.jsonl";
 const WINDOW_DAYS = 30;
@@ -78,7 +79,7 @@ export function computeReasonBreakdown(rows, opts = {}) {
  * @returns {ReasonBreakdown | null}
  */
 export function loadReasonBreakdown(cwd) {
-  const p = join(cwd, QUEUE_TELEMETRY_PATH);
+  const p = resolvePath("queue-telemetry", { root: cwd });
   if (!existsSync(p)) return null;
   try {
     const rows = readFileSync(p, "utf-8")

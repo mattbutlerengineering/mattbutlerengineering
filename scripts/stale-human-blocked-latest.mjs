@@ -22,6 +22,7 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { resolvePath } from "./metrics-store.mjs";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** The detector runs weekly; tolerance absorbs scheduled-run start drift. */
@@ -91,7 +92,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
     const i = process.argv.indexOf(name);
     return i === -1 ? undefined : process.argv[i + 1];
   };
-  const file = arg("--file") ?? "metrics/stale-human-blocked.jsonl";
+  const file = arg("--file") ?? resolvePath("stale-human-blocked");
   const openIssues = (arg("--open") ?? "").split(",").filter(Boolean).map(Number);
   let rows = null;
   if (existsSync(file)) {

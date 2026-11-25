@@ -16,6 +16,7 @@ import { existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createRunGit, dataDir, pullDataBranch, pushDataBranch } from "./metrics-data.mjs";
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -60,9 +61,60 @@ export function runCloudSessionBootstrap({
   return { ran: true, ok: true };
 }
 
+/**
+ * Check out the metrics-data branch (scripts/metrics-data.mjs) in a cloud
+ * session, so routines read and write telemetry there with no prompt change.
+ * Local sessions are a no-op. Never throws: a failed pull is logged, and
+ * metrics-store then reads metrics/ on main as before.
+ */
+export function runMetricsDataPull({
+  env = process.env,
+  pull = () => pullDataBranch({ root: REPO_ROOT, runGit: createRunGit(REPO_ROOT) }),
+  log = (msg) => process.stderr.write(`${msg}\n`),
+} = {}) {
+  if (env?.CLAUDE_CODE_REMOTE !== "true") return { ran: false, ok: true };
+  try {
+    pull();
+    return { ran: true, ok: true };
+  } catch (err) {
+    log(
+      `cloud-session-bootstrap: metrics-data pull failed (${err.message}); run \`node scripts/metrics-data.mjs pull\` manually.`
+    );
+    return { ran: true, ok: false };
+  }
+}
+
+/**
+ * Stop-hook safety net: push any metric rows a cloud session wrote to
+ * .metrics-data/ but never pushed, so a routine that skips its persist step
+ * does not lose them with the ephemeral checkout. A no-op when nothing
+ * changed. Local sessions and sessions without a checkout do nothing. Never
+ * throws.
+ */
+export function runMetricsDataPush({
+  env = process.env,
+  hasCheckout = existsSync(join(dataDir(REPO_ROOT), ".git")),
+  push = (message) => pushDataBranch({ root: REPO_ROOT, message, runGit: createRunGit(REPO_ROOT) }),
+  log = (msg) => process.stderr.write(`${msg}\n`),
+} = {}) {
+  if (env?.CLAUDE_CODE_REMOTE !== "true" || !hasCheckout) return { ran: false, ok: true };
+  try {
+    push(`chore(metrics): cloud session ${new Date().toISOString().slice(0, 10)}`);
+    return { ran: true, ok: true };
+  } catch (err) {
+    log(`cloud-session-bootstrap: metrics-data push failed (${err.message}).`);
+    return { ran: true, ok: false };
+  }
+}
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   try {
-    runCloudSessionBootstrap();
+    if (process.argv.includes("--push-metrics")) {
+      runMetricsDataPush();
+    } else {
+      runCloudSessionBootstrap();
+      runMetricsDataPull();
+    }
   } catch (err) {
     console.error(`[cloud-session-bootstrap] ${err.message}`);
   }

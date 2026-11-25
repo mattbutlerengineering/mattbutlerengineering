@@ -7,8 +7,11 @@ import {
   NO_VENUE,
   failureLog,
   localTimeIn,
+  notExecuted,
   readFailure,
+  saveUnsure,
   todayIn,
+  writeFailure,
   type ApiClient,
 } from "./gen-tool-support.js";
 
@@ -32,7 +35,15 @@ const WEEKDAYS = [
 /** How many weekday-and-hour slots the chat gets: enough to answer, few enough to read. */
 const BUSIEST_LIMIT = 10;
 
+const sameText = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
 const UNREADABLE_DATE = "The date can't be read. Use a real date as YYYY-MM-DD.";
+
+/** Minutes since midnight for a 24-hour HH:MM time, or null when it isn't one. */
+function minuteOfDay(time: string): number | null {
+  const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(time);
+  return match ? Number(match[1]) * 60 + Number(match[2]) : null;
+}
 
 /** True for a real calendar date written YYYY-MM-DD (2026-02-30 is not one). */
 function isRealDate(date: string): boolean {
@@ -121,6 +132,100 @@ export function createBriefingTools(
         }
       },
     }),
+    get_autopilot_suggestions: tool({
+      description:
+        'Read the moves Autopilot suggests for tonight: reseating a booked party or offering a table to a waiting party, each with a plain reason (at most three). Read only: it suggests, never moves anyone. Use it for "anything I should move tonight?".',
+      inputSchema: z.object({}),
+      execute: async () => {
+        if (!venueId) return NO_VENUE;
+        log.info({ venueId }, "get_autopilot_suggestions tool called");
+        try {
+          const proposals = await api.reservations.getAutopilotProposals({ venueId });
+          return {
+            date: proposals.date,
+            count: proposals.moves.length,
+            moves: proposals.moves.map((m) => ({
+              moveId: m.id,
+              party: m.partyLabel ?? `party of ${m.partySize}`,
+              partySize: m.partySize,
+              from: m.fromTableName,
+              to: m.toTableName,
+              reason: m.reason,
+            })),
+          };
+        } catch (err) {
+          log.error({ venueId, ...failureLog(err) }, "get_autopilot_suggestions failed");
+          return readFailure(err, "the Autopilot suggestions");
+        }
+      },
+    }),
+    approve_autopilot_move: tool({
+      description:
+        "Apply one move Autopilot suggested: reseat a booked party at the proposed table, or seat a waiting party there. Takes the moveId from get_autopilot_suggestions; the move is checked again against the live night first and refused if it no longer holds. Requires confirmation.",
+      inputSchema: z.object({
+        moveId: z.string().min(1).describe("The moveId of a move from get_autopilot_suggestions"),
+        party: z
+          .string()
+          .min(1)
+          .describe("That move's party, exactly as get_autopilot_suggestions gave it"),
+        to: z.string().min(1).describe("That move's destination table, exactly as given"),
+      }),
+      execute: async ({ moveId, party: shownParty, to: shownTo }) => {
+        if (!venueId) return notExecuted(NO_VENUE);
+        log.info({ venueId, moveId }, "approve_autopilot_move tool called");
+        let unsure: string | undefined;
+        let seatedAt: string | undefined;
+        try {
+          // The engine's own answer for tonight is the re-check: a table that is no longer free or
+          // a party that is no longer waiting drops the move from it.
+          const { moves } = await api.reservations.getAutopilotProposals({ venueId });
+          const move = moves.find((m) => m.id === moveId);
+          if (!move) {
+            return notExecuted({
+              error:
+                "That move is no longer suggested, so nothing was changed. Read the suggestions again with get_autopilot_suggestions.",
+            });
+          }
+          const party = move.partyLabel ?? `party of ${move.partySize}`;
+          // The confirm bar shows `party` and `to`, so they must be this move's, not the model's guess.
+          if (!sameText(shownParty, party) || !sameText(shownTo, move.toTableName)) {
+            return notExecuted({
+              error:
+                "The party or table doesn't match that moveId, so nothing was changed. Read the suggestions again with get_autopilot_suggestions.",
+            });
+          }
+          unsure = saveUnsure("list_today_reservations");
+          if (move.kind === "reseat" && move.reservationId) {
+            await api.reservations.update(move.reservationId, { tableId: move.toTableId });
+            return { moved: true, party, from: move.fromTableName, to: move.toTableName };
+          }
+          if (!move.waitlistEntryId) {
+            return notExecuted({ error: "That move can't be applied. Nothing was changed." });
+          }
+          await api.reservations.walkIn({
+            venueId,
+            partySize: move.partySize,
+            tableId: move.toTableId,
+            ...(move.partyLabel ? { guestName: move.partyLabel } : {}),
+          });
+          seatedAt = move.toTableName;
+          await api.waitlist.seat(move.waitlistEntryId);
+          return { seated: true, party, to: move.toTableName };
+        } catch (err) {
+          log.error({ ...failureLog(err), venueId, moveId }, "approve_autopilot_move failed");
+          // The walk-in exists, so the party is seated; only the waitlist row is stale.
+          if (seatedAt) {
+            return {
+              seated: true,
+              waitlistStale: true,
+              to: seatedAt,
+              note: `The party is seated at ${seatedAt}, but they are still shown on the waitlist. Tell the user to remove them from the Waitlist page.`,
+            };
+          }
+          return writeFailure(err, { action: "apply the move", unsure });
+        }
+      },
+    }),
     get_turned_away_demand: tool({
       description:
         'Read when guests are turned away: public availability searches that found no slot, counted by weekday and hour (counts only, no guests). Use it for "when are we turning people away". Defaults to the last 28 days.',
@@ -160,6 +265,56 @@ export function createBriefingTools(
           };
         } catch (err) {
           log.error({ venueId, ...failureLog(err) }, "get_turned_away_demand failed");
+          return readFailure(err, "the turned-away numbers", {
+            notEmpty: "nobody was turned away",
+          });
+        }
+      },
+    }),
+    estimate_added_seating: tool({
+      description:
+        'Estimate how many turned-away searches a new seating would have satisfied: the recorded searches in the last 28 days near that weekday and time, only for party sizes the new seating could seat (counts only). It also says when the venue is closed that day, the time is already offered, or the seating cannot be added. Use it for "what if I added a 9:30 seating on Fridays". It is an estimate, not a forecast. Read only; it adds nothing to the schedule.',
+      inputSchema: z.object({
+        weekday: z.enum(WEEKDAYS).describe("The weekday of the candidate seating, in English"),
+        time: z.string().describe("Start time of the candidate seating, 24-hour HH:MM"),
+      }),
+      execute: async ({ weekday, time }) => {
+        if (!venueId) return NO_VENUE;
+        const minute = minuteOfDay(time);
+        const weekdayIndex = WEEKDAYS.indexOf(weekday);
+        if (minute === null || weekdayIndex < 0) {
+          return {
+            rejected: true,
+            error: "The weekday or time can't be read. Use a weekday name and 24-hour HH:MM.",
+          };
+        }
+        log.info({ venueId, weekday, time }, "estimate_added_seating tool called");
+        try {
+          const result = await api.reservations.getLostDemandWhatIf({
+            venueId,
+            weekday: weekdayIndex,
+            time,
+          });
+          // Same server answer as the Home card: closed, already offered and blocked carry no number.
+          const counted = result.outcome === "estimated";
+          return {
+            estimate: true,
+            outcome: result.outcome,
+            weekday,
+            time,
+            from: result.from,
+            to: result.to,
+            ...(counted
+              ? {
+                  searches: result.searches,
+                  nights: result.nights,
+                  perNight: result.perNight,
+                  noTimeNamed: result.anyTimeSearches,
+                }
+              : {}),
+          };
+        } catch (err) {
+          log.error({ venueId, ...failureLog(err) }, "estimate_added_seating failed");
           return readFailure(err, "the turned-away numbers", {
             notEmpty: "nobody was turned away",
           });

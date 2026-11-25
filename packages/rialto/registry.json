@@ -2695,7 +2695,21 @@
           "required": false
         }
       ],
-      "slots": []
+      "slots": [],
+      "characterLimits": [
+        {
+          "prop": "error",
+          "max": 120
+        },
+        {
+          "prop": "hint",
+          "max": 120
+        },
+        {
+          "prop": "label",
+          "max": 40
+        }
+      ]
     },
     {
       "name": "Input",
@@ -2945,7 +2959,25 @@
           "description": "Delay in milliseconds before auto-closing the cover."
         }
       ],
-      "slots": []
+      "slots": [],
+      "characterLimits": [
+        {
+          "prop": "activeLabel",
+          "max": 20
+        },
+        {
+          "prop": "coverLabel",
+          "max": 30
+        },
+        {
+          "prop": "idleLabel",
+          "max": 20
+        },
+        {
+          "prop": "label",
+          "max": 40
+        }
+      ]
     },
     {
       "name": "Meter",

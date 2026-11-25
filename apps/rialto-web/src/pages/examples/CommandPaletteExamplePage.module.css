@@ -12,12 +12,12 @@
   margin-block-start: var(--rialto-space-xs);
 }
 
-.triggerLabel {
-  margin-inline-end: var(--rialto-space-sm);
-}
-
-.triggerHint {
-  display: inline-flex;
-  gap: var(--rialto-space-xs);
-  align-items: center;
+/* Kbd's own ink is --rialto-text-secondary on a surface fill. On this gold
+   primary button that is about 1.7:1. Draw the chips in the same
+   on-accent foreground the button uses for its label, straight on the fill. */
+.triggerRow kbd {
+  color: var(--rialto-text-on-accent);
+  background: transparent;
+  border-color: var(--rialto-text-on-accent);
+  box-shadow: none;
 }

@@ -88,8 +88,14 @@ test.describe("CF-2: Dashboard morning load", () => {
     // Page must not crash — Dashboard heading still visible
     await expect(mockedPage.getByRole("heading", { name: "Dashboard" })).toBeVisible();
 
-    // Error banner with retry option renders
-    await expect(mockedPage.getByRole("button", { name: /retry/i })).toBeVisible();
+    // Error banner with retry option renders. Scoped to the stats banner: the dashboard has
+    // several independent sections, each with its own Retry banner when it fails.
+    await expect(
+      mockedPage
+        .getByRole("alert")
+        .filter({ hasText: "Couldn't load the dashboard." })
+        .getByRole("button", { name: /retry/i })
+    ).toBeVisible();
     await mockedPage.screenshot({ path: "e2e/screenshots/dashboard-error.png", fullPage: true });
   });
 });

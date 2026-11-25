@@ -190,6 +190,11 @@ const VISUAL_ROUTES: ReadonlyArray<readonly [RegExp, unknown]> = [
     /\/api\/v1\/reservations\/metrics\/end-of-service\?/,
     { date: DAY, venueId: VENUE.id, covers: 84, tableTurns: 31, noShows: 1, turnedAway: null },
   ],
+  // timeline (#9492): no Autopilot suggestions, so the baseline is unchanged (the panel renders nothing).
+  [
+    /\/api\/v1\/reservations\/metrics\/autopilot-proposals\?/,
+    { date: DAY, venueId: VENUE.id, moves: [] },
+  ],
   // home (#9485): the turned-away heatmap, so the baseline shows the grid, not an error.
   [
     /\/api\/v1\/reservations\/metrics\/lost-demand\?/,
@@ -203,6 +208,26 @@ const VISUAL_ROUTES: ReadonlyArray<readonly [RegExp, unknown]> = [
         { weekday: 6, hour: 20, searches: 4 },
       ],
       anyTime: [{ weekday: 0, searches: 4 }],
+    },
+  ],
+  // home (#9577): the add-a-seating estimate under the heatmap.
+  [
+    /\/api\/v1\/reservations\/metrics\/lost-demand\/what-if\?/,
+    {
+      venueId: VENUE.id,
+      from: DAY,
+      to: DAY,
+      weekday: 5,
+      minute: 19 * 60 + 30,
+      outcome: "estimated",
+      searches: 6,
+      windowStart: 19 * 60,
+      windowEnd: 20 * 60,
+      minParty: null,
+      maxParty: null,
+      anyTimeSearches: 4,
+      nights: 4,
+      perNight: 1.5,
     },
   ],
   [

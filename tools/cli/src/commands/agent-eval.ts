@@ -233,9 +233,19 @@ const NON_BILLED_COST_BASIS_NOTE: Record<Exclude<CostBasis, "billed">, string> =
   none: "adapter reports no cost figure; budget cost arm not applied",
 };
 
+/**
+ * The metrics-data branch checkout (scripts/metrics-data.mjs) when it exists,
+ * else `metrics/`. Mirrors `resolveDataFile()` in scripts/metrics-store.mjs,
+ * which this compiled package cannot import.
+ */
+function evalLogDir(root: string): string {
+  const dataDir = join(root, ".metrics-data");
+  return existsSync(dataDir) ? dataDir : join(root, "metrics");
+}
+
 function findLogFile(): string {
   const root = findMonorepoRoot(process.cwd());
-  return join(root, "metrics", "eval-reports.jsonl");
+  return join(evalLogDir(root), "eval-reports.jsonl");
 }
 
 /**
@@ -292,7 +302,7 @@ function loadCostBaseline(logFile: string, adapterType: AdapterType): number | n
  */
 function persistReport(report: EvalReport, adapterType: AdapterType, costBasis: CostBasis): void {
   const root = findMonorepoRoot(process.cwd());
-  const logDir = join(root, "metrics");
+  const logDir = evalLogDir(root);
   const logFile = join(logDir, "eval-reports.jsonl");
   if (!existsSync(logDir)) {
     mkdirSync(logDir, { recursive: true });

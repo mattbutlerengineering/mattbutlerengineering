@@ -40,7 +40,7 @@ import {
   buildReviewCoverageTrail,
   readMergedAiPrsPaged,
 } from "./collect-queue-efficiency.mjs";
-import { read, lastEntry } from "./metrics-store.mjs";
+import { read, lastEntry, resolveDataFile } from "./metrics-store.mjs";
 import { neverRecordedZones } from "./audit-coverage.mjs";
 import {
   assessFreshness,
@@ -541,7 +541,7 @@ export const SENSORS = [
     id: "productionHealth",
     category: "quality",
     collect: ({ root }) => {
-      const dir = resolve(root, "metrics", "production-health");
+      const dir = resolveDataFile("production-health", { root });
       const latest = safe(() => {
         const files = readdirSync(dir)
           .filter((f) => f.endsWith(".jsonl"))

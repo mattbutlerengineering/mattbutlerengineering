@@ -203,6 +203,48 @@ describe("DepositsClient", () => {
     });
   });
 
+  describe("getStatusByReservation", () => {
+    const statusView = {
+      status: "partial_refunded",
+      amountCents: 2500,
+      currency: "usd",
+      heldAt: "2026-05-26T00:00:00Z",
+      appliedAt: null,
+      refundedAt: "2026-05-27T00:00:00Z",
+      forfeitedAt: null,
+      uncollectableAt: null,
+      postCaptureRefundCents: null,
+      refundAmountCents: 1000,
+    };
+
+    it("GETs the member route and returns only the allowlisted fields", async () => {
+      mockFetch.mockResolvedValueOnce(
+        jsonResponse({ data: { ...statusView, stripePaymentIntentId: "pi_1", id: "dep_1" } })
+      );
+
+      const result = await makeClient().getStatusByReservation("res_1");
+
+      const [url, options] = mockFetch.mock.calls[0]!;
+      expect(url).toBe("https://api.test.com/api/v1/reservations/res_1/deposit-status");
+      expect(options?.method).toBe("GET");
+      expect(result).toEqual(statusView);
+    });
+
+    it("returns null when the reservation has no deposit", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: null }));
+
+      expect(await makeClient().getStatusByReservation("res_1")).toBeNull();
+    });
+
+    it("throws ApiValidationError on an unknown status", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { ...statusView, status: "nope" } }));
+
+      await expect(makeClient().getStatusByReservation("res_1")).rejects.toThrow(
+        ApiValidationError
+      );
+    });
+  });
+
   it("throws ApiValidationError when the response fails schema validation", async () => {
     mockFetch.mockResolvedValueOnce(
       jsonResponse({ data: { ...fakeDeposit, status: "not-a-real-status" } })

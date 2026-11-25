@@ -34,7 +34,6 @@ describe("mapTypeToZod", () => {
     it("warns and skips unrecognized types", () => {
       const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
       expect(mapTypeToZod("NumberFormatOptions", false, undefined)).toBeNull();
-      expect(mapTypeToZod("0 | 1 | 2", false, undefined)).toBeNull();
       expect(warn).toHaveBeenCalled();
     });
   });
@@ -89,6 +88,20 @@ describe("mapTypeToZod", () => {
     it("normalizes single-quoted literals to double quotes", () => {
       expect(mapTypeToZod("'left' | 'center' | 'right'", false, undefined)).toBe(
         'z.enum(["left", "center", "right"])'
+      );
+    });
+  });
+
+  describe("numeric-literal unions → z.union", () => {
+    it("maps a numeric-literal union to z.union of z.literal", () => {
+      expect(mapTypeToZod("0 | 1 | 2", false, undefined)).toBe(
+        "z.union([z.literal(0), z.literal(1), z.literal(2)])"
+      );
+    });
+
+    it("maps weekStartsOn's full 0-6 numeric-literal union", () => {
+      expect(mapTypeToZod("0 | 1 | 2 | 3 | 4 | 5 | 6", true, undefined)).toBe(
+        "z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6)]).optional()"
       );
     });
   });

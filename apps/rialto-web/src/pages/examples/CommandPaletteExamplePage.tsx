@@ -226,11 +226,8 @@ export function CommandPaletteExamplePage() {
             </Text>
             <div className={styles.triggerRow}>
               <Button variant="primary" onClick={() => setOpen(true)}>
-                <Text className={styles.triggerLabel}>Search everything</Text>
-                <Text className={styles.triggerHint} aria-hidden="true">
-                  <Kbd>⌘</Kbd>
-                  <Kbd>K</Kbd>
-                </Text>
+                Search everything <Kbd>⌘</Kbd>
+                <Kbd>K</Kbd>
               </Button>
             </div>
           </Stack>

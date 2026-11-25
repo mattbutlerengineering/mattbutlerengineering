@@ -63,8 +63,10 @@ import {
   Hero,
   HoverCard,
   IconButton,
+  ImageUpload,
   Input,
   Kbd,
+  MasterOverride,
   Meter,
   Navbar,
   NavigationMenu,
@@ -94,6 +96,7 @@ import {
   Timeline,
   TimeSlots,
   Toggle,
+  Tree,
   Tooltip,
 } from "@mattbutlerengineering/rialto";
 import type {
@@ -109,7 +112,14 @@ import type {
 import { catalog } from "./catalog.js";
 import { catalogMeta } from "./generated-catalog.js";
 import { generatedSchemas } from "./generated-schemas.js";
-import { Children, useState, type ComponentProps, type CSSProperties, type ReactNode } from "react";
+import {
+  Children,
+  useEffect,
+  useState,
+  type ComponentProps,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 
 const TIMELINE_STATUSES: ReadonlySet<string> = new Set([
   "completed",
@@ -323,6 +333,53 @@ interface SegmentedControlSpecProps {
   segments: { id: string; label: string; disabled?: boolean }[];
   value?: string;
   size?: "sm" | "md";
+}
+
+type MasterOverrideSpecProps = Omit<ComponentProps<typeof MasterOverride>, "onChange">;
+
+/** MasterOverride is fully controlled; hold `on` here or the switch never moves. */
+function MasterOverrideAdapter({ props, emit }: AdapterArgs<MasterOverrideSpecProps>) {
+  const [on, setOn] = useState<boolean>(props.on);
+  return (
+    <MasterOverride
+      {...props}
+      on={on}
+      onChange={(next) => {
+        setOn(next);
+        emit("change");
+      }}
+    />
+  );
+}
+
+type ImageUploadSpecProps = Omit<
+  ComponentProps<typeof ImageUpload>,
+  "onChange" | "onValidationError"
+>;
+
+/** ImageUpload previews only from `value`; hold a local preview URL and validation error here. */
+function ImageUploadAdapter({ props, emit }: AdapterArgs<ImageUploadSpecProps>) {
+  const [preview, setPreview] = useState<string | undefined>(props.value);
+  const [error, setError] = useState<string | undefined>(props.error);
+  useEffect(
+    () => () => {
+      if (preview?.startsWith("blob:")) URL.revokeObjectURL(preview);
+    },
+    [preview]
+  );
+  return (
+    <ImageUpload
+      {...props}
+      value={preview}
+      error={error}
+      onChange={(file) => {
+        setError(undefined);
+        setPreview(file ? URL.createObjectURL(file) : undefined);
+        emit("change");
+      }}
+      onValidationError={setError}
+    />
+  );
 }
 
 /** SegmentedControl is fully controlled, so the selected id is held here. */
@@ -1062,6 +1119,17 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
           size?: "sm" | "md" | "lg";
         }>) => <Progress {...props} />
       ),
+
+      MasterOverride: typed(({ props, emit }: AdapterArgs<MasterOverrideSpecProps>) => (
+        <MasterOverrideAdapter props={props} emit={emit} />
+      )),
+
+      ImageUpload: typed(({ props, emit }: AdapterArgs<ImageUploadSpecProps>) => (
+        <ImageUploadAdapter props={props} emit={emit} />
+      )),
+      Tree: typed(({ props, emit }: AdapterArgs<Omit<ComponentProps<typeof Tree>, "onSelect">>) => (
+        <Tree {...props} onSelect={() => emit("select")} />
+      )),
 
       Meter: typed(
         ({

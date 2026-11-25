@@ -928,16 +928,12 @@ export async function mockApi(page: Page): Promise<SseMock> {
   // (useDashboardStatsQuery's DEPOSITS_QUERY_KEY). Two pending/held deposits
   // (depositAtRiskCount) plus one forfeited (noShowExposureCents), matching
   // the shape computeDepositStats expects.
-  // `?reservationId=` is the details surface's single-deposit lookup (getByReservation), which
-  // expects one deposit or null: these reservations have none.
   await page.route("**/api/v1/deposits?*", (route) =>
-    jsonOk(
-      route,
-      new URL(route.request().url()).searchParams.has("reservationId")
-        ? null
-        : buildDepositsFixture(new Date())
-    )
+    jsonOk(route, buildDepositsFixture(new Date()))
   );
+  // The details surface's single-deposit lookup (getStatusByReservation, #9558)
+  // expects one deposit status or null: these reservations have none.
+  await page.route("**/api/v1/reservations/*/deposit-status", (route) => jsonOk(route, null));
 
   // Waitlist
   // Per-context stateful store, empty at session start (unlike reservations,
@@ -1065,8 +1061,43 @@ export async function mockApi(page: Page): Promise<SseMock> {
   await page.route("**/api/v1/guests/lapsing?*", (route) => jsonOk(route, []));
   // The Home dashboard's turned-away heatmap (#9485): the empty state by default; specs that
   // render the grid mount their own route after mockApi (locale-sweep, visual).
+  // `from`/`to` must be real service dates: LostDemandSchema rejects "", which turned every
+  // dashboard load into a heatmap error banner (#9583).
   await page.route("**/api/v1/reservations/metrics/lost-demand?*", (route) =>
-    jsonOk(route, { venueId: "", from: "", to: "", total: 0, cells: [], anyTime: [] })
+    jsonOk(route, {
+      venueId: "venue_e2e",
+      from: localDay(-27),
+      to: localDay(),
+      total: 0,
+      cells: [],
+      anyTime: [],
+    })
+  );
+  // Its "add a seating" what-if (#9577): hidden on the empty heatmap above, so this only keeps a
+  // stray request off the network. Registered explicitly: the lost-demand glob above does not
+  // match `/lost-demand/what-if?` (Playwright 1.65 reads `?` in a glob as a literal).
+  await page.route("**/api/v1/reservations/metrics/lost-demand/what-if?*", (route) =>
+    jsonOk(route, {
+      venueId: "",
+      from: "2026-01-01",
+      to: "2026-01-28",
+      weekday: 5,
+      minute: 1170,
+      outcome: "estimated",
+      searches: 0,
+      windowStart: 1140,
+      windowEnd: 1200,
+      minParty: null,
+      maxParty: null,
+      anyTimeSearches: 0,
+      nights: 4,
+      perNight: 0,
+    })
+  );
+  // The Timeline's Autopilot panel (#9492): no suggestions by default, so it renders nothing.
+  await page.route("**/api/v1/reservations/metrics/autopilot-proposals?*", (route) =>
+    // A real service date: AutopilotProposalsSchema rejects "", and the panel hides read errors.
+    jsonOk(route, { date: localDay(), venueId: "ven_e2e_001", moves: [] })
   );
   await page.route("**/api/v1/guests/find-or-create", (route) => {
     const guests = JSON.parse(loadFixture("guests-list"));

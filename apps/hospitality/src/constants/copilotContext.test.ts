@@ -595,6 +595,29 @@ describe("describeChatAction floor plan actions", () => {
   });
 });
 
+// #9493: approving an Autopilot move shows who and where, never the move's id.
+describe("describeChatAction autopilot approval", () => {
+  const t = (key: string) => `t:${key}`;
+
+  it("titles the move and shows its party and table, hiding the id", () => {
+    const approve = describeChatAction(
+      {
+        actionId: "c1",
+        toolName: "approve_autopilot_move",
+        toolInput: { moveId: "reseat:r1>t2", party: "Ana", to: "Two-top" },
+      },
+      t,
+      () => undefined
+    );
+
+    expect(approve.title).toBe("t:chat.actions.approve_autopilot_move");
+    expect(approve.details).toEqual([
+      { label: "t:chat.actions.fields.party", value: "Ana" },
+      { label: "t:chat.actions.fields.to", value: "Two-top" },
+    ]);
+  });
+});
+
 // #7925: the timeline actions, as the confirm bar shows them.
 describe("describeChatAction timeline actions", () => {
   const t = (key: string) => `t:${key}`;

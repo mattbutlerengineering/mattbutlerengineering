@@ -24,6 +24,7 @@ import {
   dataManifest,
   REPO_LOCATED,
   DATA_DIRNAME,
+  resolveDataFile,
 } from "../metrics-store.mjs";
 
 const SCRIPTS_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -65,6 +66,41 @@ describe("data branch location", () => {
     }
   });
 
+  it("routes read, write and append through the data checkout too", () => {
+    mkdirSync(join(root, DATA_DIRNAME));
+    append("queue-telemetry", { n: 1 }, { root });
+    write("review-burden", [{ v: 1 }], { root });
+    expect(readFileSync(join(root, DATA_DIRNAME, "queue-telemetry.jsonl"), "utf-8")).toBe(
+      '{"n":1}\n'
+    );
+    expect(read("review-burden", { root })).toEqual([{ v: 1 }]);
+    expect(readdirSync(root)).not.toContain("metrics");
+  });
+
+  it("resolves files outside the registry (EXTERNAL) into the data checkout", () => {
+    expect(resolveDataFile("production-health", { root })).toBe(
+      join(root, "metrics", "production-health")
+    );
+    mkdirSync(join(root, DATA_DIRNAME));
+    expect(resolveDataFile("production-health", { root })).toBe(
+      join(root, DATA_DIRNAME, "production-health")
+    );
+    expect(resolveDataFile("eval-reports.jsonl", { root })).toBe(
+      join(root, DATA_DIRNAME, "eval-reports.jsonl")
+    );
+  });
+
+  it("keeps the ui-quality loop state on main, where its routine branch commits it", () => {
+    for (const name of [
+      "ui-quality-runs",
+      "ui-quality-ratings",
+      "ui-quality-calibrations",
+      "ui-quality-findings",
+    ]) {
+      expect(REPO_LOCATED.has(name)).toBe(true);
+    }
+  });
+
   it("lists every durable telemetry path, and no gate input or retired file", () => {
     const manifest = dataManifest();
     expect(manifest).toContain("metrics/queue-telemetry.jsonl");
@@ -72,6 +108,7 @@ describe("data branch location", () => {
     expect(manifest).toContain("metrics/eval-reports.jsonl");
     expect(manifest).not.toContain("metrics/ai-antipattern-baselines.json");
     expect(manifest).not.toContain("metrics/ui-quality-ledger.jsonl");
+    expect(manifest).not.toContain("metrics/ui-quality-findings.json");
     expect(manifest).not.toContain("metrics/last-audit.json");
     expect(manifest).not.toContain("metrics/sensor-report.json");
     expect(manifest.every((p) => p.startsWith("metrics/"))).toBe(true);
