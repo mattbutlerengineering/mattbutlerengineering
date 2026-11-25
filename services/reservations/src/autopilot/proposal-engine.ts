@@ -49,8 +49,8 @@ function waitingByWait(state: NightState): NightWaitlistEntry[] {
 }
 
 /**
- * A waiting party this much larger than another counts as materially larger: when a table is
- * the only one that seats them, it is held back from the smaller party.
+ * A waiting party this much larger than another counts as materially larger: a table is held back
+ * from the smaller party when taking it would leave fewer of the larger parties seatable.
  */
 const MIN_LARGER_PARTY_GAP = 2;
 
@@ -112,9 +112,10 @@ function needsTable(
 }
 
 /**
- * Parties that need a scarce big table get it; the rest are filled longest-waiting first, each
- * with the legal free table that wastes the fewest seats. A table is held back from a party when
- * a materially larger party still waiting has no other table that seats them.
+ * Waiting parties are filled longest-waiting first, each with the legal free table that wastes the
+ * fewest seats. A table is held back from a party when taking it would leave a materially larger
+ * waiting party (or a chain of them) with no table, so the scarce big tables reach the parties
+ * that need them.
  */
 function offerCandidates(state: NightState, at: number, waiting: NightWaitlistEntry[]) {
   const claimed = new Set<string>();
@@ -134,7 +135,7 @@ function offerCandidates(state: NightState, at: number, waiting: NightWaitlistEn
     const waited = waitedMinutes(entry, at);
     const since = waited > 0 ? `; they've waited ${waited} min` : "";
     const why = held.has(best.id)
-      ? `${tableName(best)} is the only table that fits them, so it is held back from smaller parties`
+      ? `${tableName(best)} is held back so larger waiting parties can all be seated`
       : `${tableName(best)} is free and the best fit`;
     out.push({
       proposal: {

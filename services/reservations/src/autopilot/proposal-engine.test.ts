@@ -83,7 +83,7 @@ describe("proposeMoves", () => {
       out.map((p) => (p.kind === "waitlist_offer" ? `${p.entryId}>${p.tableId}` : ""))
     ).toEqual(["w1>T2", "w3>T1"]);
     expect(out.find((p) => p.kind === "waitlist_offer" && p.entryId === "w3")!.reason).toBe(
-      "Seat the Garcias (6) at T1 — T1 is the only table that fits them, so it is held back from smaller parties; they've waited 8 min"
+      "Seat the Garcias (6) at T1 — T1 is held back so larger waiting parties can all be seated; they've waited 8 min"
     );
   });
 
