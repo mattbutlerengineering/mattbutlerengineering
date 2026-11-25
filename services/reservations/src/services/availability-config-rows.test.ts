@@ -236,6 +236,19 @@ describe("writeConfigDiff ordering", () => {
     expect(db.scheduleService.update.mock.calls[0]![0]).toMatchObject({ data: expected });
   });
 
+  it("writes a service's rules on create and update, `{}` when it has none", async () => {
+    const db = makeDb();
+    const diff = emptyDiff();
+    const rules = { version: 1, pacing: { covers: 12, windowMinutes: 30 } };
+    diff.create.scheduleServices = [{ ...(ssvc("paced") as object), rules } as never];
+    diff.update.scheduleServices = [ssvc("plain")];
+
+    await writeConfigDiff(asDb(db), "venue-1", diff, ctx);
+
+    expect(db.scheduleService.create.mock.calls[0]![0]).toMatchObject({ data: { rules } });
+    expect(db.scheduleService.update.mock.calls[0]![0]).toMatchObject({ data: { rules: {} } });
+  });
+
   it("applies schedule demotions before promotions", async () => {
     const db = makeDb();
     const diff = emptyDiff();

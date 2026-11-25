@@ -87,6 +87,7 @@ const scheduleServiceData = (s: ScheduleService) => ({
   bookingTypes: s.bookingTypes,
   weekdays: s.weekdays,
   dayHours: json(s.dayHours),
+  rules: json(s.rules ?? {}),
 });
 
 const assignmentData = (a: ScheduleAssignment) => ({
