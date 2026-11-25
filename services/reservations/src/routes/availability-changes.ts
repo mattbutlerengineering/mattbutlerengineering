@@ -8,6 +8,7 @@ import { requireAuth } from "@mbe/auth/fastify";
 import { registerEndpoint } from "@mbe/service-bootstrap";
 import type { RevertRefusalReason } from "../services/availability-changes.js";
 import { actorNameOf } from "../services/actor-name.js";
+import { REVERT_REFUSAL_COPY, sendAvailabilityRefusal } from "./availability-refusal.js";
 import { venueScoped } from "./venue-scope.js";
 
 /**
@@ -33,18 +34,6 @@ const REFUSALS: Record<
   },
   not_revertable: { code: "not-revertable", detail: "This change can't be undone." },
 };
-
-const conflict = (
-  title: string,
-  detail: string,
-  extension: Pick<AvailabilityConfigProblem, "code"> & Partial<AvailabilityConfigProblem>
-): AvailabilityConfigProblem => ({
-  type: "about:blank",
-  title,
-  status: 409,
-  detail,
-  ...extension,
-});
 
 export const availabilityChangesRoutes: FastifyPluginAsync = async (fastify) => {
   const { availabilityChangesService } = fastify.services;
@@ -98,34 +87,16 @@ export const availabilityChangesRoutes: FastifyPluginAsync = async (fastify) => 
             return reply.code(404).send(createProblemDetails(404, "Not Found", "Change not found"));
           case "refused": {
             const { code, detail } = REFUSALS[outcome.reason];
-            return reply.code(409).send(conflict("Conflict", detail, { code }));
-          }
-          case "version_conflict":
-            return reply.code(409).send(
-              conflict("Conflict", "Availability changed since you loaded it.", {
-                code: "version-conflict",
-                winningChange: outcome.winningChange,
-              })
-            );
-          case "stranded":
-            return reply
-              .code(409)
-              .send(
-                conflict(
-                  "Conflict",
-                  "Undoing this would leave existing bookings without service.",
-                  { code: "stranded-bookings", reservations: outcome.reservations }
-                )
-              );
-          case "invalid":
-            return reply.code(422).send({
+            return reply.code(409).send({
               type: "about:blank",
-              title: "Unprocessable Entity",
-              status: 422,
-              detail: "The change can no longer be undone against the current availability.",
-              code: "invalid-config",
-              issues: outcome.issues,
+              title: "Conflict",
+              status: 409,
+              detail,
+              code,
             } satisfies AvailabilityConfigProblem);
+          }
+          default:
+            return sendAvailabilityRefusal(reply, outcome, REVERT_REFUSAL_COPY);
         }
       }
     ),
