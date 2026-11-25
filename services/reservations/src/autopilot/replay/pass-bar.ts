@@ -11,10 +11,20 @@ export const PASS_BAR = {
   maxHarmful: 0,
 } as const;
 
+/** The pooled bar: precision, recall and harm on the aggregate of every night. */
 export function passesBar(score: NightScore): boolean {
   return (
     score.precision >= PASS_BAR.minPrecision &&
     score.recall >= PASS_BAR.minRecall &&
     score.harmful <= PASS_BAR.maxHarmful
   );
+}
+
+/**
+ * The per-night rule. A night with no good moves (nothing claimed, nothing missed)
+ * must see zero suggestions, so a noisy proposer cannot hide in pooled counts.
+ */
+export function passesNightBar(score: NightScore): boolean {
+  const hasGoodMoves = score.truePositives + score.missed > 0;
+  return hasGoodMoves || score.suggestions === 0;
 }

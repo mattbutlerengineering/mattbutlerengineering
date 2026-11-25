@@ -138,9 +138,73 @@ const heldTableTrap: Night = {
   goodMoves: [],
 };
 
+/** Two free tables both legal for a party of 2; only the 2-top is the known-good move. */
+const bestFitChoice: Night = {
+  id: "best-fit-choice",
+  description: "Offer a party of 2 the free 2-top, not the equally legal free 6-top.",
+  initial: {
+    tables: [table("T1", 6, "AVAILABLE"), table("T2", 2, "AVAILABLE")],
+    reservations: [],
+    waitlist: [],
+  },
+  events: [{ at: 10, type: "waitlist_joined", entry: waiting("w1", 2) }],
+  goodMoves: [
+    {
+      suggestion: { kind: "waitlist_offer", entryId: "w1", tableId: "T2" },
+      windowStart: 10,
+      windowEnd: 20,
+    },
+  ],
+};
+
+/** A legal offer that is only good inside its window; saying it again later is noise. */
+const lateOffer: Night = {
+  id: "late-offer",
+  description:
+    "Offer the waiting party the 4-top when it turns; the same offer 20 minutes later is outside its window.",
+  initial: {
+    tables: [table("T1", 4, "OCCUPIED")],
+    reservations: [res("r1", 4, "T1", "seated")],
+    waitlist: [waiting("w1", 2)],
+  },
+  events: [
+    { at: 20, type: "reservation_completed", reservationId: "r1" },
+    { at: 21, type: "table_status", tableId: "T1", status: "DIRTY" },
+    { at: 25, type: "table_status", tableId: "T1", status: "READY" },
+    { at: 30, type: "table_status", tableId: "T1", status: "AVAILABLE" },
+    { at: 50, type: "waitlist_joined", entry: waiting("w2", 2) },
+  ],
+  goodMoves: [
+    {
+      suggestion: { kind: "waitlist_offer", entryId: "w1", tableId: "T1" },
+      windowStart: 30,
+      windowEnd: 35,
+    },
+  ],
+};
+
+/** The only free table is smaller than the waiting parties. Do nothing. */
+const oversizedParty: Night = {
+  id: "oversized-party",
+  description: "No move is correct: no free table can seat the waiting parties of 8 and 5.",
+  initial: {
+    tables: [table("T1", 4, "AVAILABLE"), table("T2", 2, "OCCUPIED")],
+    reservations: [res("r1", 2, "T2", "seated")],
+    waitlist: [],
+  },
+  events: [
+    { at: 5, type: "waitlist_joined", entry: waiting("w1", 8) },
+    { at: 9, type: "waitlist_joined", entry: waiting("w2", 5) },
+  ],
+  goodMoves: [],
+};
+
 export const NIGHTS: readonly Night[] = [
   bigPartyReseat,
   earlyTurnWaitlist,
   quietNight,
   heldTableTrap,
+  bestFitChoice,
+  lateOffer,
+  oversizedParty,
 ];
