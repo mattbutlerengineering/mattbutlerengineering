@@ -1,3 +1,4 @@
+import type { TableStatus } from "@mbe/types";
 import { tableMachine } from "../../services/table-state-machine.js";
 import type {
   Night,
@@ -27,28 +28,35 @@ function applyEvent(state: NightState, event: NightEvent): NightState {
   switch (event.type) {
     case "reservation_arrived":
       return mapReservation(state, event.reservationId, (r) => ({ ...r, phase: "arrived" }));
-    case "reservation_seated":
-      return mapReservation(state, event.reservationId, (r) => ({
+    case "reservation_seated": {
+      const seated = mapReservation(state, event.reservationId, (r) => ({
         ...r,
         phase: "seated",
         tableId: event.tableId,
       }));
+      return setTableStatus(seated, event.tableId, "OCCUPIED");
+    }
     case "reservation_completed":
       return mapReservation(state, event.reservationId, (r) => ({ ...r, phase: "done" }));
     case "waitlist_joined":
-      return { ...state, waitlist: [...state.waitlist, event.entry] };
-    case "table_status": {
-      const table = state.tables.find((t) => t.id === event.tableId);
-      if (!table) throw new Error(`replay: unknown table '${event.tableId}'`);
-      tableMachine.transition(table.status, event.status);
       return {
         ...state,
-        tables: state.tables.map((t) =>
-          t.id === event.tableId ? { ...t, status: event.status } : t
-        ),
+        waitlist: [...state.waitlist, { joinedAt: event.at, ...event.entry }],
       };
-    }
+    case "table_status":
+      return setTableStatus(state, event.tableId, event.status);
   }
+}
+
+/** Moves a table along the real table state machine; an illegal move throws. */
+function setTableStatus(state: NightState, tableId: string, next: TableStatus): NightState {
+  const table = state.tables.find((t) => t.id === tableId);
+  if (!table) throw new Error(`replay: unknown table '${tableId}'`);
+  tableMachine.transition(table.status, next);
+  return {
+    ...state,
+    tables: state.tables.map((t) => (t.id === tableId ? { ...t, status: next } : t)),
+  };
 }
 
 /** Replays a night in time order, asking the proposer after every event. No I/O. */

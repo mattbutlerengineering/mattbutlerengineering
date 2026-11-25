@@ -3,17 +3,28 @@ import type { Reservation, Table, TableStatus, WaitlistEntry } from "@mbe/types"
 /** A table as the harness sees it: only the fields the seating rules read. */
 export type NightTable = Pick<Table, "id" | "capacity" | "minCovers" | "maxCovers" | "isActive"> & {
   status: TableStatus;
+  /** Display name for proposal reasons; the id is used when absent. */
+  name?: string;
 };
 
-/** Where a booked party is in tonight's flow. `seated` means they occupy `tableId`. */
+/**
+ * Where a booked party is in tonight's flow. `seated` means they occupy `tableId`.
+ * Mapping to the real `ReservationStatus` + table status: docs/autopilot-night-replay.md.
+ */
 export type ReservationPhase = "booked" | "arrived" | "seated" | "done";
 
 export type NightReservation = Pick<Reservation, "id" | "partySize" | "tableId"> & {
   phase: ReservationPhase;
+  /** Display label for proposal reasons (for example "the Garcias"). */
+  label?: string;
 };
 
 export type NightWaitlistEntry = Pick<WaitlistEntry, "id" | "partySize"> & {
   status: "waiting" | "seated";
+  /** Minutes on the night's clock when the party joined; absent means "since doors opened" (0). */
+  joinedAt?: number;
+  /** Display label for proposal reasons (for example "the Garcias"). */
+  label?: string;
 };
 
 /** Snapshot of the floor at one instant. Never mutated; each event yields a new one. */

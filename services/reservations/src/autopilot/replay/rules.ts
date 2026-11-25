@@ -4,12 +4,12 @@ import type { NightState, NightTable, Suggestion } from "./types.js";
 /** Phases in which a reservation still claims its table. */
 const HOLDING_PHASES = new Set(["booked", "arrived", "seated"]);
 
-function fits(table: NightTable, partySize: number): boolean {
+export function fits(table: NightTable, partySize: number): boolean {
   return partySize >= table.minCovers && partySize <= (table.maxCovers ?? table.capacity);
 }
 
 /** Why `partySize` cannot take `table` right now, or null if it can. `ignoreReservationId` is the party being moved. */
-function tableBlocker(
+export function tableBlocker(
   state: NightState,
   tableId: string,
   partySize: number,
