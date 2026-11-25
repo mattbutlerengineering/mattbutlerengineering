@@ -129,8 +129,8 @@ test.describe("AI Health page", () => {
     // Sensor Status
     await expect(page.getByRole("heading", { name: "Sensor Status" })).toBeVisible();
     const sensorStatusList = page.getByTestId("sensor-status-list");
-    await expect(sensorStatusList.getByText("ciHealth")).toBeVisible();
-    await expect(sensorStatusList.getByText("lighthouse")).toBeVisible();
+    await expect(sensorStatusList.getByText("CI health")).toBeVisible();
+    await expect(sensorStatusList.getByText("Lighthouse scores")).toBeVisible();
     await expect(sensorStatusList.getByText("Unavailable")).toBeVisible();
 
     // No stale banner on a fresh report

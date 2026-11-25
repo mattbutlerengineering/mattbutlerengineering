@@ -1,3 +1,5 @@
+import { humanizeKey, sensorLabel } from "./sensor-labels.js";
+
 /** Per-size-tier PR stats — `scripts/collect-queue-efficiency.mjs`'s `distribution` map. */
 export interface QueueEfficiencyTierStats {
   readonly count: number;
@@ -312,7 +314,9 @@ function formatRegressionLabel(regression: unknown): string {
   const r = asRecord(regression);
   const sensor = readString(r.sensor);
   const metric = readString(r.metric);
-  return sensor && metric ? `${sensor}.${metric}` : JSON.stringify(regression);
+  return sensor && metric
+    ? `${sensorLabel(sensor)} · ${humanizeKey(metric)}`
+    : JSON.stringify(regression);
 }
 
 /** Extracts the safe view model for the queueEfficiency panel from the raw sensor entry. */

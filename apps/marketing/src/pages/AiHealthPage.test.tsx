@@ -214,9 +214,10 @@ describe("AiHealthPage", () => {
     renderPage();
     await waitFor(() => {
       expect(screen.getByText("Sensor Status")).toBeInTheDocument();
-      expect(screen.getByText("acmm")).toBeInTheDocument();
-      expect(screen.getByText("ciHealth")).toBeInTheDocument();
-      expect(screen.getByText("sentry")).toBeInTheDocument();
+      expect(screen.getByText("ACMM maturity")).toBeInTheDocument();
+      expect(screen.getByText("CI health")).toBeInTheDocument();
+      expect(screen.getByText("Sentry")).toBeInTheDocument();
+      expect(screen.queryByText("ciHealth")).not.toBeInTheDocument();
     });
   });
 
@@ -295,7 +296,7 @@ describe("AiHealthPage", () => {
     await waitFor(() => {
       expect(screen.getByText("AI Health Dashboard")).toBeInTheDocument();
       expect(screen.getByText("Sensor Status")).toBeInTheDocument();
-      expect(screen.getByText("ciHealth")).toBeInTheDocument();
+      expect(screen.getByText("CI health")).toBeInTheDocument();
     });
   });
 
@@ -314,7 +315,7 @@ describe("AiHealthPage", () => {
     renderPage();
     await waitFor(() => {
       expect(screen.getByText("Active Regressions")).toBeInTheDocument();
-      expect(screen.getByText("ciHealth.pass_rate_pct")).toBeInTheDocument();
+      expect(screen.getByText("CI health · Pass rate pct")).toBeInTheDocument();
     });
   });
 
@@ -406,7 +407,7 @@ describe("AiHealthPage", () => {
       renderPage();
       await waitFor(() => {
         expect(screen.getByText("Queue Efficiency")).toBeInTheDocument();
-        expect(screen.getByText("queueEfficiency")).toBeInTheDocument();
+        expect(screen.getByText("Queue efficiency")).toBeInTheDocument();
       });
       expect(screen.queryByText("Composite Score")).not.toBeInTheDocument();
     });
@@ -460,7 +461,7 @@ describe("AiHealthPage", () => {
       renderPage();
       await waitFor(() => {
         expect(screen.getByText("ACMM Maturity")).toBeInTheDocument();
-        expect(screen.getByText("acmm")).toBeInTheDocument();
+        expect(screen.getByText("ACMM maturity")).toBeInTheDocument();
       });
       expect(screen.queryByText("Criteria Detected")).not.toBeInTheDocument();
     });
