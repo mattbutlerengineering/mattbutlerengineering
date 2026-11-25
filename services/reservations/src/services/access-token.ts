@@ -22,9 +22,8 @@ export class TooManyAccessTokensError extends Error {
   }
 }
 
-/** The one place a token is hashed, so mint and (later) lookup agree. */
-export const hashAccessToken = (token: string): string =>
-  createHash("sha256").update(token).digest("hex");
+/** The one place a token is hashed,. */
+const hashAccessToken = (token: string): string => createHash("sha256").update(token).digest("hex");
 
 const toAccessToken = (row: PersonalAccessToken): AccessToken => ({
   id: row.id,
