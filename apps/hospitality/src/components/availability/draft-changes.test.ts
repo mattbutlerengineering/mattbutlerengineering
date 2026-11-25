@@ -445,3 +445,41 @@ describe("a regular weekday scope", () => {
     expect(overnightHintDate(FRIDAY, "2026-10-30", [])).toBe("2026-10-30");
   });
 });
+
+describe("a service's pacing rules through a day or schedule edit", () => {
+  const RULES = { version: 1 as const, pacing: { covers: 20, windowMinutes: 30 } };
+  function withRules() {
+    let n = 0;
+    const config = draftToConfig(demoDraft(), () => `demo-${++n}`);
+    return {
+      ...config,
+      scheduleServices: config.scheduleServices.map((row) => ({ ...row, rules: RULES })),
+    };
+  }
+
+  it("a regular weekday edit keeps the rules of the rows it rewrites", () => {
+    const config = withRules();
+    const scope: EditScope = { kind: "regularWeekday", weekday: 5 };
+    const services = seedServices(config, { services: [] }, scope).map((s) => ({
+      ...s,
+      closesAt: s.closesAt - 30,
+    }));
+    const upsert =
+      buildDraftChanges({ config, scope, services, makeId: counter() }).upsert.scheduleServices ??
+      [];
+    expect(upsert.length).toBeGreaterThan(0);
+    expect(upsert.every((row) => row.rules?.pacing?.covers === 20)).toBe(true);
+  });
+
+  it("a schedule edit keeps the rules of the rows it rewrites", () => {
+    const config = withRules();
+    const scheduleId = config.schedules[0]!.id;
+    const scope: EditScope = { kind: "schedule", scheduleId };
+    const services = seedServices(config, { services: [] }, scope);
+    const upsert =
+      buildDraftChanges({ config, scope, services, makeId: counter() }).upsert.scheduleServices ??
+      [];
+    expect(upsert.length).toBeGreaterThan(0);
+    expect(upsert.every((row) => row.rules?.pacing?.covers === 20)).toBe(true);
+  });
+});
