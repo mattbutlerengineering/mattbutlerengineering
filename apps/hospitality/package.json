@@ -46,9 +46,9 @@
       "limit": "4 kB"
     },
     {
-      "name": "Quick Setup Form (shared by the availability page and onboarding)",
+      "name": "Quick Setup Form (shared by the availability page and onboarding; limit 8.5 kB at #9620 for the per-service pacing field, 8.17 kB measured)",
       "path": "dist/assets/QuickSetupForm-*.js",
-      "limit": "8 kB"
+      "limit": "8.5 kB"
     },
     {
       "name": "Weekday summary + schedule changes (one hoisted chunk, shared by the schedule editor, Change regular week, the Schedules tab, History and quick setup; rollup names it for change-summary-text since #8528)",

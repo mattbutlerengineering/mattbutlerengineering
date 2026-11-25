@@ -2568,6 +2568,11 @@
       "loadError": "No se pudo cargar por qué este día es así"
     },
     "quickSetup": {
+      "pacing": {
+        "covers": "Ritmo: cubiertos por franja",
+        "hint": "Máximo de cubiertos por franja. Reduce el límite del local para este servicio; déjalo vacío para no limitar.",
+        "window": "Franja del ritmo"
+      },
       "title": "Define tu semana regular",
       "intro": "Dile a tus invitados cuándo aceptas reservaciones. Puedes cambiar cualquier día después.",
       "serviceN": "Servicio {{n}}",

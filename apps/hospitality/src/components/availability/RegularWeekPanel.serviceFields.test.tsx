@@ -325,4 +325,46 @@ describe("RegularWeekPanel: seating and booking values", () => {
     expect(screen.getByLabelText("Closes")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "More options" })).not.toBeInTheDocument();
   });
+
+  it("sets a service's pacing cap, saves it as its rules and shows it again", async () => {
+    const config = renderPanel();
+    openService("Dinner");
+    moreOptions();
+    fireEvent.change(screen.getByRole("textbox", { name: "Pacing: covers per window" }), {
+      target: { value: "24" },
+    });
+    choose("Pacing window", "15 min");
+    const { dinner, lunch } = await savedRows(config);
+    expect(dinner?.rules).toEqual({ version: 1, pacing: { covers: 24, windowMinutes: 15 } });
+    expect(lunch?.rules).toBeUndefined();
+  });
+
+  it("keeps a stored cap through a save that does not touch it, and clearing it removes it", async () => {
+    const stored = storedWeek();
+    const config = {
+      ...stored,
+      scheduleServices: stored.scheduleServices.map((row) =>
+        row.venueServiceId === stored.venueServices.find((v) => v.name === "Dinner")?.id
+          ? { ...row, rules: { version: 1 as const, pacing: { covers: 30, windowMinutes: 30 } } }
+          : row
+      ),
+    };
+    renderPanelWith(config);
+    openService("Dinner");
+    moreOptions();
+    const covers = screen.getByRole("textbox", { name: "Pacing: covers per window" });
+    expect(covers).toHaveValue("30");
+    fireEvent.change(covers, { target: { value: "" } });
+    const { dinner } = await savedRows(config);
+    expect(dinner?.rules).toBeUndefined();
+  });
+
+  it("takes digits only, so a cap is a whole number of covers", () => {
+    renderPanel();
+    openService("Dinner");
+    moreOptions();
+    const covers = screen.getByRole("textbox", { name: "Pacing: covers per window" });
+    fireEvent.change(covers, { target: { value: "0a1x2" } });
+    expect(covers).toHaveValue("12");
+  });
 });

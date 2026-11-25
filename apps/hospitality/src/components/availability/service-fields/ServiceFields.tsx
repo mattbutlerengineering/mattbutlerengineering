@@ -33,6 +33,8 @@ export interface ServiceFieldsProps {
   readonly options?: "shown" | "collapsed" | "hidden";
   /** The form's own controls for the service, placed between the times and the options. */
   readonly children?: ReactNode;
+  /** More controls for the same service, shown with "Seat every" and "Booked by" wherever they are. */
+  readonly extraOptions?: ReactNode;
 }
 
 /** The last seating a linked service follows, said under the times. */
@@ -87,15 +89,19 @@ export function ServiceFields({
   date,
   options = "shown",
   children,
+  extraOptions,
 }: ServiceFieldsProps) {
   const fields = (
-    <ServiceOptions
-      seating={value.seating}
-      bookingTypes={value.bookingTypes}
-      onSeatingChange={(seating) => onChange({ ...value, seating })}
-      onBookingTypesChange={(bookingTypes) => onChange({ ...value, bookingTypes })}
-      idScope={idScope}
-    />
+    <>
+      <ServiceOptions
+        seating={value.seating}
+        bookingTypes={value.bookingTypes}
+        onSeatingChange={(seating) => onChange({ ...value, seating })}
+        onBookingTypesChange={(bookingTypes) => onChange({ ...value, bookingTypes })}
+        idScope={idScope}
+      />
+      {extraOptions}
+    </>
   );
   return (
     <>

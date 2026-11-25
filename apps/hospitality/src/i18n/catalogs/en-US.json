@@ -2508,6 +2508,11 @@
       "loadError": "Couldn't load why this day looks this way"
     },
     "quickSetup": {
+      "pacing": {
+        "covers": "Pacing: covers per window",
+        "hint": "Most covers seated per window. Lowers the venue limit for this service; leave empty for none.",
+        "window": "Pacing window"
+      },
       "title": "Set your regular week",
       "intro": "Tell guests when you take bookings. You can change any day later.",
       "serviceN": "Service {{n}}",
