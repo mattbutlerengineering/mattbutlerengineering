@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { CONFLICT_CHANGES_MAX } from "@mbe/types";
 import type { AvailabilityConfig, PutAvailabilityConfigBody } from "@mbe/types";
+import { storeClientOf } from "../test/store-client.js";
 
 vi.mock("./database.js", () => ({ prisma: {} }));
 
@@ -306,18 +307,6 @@ describe("planSave with exact: true (a revert applies the prior rows as they wer
   });
 });
 
-/** A `$transaction` client whose transaction is `tx`. */
-function fakeClient(tx: Record<string, unknown>) {
-  const full = {
-    $executeRaw: vi.fn(async () => 0),
-    $executeRawUnsafe: vi.fn(async () => 0),
-    ...tx,
-  };
-  return {
-    $transaction: vi.fn(async (work: (t: unknown) => Promise<unknown>) => work(full)),
-  } as never;
-}
-
 const emptyRows = () => ({
   schedule: { findMany: vi.fn(async () => []) },
   venueService: { findMany: vi.fn(async () => []) },
@@ -336,7 +325,7 @@ describe("saveAvailabilityConfig", () => {
       summary: "Availability updated: 1 added, 0 changed, 0 removed",
     };
     const reads: string[] = [];
-    const client = fakeClient({
+    const client = storeClientOf({
       venue: {
         updateMany: vi.fn(async () => ({ count: 0 })),
         findUnique: vi.fn(async () => {
@@ -382,7 +371,7 @@ describe("saveAvailabilityConfig", () => {
       summary: "Availability updated: 1 added, 0 changed, 0 removed",
       summaryDetail,
     });
-    const client = fakeClient({
+    const client = storeClientOf({
       venue: {
         updateMany: vi.fn(async () => ({ count: 0 })),
         findUnique: vi.fn(async () => ({ id: "venue-1", availabilityVersion: 6 })),
@@ -416,7 +405,7 @@ describe("saveAvailabilityConfig", () => {
       version,
     });
     const findMany = vi.fn(async () => [row("B", 6, 2), row("A", 5, 1)]);
-    const client = fakeClient({
+    const client = storeClientOf({
       venue: {
         updateMany: vi.fn(async () => ({ count: 0 })),
         findUnique: vi.fn(async () => ({ id: "venue-1", availabilityVersion: 6 })),
@@ -460,7 +449,7 @@ describe("saveAvailabilityConfig", () => {
       summary: "s",
       version: 200 - i,
     }));
-    const client = fakeClient({
+    const client = storeClientOf({
       venue: {
         updateMany: vi.fn(async () => ({ count: 0 })),
         findUnique: vi.fn(async () => ({ id: "venue-1", availabilityVersion: 200 })),
@@ -491,7 +480,7 @@ describe("saveAvailabilityConfig", () => {
     };
     const save = { ...reopen, id: "save", kind: "config", version: 5, summary: "s" };
     save.at = new Date("2026-10-25T18:00:00.500Z");
-    const client = fakeClient({
+    const client = storeClientOf({
       venue: {
         updateMany: vi.fn(async () => ({ count: 0 })),
         findUnique: vi.fn(async () => ({ id: "venue-1", availabilityVersion: 6 })),
@@ -554,7 +543,7 @@ describe("saveAvailabilityConfig", () => {
         body: WHOLE_WEEK,
         now: NOW,
       },
-      fakeClient(named)
+      storeClientOf(named)
     );
     expect(named.availabilityChange.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ actorName: "Ben Ito" }) })
@@ -563,7 +552,7 @@ describe("saveAvailabilityConfig", () => {
     const anonymous = savingTx();
     await saveAvailabilityConfig(
       { venueId: "venue-1", actorId: "auth0|ben", body: WHOLE_WEEK, now: NOW },
-      fakeClient(anonymous)
+      storeClientOf(anonymous)
     );
     expect(anonymous.availabilityChange.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ actorName: null }) })
@@ -574,7 +563,7 @@ describe("saveAvailabilityConfig", () => {
     const tx = savingTx();
     await saveAvailabilityConfig(
       { venueId: "venue-1", actorId: "auth0|ben", body: WHOLE_WEEK, now: NOW },
-      fakeClient(tx)
+      storeClientOf(tx)
     );
     expect(tx.availabilityChange.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ version: 4 }) })
@@ -585,7 +574,7 @@ describe("saveAvailabilityConfig", () => {
     const tx = savingTx();
     await saveAvailabilityConfig(
       { venueId: "venue-1", actorId: "auth0|ben", body: WHOLE_WEEK, now: NOW },
-      fakeClient(tx)
+      storeClientOf(tx)
     );
     const data = (tx.availabilityChange.create.mock.calls[0] as unknown as [{ data: unknown }])[0]
       .data;
@@ -602,7 +591,7 @@ describe("saveAvailabilityConfig", () => {
 
     const outcome = await saveAvailabilityConfig(
       { venueId: "venue-1", actorId: "auth0|ben", body: WHOLE_WEEK, now: NOW },
-      fakeClient(tx)
+      storeClientOf(tx)
     );
 
     expect(outcome).toEqual({ kind: "saved", version: 4, changeId: "chg-10" });
@@ -631,7 +620,7 @@ describe("saveAvailabilityConfig", () => {
 
     const outcome = await saveAvailabilityConfig(
       { venueId: "venue-1", actorId: "auth0|ben", body: WHOLE_WEEK, now: NOW },
-      fakeClient(tx)
+      storeClientOf(tx)
     );
 
     expect(outcome).toEqual({
@@ -653,14 +642,14 @@ describe("saveAvailabilityConfig", () => {
     await expect(
       saveAvailabilityConfig(
         { venueId: "venue-1", actorId: "auth0|ben", body: WHOLE_WEEK, now: NOW },
-        fakeClient(tx)
+        storeClientOf(tx)
       )
     ).rejects.toThrow("connection reset");
   });
 
   it("rolls back and reports invalid config", async () => {
     const create = vi.fn();
-    const client = fakeClient({
+    const client = storeClientOf({
       ...emptyRows(),
       venue: {
         updateMany: vi.fn(async () => ({ count: 1 })),
@@ -691,7 +680,7 @@ describe("saveAvailabilityConfig", () => {
 
   it("scans from yesterday's service day so a running past-midnight service is checked", async () => {
     const findMany = vi.fn(async () => []);
-    const client = fakeClient({
+    const client = storeClientOf({
       ...emptyRows(),
       venue: {
         updateMany: vi.fn(async () => ({ count: 1 })),
@@ -737,7 +726,7 @@ describe("saveAvailabilityConfig", () => {
 
 describe("getAvailabilityConfig", () => {
   it("serves a venue with no rows its legacy-derived config at version 0", async () => {
-    const client = fakeClient({
+    const client = storeClientOf({
       ...emptyRows(),
       venue: {
         findUnique: vi.fn(async () => ({
@@ -761,7 +750,7 @@ describe("getAvailabilityConfig", () => {
 describe("getAvailabilityConfig: the migrated flag", () => {
   // Rows as the backfill leaves them: a regular week, and no audit row (it writes none).
   const backfilled = (changes: number) =>
-    fakeClient({
+    storeClientOf({
       schedule: {
         findMany: vi.fn(async () => [
           { id: "sch-1", name: "Regular", kind: "regular", isRegular: true, archivedAt: null },
@@ -844,7 +833,7 @@ const venueWith = (operatingHours: unknown) => ({
 
 describe("a venue whose legacy hours the strict reader rejects", () => {
   it("reads leniently, as guests see it, with the closed day noted", async () => {
-    const client = fakeClient({ ...emptyRows(), venue: venueWith(UNREADABLE_HOURS) });
+    const client = storeClientOf({ ...emptyRows(), venue: venueWith(UNREADABLE_HOURS) });
 
     const state = await getAvailabilityConfig("venue-1", NOW, client);
 
@@ -860,7 +849,7 @@ describe("a venue whose legacy hours the strict reader rejects", () => {
     const change = { create: vi.fn() };
     const scheduleCreate = vi.fn();
     const empty = emptyRows();
-    const client = fakeClient({
+    const client = storeClientOf({
       ...empty,
       schedule: { ...empty.schedule, create: scheduleCreate },
       venue,
@@ -875,7 +864,7 @@ describe("a venue whose legacy hours the strict reader rejects", () => {
     const read = await getAvailabilityConfig(
       "venue-1",
       NOW,
-      fakeClient({ ...emptyRows(), venue: venueWith(UNREADABLE_HOURS) })
+      storeClientOf({ ...emptyRows(), venue: venueWith(UNREADABLE_HOURS) })
     );
     const closeEveryDay = body(
       { remove: { scheduleServices: read!.config.scheduleServices.map((s) => s.id) } },
@@ -897,12 +886,12 @@ describe("a venue whose legacy hours the strict reader rejects", () => {
   });
 
   it("keeps a venue with no hours at all as empty", async () => {
-    const client = fakeClient({ ...emptyRows(), venue: venueWith(null) });
+    const client = storeClientOf({ ...emptyRows(), venue: venueWith(null) });
     expect(await getAvailabilityConfig("venue-1", NOW, client)).toMatchObject({ source: "empty" });
   });
 
   it("reports hours not even the lenient reader can read as unreadable", async () => {
-    const client = fakeClient({ ...emptyRows(), venue: venueWith({ version: 99 }) });
+    const client = storeClientOf({ ...emptyRows(), venue: venueWith({ version: 99 }) });
     expect(await getAvailabilityConfig("venue-1", NOW, client)).toMatchObject({
       source: "unreadable",
       legacyProblem: { reason: "unknown_version" },
@@ -934,7 +923,7 @@ describe("previewAvailabilityConfig", () => {
   it("answers an unknown venue as not found", async () => {
     const outcome = await previewAvailabilityConfig(
       { venueId: "venue-1", body: PREVIEW_BODY, now: NOW },
-      fakeClient(previewTx(null, async () => []))
+      storeClientOf(previewTx(null, async () => []))
     );
     expect(outcome).toEqual({ kind: "not_found" });
   });
@@ -943,7 +932,7 @@ describe("previewAvailabilityConfig", () => {
     const venue = { ianaTimezone: TZ, settings: {}, operatingHours: null, availabilityVersion: 4 };
     const outcome = await previewAvailabilityConfig(
       { venueId: "venue-1", body: PREVIEW_BODY, now: NOW },
-      fakeClient(previewTx(venue, async () => []))
+      storeClientOf(previewTx(venue, async () => []))
     );
     expect(outcome.kind).toBe("ok");
     if (outcome.kind !== "ok") return;
@@ -956,7 +945,7 @@ describe("previewAvailabilityConfig", () => {
     const venue = { ianaTimezone: TZ, settings: {}, operatingHours: null, availabilityVersion: 4 };
     const outcome = await previewAvailabilityConfig(
       { venueId: "venue-1", body: PREVIEW_BODY, now: NOW, timeoutMs: 20 },
-      fakeClient(previewTx(venue, () => new Promise(() => {})))
+      storeClientOf(previewTx(venue, () => new Promise(() => {})))
     );
     expect(outcome).toEqual({ kind: "timeout" });
   });
