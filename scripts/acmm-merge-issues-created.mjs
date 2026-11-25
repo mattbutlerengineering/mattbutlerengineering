@@ -2,8 +2,9 @@
 
 /**
  * Merges a stale, still-open `automation/acmm-regression` branch's
- * `issuesCreated` dedup ledger into the current `.claude/acmm/state.json`
- * *before* `plugins/acmm/scripts/audit.js --apply` runs.
+ * `issuesCreated` dedup ledger and `history` rows into the current
+ * `.claude/acmm/state.json` *before* `plugins/acmm/scripts/audit.js --apply`
+ * runs.
  *
  * `issuesCreated` (criterion id -> issue number) is how `--apply` avoids
  * filing a duplicate issue for a gap it already filed one for. That ledger
@@ -19,14 +20,16 @@
  * root cause going forward; this merge step covers whatever branches are
  * already stuck open from before that fix landed.)
  *
- * `mergeIssuesCreated()` is pure and unit-tested. The CLI section wires it
- * to the filesystem: reads the current `.claude/acmm/state.json`, unions its
- * `issuesCreated` with the ledger from a branch-state file the caller
- * supplies (via `git show <ref>:.claude/acmm/state.json > file`), and writes
- * the merged ledger back. No-op (and no error) when no branch-state file is
- * given — that is the normal case once no `automation/acmm-regression`
- * branch is open. Silent by design: the caller (the workflow step) owns
- * user-facing status output via its own `echo` lines around this call.
+ * `mergeIssuesCreated()` and `mergeHistory()` (#9544: the `/metrics` history
+ * table was losing whole dated rows for the same reason `issuesCreated`
+ * entries used to go missing) are pure and unit-tested. The CLI section
+ * wires them to the filesystem: reads the current `.claude/acmm/state.json`,
+ * unions both ledgers with the branch-state file the caller supplies (via
+ * `git show <ref>:.claude/acmm/state.json > file`), and writes the merged
+ * state back. No-op (and no error) when no branch-state file is given —
+ * that is the normal case once no `automation/acmm-regression` branch is
+ * open. Silent by design: the caller (the workflow step) owns user-facing
+ * status output via its own `echo` lines around this call.
  *
  * Usage: node scripts/acmm-merge-issues-created.mjs --branch-state-file <path>
  */
@@ -54,6 +57,24 @@ export function mergeIssuesCreated(current, branch) {
   return { ...(current ?? {}), ...(branch ?? {}) };
 }
 
+/**
+ * Union two `history` ledgers (one row per ISO date) by date. The branch
+ * row wins on a conflicting date, for the same reason as
+ * {@link mergeIssuesCreated}: it is the more recent write. Without this, a
+ * date that only exists on a still-open `automation/acmm-regression` branch
+ * (#9544) is silently dropped the moment that branch is recreated from
+ * `main`. Pure: never mutates either input; result is sorted by date.
+ *
+ * @param {Array<{date: string}>} [current]
+ * @param {Array<{date: string}>} [branch]
+ * @returns {Array<{date: string}>}
+ */
+export function mergeHistory(current, branch) {
+  const byDate = new Map((current ?? []).map((h) => [h.date, h]));
+  for (const h of branch ?? []) byDate.set(h.date, h);
+  return [...byDate.values()].sort((a, b) => (a.date < b.date ? -1 : 1));
+}
+
 // ---------------------------------------------------------------------------
 // CLI: filesystem wiring (not unit-tested; the logic above is).
 // ---------------------------------------------------------------------------
@@ -69,9 +90,17 @@ function main() {
 
   const current = JSON.parse(readFileSync(STATE_PATH, "utf8"));
   const branch = JSON.parse(readFileSync(branchStatePath, "utf8"));
-  const merged = mergeIssuesCreated(current.issuesCreated, branch.issuesCreated);
+  const mergedIssuesCreated = mergeIssuesCreated(current.issuesCreated, branch.issuesCreated);
+  const mergedHistory = mergeHistory(current.history, branch.history);
 
-  writeFileSync(STATE_PATH, JSON.stringify({ ...current, issuesCreated: merged }, null, 2) + "\n");
+  writeFileSync(
+    STATE_PATH,
+    JSON.stringify(
+      { ...current, issuesCreated: mergedIssuesCreated, history: mergedHistory },
+      null,
+      2
+    ) + "\n"
+  );
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
