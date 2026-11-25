@@ -503,6 +503,8 @@ model ReservationHold {
   sessionId String   @map("session_id")
   expiresAt DateTime @map("expires_at")
   createdAt DateTime @default(now()) @map("created_at")
+  /// Made past the public booking window on a verified member token (#9625); confirm re-checks the member.
+  memberWindow Boolean @default(false) @map("member_window")
 
   @@index([venueId, date])
   @@index([tableId, date])

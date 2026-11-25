@@ -127,12 +127,21 @@ function addCalendarDays(date: string, days: number): string {
 }
 
 export function bookingWindow(
-  settings: Pick<VenueSettings, "minAdvanceBooking" | "maxAdvanceBooking"> | null | undefined,
+  settings:
+    | Pick<VenueSettings, "minAdvanceBooking" | "maxAdvanceBooking" | "memberLeadDays">
+    | null
+    | undefined,
   now: Date,
-  ianaTimezone: string
+  ianaTimezone: string,
+  options: { member?: boolean } = {}
 ): BookingWindow {
   const minHours = settings?.minAdvanceBooking ?? 0;
-  const maxDays = settings?.maxAdvanceBooking;
+  const baseDays = settings?.maxAdvanceBooking;
+  // A verified Regulars Club member books `memberLeadDays` past the public limit (#9625).
+  const maxDays =
+    baseDays !== undefined && options.member
+      ? baseDays + (settings?.memberLeadDays ?? 0)
+      : baseDays;
   return {
     earliest: new Date(now.getTime() + minHours * MS_PER_HOUR),
     latestLocalDate:

@@ -31,6 +31,10 @@ vi.mock("../services/venue.js", () => ({
     delete: vi.fn(),
   },
 }));
+vi.mock("../services/member-token.js", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  verifyMemberToken: vi.fn(),
+}));
 vi.mock("../services/confirm-hold.js", () => ({
   confirmHold: vi.fn(),
 }));
@@ -57,6 +61,7 @@ vi.mock("jose", () => ({
 
 import { venueService } from "../services/venue.js";
 import { confirmHold } from "../services/confirm-hold.js";
+import { verifyMemberToken } from "../services/member-token.js";
 import { resolveVenueId } from "../services/resolve-venue.js";
 import { rebookRequiresDeposit } from "../services/manage-rebook-deps.js";
 import { resetRateLimitState, MAX_ACTIVE_HOLDS } from "../middleware/public-rate-limit.js";
@@ -930,5 +935,102 @@ describe("public hold routes behind two async onSend hooks", () => {
     expect(response.statusCode).toBe(401);
     expect(resolveVenueId).not.toHaveBeenCalled();
     expect(confirmHold).not.toHaveBeenCalled();
+  });
+});
+
+describe("member early window on holds (#9625)", () => {
+  let app: FastifyInstance;
+  const memberOk = { valid: true, venueId: "venue_1", email: "ada@example.com" } as const;
+
+  beforeAll(async () => {
+    process.env.AUTH_BYPASS_IN_TESTS = "true";
+    app = await buildApp({ logger: false, services: { holdService } });
+    await app.ready();
+  });
+
+  afterAll(async () => {
+    await app.close();
+    delete process.env.AUTH_BYPASS_IN_TESTS;
+  });
+
+  beforeEach(() => {
+    resetRateLimitState();
+    vi.clearAllMocks();
+    vi.mocked(venueService.getBySlug).mockResolvedValue(mockVenue);
+    vi.mocked(verifyMemberToken).mockReset();
+  });
+
+  const createHold = (headers: Record<string, string> = {}) =>
+    app.inject({
+      method: "POST",
+      url: "/public/v1/venues/the-oak-table/holds",
+      headers,
+      payload: { date: "2026-06-15", startTime: "19:00", endTime: "21:00", partySize: 4 },
+    });
+
+  it("creates a member-window hold when the token verifies for this venue", async () => {
+    vi.mocked(verifyMemberToken).mockResolvedValueOnce(memberOk);
+    vi.mocked(holdService.create).mockResolvedValueOnce({ success: true, hold: mockHold });
+
+    const response = await createHold({ "x-member-token": "t" });
+
+    expect(response.statusCode).toBe(201);
+    expect(holdService.create).toHaveBeenCalledWith(expect.anything(), expect.any(String), {
+      member: true,
+    });
+  });
+
+  it.each([
+    ["no token", undefined, undefined],
+    ["a revoked token", "t", { valid: false, expired: false }],
+    ["a token for another venue", "t", { ...memberOk, venueId: "other" }],
+  ] as const)("holds in the public window with %s", async (_l, token, verdict) => {
+    if (verdict) vi.mocked(verifyMemberToken).mockResolvedValueOnce(verdict);
+    vi.mocked(holdService.create).mockResolvedValueOnce({ success: true, hold: mockHold });
+
+    await createHold(token ? { "x-member-token": token } : {});
+
+    expect(holdService.create).toHaveBeenCalledWith(expect.anything(), expect.any(String), {
+      member: false,
+    });
+  });
+
+  const confirm = (headers: Record<string, string> = {}) =>
+    app.inject({
+      method: "POST",
+      url: `/public/v1/venues/the-oak-table/holds/hold_1/confirm`,
+      headers: { "x-session-id": "sess_1", ...headers },
+      payload: { guestName: "Ada Lovelace", guestEmail: "ada@example.com" },
+    });
+
+  it("passes the verified member email to confirmHold", async () => {
+    vi.mocked(verifyMemberToken).mockResolvedValueOnce(memberOk);
+    vi.mocked(confirmHold).mockResolvedValueOnce({ success: true, reservation: mockReservation });
+
+    const response = await confirm({ "x-member-token": "t" });
+
+    expect(response.statusCode).toBe(201);
+    expect(vi.mocked(confirmHold).mock.calls.at(-1)?.[0].memberEmail).toBe("ada@example.com");
+  });
+
+  it("passes no member email without a valid token", async () => {
+    vi.mocked(confirmHold).mockResolvedValueOnce({ success: true, reservation: mockReservation });
+
+    await confirm();
+
+    expect(vi.mocked(confirmHold).mock.calls.at(-1)?.[0].memberEmail).toBeFalsy();
+  });
+
+  it("answers 403 when confirmHold needs a member", async () => {
+    vi.mocked(confirmHold).mockResolvedValueOnce({
+      success: false,
+      error: "A valid member link for this email is required to book this time",
+      errorCode: "MEMBER_REQUIRED",
+    });
+
+    const response = await confirm();
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json().title).toBe("Member Link Required");
   });
 });

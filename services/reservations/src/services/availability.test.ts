@@ -144,6 +144,19 @@ describe("availabilityService.generateTimeSlots", () => {
       expect(slots).toEqual([]);
     });
 
+    it("offers a date past maxAdvanceBooking to a member, up to memberLeadDays more", async () => {
+      const settings = { maxAdvanceBooking: 3, memberLeadDays: 2 }; // today 05-01 -> public 05-04, member 05-06
+      const slotsFor = async (date: string, member: boolean) => {
+        stubVenue(settings);
+        return availabilityService.generateTimeSlots(VENUE_ID, date, 2, undefined, { member });
+      };
+
+      expect(await slotsFor("2026-05-05", false)).toEqual([]);
+      expect((await slotsFor("2026-05-05", true)).length).toBeGreaterThan(0);
+      expect((await slotsFor("2026-05-06", true)).length).toBeGreaterThan(0);
+      expect(await slotsFor("2026-05-07", true)).toEqual([]);
+    });
+
     it("still offers the last permitted day", async () => {
       stubVenue({ maxAdvanceBooking: 4 });
 

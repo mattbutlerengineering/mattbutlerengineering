@@ -489,6 +489,30 @@ describe("bookingWindow / isSlotInBookingWindow", () => {
     expect(isSlotInBookingWindow(new Date("2026-05-20T04:00:00Z"), window)).toBe(false);
   });
 
+  it("extends the last bookable day by memberLeadDays for a member only", () => {
+    const settings = { maxAdvanceBooking: 14, memberLeadDays: 7 };
+    const day21 = new Date("2026-05-26T03:30:00Z"); // local 05-25 23:30 ET = day +20
+    const day22 = new Date("2026-05-27T04:00:00Z"); // local 05-27 00:00 ET = day +22
+    const publicWindow = bookingWindow(settings, NOW, TZ);
+    const memberWindow = bookingWindow(settings, NOW, TZ, { member: true });
+    expect(isSlotInBookingWindow(day21, publicWindow)).toBe(false);
+    expect(isSlotInBookingWindow(day21, memberWindow)).toBe(true);
+    expect(isSlotInBookingWindow(day22, memberWindow)).toBe(false);
+  });
+
+  it("memberLeadDays changes nothing for a member when unset, or when the venue has no max", () => {
+    const day30 = new Date("2026-06-05T16:00:00Z");
+    expect(
+      isSlotInBookingWindow(
+        day30,
+        bookingWindow({ maxAdvanceBooking: 14 }, NOW, TZ, { member: true })
+      )
+    ).toBe(false);
+    expect(
+      isSlotInBookingWindow(day30, bookingWindow({ memberLeadDays: 7 }, NOW, TZ, { member: true }))
+    ).toBe(true);
+  });
+
   it("is DST-safe: max window counts local calendar days across spring-forward", () => {
     const now = new Date("2026-03-07T17:00:00Z"); // 12:00 EST, day before DST
     const window = bookingWindow({ maxAdvanceBooking: 2 }, now, TZ);

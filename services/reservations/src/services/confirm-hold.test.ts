@@ -183,6 +183,78 @@ describe("confirmHold", () => {
     });
   });
 
+  describe("member-window hold (#9625)", () => {
+    const memberHold = () => makePrismaHold({ memberWindow: true });
+    const confirm = (memberEmail: string | null | undefined, guestEmail = "jane@example.com") =>
+      confirmHold({
+        holdId: "hold-1",
+        sessionId: "session-abc",
+        guestDetails: { guestName: "Jane Doe", guestEmail },
+        memberEmail,
+      });
+
+    function stubBook(hold: ReturnType<typeof makePrismaHold>) {
+      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(hold as never);
+      vi.mocked(prisma.$transaction).mockImplementationOnce(
+        async (fn: (tx: any) => Promise<unknown>) =>
+          fn(
+            makeTxMock({
+              reservation: {
+                ...makeTxMock().reservation,
+                create: vi.fn().mockResolvedValue(makeReservationResult(hold)),
+              },
+            })
+          )
+      );
+    }
+
+    it("refuses without a verified member, leaving the hold and booking nothing", async () => {
+      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(memberHold() as never);
+
+      const result = await confirm(undefined);
+
+      expect(result).toMatchObject({ success: false, errorCode: "MEMBER_REQUIRED" });
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+      expect(prisma.reservationHold.delete).not.toHaveBeenCalled();
+    });
+
+    it("refuses when the token email is not the reservation guest email", async () => {
+      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(memberHold() as never);
+
+      const result = await confirm("other@example.com");
+
+      expect(result).toMatchObject({ success: false, errorCode: "MEMBER_REQUIRED" });
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it("refuses a member booking with no guest email", async () => {
+      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(memberHold() as never);
+
+      const result = await confirmHold({
+        holdId: "hold-1",
+        sessionId: "session-abc",
+        guestDetails: { guestName: "Jane Doe" },
+        memberEmail: "jane@example.com",
+      });
+
+      expect(result).toMatchObject({ success: false, errorCode: "MEMBER_REQUIRED" });
+    });
+
+    it("confirms when the verified member email matches, ignoring case and spaces", async () => {
+      stubBook(memberHold());
+
+      const result = await confirm("Jane@Example.com ", " jane@example.COM");
+
+      expect(result.success).toBe(true);
+    });
+
+    it("leaves an ordinary hold unaffected by the member token", async () => {
+      stubBook(makePrismaHold());
+
+      expect((await confirm(undefined)).success).toBe(true);
+    });
+  });
+
   describe("created event (reservation-event-log)", () => {
     it("writes one created event on the transaction client, before the hold is deleted", async () => {
       const hold = makePrismaHold();
