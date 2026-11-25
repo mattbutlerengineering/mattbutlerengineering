@@ -19,6 +19,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { aggregateExitCode, describeTargetOutcome } from "./sentry-heartbeat.mjs";
+import { AUTOMATION_MARKER } from "./lib/automation-marker.mjs";
 
 /** Existing label. Never `ready`: an alert is for the operator, not implement-queue. */
 export const ALERT_LABEL = "sentry";
@@ -214,7 +215,11 @@ function ghAdapter(repo) {
       ]);
     },
     async comment(issueNumber, body) {
-      gh([`repos/${repo}/issues/${issueNumber}/comments`, "-f", `body=${body}`]);
+      gh([
+        `repos/${repo}/issues/${issueNumber}/comments`,
+        "-f",
+        `body=${AUTOMATION_MARKER}\n${body}`,
+      ]);
     },
     async close(issueNumber) {
       gh([

@@ -19,6 +19,7 @@
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { resolve, dirname } from "node:path";
+import { AUTOMATION_MARKER } from "./lib/automation-marker.mjs";
 
 const REPO = "mattbutlerengineering/mattbutlerengineering";
 const PROVENANCE = /_Detected by \[learning-loop\]/;
@@ -147,7 +148,13 @@ async function main() {
         ghClient: createGhClient(),
       }),
     closeIssue: async (n, comment, reason) => {
-      gh(["-X", "POST", `repos/${REPO}/issues/${n}/comments`, "-f", `body=${comment}`]);
+      gh([
+        "-X",
+        "POST",
+        `repos/${REPO}/issues/${n}/comments`,
+        "-f",
+        `body=${AUTOMATION_MARKER}\n${comment}`,
+      ]);
       gh([
         "-X",
         "PATCH",

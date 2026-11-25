@@ -18,6 +18,7 @@
  */
 
 import { execFileSync } from "node:child_process";
+import { AUTOMATION_MARKER } from "./lib/automation-marker.mjs";
 
 /**
  * A markdown task-list line whose first token after the checkbox is an issue
@@ -204,7 +205,7 @@ function run() {
       "POST",
       `repos/{owner}/{repo}/issues/${update.number}/comments`,
       "-f",
-      `body=Every task on this tracking issue is done (last: #${number}), so it is closing. Later polish goes in a new issue, not this one (#8742).`,
+      `body=${AUTOMATION_MARKER}\nEvery task on this tracking issue is done (last: #${number}), so it is closing. Later polish goes in a new issue, not this one (#8742).`,
     ]);
     gh([
       "api",

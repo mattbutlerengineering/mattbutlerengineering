@@ -88,3 +88,5 @@ A quiet week is a real result. If flow was clean, say so in three lines and open
 - Never fetch live-site URLs: this cloud environment has no egress to production (issue #2920). Audit the repo and the GitHub API, not the site.
 - Do not re-file findings owned by other routines: generated-artifact drift belongs to `drift-fix.yml`, documentation rot to `mbe-doc-rot`, code quality to `mbe-weekly-improve`, Claude Code config to `mbe-monthly-meta-audit`. If you spot one, mention it in the retro and move on.
 ```
+
+**Comment marker (#9428).** Every issue or PR comment this routine posts — claims, verdicts, hand-offs, heartbeats — ends with the hidden marker `<!-- mbe-automation -->` on its own last line, so the stale-human-blocked detector does not read routine comments as human touches. Put it LAST, never first: `heartbeat:` and `reviewed-merge:` comments are parsed by their first line.

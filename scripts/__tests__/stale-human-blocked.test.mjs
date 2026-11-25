@@ -14,6 +14,7 @@ import {
   LABEL_ONLY_EVENTS,
   HUMAN_TOUCH_EVENTS,
 } from "../stale-human-blocked.mjs";
+import { AUTOMATION_MARKER, isAutomationComment } from "../lib/automation-marker.mjs";
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -350,6 +351,44 @@ describe("runStaleHumanBlocked", () => {
 // ---------------------------------------------------------------------------
 // lastHumanTouchAt / daysStale / buildStaleMetricRow — #4274
 // ---------------------------------------------------------------------------
+
+describe("lastHumanTouchAt: automation marker (#9428)", () => {
+  const issue = (comments) => ({ number: 7715, createdAt: at(60 * DAY), comments });
+
+  it("a human-login comment carrying the marker is not a human touch", () => {
+    const comments = [
+      {
+        author: { login: "mattbutlerengineering" },
+        createdAt: at(30 * DAY),
+        body: "decision: wait",
+      },
+      {
+        author: { login: "mattbutlerengineering" },
+        createdAt: at(2 * DAY),
+        body: `${AUTOMATION_MARKER}\nStatus check: still blocked upstream`,
+      },
+    ];
+    expect(lastHumanTouchAt(issue(comments), [])).toBe(at(30 * DAY));
+  });
+
+  it("the same login without the marker still counts", () => {
+    const comments = [
+      { author: { login: "mattbutlerengineering" }, createdAt: at(2 * DAY), body: "go ahead" },
+    ];
+    expect(lastHumanTouchAt(issue(comments), [])).toBe(at(2 * DAY));
+  });
+
+  it("[bot] logins stay excluded", () => {
+    const comments = [{ author: { login: "github-actions[bot]" }, createdAt: at(DAY), body: "x" }];
+    expect(lastHumanTouchAt(issue(comments), [])).toBe(at(60 * DAY));
+  });
+
+  it("isAutomationComment detects the marker anywhere and tolerates non-strings", () => {
+    expect(isAutomationComment(`heartbeat\n${AUTOMATION_MARKER}`)).toBe(true);
+    expect(isAutomationComment("plain")).toBe(false);
+    expect(isAutomationComment(undefined)).toBe(false);
+  });
+});
 
 describe("lastHumanTouchAt", () => {
   it("ignores a label-only event: an issue whose only post-creation event is `labeled` reports its createdAt", () => {
