@@ -8,22 +8,14 @@ import {
   Stack,
   TextArea,
   Text,
-  useToast,
 } from "@mattbutlerengineering/rialto";
-import {
-  GUEST_MESSAGE_MAX_LENGTH,
-  type AvailabilityConfigState,
-  type ClosureImpact,
-} from "@mbe/types";
-import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
-import { useCreateClosures, usePreviewClosureImpacts } from "../../hooks/useClosures.js";
+import { GUEST_MESSAGE_MAX_LENGTH, type AvailabilityConfigState } from "@mbe/types";
 import { useNow } from "../../hooks/useNow.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { useViewport } from "../../hooks/useViewport.js";
 import { minutesOfDayIn } from "../../utils/service-day.js";
 import {
   combineImpacts,
-  decisionsFor,
   emptyRow,
   ruleItems,
   saveLabelParts,
@@ -36,18 +28,14 @@ import {
 import { AddDateRow } from "./AddDateRow.js";
 import {
   decisionsReady,
-  withoutChoicesFor,
   isUrgent,
   outcomeCounts,
   stepTwoNote,
   stepTwoNoteId,
-  type ChoiceMap,
 } from "./close-draft.js";
 import { CloseStepTwo } from "./CloseStepTwo.js";
 import { LeaveSaveDialog } from "./LeaveSaveDialog.js";
-import { outcomeSummary } from "./outcome-label.js";
-import { refusalOf, refusalText } from "./step-two-refusal.js";
-import { useSaveAttempts } from "./use-save-attempts.js";
+import { useAddDatesSession } from "./use-add-dates-session.js";
 import styles from "./AddSpecialDatesSheet.module.css";
 
 export interface AddSpecialDatesSheetProps {
@@ -93,11 +81,7 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
   const { autoNext, savedTitle, onSaved } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
-  const { toast } = useToast();
-  const offerUndo = useAvailabilityUndo();
   const now = useNow();
-  const previewImpacts = usePreviewClosureImpacts();
-  const createClosures = useCreateClosures();
 
   const [form, setForm] = useState<AddDatesForm>(() => ({
     rows:
@@ -108,15 +92,22 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
     sharedMessage: "",
   }));
   const [step, setStep] = useState<1 | 2>(1);
-  const [impacts, setImpacts] = useState<readonly ClosureImpact[]>([]);
-  const [choices, setChoices] = useState<ChoiceMap>({});
   const [invalid, setInvalid] = useState<{ key: string; field: RowField } | null>(null);
-  const [failure, setFailure] = useState<readonly string[]>([]);
-  // This sheet's key already committed (a lost response): nothing more is sent from it.
-  const [savedEarlier, setSavedEarlier] = useState(false);
-  // A save with no answer may have committed: from then on "nothing was cancelled" can be false.
-  const [outcomeUnknown, setOutcomeUnknown] = useState(false);
-  const attempts = useSaveAttempts(state.config.dateRules, { reload: onStale, onLeave: onClose });
+  const dateCount = form.rows.length;
+  const session = useAddDatesSession({
+    venueId,
+    rules: state.config.dateRules,
+    version: state.version,
+    itemsOf: () => items,
+    dateCount,
+    savedTitle,
+    onSaved,
+    reload: onStale,
+    onClose,
+    onStale,
+    onBackToForm: () => setStep(1),
+  });
+  const { attempts, impacts, choices, failureLines: failure } = session;
   const { idempotencyKey, earlier } = attempts;
   // One rule id per row per attempt: a retried save never creates a rule twice, and a changed one
   // (a new key) is never taken for the first.
@@ -142,7 +133,6 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
   };
   const items = ruleItems(form, today, idFor);
   const combined = combineImpacts(impacts);
-  const dateCount = form.rows.length;
   const firstDate = combined.groups[0]?.date ?? items[0]?.rule.startsOn ?? today;
   const urgent = isUrgent(
     { startsOn: firstDate, fromMinute: null },
@@ -151,11 +141,11 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
   );
   // Trimmed, like validateRows: what blocks Next is what the field flags.
   const sharedMessageError = form.sharedMessage.trim().length > GUEST_MESSAGE_MAX_LENGTH;
-  const busy = previewImpacts.isPending || createClosures.isPending;
+  const { busy } = session;
 
   // After a failed save, any edit is a new attempt: see `useSaveAttempts`.
   const editForm = (next: AddDatesForm) => {
-    attempts.edited(form, next);
+    session.edited(form, next);
     setForm(next);
   };
   const patchRow = (next: DateRow) => {
@@ -171,108 +161,6 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
     )
   );
   const messageFor = (groupKey: string): string => messageByGroup.get(groupKey) ?? "";
-
-  const save = async (found: readonly ClosureImpact[]) => {
-    setFailure([]);
-    const decisions = decisionsFor(found, choices);
-    attempts.record(
-      outcomeSummary(outcomeCounts(combineImpacts(found).groups, choices), t),
-      items.map((item) => item.rule.id),
-      items.map((item) => item.rule.startsOn)
-    );
-    try {
-      const result = await createClosures.mutateAsync({
-        venueId,
-        idempotencyKey,
-        body: {
-          expectedVersion: state.version,
-          items: items.map((item, i) => ({ rule: item.rule, decisions: decisions[i] ?? [] })),
-        },
-      });
-      const notified = result.results.reduce(
-        (n, r) => n + r.outcomes.cancel + r.outcomes.move + r.outcomes.keep_notify,
-        0
-      );
-      const savedCount = t(
-        notified > 0 ? "availabilitySpecial.add.savedNotified" : "availabilitySpecial.add.saved",
-        { count: dateCount, notified }
-      );
-      const title =
-        savedTitle === undefined
-          ? savedCount
-          : notified > 0
-            ? t("availabilitySpecial.holidays.savedNotified", {
-                title: savedTitle,
-                count: notified,
-              })
-            : savedTitle;
-      const only = result.results.length === 1 ? result.results[0] : undefined;
-      if (savedTitle !== undefined && only && notified === 0 && onSaved === undefined) {
-        // A holiday closed in one step is taken back from its toast. Not offered when guests were
-        // told (the server refuses it), nor when something runs after the save (`onSaved` tidies
-        // what the closure replaced, so a revert of the closure alone would be wrong or stale);
-        // several dates, and a changed decision, confirm first instead.
-        offerUndo({ venueId, title, saved: { version: only.version, changeId: only.changeId } });
-      } else {
-        toast({ title, variant: "success" });
-      }
-      onSaved?.();
-      onClose();
-    } catch (error) {
-      const refused = refusalOf(error);
-      const text = refusalText(refused, t, { groups: combined.groups, format });
-      let reloadFailed = false;
-      if (refused.kind === "move-unavailable") {
-        setChoices(withoutChoicesFor(combined.groups, choices, refused.reservationIds));
-        // What Step 2 proposed no longer matches what the save does: ask again.
-        try {
-          setImpacts(
-            await previewImpacts.mutateAsync({ venueId, rules: items.map((i) => i.rule) })
-          );
-        } catch {
-          reloadFailed = true;
-        }
-      }
-      if (refused.kind === "groups-changed") {
-        // A group changed since the Manager chose: drop the choices and ask again on the new one.
-        setChoices({});
-        setFailure([text]);
-        try {
-          setImpacts(
-            await previewImpacts.mutateAsync({ venueId, rules: items.map((i) => i.rule) })
-          );
-        } catch {
-          setFailure([text, t("availability.close.impactError")]);
-        }
-        return;
-      }
-      attempts.failed(refused);
-      if (refused.kind === "closure-exists") {
-        onStale();
-        setSavedEarlier(true);
-        setFailure([text]);
-        return;
-      }
-      const unknown = outcomeUnknown || (refused.kind === "other" && refused.outcomeUnknown);
-      setOutcomeUnknown(unknown);
-      setFailure(
-        unknown
-          ? [t("availabilitySpecial.add.maybeSaved")]
-          : [
-              text,
-              t("availabilitySpecial.add.nothingCancelled"),
-              ...(reloadFailed ? [t("availability.close.impactError")] : []),
-            ]
-      );
-      if (refused.kind === "version-conflict") {
-        // Reload the config, and ask again from it: the impact and the version are both stale.
-        onStale();
-        setStep(1);
-        setImpacts([]);
-        setChoices({});
-      }
-    }
-  };
 
   const next = async () => {
     const problem = validateRows(form, today);
@@ -293,18 +181,10 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
       onEditDay(handOff.date);
       return;
     }
-    try {
-      const found = await previewImpacts.mutateAsync({
-        venueId,
-        rules: items.map((i) => i.rule),
-      });
-      setImpacts(found);
-      setChoices({});
-      if (found.some((i) => i.groups.length > 0)) setStep(2);
-      else await save(found);
-    } catch {
-      setFailure([t("availability.close.impactError")]);
-    }
+    const found = await session.preview();
+    if (!found) return;
+    if (found.some((i) => i.groups.length > 0)) setStep(2);
+    else await session.submit(found);
   };
 
   // A holiday sent here to be closed asks its one question (Step 2) only when it has one.
@@ -316,7 +196,15 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
     autoStartedRef.current = true;
     startNext();
   }, [autoNext]);
-  const waitingOnAuto = autoNext === true && step === 1 && failure.length === 0 && invalid === null;
+  // A save that ended without closing the sheet keeps the drawer: an edit drops the session's
+  // failure text, not the sheet.
+  const { kind } = session.state;
+  const waitingOnAuto =
+    autoNext === true &&
+    step === 1 &&
+    failure.length === 0 &&
+    invalid === null &&
+    (attempts.tried.length === 0 || kind === "sending" || kind === "saved");
   const counts = outcomeCounts(combined.groups, choices);
   const label = (() => {
     if (step === 1) return t("availabilitySpecial.add.next");
@@ -393,9 +281,10 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
               aria-describedby={step === 2 ? stepTwoNoteId : undefined}
               isLoading={busy}
               disabled={
-                savedEarlier || (step === 2 ? !decisionsReady(combined.groups, choices) : false)
+                session.savedEarlier ||
+                (step === 2 ? !decisionsReady(combined.groups, choices) : false)
               }
-              onClick={() => void (step === 2 ? save(impacts) : next())}
+              onClick={() => void (step === 2 ? session.submit() : next())}
             >
               {label}
             </Button>
@@ -482,10 +371,7 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
               urgent={urgent}
               guestMessage=""
               messageFor={messageFor}
-              onChoose={(key, choice) => {
-                attempts.edited(choices[key], choice);
-                setChoices({ ...choices, [key]: choice });
-              }}
+              onChoose={session.setChoice}
             />
           )}
         </Stack>
