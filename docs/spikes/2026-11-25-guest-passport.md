@@ -36,8 +36,7 @@ DEFINER` function) returns venue ids only, and the caller then reads each venue 
 - **Groups exist but share nothing.** `VenueGroup` (id, name, slug, settings) and
   `Venue.venueGroupId` exist. No guest code reads the group.
 - **Recognition today.** `recognizeGuest` (`guest-recognition.ts`) answers by email within one
-  venue. The public route (`public-guest-recognition.ts`, 10/min) returns first name and visit
-  count for any email, with no proof that the caller owns it.
+  venue. The public recognition route's disclosure is being fixed in #9595.
 - **Reliability today.** `assessGuestReliability` (`guest-reliability.ts`) turns `noShowCount`,
   `visitCount` and `lastNoShowAt` into a risk score against the venue's `autoDepositAfterNoShows`.
   That score decides whether the deposit step shows.
@@ -131,8 +130,8 @@ lawyer before any code ships.**
 9. **Children and age.** No age data is collected. Confirm that is acceptable.
 10. **Cross-border.** Venues in different jurisdictions (EU, UK, California, Canada) may each need
     different consent text.
-11. **Existing recognition leak.** The current public recognition route reveals first name and
-    visit count to anyone who knows an email. Review it before building more recognition on top.
+11. **Existing recognition route.** The public recognition route's disclosure is being fixed in
+    #9595. Build no cross-venue recognition until that lands.
 
 ## Recommendation
 
