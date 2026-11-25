@@ -1,0 +1,62 @@
+name: Claude
+
+# Answers `@claude` on issues, PRs and PR review comments. Runs only for a
+# trusted commenter (OWNER/MEMBER/COLLABORATOR) because it holds write access
+# and secrets. Pinned and gated by scripts/__tests__/claude-workflows.test.mjs.
+# Satisfies the ACMM criteria acmm:ai-fix-workflow and acmm:github-actions-ai.
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+concurrency:
+  group: claude-${{ github.event.issue.number || github.event.pull_request.number }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  claude:
+    name: Claude
+    if: >-
+      contains(github.event.comment.body, '@claude') &&
+      contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      actions: write
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
+        with:
+          fetch-depth: 1
+
+      - uses: anthropics/claude-code-action@acfe7992852970efb4fee683d63d628e3e52df67 # v1.0.286
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ github.token }}
+
+      # GITHUB_TOKEN pushes never fire ci.yml (anti-recursion), so a Claude
+      # commit would sit without a CI Gate. Dispatch CI on the PR branch.
+      - name: Dispatch CI on the PR branch
+        if: github.event.issue.pull_request || github.event_name == 'pull_request_review_comment'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
+        run: |
+          set -o pipefail
+          pr=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq '[.head.repo.full_name, .head.ref] | @tsv')
+          repo=$(printf '%s' "$pr" | cut -f1)
+          ref=$(printf '%s' "$pr" | cut -f2)
+          if [ "$repo" != "$GITHUB_REPOSITORY" ]; then
+            echo "::notice::PR head is on a fork ($repo); not dispatching CI."
+            exit 0
+          fi
+          gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref "$ref"

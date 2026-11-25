@@ -14,10 +14,12 @@ import {
   LapsingGuestsWidget,
   DepositExposureWidget,
   StatRow,
+  TurnedAwayHeatmap,
 } from "../components/dashboard";
 import { useVenue } from "../contexts/VenueContext.js";
 import { useDashboardStatsQuery } from "../hooks/useDashboardStatsQuery.js";
 import { useLapsingGuests, useSendWinBack } from "../hooks/useGuests.js";
+import { useLostDemand } from "../hooks/useLostDemand.js";
 import { useNow } from "../hooks/useNow.js";
 import { useSSEStatus, useSSEEventFeed } from "../hooks/useSSESync.js";
 import { deriveVenueOpenState } from "../utils/venueOpenState.js";
@@ -85,6 +87,12 @@ export function HomePage() {
     refetch: refetchLapsing,
   } = useLapsingGuests(selectedVenueId);
   const lapsingFailure = lapsingError ? describeApiError(lapsingError) : null;
+  const {
+    data: lostDemand,
+    error: lostDemandError,
+    refetch: refetchLostDemand,
+  } = useLostDemand(selectedVenueId ? { venueId: selectedVenueId } : undefined);
+  const lostDemandFailure = lostDemandError ? describeApiError(lostDemandError) : null;
   const sendWinBack = useSendWinBack();
   const sendWinBackFailure = sendWinBack.isError
     ? describeWinBackFailure(sendWinBack.error, t)
@@ -178,6 +186,18 @@ export function HomePage() {
               currency={fmt.currency}
             />
           )}
+          <div className={styles.fullWidth}>
+            {lostDemandFailure ? (
+              <ErrorRetryBanner
+                title={t("home.turnedAway.loadFailed")}
+                error={lostDemandFailure.detail}
+                details={lostDemandFailure.raw}
+                onRetry={refetchLostDemand}
+              />
+            ) : (
+              <TurnedAwayHeatmap demand={lostDemand} />
+            )}
+          </div>
         </div>
       </div>
     </div>

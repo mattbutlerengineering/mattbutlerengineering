@@ -71,6 +71,9 @@ vi.mock("../hooks/useGuests.js", () => ({
   useSendWinBack: () => ({ mutate: vi.fn() }),
   useGuest: () => ({ data: null }),
 }));
+vi.mock("../hooks/useLostDemand.js", () => ({
+  useLostDemand: () => ({ data: null, error: null, refetch: vi.fn() }),
+}));
 vi.mock("../hooks/useTimelineData.js", () => ({
   useTimelineData: () => ({
     reservations: [],

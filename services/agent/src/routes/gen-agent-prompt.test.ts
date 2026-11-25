@@ -373,6 +373,12 @@ describe("briefing, dashboard stats and page-only areas in the prompt", () => {
     expect(prompt).toMatch(/couldn't read the briefing.*never.*no bookings/i);
   });
 
+  it("answers when guests are turned away with get_turned_away_demand, never as zeros", () => {
+    expect(prompt).toMatch(/when are we turning people away.*get_turned_away_demand/);
+    expect(prompt).toMatch(/get_turned_away_demand.*anyTime.*no time/s);
+    expect(prompt).toMatch(/couldn't read the turned-away numbers.*never report zeros/);
+  });
+
   it("answers how the night went with get_night_summary, rendered as Stat elements", () => {
     expect(prompt).toMatch(/how did tonight go.*get_night_summary/);
     expect(prompt).toMatch(/¿cómo fue la noche\?/);

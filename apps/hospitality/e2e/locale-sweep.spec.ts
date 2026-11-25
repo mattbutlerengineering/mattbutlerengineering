@@ -668,6 +668,22 @@ async function mockGatedRoutes(page: Page, route: string): Promise<void> {
       /\/api\/v1\/reservations\/metrics\/end-of-service\?/,
       { date: day, venueId: VENUE_ID, covers: 84, tableTurns: 31, noShows: 1, turnedAway: null },
     ],
+    // `home` (#9485): the turned-away heatmap, with timed and no-time counts so the grid, the
+    // hour labels, the weekday headers and the no-time row are all swept.
+    [
+      /\/api\/v1\/reservations\/metrics\/lost-demand\?/,
+      {
+        venueId: VENUE_ID,
+        from: day,
+        to: day,
+        total: 14,
+        cells: [
+          { weekday: 5, hour: 19, searches: 6 },
+          { weekday: 6, hour: 20, searches: 4 },
+        ],
+        anyTime: [{ weekday: 0, searches: 4 }],
+      },
+    ],
   ];
   for (const [pattern, data] of answers) {
     await page.route(pattern, (r) => r.fulfill(ok(data)));
