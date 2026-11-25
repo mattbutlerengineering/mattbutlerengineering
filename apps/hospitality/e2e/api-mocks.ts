@@ -1064,6 +1064,10 @@ export async function mockApi(page: Page): Promise<SseMock> {
   await page.route("**/api/v1/reservations/metrics/lost-demand?*", (route) =>
     jsonOk(route, { venueId: "", from: "", to: "", total: 0, cells: [], anyTime: [] })
   );
+  // The Timeline's Autopilot panel (#9492): no suggestions by default, so it renders nothing.
+  await page.route("**/api/v1/reservations/metrics/autopilot-proposals?*", (route) =>
+    jsonOk(route, { date: "", venueId: "", moves: [] })
+  );
   await page.route("**/api/v1/guests/find-or-create", (route) => {
     const guests = JSON.parse(loadFixture("guests-list"));
     return jsonOk(route, guests.data[0]);

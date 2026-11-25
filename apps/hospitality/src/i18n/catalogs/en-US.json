@@ -960,6 +960,22 @@
       "cancel": "Cancel",
       "seatNow": "Seat now",
       "seating": "Seating…"
+    },
+    "autopilot": {
+      "heading": "Autopilot",
+      "toggleName_one": "Autopilot: {{count}} suggestion",
+      "toggleName_other": "Autopilot: {{count}} suggestions",
+      "intro": "Suggestions only. Nothing moves until you move it.",
+      "reseat": "Move {{party}} ({{size}}) from {{from}} to {{to}}",
+      "offer": "Seat {{party}} ({{size}}) at {{to}}",
+      "reseatWhy": "Frees {{from}} for a waiting party.",
+      "offerWhy": "{{to}} is free and fits them.",
+      "dismissMove": "Dismiss",
+      "dismissMoveFor": "Dismiss the suggestion for {{party}}",
+      "dismissNight": "Dismiss for tonight",
+      "ghostLabel": "Suggested: {{party}}",
+      "partyFallback": "Party of {{size}}",
+      "listLabel": "Suggested moves"
     }
   },
   "onMyWayBadge": {

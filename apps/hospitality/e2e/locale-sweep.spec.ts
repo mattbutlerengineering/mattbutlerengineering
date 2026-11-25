@@ -668,6 +668,29 @@ async function mockGatedRoutes(page: Page, route: string): Promise<void> {
       /\/api\/v1\/reservations\/metrics\/end-of-service\?/,
       { date: day, venueId: VENUE_ID, covers: 84, tableTurns: 31, noShows: 1, turnedAway: null },
     ],
+    // `timeline` (#9492): one suggestion, so the collapsed Autopilot panel's heading and count are swept.
+    [
+      /\/api\/v1\/reservations\/metrics\/autopilot-proposals\?/,
+      {
+        date: day,
+        venueId: VENUE_ID,
+        moves: [
+          {
+            id: "offer:w1>tbl_e2e_001",
+            kind: "waitlist_offer",
+            partyLabel: "Kim",
+            partySize: 4,
+            fromTableId: null,
+            fromTableName: null,
+            toTableId: "tbl_e2e_001",
+            toTableName: "Table 1",
+            startTime: `${day}T19:00:00.000Z`,
+            endTime: `${day}T20:30:00.000Z`,
+            reason: "Seat Kim (4) at Table 1",
+          },
+        ],
+      },
+    ],
     // `home` (#9485): the turned-away heatmap, with timed and no-time counts so the grid, the
     // hour labels, the weekday headers and the no-time row are all swept.
     [
