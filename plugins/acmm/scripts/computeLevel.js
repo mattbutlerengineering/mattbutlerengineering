@@ -119,12 +119,12 @@ const VIRTUAL_AGENT_INSTRUCTIONS = {
   level: 2,
   category: "feedback-loop",
   name: "Agent instructions (any)",
-  description: "Any one of CLAUDE.md, AGENTS.md, .github/copilot-instructions.md, or .cursorrules.",
+  description: "Any one of CLAUDE.md, AGENTS.md, .claude/rules/, or .cursorrules.",
   rationale:
     "Any vendor-neutral or vendor-specific instruction file satisfies the L2 Instructed signal.",
   detection: {
     type: "any-of",
-    pattern: ["CLAUDE.md", "AGENTS.md", ".github/copilot-instructions.md", ".cursorrules"],
+    pattern: ["CLAUDE.md", "AGENTS.md", ".claude/rules/", ".cursorrules"],
   },
 };
 

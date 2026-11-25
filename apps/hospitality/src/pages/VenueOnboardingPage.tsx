@@ -14,6 +14,10 @@ import { SettingsStep } from "../components/venue-onboarding/SettingsStep";
 import { FloorPlanStep } from "../components/venue-onboarding/FloorPlanStep";
 import { LaunchStep } from "../components/venue-onboarding/LaunchStep";
 import { layoutCounts } from "../components/venue-onboarding/floor-plan-copy.js";
+import {
+  draftFromTemplate,
+  resizeDraft,
+} from "../components/venue-onboarding/floor-plan-templates.js";
 import { runLaunchSequence } from "../components/venue-onboarding/launch-sequence.js";
 import {
   buildOnboardingPayload,
@@ -21,17 +25,12 @@ import {
 } from "../components/venue-onboarding/useOnboardingWizard.js";
 import { useOnboardingWizardContext } from "../components/venue-onboarding/OnboardingWizardContext.js";
 import { OnboardingChat } from "../components/venue-onboarding/OnboardingChat.js";
-import type { OnboardingChatStep } from "../components/venue-onboarding/onboarding-chat-types.js";
+import { chatStepFor } from "../components/venue-onboarding/onboarding-chat-types.js";
+import type { AppliedPatch } from "../components/venue-onboarding/onboarding-chat-stream.js";
 import { useOnboardingChatState } from "../components/venue-onboarding/useOnboardingChatState.js";
 import { LiveStatus } from "../components/LiveStatus.js";
 import { useStatusMessage } from "../hooks/useStatusMessage.js";
 import styles from "./VenueOnboardingPage.module.css";
-
-/** The wizard steps that have a chat: Location & Time (2) and Settings (4). */
-const CHAT_STEP_BY_NUMBER: Readonly<Record<number, OnboardingChatStep | undefined>> = {
-  2: "locationTime",
-  4: "settings",
-};
 
 export function VenueOnboardingPage() {
   const { t } = useTranslation();
@@ -55,15 +54,28 @@ export function VenueOnboardingPage() {
   // that flag was permanently false and never actually guarded anything.
   const launchInFlight = launch.inFlightStage !== null;
 
-  // Chat beside the form (#9474).
+  // Chat beside the form (#9474, #9475). The venue's name (1) and Launch (6) have no chat.
   const { status, announce } = useStatusMessage();
-  const chatStep = CHAT_STEP_BY_NUMBER[step];
+  const chatStep = chatStepFor(step);
+  const applyPatch = (patch: AppliedPatch) => {
+    switch (patch.step) {
+      case "locationTime":
+        return actions.setStepData("locationTime", patch.data);
+      case "settings":
+        return actions.setStepData("settings", patch.data);
+      case "hours":
+        return actions.setStepData("hoursDraft", patch.data);
+      case "floorPlan":
+        return actions.setStepData("floorPlan", patch.data);
+    }
+  };
   const chat = useOnboardingChatState({
     step: chatStep,
     locationTime: data.locationTime,
     settings: data.settings,
-    setLocationTime: (next) => actions.setStepData("locationTime", next),
-    setSettings: (next) => actions.setStepData("settings", next),
+    hours: data.hoursDraft,
+    floorPlan: data.floorPlan,
+    setStepData: applyPatch,
     announce,
   });
 
@@ -191,7 +203,9 @@ export function VenueOnboardingPage() {
   // Chat beside the form on the steps with patch support (#9474). A step the chat stepped aside
   // from (cost ceiling or a failed stream) shows the form alone, with a calm note.
   const chatSteppedAside = chatStep !== undefined && chat.asideReason !== undefined;
-  const showChat = chatStep !== undefined && !chatSteppedAside;
+  // Once Launch has created the venue the floor plan is frozen (#4825), so a patch cannot apply.
+  const planFrozen = chatStep === "floorPlan" && launch.venueId !== null;
+  const showChat = chatStep !== undefined && !chatSteppedAside && !planFrozen;
 
   // The floor plan canvas wants more room than the 40rem review card — widen
   // the container on step 5 only; the chat steps need room for two columns.
@@ -266,7 +280,7 @@ export function VenueOnboardingPage() {
                     data={data.locationTime}
                     errors={errors.locationTime}
                     onChange={(locationTime) => {
-                      chat.noteEdit("locationTime", data.locationTime, locationTime);
+                      chat.noteEdit("locationTime", locationTime);
                       actions.setStepData("locationTime", locationTime);
                     }}
                     onValidate={actions.validateStep}
@@ -284,7 +298,10 @@ export function VenueOnboardingPage() {
                   <QuickSetupHoursStep
                     draft={data.hoursDraft}
                     errors={errors.operatingHours ?? undefined}
-                    onChange={(hoursDraft) => actions.setStepData("hoursDraft", hoursDraft)}
+                    onChange={(hoursDraft) => {
+                      chat.noteEdit("hours", hoursDraft);
+                      actions.setStepData("hoursDraft", hoursDraft);
+                    }}
                   />
                 </>
               )}
@@ -299,7 +316,7 @@ export function VenueOnboardingPage() {
                     data={data.settings}
                     errors={errors.settings}
                     onChange={(settings) => {
-                      chat.noteEdit("settings", data.settings, settings);
+                      chat.noteEdit("settings", settings);
                       actions.setStepData("settings", settings);
                     }}
                     onValidate={actions.validateStep}
@@ -313,8 +330,17 @@ export function VenueOnboardingPage() {
                 <FloorPlanStep
                   draft={data.floorPlan}
                   error={errors.floorPlan}
-                  onSelectTemplate={actions.setTemplate}
-                  onSelectSize={actions.setRoomSize}
+                  onSelectTemplate={(templateId) => {
+                    chat.noteEdit(
+                      "floorPlan",
+                      draftFromTemplate(templateId, data.floorPlan.sizeId)
+                    );
+                    actions.setTemplate(templateId);
+                  }}
+                  onSelectSize={(sizeId) => {
+                    chat.noteEdit("floorPlan", resizeDraft(data.floorPlan, sizeId));
+                    actions.setRoomSize(sizeId);
+                  }}
                   onAddTable={actions.addDraftTable}
                   onMoveTable={actions.moveDraftTable}
                   onRemoveTable={actions.removeDraftTable}

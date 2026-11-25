@@ -75,10 +75,11 @@ test.describe("Onboarding chat", () => {
     expect(requests[0]?.messages).toEqual([{ role: "user", content: SENTENCE }]);
 
     await page.getByRole("button", { name: "Next" }).click();
-    // Hours have no chat yet: the step shows its form only.
-    await expect(page.getByRole("log")).toHaveCount(0);
-    await page.getByRole("button", { name: "Dinner" }).click();
-    await page.getByRole("button", { name: "Weekdays" }).click();
+    // Hours have their own chat now; exact names keep the presets apart from
+    // the starter prompt "Dinner Tuesday to Saturday, 5 to 10:30".
+    await expect(page.getByRole("log")).toBeVisible();
+    await page.getByRole("button", { name: "Dinner", exact: true }).click();
+    await page.getByRole("button", { name: "Weekdays", exact: true }).click();
     await page.getByRole("button", { name: "Next" }).click();
 
     await expect(page.getByRole("log")).toBeVisible();
@@ -125,7 +126,7 @@ test.describe("Onboarding chat", () => {
     await page.getByLabel("Timezone").fill("Europe/Lisbon");
     await page.getByRole("option", { name: "Western European (Europe/Lisbon)" }).click();
     await page.getByRole("button", { name: "Next" }).click();
-    await expect(page.getByRole("button", { name: "Dinner" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Dinner", exact: true })).toBeVisible();
   });
 
   test("on a phone the chat leads, the form sits directly below, and nothing overflows", async ({

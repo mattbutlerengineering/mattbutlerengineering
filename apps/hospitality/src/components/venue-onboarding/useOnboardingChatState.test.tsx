@@ -32,9 +32,11 @@ describe("focusFirstFilledField", () => {
     expect(document.activeElement?.getAttribute("aria-label")).toBe("Timezone, filled from chat");
   });
 
-  it("leaves unmarked fields out of the tab-by-script path", () => {
+  it("keeps unmarked fields out of the Review path, the tab order and the accessibility tree as groups", () => {
     renderStep([]);
-    expect(document.querySelector("[tabindex='-1']")).toBeNull();
+    expect(document.querySelector("[data-filled-from-chat]")).toBeNull();
+    expect(document.querySelector("[tabindex='0']")).toBeNull();
+    expect(screen.queryByRole("group")).toBeNull();
   });
 
   it("scrolls without animation under reduced motion, smoothly otherwise", () => {

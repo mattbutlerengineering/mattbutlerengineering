@@ -143,6 +143,7 @@ model Venue {
   reservationRsvps          ReservationRsvp[]
   closureOutcomes           ClosureOutcome[]
   guestWinBacks             GuestWinBack[]
+  noSlotSearches            NoSlotSearch[]
   /// Per-venue compare-and-set counter for availability config saves (ADR-030).
   availabilityVersion       Int               @default(0) @map("availability_version")
   /// Host "stop all online bookings" switch.
@@ -872,4 +873,23 @@ model GuestWinBack {
 
   @@index([venueId])
   @@map("guest_win_backs")
+}
+
+/// Lost Demand Ledger (#9484): one COUNTER row per (venue, date, requested minute, party size),
+/// incremented once per de-duplicated public availability search that found no slot. Counts only:
+/// no guest, session, IP or user-agent column exists, so none can be stored. `requestedMinute` is
+/// minutes since local midnight, or -1 when the search named no time (the whole day had no slot).
+model NoSlotSearch {
+  id              String   @id @default(cuid())
+  venueId         String   @map("venue_id")
+  venue           Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  date            DateTime @db.Date
+  requestedMinute Int      @map("requested_minute")
+  partySize       Int      @map("party_size")
+  searches        Int      @default(1)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@unique([venueId, date, requestedMinute, partySize])
+  @@map("no_slot_searches")
 }

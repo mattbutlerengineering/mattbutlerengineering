@@ -1799,6 +1799,12 @@
       ],
       "slots": [
         "children"
+      ],
+      "characterLimits": [
+        {
+          "prop": "disabledReason",
+          "max": 120
+        }
       ]
     },
     {
@@ -4306,6 +4312,12 @@
       ],
       "slots": [
         "children"
+      ],
+      "characterLimits": [
+        {
+          "prop": "announcement",
+          "max": 120
+        }
       ]
     },
     {

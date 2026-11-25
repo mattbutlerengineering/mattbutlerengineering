@@ -10,8 +10,13 @@ export const headingCatalogMeta = {
     "Section heading. Use level to set the document outline (1 for the page title, 2 for sections, 3 below that) and size when the look should differ from the level. Put its words in text (required unless it holds child elements).",
   slots: ["default"],
   // A generated spec has no other way to give Heading its words (as with Text, F24).
+  // The generator drops numeric-literal unions (HeadingLevel is 1 | 2 | ... | 6),
+  // so level and size are declared by hand to keep out-of-range values (e.g. an
+  // `<h7>`) from passing the seam.
   propSchemas: {
     children: "z.string()",
+    level: "z.number().int().min(1).max(6).optional()",
+    size: "z.number().int().min(1).max(6).optional()",
   },
   aliases: {
     text: "children",
