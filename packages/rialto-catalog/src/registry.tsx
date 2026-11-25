@@ -335,7 +335,6 @@ interface SegmentedControlSpecProps {
   size?: "sm" | "md";
 }
 
-/** SegmentedControl is fully controlled, so the selected id is held here. */
 type MasterOverrideSpecProps = Omit<ComponentProps<typeof MasterOverride>, "onChange">;
 
 /** MasterOverride is fully controlled; hold `on` here or the switch never moves. */
@@ -383,6 +382,7 @@ function ImageUploadAdapter({ props, emit }: AdapterArgs<ImageUploadSpecProps>) 
   );
 }
 
+/** SegmentedControl is fully controlled, so the selected id is held here. */
 function SegmentedControlAdapter({ props, emit }: AdapterArgs<SegmentedControlSpecProps>) {
   const [value, setValue] = useState<string>(props.value ?? props.segments[0]?.id ?? "");
   return (
