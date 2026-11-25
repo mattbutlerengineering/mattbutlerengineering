@@ -1,5 +1,11 @@
 # @mattbutlerengineering/rialto
 
+## 3.1.4
+
+### Patch Changes
+
+- [#9660](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9660) [`714adb3`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/714adb317a32d4275123594e09a0fc350176f653) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Alert and Banner move focus to the next control when dismissed, and AvatarGroup packs its stack to the start edge.
+
 ## 3.1.3
 
 ### Patch Changes
