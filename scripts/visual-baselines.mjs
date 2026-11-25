@@ -110,7 +110,7 @@ export function publishBaseline({ dir, suite, sha, cwd, remote = "origin" }) {
 }
 
 /**
- * Replace `dir`'s PNGs with the nearest ancestor's baseline. Returns `null`
+ * Overwrite `dir`'s PNGs with the nearest ancestor's baseline. Returns `null`
  * and leaves `dir` untouched when no ancestor within `depth` has one, so the
  * tracked PNGs stay in force during the migration.
  */
@@ -135,7 +135,8 @@ export function fetchBaseline({
   const commit = git(["rev-parse", "FETCH_HEAD"], cwd);
 
   const names = git(["ls-tree", "--name-only", commit], cwd).split("\n").filter(Boolean);
-  for (const name of pngNames(dir)) rmSync(join(dir, name));
+  // Overwrite only what the baseline holds: a PNG the PR itself adds has no
+  // baseline yet and must survive, or its new test reports a missing snapshot.
   const archiveDir = mkdtempSync(join(tmpdir(), "visual-baseline-archive-"));
   try {
     const tarPath = join(archiveDir, "baseline.tar");

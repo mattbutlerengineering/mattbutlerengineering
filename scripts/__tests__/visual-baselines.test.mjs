@@ -126,7 +126,8 @@ describe("publishBaseline + fetchBaseline round trip", () => {
 
     const target = join(root, "target");
     mkdirSync(target);
-    writeFileSync(join(target, "stale.png"), "old");
+    writeFileSync(join(target, "card.png"), "tracked-old");
+    writeFileSync(join(target, "pr-added.png"), "new-in-pr");
     const fetched = fetchBaseline({
       dir: target,
       suite: "rialto-web",
@@ -135,7 +136,10 @@ describe("publishBaseline + fetchBaseline round trip", () => {
     });
 
     expect(fetched).toMatchObject({ sha: mainSha, distance: 1, count: 2 });
-    expect(readdirSync(target).sort()).toEqual(["button.png", "card.png"]);
+    // Baseline files replace same-named tracked ones; a snapshot the PR itself
+    // adds has no baseline yet and must survive, or its new test goes red.
+    expect(readdirSync(target).sort()).toEqual(["button.png", "card.png", "pr-added.png"]);
+    expect(readFileSync(join(target, "pr-added.png"), "utf8")).toBe("new-in-pr");
     expect(readFileSync(join(target, "card.png"), "utf8")).toBe("png-2");
   });
 
