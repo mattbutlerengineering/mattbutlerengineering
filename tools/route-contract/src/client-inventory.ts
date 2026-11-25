@@ -202,6 +202,7 @@ function buildRoster(): { roster: RosterEntry[]; transportClassName: string } {
     { name: "briefing", instance: api.briefing },
     { name: "deposits", instance: api.deposits },
     { name: "health", instance: api.health },
+    { name: "feedback", instance: api.feedback },
     // NOT in createApiClient (index.ts:81-97 omits it) — it extends ApiClient
     // and takes a ClientConfig directly (agent-sessions.ts:38-41). Missed
     // entirely unless constructed separately.
