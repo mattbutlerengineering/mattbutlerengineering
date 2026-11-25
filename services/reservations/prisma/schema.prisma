@@ -367,6 +367,8 @@ model Reservation {
   overrideReason     String?            @map("override_reason")
   /// The soft limits that were overridden (after_last_seating, pacing, ...). NULL = none.
   overrideLimits     String[]           @map("override_limits")
+  /// Booked in the Regulars Club early window (#9628); counts toward the member's weekly cap.
+  memberWindow       Boolean            @default(false) @map("member_window")
   closureOutcomes        ClosureOutcome[] @relation("ClosureOutcomeReservation")
   rebookedFromOutcomes   ClosureOutcome[] @relation("ClosureOutcomeRebooked")
   createdAt         DateTime           @default(now()) @map("created_at")
