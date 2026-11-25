@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import React from "react";
+import userEvent from "@testing-library/user-event";
 import type { LostDemand } from "@mbe/types";
 import { TurnedAwayHeatmap } from "./TurnedAwayHeatmap.js";
 
@@ -15,6 +16,24 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     <span {...props}>{children}</span>
   ),
   Skeleton: () => <div data-testid="skeleton" />,
+  Checkbox: ({
+    label,
+    checked,
+    onCheckedChange,
+  }: {
+    label: string;
+    checked: boolean;
+    onCheckedChange: (checked: boolean) => void;
+  }) => (
+    <label>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onCheckedChange(e.target.checked)}
+      />
+      {label}
+    </label>
+  ),
 }));
 
 const demand: LostDemand = {
@@ -123,5 +142,52 @@ describe("TurnedAwayHeatmap", () => {
     const hot = screen.getByRole("cell", { name: "6", description: "" });
     expect(hot.getAttribute("style")).toContain("--heat");
     expect(hot).toHaveTextContent("6");
+  });
+
+  describe("refused-by-pacing filter (#9622)", () => {
+    const withPacing: LostDemand = {
+      ...demand,
+      byReason: { pacing: 5, tables: 8, hours: 4, closure: 0 },
+      cells: [
+        { weekday: 5, hour: 19, searches: 6, pacing: 3 },
+        { weekday: 6, hour: 21, searches: 4 },
+      ],
+      anyTime: [{ weekday: 0, searches: 7, pacing: 2 }],
+    };
+
+    it("shows every search until the filter is switched on", () => {
+      render(<TurnedAwayHeatmap demand={withPacing} />);
+
+      const friday = screen.getByRole("row", { name: /7 PM/ });
+      expect(within(friday).getByText("6")).toBeInTheDocument();
+    });
+
+    it("narrows the cells to pacing refusals when the filter is on", async () => {
+      const user = userEvent.setup();
+      render(<TurnedAwayHeatmap demand={withPacing} />);
+
+      await user.click(screen.getByRole("checkbox", { name: /refused by pacing/i }));
+
+      const friday = screen.getByRole("row", { name: /7 PM/ });
+      expect(within(friday).getByText("3")).toBeInTheDocument();
+      expect(within(friday).queryByText("6")).not.toBeInTheDocument();
+      expect(screen.queryByRole("row", { name: /9 PM/ })).not.toBeInTheDocument();
+      const anyTime = screen.getByRole("row", { name: /no time given/i });
+      expect(within(anyTime).getByText("2")).toBeInTheDocument();
+    });
+
+    it("says so, not a blank grid, when there are no pacing refusals", async () => {
+      const user = userEvent.setup();
+      render(
+        <TurnedAwayHeatmap
+          demand={{ ...demand, byReason: { pacing: 0, tables: 17, hours: 0, closure: 0 } }}
+        />
+      );
+
+      await user.click(screen.getByRole("checkbox", { name: /refused by pacing/i }));
+
+      expect(screen.getByText(/no searches were refused by pacing/i)).toBeInTheDocument();
+      expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    });
   });
 });

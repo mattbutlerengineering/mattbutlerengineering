@@ -756,6 +756,11 @@
       "tableLabel": "Recherches sans table par jour de la semaine et heure",
       "anyTime": "Heure non précisée",
       "anyTimeNote": "Les clients de la dernière ligne n'ont précisé aucune heure et n'ont trouvé aucune table ce jour-là; ils sont donc comptés par jour de la semaine seulement, jamais dans une heure.",
+      "pacingFilter": "Refusées par le rythme seulement",
+      "pacingEmpty": "Aucune recherche n'a été refusée par le rythme des réservations au cours des 28 derniers jours.",
+      "pacingSummary_one": "{{count}} recherche a été refusée par le rythme des réservations au cours des 28 derniers jours.",
+      "pacingSummary_many": "{{count}} de recherches ont été refusées par le rythme des réservations au cours des 28 derniers jours.",
+      "pacingSummary_other": "{{count}} recherches ont été refusées par le rythme des réservations au cours des 28 derniers jours.",
       "loadFailed": "Impossible de charger les recherches sans table."
     },
     "whatIf": {
