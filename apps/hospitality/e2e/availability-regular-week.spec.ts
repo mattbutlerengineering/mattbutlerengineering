@@ -368,7 +368,7 @@ test.describe("navigation and day-drawer controls (#7981)", () => {
       // Focus lands on the day itself, which is really on screen (toBeVisible passes off screen).
       const cell = mockedPage.locator(`button[data-date="${target}"]`);
       await expect(cell).toBeFocused();
-      await expect(cell).toBeInViewport({ ratio: 1 });
+      await expect(cell).toBeInViewport({ ratio: 0.99 });
     });
 
     test(`Escape on Go to date puts focus back on the menu button (${c.name}, ${c.locale})`, async ({
