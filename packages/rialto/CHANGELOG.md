@@ -1,5 +1,13 @@
 # @mattbutlerengineering/rialto
 
+## 3.1.8
+
+### Patch Changes
+
+- [#9762](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9762) [`29bcbd3`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/29bcbd36846bf9b0ea76f8c891a8d53fdb521417) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add `FileUpload`: a labelled file picker with a drop zone, `accept`/`maxSize`/`maxFiles` validation, a removable file list and polite live announcements (localized in en-GB, es-MX and fr-CA).
+
+- [#9765](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9765) [`5e299ce`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/5e299cedd875fb76eaca37078517b6d6ed065cee) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Declare `manualSort`, `sort` and `onSortChange` on the registry `TableProps`, so `registry.json` and the generated catalog schema list the server-side sort props.
+
 ## 3.1.7
 
 ### Patch Changes
