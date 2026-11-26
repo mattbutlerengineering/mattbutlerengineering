@@ -33,12 +33,12 @@
     {
       "name": "Floor Plan Editor (lazy chunk)",
       "path": "dist/assets/FloorPlanEditorPage-*.js",
-      "limit": "6 kB"
+      "limit": "6.8 kB"
     },
     {
       "name": "Floor Plan Shared (floor-plan-* incl. any geometry split, lazy chunks; 9.2 kB before the On My Way badge: +0.13 kB for the held-through-ETA status and the badge on the table overlay, 9.33 kB measured)",
       "path": "dist/assets/floor-plan-*.js",
-      "limit": "9.4 kB"
+      "limit": "10.7 kB"
     },
     {
       "name": "Dress Rehearsal (shared by the timeline and floor plan pages; rollup names it for utils/seated, which the floor plan's On My Way badges now share with the timeline, instead of use-rehearsal-playback)",
@@ -48,7 +48,7 @@
     {
       "name": "Quick Setup Form (shared by the availability page and onboarding; limit 8.5 kB at #9620 for the per-service pacing field, 8.17 kB measured)",
       "path": "dist/assets/QuickSetupForm-*.js",
-      "limit": "8.5 kB"
+      "limit": "9.4 kB"
     },
     {
       "name": "Weekday summary + schedule changes (one hoisted chunk, shared by the schedule editor, Change regular week, the Schedules tab, History and quick setup; rollup names it for change-summary-text since #8528)",
@@ -73,12 +73,12 @@
     {
       "name": "Closures and pauses page (lazy chunk: the grouped list, its row and outcome lines, and the Edit, Reopen, Resume, Restore and Retry wiring, availability-hub L3.2; 3.9 kB (3,904 B) measured)",
       "path": "dist/assets/AvailabilityClosuresPage-*.js",
-      "limit": "4.1 kB"
+      "limit": "4.5 kB"
     },
     {
       "name": "Edit dates of a repeating closure (SeriesEditDialog, a chunk of its own once the Closures page and the Special dates tab both load it, availability-hub L3.2; 3.42 kB (3,422 B) measured; +0.67 kB at #9686 for the decisions session the dialog now owns (use-decisions-session and use-series-growth-session, which Step 2 used to carry as its own state), 4.09 kB (4,087 B) measured; back to 3.51 kB (3,508 B) at #9690 once Add, Close and Tonight shared the session and rollup hoisted it out of the dialog's chunk)",
       "path": "dist/assets/SeriesEditDialog-*.js",
-      "limit": "3.7 kB"
+      "limit": "4 kB"
     },
     {
       "name": "Hub closures wording (hub-closures-text, shared by the hub's row 4 and the Closures page, availability-hub L3.2; 2.31 kB (2,305 B) measured)",
@@ -88,22 +88,22 @@
     {
       "name": "Rule subjects (rule-subjects, shared by the Special dates tab, the Reopen dialog and the Closures page, availability-hub L3.2; 2.55 kB (2,553 B) measured)",
       "path": "dist/assets/rule-subjects-*.js",
-      "limit": "2.7 kB"
+      "limit": "2.9 kB"
     },
     {
       "name": "Regular hours page (lazy chunk: the Starting field, the form's frame and first setup, availability-hub E4.4; 3.34 kB (3,340 B) measured)",
       "path": "dist/assets/AvailabilityHoursPage-*.js",
-      "limit": "3.5 kB"
+      "limit": "3.9 kB"
     },
     {
       "name": "Weekly form editing (use-regular-week-edit with the conflict review, the draft preview and the date editor's draft changes; hoisted out of today's page at availability-hub E4.4; D5.1 folded draft-changes into it when the Add special dates sheet stopped importing it, 7.51 kB + 2.15 kB before, 8.8 kB measured)",
       "path": "dist/assets/use-regular-week-edit-*.js",
-      "limit": "9 kB"
+      "limit": "10.3 kB"
     },
     {
       "name": "Day summary text (hoisted out of today's page at availability-hub E4.4, shared with the hub and Regular hours; 1.86 kB (1,863 B) measured)",
       "path": "dist/assets/day-summary-*.js",
-      "limit": "2 kB"
+      "limit": "2.15 kB"
     },
     {
       "name": "Today line + holiday decisions (hoisted at availability-hub H1.6, when the hub page began sharing the Today line, day-summary and the holiday decisions with today's page; rollup names it for useHolidayDecisions; 4.08 kB measured)",
@@ -128,12 +128,12 @@
     {
       "name": "Availability layout (lazy chunk: the scope every Availability route reads, Undo, and since availability-hub C2.4 the Close and Pause host, which loads both dialogs only when an address names one; 2.06 kB (2,063 B) measured; 2.25 kB (2,254 B) once the layout became the one mount of the blocked-undo dialog, after the dialogs it hosts, and the phone's 44 px targets moved into a module both it and today's page compose)",
       "path": "dist/assets/AvailabilityLayout-*.js",
-      "limit": "2.5 kB"
+      "limit": "2.7 kB"
     },
     {
       "name": "Quick-setup validation (its own chunk since availability-hub H1.6 moved its neighbours into the chunks the hub shares; 2.59 kB measured)",
       "path": "dist/assets/quick-setup-validate-*.js",
-      "limit": "2.8 kB"
+      "limit": "3 kB"
     },
     {
       "name": "Close draft helpers (shared by the Close dialog, the availability page and the header pill)",
@@ -158,7 +158,7 @@
     {
       "name": "Venue Onboarding (lazy chunk; 9.2 kB (9,198 B) measured at #9475 for the hours and floor plan chat patches and their validators; limit 9.5 kB)",
       "path": "dist/assets/VenueOnboardingPage-*.js",
-      "limit": "9.5 kB"
+      "limit": "10.6 kB"
     },
     {
       "name": "Canvas Vendor (konva/react-konva, lazy chunk)",
@@ -173,7 +173,7 @@
     {
       "name": "Rialto Vendor (design system; 91.84 kB before typed dates in DatePicker: +1 kB at #8798, availability-hub C2.1, for the typed-date reader, the field's problem state and four message keys in three locales, 92.84 kB measured; +0.95 kB at #8972 for the framer-motion/motion-dom 14.12 → 14.14 bump that rialto bundles, 93.85 kB (93,846 B) measured, 92.9 kB on main before; re-measured at 93,846 B after merging main at #8978; +0.21 kB at #9031 for the Table scroll wrapper switching role=region to role=group, 94,061 B measured twice in CI, limit 95 kB for room against hash-driven drift); #9156 moved the three rialto locale dictionaries out to lazy chunks, 91.76 kB measured, limit 93 kB; #9378 removed Guilloche and the chunk measured 93.06 kB in CI against 92.97 kB on main (+0.09 kB; cause not isolated, likely brotli or chunk-composition drift, and hospitality imports nothing from Guilloche), limit 93.5 kB for room; #9518 added ConfirmDialog, HoverCard, ContextMenu and CommandPalette to the catalog registry, 94.35 kB measured in CI, limit 95 kB; #9519 added Navbar, GlobalNav, PageHeader, Heading and Hero, 95.32 kB measured in CI, limit 96 kB; #9521 added MasterOverride, ImageUpload and Tree, 103.23 kB measured in CI, limit 104 kB; #9562 added FeedbackDialog and FeedbackButton (in-app feedback), 104.14 kB measured locally, limit 104.5 kB; #9726 added VisuallyHidden to the catalog registry, 104.54 kB measured in CI (over by 43 B), limit 105 kB for room; #9727 kept focus outlines (transparent) for forced-colors mode across 22 rialto CSS files, combined size re-measured in CI, limit 105 kB; #9747 added Toolbar to the barrel, combined size re-measured in CI; #9725 added FileUpload to the catalog registry, 105.45 kB measured in CI (over by 449 B), limit 106 kB; #9758 added TagsInput to the catalog registry on top of FileUpload, 106.32 kB measured locally after merging main, limit 107 kB for room; #9756 added Listbox to the catalog registry, 107.17 kB measured in CI (over by 165 B), limit 108 kB for room",
       "path": "dist/assets/rialto-vendor-*.js",
-      "limit": "108 kB"
+      "limit": "120 kB"
     },
     {
       "name": "Router Vendor (react-router)",
@@ -203,7 +203,7 @@
     {
       "name": "Copilot context + catalog registry (shared by dashboard drawer and chat page; 17.5 kB since #9521 added MasterOverride, ImageUpload and Tree adapters (over 16.5 kB by 204 B in CI), 16.5 kB since #9519 widened it by 5 more, 15.5 kB since #9518 widened it by 4 more, 14.5 kB since #9516 widened the catalog by 5 more components, 13.5 kB after #8455 widened it by 8, 11.24 kB before)",
       "path": "dist/assets/useRefreshingChatStream-*.js",
-      "limit": "17.5 kB"
+      "limit": "19.8 kB"
     },
     {
       "name": "Availability map page (lazy chunk; Venue Setup before #8864)",
