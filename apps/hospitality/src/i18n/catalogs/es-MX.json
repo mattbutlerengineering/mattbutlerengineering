@@ -4488,7 +4488,7 @@
       },
       "regularsClub": {
         "label": "Club de habituales",
-        "detail": "Vende tu propio acceso prioritario del viernes en lugar de rentar a tus habituales."
+        "detail": "Invita a tus habituales y reciben una ventana de reserva anticipada mediante un enlace firmado, con un límite de mesas por cada uno."
       }
     },
     "prep": {
@@ -4551,8 +4551,7 @@
       "board": {
         "guestPassport": "Pasaporte",
         "kitchenAwareBooking": "Ritmo de cocina",
-        "headlessVenue": "Sin pantalla",
-        "regularsClub": "Club habituales"
+        "headlessVenue": "Sin pantalla"
       }
     },
     "morning": {
