@@ -3364,6 +3364,7 @@
         "impactError": "No se pudieron revisar las reservas posteriores al nuevo cierre.",
         "retry": "Intentar de nuevo",
         "discardMaybeSaved": "El último guardado no terminó, así que pudo haberse aplicado y cancelado reservaciones. Revisa los cambios de esta noche antes de cerrar de nuevo.",
+        "maybeSaved": "No pudimos confirmar este guardado. Pudo haberse aplicado y cancelado reservaciones. Guarda de nuevo sin cambios para ver qué pasó, o revisa los cambios de esta noche.",
         "savedEarlier": {
           "body": "Un intento anterior se guardó: {{summary}}. Los comensales se atendieron como eligió ese intento; los cambios posteriores no se aplicaron.",
           "bodyPlain": "Un intento anterior se guardó. Los cambios posteriores no se aplicaron."
