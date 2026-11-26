@@ -6,6 +6,7 @@ import {
   HOME_CANONICAL,
   HOME_SOCIAL_TITLE,
   HOME_TITLE,
+  DEMOS_TITLE,
   canonicalUrl,
   prerenderHeads,
   resolveHead,
@@ -105,6 +106,18 @@ describe("resolveHead", () => {
     );
     expect(canonicalUrl("/")).toBe(HOME_CANONICAL);
     expect(canonicalUrl("/demos")).toBe("https://mattbutlerengineering.com/rialto/demos/");
+  });
+});
+
+describe("demos social title and visual-test robots", () => {
+  it("hydrated /demos social title equals the static one", () => {
+    expect(resolveHead("/demos", []).socialTitle).toBe(DEMOS_TITLE);
+  });
+
+  it("emits noindex for both visual-test routes and nothing else", () => {
+    const heads = prerenderHeads([]);
+    const noindex = heads.filter((h) => h.robots === "noindex").map((h) => h.fileName);
+    expect(noindex.sort()).toEqual(["demos/visual-test.html", "visual-test.html"]);
   });
 });
 

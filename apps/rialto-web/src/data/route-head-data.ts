@@ -17,6 +17,9 @@ export const HOME_SOCIAL_TITLE = "Rialto Design System";
 
 export const HOME_CANONICAL = `${SITE_ORIGIN}/rialto/`;
 
+/** `<title>`, `og:title` and `twitter:title` of the static `demos/index.html`. */
+export const DEMOS_TITLE = "Demos — Rialto Design System";
+
 /** Appended to a page heading to form `document.title`. */
 export const TITLE_SUFFIX = " — Rialto";
 
@@ -36,6 +39,8 @@ export interface PrerenderHead {
   readonly title: string;
   readonly url: string;
   readonly fileName: string;
+  /** Set to keep the page out of search results; absent leaves the shell's `index, follow`. */
+  readonly robots?: "noindex";
 }
 
 const HOME_HEAD: Head = {
@@ -96,6 +101,9 @@ const EXTRA_ROUTES: readonly { readonly path: string; readonly stem: string }[] 
   { path: "/privacy", stem: "Privacy Policy" },
 ];
 
+/** Screenshot fixtures: reachable for tests, not for crawlers. */
+const NOINDEX_PATHS: ReadonlySet<string> = new Set(["/visual-test", "/demos/visual-test"]);
+
 /** More specific patterns first so `/edit` is not swallowed by the id route. */
 const DYNAMIC_ROUTES: readonly { readonly pattern: RegExp; readonly stem: string }[] = [
   { pattern: /^\/demos\/drivers\/[^/]+\/edit$/, stem: "Edit Driver" },
@@ -114,7 +122,9 @@ const EXTRA_BY_PATH = new Map(
 export function resolveHead(pathname: string, entries: readonly CatalogEntry[]): Head {
   const path = normalizePath(pathname);
   if (path === "/") return HOME_HEAD;
-  if (path === "/demos") return headForStem(path, "Demos");
+  if (path === "/demos") {
+    return { ...headForStem(path, "Demos"), socialTitle: DEMOS_TITLE };
+  }
 
   const entry = entries.find((candidate) => candidate.path === path);
   if (entry) return headForStem(path, entry.heading ?? entry.label);
@@ -140,6 +150,7 @@ export function prerenderHeads(entries: readonly CatalogEntry[]): PrerenderHead[
     title: documentTitle(route.stem),
     url: canonicalUrl(route.path),
     fileName: routeHtmlFileName(route.path),
+    ...(NOINDEX_PATHS.has(route.path) ? { robots: "noindex" as const } : {}),
   }));
   return [...catalog, ...extras];
 }
