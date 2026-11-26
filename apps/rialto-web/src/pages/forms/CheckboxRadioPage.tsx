@@ -22,6 +22,8 @@ export function CheckboxRadioPage() {
   const [checkB, setCheckB] = useState(false);
   const [checkC, setCheckC] = useState(false);
   const [radioValue, setRadioValue] = useState("sport");
+  const [fuelLoad, setFuelLoad] = useState("race");
+  const [pitStrategy, setPitStrategy] = useState("one");
   const [tyreCompound, setTyreCompound] = useState("medium");
   const [playgroundChecked, setPlaygroundChecked] = useState(false);
   const [playgroundRadio, setPlaygroundRadio] = useState("a");
@@ -99,6 +101,44 @@ export function CheckboxRadioPage() {
             <Radio label="Intermediate" value="inter" />
             <Radio label="Full Wet" value="wet" />
           </RadioGroup>
+
+          <RadioGroup
+            label="Fuel Load (options array)"
+            name="showcase-fuel"
+            description="Declared before the race"
+            value={fuelLoad}
+            onChange={setFuelLoad}
+            options={[
+              { value: "light", label: "Light", description: "Qualifying run" },
+              { value: "race", label: "Race" },
+              { value: "full", label: "Full", disabled: true, disabledReason: "Over the limit" },
+            ]}
+          />
+
+          <RadioGroup
+            label="Pit Strategy (horizontal)"
+            name="showcase-pit"
+            orientation="horizontal"
+            value={pitStrategy}
+            onChange={setPitStrategy}
+            options={[
+              { value: "one", label: "One stop" },
+              { value: "two", label: "Two stops" },
+            ]}
+          />
+
+          <RadioGroup
+            label="Team Radio (error)"
+            name="showcase-team"
+            value=""
+            required
+            error="Choose a channel to continue"
+            onChange={() => {}}
+            options={[
+              { value: "eng", label: "Engineer" },
+              { value: "strat", label: "Strategy" },
+            ]}
+          />
         </Stack>
       </Section>
 

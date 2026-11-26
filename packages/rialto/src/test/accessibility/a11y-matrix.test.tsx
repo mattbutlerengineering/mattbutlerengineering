@@ -74,6 +74,7 @@ const BARREL_COMPONENT_NAMES: readonly BarrelExportName[] = [
   "GlobalNav",
   "GuestCards",
   "Handshake",
+  "FileUpload",
   "Heading",
   "Hero",
   "HoverCard",
@@ -121,8 +122,10 @@ const BARREL_COMPONENT_NAMES: readonly BarrelExportName[] = [
   "TimeSlots",
   "Toast",
   "Toggle",
+  "Toolbar",
   "Tooltip",
   "Tree",
+  "VisuallyHidden",
   "WatchLoader",
 ] as const;
 

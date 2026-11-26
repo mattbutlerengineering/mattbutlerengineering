@@ -41,6 +41,7 @@ export * from "./TimeSlots";
 export * from "./Toast";
 export * from "./ThemeToggle";
 export * from "./Toggle";
+export * from "./Toolbar";
 export * from "./Tooltip";
 export * from "./Tree";
 
@@ -87,6 +88,7 @@ export * from "./Text";
 export * from "./ChatPanel";
 
 // ── Media ──────────────────────────────────────
+export * from "./FileUpload";
 export * from "./ImageUpload";
 
 // ── Specialty interaction ──────────────────────
@@ -105,6 +107,7 @@ export * from "./Fireflies";
 export * from "./Steam";
 export * from "./Constellation";
 export * from "./WatchLoader";
+export * from "./VisuallyHidden";
 export * from "./Handshake";
 export * from "./NeonSign";
 

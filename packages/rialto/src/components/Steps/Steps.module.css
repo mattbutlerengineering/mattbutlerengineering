@@ -179,7 +179,7 @@
 
 /* Focus ring on the node when the step button is keyboard-focused. */
 .stepButton:focus-visible .node {
-  outline: none;
+  outline: var(--rialto-focus-ring-width) solid transparent;
   box-shadow: var(--rialto-shadow-focus);
 }
 

@@ -4,6 +4,7 @@ import { Check, Plus } from "lucide-react";
 import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
+import { formatBytes, matchesAccept } from "../../utils/file-validation";
 import styles from "./ImageUpload.module.css";
 
 /**
@@ -48,22 +49,6 @@ export interface ImageUploadProps {
   hint?: string;
   disabled?: boolean;
   className?: string;
-}
-
-function matchesAccept(file: File, accept: string): boolean {
-  const types = accept.split(",").map((t) => t.trim());
-  return types.some((type) => {
-    if (type.endsWith("/*")) {
-      return file.type.startsWith(type.replace("/*", "/"));
-    }
-    return file.type === type;
-  });
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes}B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
 }
 
 export const ImageUpload = forwardRef<HTMLDivElement, ImageUploadProps>(

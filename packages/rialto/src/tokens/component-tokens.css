@@ -9,9 +9,17 @@
  * - Tier 1 (Primitive): src/tokens/colors.css - Raw values like #fdfcfa
  * - Tier 2 (Semantic): src/tokens/colors.css - Context like --rialto-surface-elevated
  * - Tier 3 (Component): This file - Component-specific like --rialto-button-primary-bg
+ *
+ * Scopes (ADR-035): a token defined from another is substituted where it is
+ * declared, and descendants inherit the substituted value. So these tokens are
+ * declared again on every element that re-declares the semantic tokens they
+ * read: data-surface bands and the data-palette kill-test scope. [data-theme]
+ * joins this list with the palette promotion.
  */
 
-:root {
+:root,
+[data-surface],
+[data-palette] {
   /* ═══════════════════════════════════════════════════════════════════════════
    * BUTTON
    * ═══════════════════════════════════════════════════════════════════════════ */
@@ -82,6 +90,14 @@
   --rialto-input-label-size: var(--rialto-text-sm);
   --rialto-input-hint-text: var(--rialto-text-tertiary);
 
+  /* Input caret and text selection (today: the UA defaults) */
+  --rialto-input-caret: auto;
+  --rialto-input-selection-bg: Highlight;
+  --rialto-input-selection-text: HighlightText;
+
+  /* Select highlighted (not selected) option */
+  --rialto-select-option-highlight-bg: var(--rialto-accent-muted);
+
   /* ═══════════════════════════════════════════════════════════════════════════
    * TOGGLE / SWITCH
    * ═══════════════════════════════════════════════════════════════════════════ */
@@ -125,6 +141,8 @@
   --rialto-card-elevated-bg: var(--rialto-surface-elevated);
   --rialto-card-elevated-border: var(--rialto-border);
   --rialto-card-elevated-shadow: var(--rialto-shadow-elevated);
+  /* What the polished gradient's top stop mixes toward */
+  --rialto-card-sheen: white;
 
   /* Glass */
   --rialto-card-glass-bg: rgb(253 252 250 / 0.7);
@@ -202,6 +220,8 @@
   --rialto-tabs-padding-y: var(--rialto-space-xs);
   --rialto-tabs-text-active: var(--rialto-text-primary);
   --rialto-tabs-text-inactive: var(--rialto-text-secondary);
+  --rialto-tabs-text-hover: var(--rialto-text-primary);
+  --rialto-tabs-track-bg: transparent;
 
   /* ═══════════════════════════════════════════════════════════════════════════
    * SEGMENTED CONTROL
@@ -241,4 +261,63 @@
   --rialto-focus-ring-width: 2px;
   --rialto-focus-ring-color: var(--rialto-accent-glow);
   --rialto-focus-ring-offset: 2px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * SIGNATURE PALETTE — @internal, kill test only (rialto-signature-pass)
+ *
+ * Not public API. The kill-test board story is the only consumer of
+ * data-palette="signature". It re-points Tier-3 tokens per ux.md § Kill-test
+ * mapping: plum for the voice, plum-muted for highlight and hover tints,
+ * tinted for the Tabs track. Primary, focus and selected stay gold. The
+ * component rules that read these tokens are scoped to the same attribute,
+ * so nothing outside it changes. On a "go" these declarations move into the
+ * block above and the scoped selectors are deleted; on a "no-go" this
+ * section is deleted.
+ *
+ * The descendant [data-surface] selector beats the base block's re-resolution
+ * on a band inside the scope, which would otherwise reset these tokens.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+[data-palette="signature"],
+[data-palette="signature"] [data-surface] {
+  --rialto-button-secondary-bg: var(--rialto-surface-elevated);
+  --rialto-button-secondary-text: var(--rialto-plum);
+  --rialto-button-secondary-border: var(--rialto-plum);
+  --rialto-button-secondary-bg-hover: var(--rialto-plum-muted);
+  --rialto-button-ghost-bg-hover: var(--rialto-plum-muted);
+
+  --rialto-input-caret: var(--rialto-plum);
+  --rialto-input-selection-bg: var(--rialto-plum);
+  --rialto-input-selection-text: var(--rialto-plum-text-on);
+  --rialto-input-border-hover: var(--rialto-plum);
+
+  --rialto-select-option-highlight-bg: var(--rialto-plum-muted);
+
+  /* Base tertiary fails on a tinted track (3.7:1 light, 4.39:1 dark), so
+     inactive tabs read primary; weight and the gold indicator mark selection. */
+  --rialto-tabs-track-bg: var(--rialto-surface-tinted);
+  --rialto-tabs-text-inactive: var(--rialto-text-primary);
+  --rialto-tabs-text-hover: var(--rialto-plum);
+}
+
+/* On a tinted band the Input well lifts to elevated. */
+[data-palette="signature"] [data-surface="tinted"],
+[data-palette="signature"][data-surface="tinted"] {
+  --rialto-input-bg: var(--rialto-surface-elevated);
+}
+
+/* On velvet, content is ivory. Plum is too dark to read there, light sheets
+   would put ivory text on white, and a tinted track would too. Cards and
+   wells take the band (wells deepened), the Tabs track goes clear, and the
+   plum caret and hover text give way to ivory. */
+[data-palette="signature"] [data-surface="velvet"],
+[data-palette="signature"][data-surface="velvet"] {
+  --rialto-card-elevated-bg: var(--rialto-surface);
+  --rialto-card-sheen: var(--rialto-surface);
+  --rialto-input-bg: color-mix(in srgb, var(--rialto-surface) 72%, black);
+  --rialto-input-caret: var(--rialto-text-primary);
+  --rialto-input-border-hover: var(--rialto-border-strong);
+  --rialto-tabs-track-bg: transparent;
+  --rialto-tabs-text-hover: var(--rialto-text-primary);
 }

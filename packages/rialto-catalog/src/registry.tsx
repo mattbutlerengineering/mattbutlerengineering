@@ -61,6 +61,7 @@ import {
   Handshake,
   Heading,
   Hero,
+  FileUpload,
   HoverCard,
   IconButton,
   ImageUpload,
@@ -1124,6 +1125,14 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
         <MasterOverrideAdapter props={props} emit={emit} />
       )),
 
+      FileUpload: typed(
+        ({
+          props,
+          emit,
+        }: AdapterArgs<Omit<ComponentProps<typeof FileUpload>, "onFilesChange">>) => (
+          <FileUpload {...props} onFilesChange={() => emit("change")} />
+        )
+      ),
       ImageUpload: typed(({ props, emit }: AdapterArgs<ImageUploadSpecProps>) => (
         <ImageUploadAdapter props={props} emit={emit} />
       )),

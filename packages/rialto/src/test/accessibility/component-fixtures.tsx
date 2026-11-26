@@ -71,6 +71,7 @@ import { Heading } from "../../components/Heading/Heading";
 import { Hero } from "../../components/Hero/Hero";
 import { HoverCard } from "../../components/HoverCard/HoverCard";
 import { IconButton } from "../../components/IconButton/IconButton";
+import { FileUpload } from "../../components/FileUpload/FileUpload";
 import { ImageUpload } from "../../components/ImageUpload/ImageUpload";
 import { Input } from "../../components/Input/Input";
 import { InputGroup } from "../../components/InputGroup/InputGroup";
@@ -113,6 +114,8 @@ import { Timeline } from "../../components/Timeline/Timeline";
 import { TimeSlots } from "../../components/TimeSlots/TimeSlots";
 import { ToastProvider } from "../../components/Toast/Toast";
 import { Toggle } from "../../components/Toggle/Toggle";
+import { Toolbar } from "../../components/Toolbar/Toolbar";
+import { VisuallyHidden } from "../../components/VisuallyHidden/VisuallyHidden";
 import { Tooltip } from "../../components/Tooltip/Tooltip";
 import { Tree } from "../../components/Tree/Tree";
 import { WatchLoader } from "../../components/WatchLoader/WatchLoader";
@@ -181,6 +184,7 @@ export type BarrelExportName =
   | "Hero"
   | "HoverCard"
   | "IconButton"
+  | "FileUpload"
   | "ImageUpload"
   | "Input"
   | "InputGroup"
@@ -224,8 +228,10 @@ export type BarrelExportName =
   | "TimeSlots"
   | "Toast"
   | "Toggle"
+  | "Toolbar"
   | "Tooltip"
   | "Tree"
+  | "VisuallyHidden"
   | "WatchLoader";
 
 // ── Helpers ──────────────────────────────────────────────────────────────
@@ -612,6 +618,10 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
     ),
   },
 
+  FileUpload: {
+    element: <FileUpload label="Menus" accept=".pdf" hint="PDF only" multiple />,
+  },
+
   ImageUpload: {
     element: <ImageUpload label="Logo" />,
   },
@@ -921,6 +931,15 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
     element: <Toggle label="Notifications" />,
   },
 
+  Toolbar: {
+    element: (
+      <Toolbar aria-label="Formatting">
+        <button type="button">Bold</button>
+        <button type="button">Italic</button>
+      </Toolbar>
+    ),
+  },
+
   Tooltip: {
     element: (
       <Tooltip content="Save changes">
@@ -931,6 +950,14 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
 
   Tree: {
     element: <Tree data={[{ id: "1", label: "Root", children: [{ id: "2", label: "Child" }] }]} />,
+  },
+
+  VisuallyHidden: {
+    element: (
+      <button type="button">
+        <VisuallyHidden>Close</VisuallyHidden>
+      </button>
+    ),
   },
 
   WatchLoader: {

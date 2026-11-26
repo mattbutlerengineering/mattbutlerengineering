@@ -107,6 +107,7 @@ const LAYOUT_COMPONENTS = [
   "SplitScreenExit",
   "Stack",
   "Text",
+  "VisuallyHidden",
 ] as const;
 
 /**

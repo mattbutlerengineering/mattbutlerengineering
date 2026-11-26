@@ -122,7 +122,7 @@
 }
 
 .cover:focus-visible {
-  outline: none;
+  outline: var(--rialto-focus-ring-width) solid transparent;
   box-shadow:
     var(--rialto-shadow-focus),
     inset 0 1px 0 rgb(255 255 255 / 0.08);
@@ -197,7 +197,7 @@
 }
 
 .switchBody:focus-visible {
-  outline: none;
+  outline: var(--rialto-focus-ring-width) solid transparent;
   box-shadow:
     var(--rialto-shadow-focus),
     inset 0 2px 6px rgb(0 0 0 / 0.3);

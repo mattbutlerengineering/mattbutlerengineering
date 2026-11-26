@@ -63,6 +63,56 @@ describe.each(APPS)("apps-visual.yml — %s", (app) => {
     expect(block).toMatch(/declined=true/);
   });
 
+  // Main-derived baselines (#9701): same model as rialto-web-e2e.yml (#9696).
+  it("fetches the main-derived baseline on pull requests only, before Playwright", () => {
+    const block = job(`${app}-visual`);
+    const idx = block.indexOf("- name: Fetch the main-derived baseline");
+    expect(idx).toBeGreaterThan(-1);
+    const step = block.slice(idx, block.indexOf("      - name:", idx + 1));
+    expect(step).toContain("if: github.event_name == 'pull_request'");
+    expect(step).toContain(
+      "git fetch -q --no-tags --depth=50 origin main:refs/remotes/origin/main"
+    );
+    expect(step).toContain(
+      `node scripts/visual-baselines.mjs fetch --suite ${app} --dir apps/${app}/e2e/screenshots`
+    );
+    expect(idx).toBeLessThan(block.indexOf("- name: Run visual regression tests"));
+  });
+
+  it("passes --update-snapshots=all on push only", () => {
+    const block = job(`${app}-visual`);
+    expect(block).toContain(
+      "UPDATE_FLAG: ${{ github.event_name == 'push' && '--update-snapshots=all' || '' }}"
+    );
+    expect(block).toMatch(/playwright test --reporter=github,json \$UPDATE_FLAG --config/);
+  });
+
+  it("uploads the captured baseline on push after the visual step", () => {
+    const block = job(`${app}-visual`);
+    const idx = block.indexOf("- name: Upload the captured baseline");
+    expect(idx).toBeGreaterThan(-1);
+    const step = block.slice(idx, block.indexOf("      - name:", idx + 1));
+    expect(step).toContain("if: success() && github.event_name == 'push'");
+    expect(step).toContain(`name: ${app}-visual-baseline`);
+    expect(step).toContain(`path: apps/${app}/e2e/screenshots/*.png`);
+    expect(step).toContain("if-no-files-found: error");
+    expect(step).toContain("retention-days: 3");
+    expect(idx).toBeGreaterThan(block.indexOf("- name: Run visual regression tests"));
+  });
+
+  it("publishes the baseline from a push-only job with job-level contents: write", () => {
+    const block = job(`publish-${app}-visual-baseline`);
+    expect(block).toContain(`needs: [${app}-visual]`);
+    expect(block).toContain(
+      `if: github.event_name == 'push' && needs.${app}-visual.result == 'success'`
+    );
+    expect(block).toMatch(/permissions:\n\s+contents: write/);
+    expect(block).toContain(`name: ${app}-visual-baseline`);
+    expect(block).toContain(
+      `node scripts/visual-baselines.mjs publish --suite ${app} --dir "$RUNNER_TEMP/baseline" --sha "$GITHUB_SHA"`
+    );
+  });
+
   it("opens every multi-line run block with set -o pipefail", () => {
     // GitHub's default shell is `bash -e` without pipefail (gotchas § CI): a
     // gate piped into anything reports the pipe's status. Every block opens
@@ -79,6 +129,18 @@ describe("apps-visual.yml — triggers and gating", () => {
   it("path-filters on each app and on packages/rialto/src/**", () => {
     for (const path of ["apps/marketing/**", "apps/hospitality/**", "packages/rialto/src/**"]) {
       expect(WORKFLOW).toContain(`"${path}"`);
+    }
+  });
+
+  it("watches scripts/visual-baselines.mjs on push and pull_request", () => {
+    for (const trigger of ["push", "pull_request"]) {
+      const re = new RegExp(
+        trigger === "push"
+          ? "^ {2}push:\\n([\\s\\S]*?)(?=^ {2}pull_request:)"
+          : "^ {2}pull_request:\\n([\\s\\S]*?)(?=^permissions:)",
+        "m"
+      );
+      expect(WORKFLOW.match(re)?.[1]).toContain('"scripts/visual-baselines.mjs"');
     }
   });
 

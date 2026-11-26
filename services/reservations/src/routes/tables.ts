@@ -177,6 +177,24 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (request, reply) =>
       inNamedVenueContext(request.body.venueId, async () => {
+        // `floorPlanId` is written as a raw foreign key, which Postgres checks
+        // without RLS, so it must be proved to belong to the body's venue first
+        // (#9713). Under RLS a foreign plan reads back as null: reject that too.
+        const { floorPlanId, venueId } = request.body;
+        if (floorPlanId) {
+          const floorPlan = await floorPlanService.getById(floorPlanId);
+          if (!floorPlan || floorPlan.venueId !== (venueId ?? null)) {
+            return reply
+              .code(403)
+              .send(
+                createProblemDetails(
+                  403,
+                  titleForStatus(403),
+                  "The requested floor plan does not belong to this venue"
+                )
+              );
+          }
+        }
         try {
           const table = await tableService.create(request.body);
           return reply.code(201).send({ data: table });

@@ -1,0 +1,31 @@
+.toolbar {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--rialto-space-xs);
+  padding: var(--rialto-space-xs);
+  border-radius: var(--rialto-radius-default);
+  background: var(--rialto-surface-recessed);
+  border: 1px solid var(--rialto-border);
+}
+
+.vertical {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.separator {
+  flex-shrink: 0;
+  background: var(--rialto-border);
+}
+
+.separatorVertical {
+  inline-size: 1px;
+  align-self: stretch;
+  margin-inline: var(--rialto-space-xs);
+}
+
+.separatorHorizontal {
+  block-size: 1px;
+  margin-block: var(--rialto-space-xs);
+}

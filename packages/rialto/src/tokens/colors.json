@@ -25,6 +25,16 @@
         "$value": "#a8a49d",
         "$type": "color",
         "$description": "Heavy separators, decorative dark accents"
+      },
+      "tinted": {
+        "$value": "#e9dfcf",
+        "$type": "color",
+        "$description": "Parchment band (smoked brass in dark): page bands, Tabs track, grouped regions. Pair with data-surface=\"tinted\""
+      },
+      "velvet": {
+        "$value": "#4a3a5c",
+        "$type": "color",
+        "$description": "Plum velvet band: signature bands with ivory text. Pair with data-surface=\"velvet\""
       }
     },
     "text": {
@@ -82,6 +92,55 @@
         "$value": "rgb(176 132 30 / 0.35)",
         "$type": "color",
         "$description": "Focus ring outer glow (used in --rialto-shadow-focus)"
+      }
+    },
+    "plum": {
+      "$description": "Plum: the voice. Highlighted, never selected; never the only signal",
+      "default": {
+        "$value": "#7a2e6a",
+        "$type": "color",
+        "$description": "Highlighted (not selected) states, hover tints of secondary and ghost controls, caret, selection"
+      },
+      "muted": {
+        "$value": "rgb(122 46 106 / 0.12)",
+        "$type": "color",
+        "$description": "Highlight and hover tint backgrounds"
+      },
+      "text-on": {
+        "$value": "#fdfcfa",
+        "$type": "color",
+        "$description": "Text on a plum fill"
+      }
+    },
+    "verdigris": {
+      "$description": "Verdigris: live. Never the only signal",
+      "default": {
+        "$value": "#1f6b62",
+        "$type": "color",
+        "$description": "Live service state: live dot, now-line, real-time counts"
+      },
+      "muted": {
+        "$value": "rgb(31 107 98 / 0.12)",
+        "$type": "color",
+        "$description": "Live-state tint backgrounds"
+      },
+      "text-on": {
+        "$value": "#fdfcfa",
+        "$type": "color",
+        "$description": "Text on a verdigris fill"
+      }
+    },
+    "focus": {
+      "$description": "Focus ring, separate from the gold fill so a band can deepen it (ADR-035)",
+      "ring": {
+        "$value": "#b0841e",
+        "$type": "color",
+        "$description": "Focus ring colour (defaults to the accent)"
+      },
+      "gap": {
+        "$value": "#f8f6f3",
+        "$type": "color",
+        "$description": "Gap drawn between a control and its focus ring (defaults to the surface)"
       }
     },
     "semantic": {

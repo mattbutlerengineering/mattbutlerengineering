@@ -5,13 +5,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   BASELINE_PREFIX,
+  DEFAULT_DEPTH,
   buildBaselineRefName,
   fetchBaseline,
   parseBaselineRefName,
   parseLsRemote,
   pickBaseline,
+  planBaselineSweep,
   publishBaseline,
 } from "../visual-baselines.mjs";
+import { MIN_AGE_HOURS } from "../visual-diff-refs.mjs";
 
 const SHA_A = "a".repeat(40);
 const SHA_B = "b".repeat(40);
@@ -82,6 +85,97 @@ describe("pickBaseline", () => {
 
   it("returns null when no ancestor has one", () => {
     expect(pickBaseline({ suite: "hospitality", ancestors: [SHA_A, SHA_B], refNames })).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// planBaselineSweep — retention for refs/heads/visual-baselines/**. #9703.
+// Mirrors planRefSweep's shape ({toDelete, retained}), grouped per suite
+// instead of per PR: a baseline ref carries no PR, only a suite and a main
+// sha (see buildBaselineRefName).
+// ---------------------------------------------------------------------------
+
+const BASELINE_NOW = new Date("2026-08-25T12:00:00Z");
+const baselineHoursAgo = (h) => new Date(BASELINE_NOW.getTime() - h * 3_600_000).toISOString();
+
+/** A 40-hex sha built from an integer, so a block of refs gets distinct shas. */
+const shaFor = (n) => String(n).padStart(40, "0");
+
+function baselineRef({ suite = "rialto-web", ageHours, sha }) {
+  return {
+    name: buildBaselineRefName({ suite, sha: sha ?? shaFor(ageHours + 1) }),
+    committedAt: baselineHoursAgo(ageHours),
+  };
+}
+
+const baselineNames = (list) => list.map((r) => r.name);
+
+describe("planBaselineSweep", () => {
+  it("is built from DEFAULT_DEPTH (default keep) and MIN_AGE_HOURS (default minAgeHours)", () => {
+    // Sanity on the two defaults this test file otherwise hard-codes.
+    expect(DEFAULT_DEPTH).toBe(50);
+    expect(MIN_AGE_HOURS).toBe(24);
+  });
+
+  it("groups suites independently: 60 rialto-web + 10 marketing deletes exactly the 10 oldest rialto-web refs", () => {
+    const rialtoWeb = Array.from({ length: 60 }, (_, i) =>
+      baselineRef({ suite: "rialto-web", ageHours: 100 + i, sha: shaFor(i) })
+    );
+    const marketing = Array.from({ length: 10 }, (_, i) =>
+      baselineRef({ suite: "marketing", ageHours: 100 + i, sha: shaFor(1000 + i) })
+    );
+    const plan = planBaselineSweep({ refs: [...rialtoWeb, ...marketing], now: BASELINE_NOW });
+
+    // The 10 oldest of the 60 rialto-web refs are indices 50..59 (ages 150..159).
+    const expectedDeleted = rialtoWeb.slice(50).map((r) => r.name);
+    expect(baselineNames(plan.toDelete).sort()).toEqual(expectedDeleted.sort());
+    // None of marketing's 10 refs are touched — its own group never exceeds `keep`.
+    for (const ref of marketing) {
+      expect(baselineNames(plan.toDelete)).not.toContain(ref.name);
+    }
+  });
+
+  it("NEVER deletes a ref younger than MIN_AGE_HOURS, even past position `keep`", () => {
+    const old = Array.from({ length: 55 }, (_, i) =>
+      baselineRef({ suite: "rialto-web", ageHours: 100 + i, sha: shaFor(i) })
+    );
+    const young = baselineRef({ suite: "rialto-web", ageHours: 1, sha: shaFor(9999) });
+    const plan = planBaselineSweep({ refs: [...old, young], now: BASELINE_NOW });
+
+    expect(baselineNames(plan.toDelete)).not.toContain(young.name);
+    expect(plan.retained.find((r) => r.name === young.name)?.reason).toBe("too-recent");
+  });
+
+  it("NEVER deletes a ref whose date is unreadable, even past position `keep`", () => {
+    const old = Array.from({ length: 55 }, (_, i) =>
+      baselineRef({ suite: "rialto-web", ageHours: 100 + i, sha: shaFor(i) })
+    );
+    const undated = {
+      name: buildBaselineRefName({ suite: "rialto-web", sha: shaFor(9998) }),
+      committedAt: null,
+    };
+    const plan = planBaselineSweep({ refs: [...old, undated], now: BASELINE_NOW });
+
+    expect(baselineNames(plan.toDelete)).not.toContain(undated.name);
+    expect(plan.retained.find((r) => r.name === undated.name)?.reason).toBe("undated");
+  });
+
+  it("ignores refs that do not parse as baseline refs — never deletes them", () => {
+    const refs = [
+      { name: "main", committedAt: baselineHoursAgo(9000) },
+      { name: "visual-diffs/pr-1/rialto-web/run-1-attempt-1", committedAt: baselineHoursAgo(9000) },
+    ];
+    const plan = planBaselineSweep({ refs, now: BASELINE_NOW });
+    expect(plan.toDelete).toEqual([]);
+    expect(plan.retained.map((r) => r.reason)).toEqual(["unparsable", "unparsable"]);
+  });
+
+  it("honors an explicit keep override", () => {
+    const refs = Array.from({ length: 5 }, (_, i) =>
+      baselineRef({ suite: "rialto-web", ageHours: 100 + i, sha: shaFor(i) })
+    );
+    const plan = planBaselineSweep({ refs, now: BASELINE_NOW, keep: 2 });
+    expect(plan.toDelete).toHaveLength(3);
   });
 });
 
