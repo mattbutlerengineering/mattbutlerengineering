@@ -74,7 +74,7 @@
 }
 
 .suggestion:focus-visible {
-  outline: none;
+  outline: var(--rialto-focus-ring-width) solid transparent;
   box-shadow: var(--rialto-shadow-focus);
 }
 
@@ -164,7 +164,7 @@
 }
 
 .input:focus {
-  outline: none;
+  outline: var(--rialto-focus-ring-width) solid transparent;
   box-shadow: var(--rialto-shadow-focus);
 }
 

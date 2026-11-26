@@ -76,6 +76,6 @@
 }
 
 .input:focus-visible + .track {
-  outline: none;
+  outline: var(--rialto-focus-ring-width) solid transparent;
   box-shadow: var(--rialto-shadow-focus);
 }

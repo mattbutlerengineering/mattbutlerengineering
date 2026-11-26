@@ -59,6 +59,7 @@
 
 .error .trigger:focus-visible,
 .error .trigger[data-open="true"] {
+  outline: var(--rialto-focus-ring-width) solid transparent;
   border-color: var(--rialto-error);
   box-shadow:
     0 0 0 2px var(--rialto-surface),

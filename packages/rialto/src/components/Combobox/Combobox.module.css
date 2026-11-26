@@ -49,7 +49,7 @@
   min-width: 60px;
   padding: var(--rialto-space-2xs) 0;
   border: none;
-  outline: none;
+  outline: var(--rialto-focus-ring-width) solid transparent;
   background: none;
   font-family: var(--rialto-font-sans);
   font-size: var(--rialto-text-base);

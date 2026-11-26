@@ -121,6 +121,7 @@
 }
 
 .input:focus-visible ~ .knobTrack .knob {
+  outline: var(--rialto-focus-ring-width) solid transparent;
   border-color: var(--rialto-accent);
   box-shadow: var(--rialto-shadow-focus);
 }
