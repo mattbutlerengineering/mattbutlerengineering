@@ -71,6 +71,15 @@ function makePrismaFloorPlan(overrides: Record<string, unknown> = {}) {
 
 const ACTOR = { actorId: "mgr-1", actorName: "Mia" };
 
+/** Every bound value of a tagged-template `$executeRaw` call, nested `Prisma.join`s included. */
+function boundValues(call: unknown[]): unknown[] {
+  const walk = (v: unknown): unknown[] =>
+    v && typeof v === "object" && Array.isArray((v as { values?: unknown }).values)
+      ? (v as { values: unknown[] }).values.flatMap(walk)
+      : [v];
+  return call.slice(1).flatMap(walk);
+}
+
 describe("floorPlanService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -446,10 +455,14 @@ describe("floorPlanService", () => {
 
       expect(await floorPlanService.delete("fp-1", ACTOR)).toBe("archived");
       expect(tx.table.deleteMany).not.toHaveBeenCalled();
-      expect(tx.table.update).toHaveBeenCalledWith({
-        where: { id: "t-1" },
-        data: { name: "T1 (archived 2)", isActive: false },
-      });
+      expect(tx.table.update).not.toHaveBeenCalled();
+      const archive = tx.$executeRaw.mock.calls.find((c) =>
+        boundValues(c).includes("T1 (archived 2)")
+      );
+      expect(archive).toBeDefined();
+      expect(boundValues(archive!)).toEqual(
+        expect.arrayContaining(["t-1", "T1 (archived 2)", "fp-1"])
+      );
       expect(tx.floorPlan.update).toHaveBeenCalledWith({
         where: { id: "fp-1" },
         data: { archivedAt: expect.any(Date) },

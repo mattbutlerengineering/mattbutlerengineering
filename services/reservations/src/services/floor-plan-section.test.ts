@@ -61,6 +61,15 @@ beforeEach(() => {
 
 const ACTOR = { actorId: "mgr-1", actorName: "Mia" };
 
+/** Every bound value of a tagged-template `$executeRaw` call, nested `Prisma.join`s included. */
+function boundValues(call: unknown[]): unknown[] {
+  const walk = (v: unknown): unknown[] =>
+    v && typeof v === "object" && Array.isArray((v as { values?: unknown }).values)
+      ? (v as { values: unknown[] }).values.flatMap(walk)
+      : [v];
+  return call.slice(1).flatMap(walk);
+}
+
 describe("floorPlanSectionService", () => {
   it("lists a venue's sections in display order, optionally for one floor plan", async () => {
     db.floorPlanSection.findMany.mockResolvedValue([row]);
@@ -160,6 +169,7 @@ describe("floorPlanSectionService", () => {
     expect(db.$transaction).not.toHaveBeenCalled();
 
     const tx = {
+      $executeRaw: vi.fn().mockResolvedValue(2),
       floorPlanSection: {
         count: vi.fn().mockResolvedValue(1),
         updateMany: vi.fn(),
@@ -169,14 +179,16 @@ describe("floorPlanSectionService", () => {
     db.$transaction.mockImplementation((fn: (t: typeof tx) => unknown) => fn(tx));
     await floorPlanSectionService.reorder("v1", "f1", ["a", "b"]);
     // 1 owned of 2 requested: nothing written
-    expect(tx.floorPlanSection.updateMany).not.toHaveBeenCalled();
+    expect(tx.$executeRaw).not.toHaveBeenCalled();
 
     tx.floorPlanSection.count.mockResolvedValue(2);
     expect(await floorPlanSectionService.reorder("v1", "f1", ["a", "b"])).toHaveLength(1);
-    expect(tx.floorPlanSection.updateMany).toHaveBeenCalledWith({
-      where: { id: "b", floorPlanId: "f1", venueId: "v1" },
-      data: { displayOrder: 1 },
-    });
+    // One batched statement, not one round-trip per row.
+    expect(tx.floorPlanSection.updateMany).not.toHaveBeenCalled();
+    expect(tx.$executeRaw).toHaveBeenCalledTimes(1);
+    expect(boundValues(tx.$executeRaw.mock.calls[0]!)).toEqual(
+      expect.arrayContaining(["a", 0, "b", 1, "f1", "v1"])
+    );
   });
 
   describe("assignTables", () => {
