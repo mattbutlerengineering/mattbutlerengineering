@@ -20,12 +20,6 @@ const idParams = {
 };
 
 /**
- * Personal access tokens (#9663): a user mints, lists and revokes the
- * read-only bearers remote MCP clients use. The routes sit behind the normal
- * Auth0 `requireAuth`; a token can never mint or revoke tokens. Tokens belong
- * to the caller's `sub`, so another user's id answers 404.
- */
-/**
  * `GET /api/v1/me/access-token` (#9781): lets a remote MCP server learn whether
  * the bearer it was handed carries the write scope, so it can offer write
  * tools. It answers only `{ write }` for the caller's own token (never the
@@ -61,6 +55,12 @@ export const currentAccessTokenRoutes: FastifyPluginAsync = async (fastify) => {
   );
 };
 
+/**
+ * Personal access tokens (#9663): a user mints, lists and revokes the
+ * read-only bearers remote MCP clients use. The routes sit behind the normal
+ * Auth0 `requireAuth`; a token can never mint or revoke tokens. Tokens belong
+ * to the caller's `sub`, so another user's id answers 404.
+ */
 export const accessTokenRoutes: FastifyPluginAsync = async (fastify) => {
   const { accessTokenService } = fastify.services;
   const subOf = (request: { user?: { raw: { sub?: string } } }): string =>

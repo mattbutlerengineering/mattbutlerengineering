@@ -70,7 +70,7 @@ const failure = (err: unknown, what: string): { error: string } => {
   return { error: refusal?.detail ?? `Couldn't ${what} right now. Nothing was changed.` };
 };
 
-async function previewModify({ api }: Ctx, input: Input): Promise<Preview> {
+async function previewModify({ api, venueId }: Ctx, input: Input): Promise<Preview> {
   const changes = Object.fromEntries(
     MOVE_KEYS.filter((k) => input[k] !== undefined).map((k) => [k, input[k]])
   );
@@ -79,6 +79,9 @@ async function previewModify({ api }: Ctx, input: Input): Promise<Preview> {
   }
   try {
     const r = await api.reservations.get(String(input["reservationId"]));
+    if (r.venueId !== venueId) {
+      return { error: "That reservation does not belong to this venue. Nothing was changed." };
+    }
     return {
       preview: {
         action: "Move a booking",

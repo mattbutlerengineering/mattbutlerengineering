@@ -31,7 +31,7 @@ function createMockApi() {
     venues: {
       list: vi.fn(async () => ({ data: [VENUE] })),
       get: vi.fn(async (id: string) => {
-        if (id !== "v1") throw problem(403, "Not a member of this venue.");
+        if (id !== "v1" && id !== "v2") throw problem(403, "Not a member of this venue.");
         return VENUE;
       }),
     },
@@ -47,6 +47,7 @@ function createMockApi() {
     reservations: {
       get: vi.fn(async () => ({
         id: "r1",
+        venueId: "v1",
         guestName: "Ana Lopez",
         startTime: "2026-12-01T23:00:00.000Z",
         endTime: "2026-12-02T00:30:00.000Z",
@@ -318,6 +319,15 @@ describe("MCP write tools (#9781)", () => {
       });
       expect(replay.isError).toBe(true);
       expect(replay.text).toContain("already used");
+      await client.close();
+    });
+
+    it("refuses a reservation that belongs to another venue, even one the user is a member of", async () => {
+      const client = await connect(WRITER);
+      const first = await call(client, "modify_reservation", { ...modifyArgs, venueId: "v2" });
+      expect(first.isError).toBe(true);
+      expect(first.json?.confirmToken).toBeUndefined();
+      expect(api.reservations.update).not.toHaveBeenCalled();
       await client.close();
     });
 

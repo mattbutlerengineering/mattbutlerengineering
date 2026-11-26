@@ -1,6 +1,6 @@
 # Connect an AI assistant to your venue
 
-Let an AI assistant such as Claude look up your venue's reservations, guests and open times. By default the connection is read-only: the assistant can read, and it cannot book, change or cancel anything. You can opt a token in to a small set of changes (move a booking, pause and resume tables), each of which the assistant must show you and you must approve first (section 4).
+Let an AI assistant such as Claude look up your venue's reservations, guests and open times. By default the connection is read-only: the assistant can read, and it cannot book, change or cancel anything. You can opt a token in to a small set of changes (move a booking, pause and resume tables), each of which is a two-step change the assistant is told to show you before it goes ahead (section 4).
 
 This guide is for a venue owner or manager who can sign in to the hospitality app. Refs #9488 and #9489, built on #9663 (token model), #9664 (token as bearer), #9665 (Settings page), #9666 (MCP endpoint), #9778 (write scope), #9780 (audit) and #9781 (write tools).
 
@@ -90,12 +90,14 @@ A token created with **Allow this token to make changes** adds three tools to th
 | `pause_tables`       | `venueId`, `tables` (names or numbers), `until` (a date as YYYY-MM-DD, or `until reopened`)   | Takes tables out of booking from today. It refuses when a booking sits on those tables; finish those on the Availability page. |
 | `resume_tables`      | `venueId`, `tables`                                                                           | Undoes `pause_tables`: reopens the table pause that holds exactly those tables, telling no guest.                              |
 
-These tools are marked destructive, so a client that asks before running tools will ask you.
+These tools are marked destructive. Whether your assistant app actually asks you before running a tool depends on its own tool-approval setting, so keep approval on for these tools.
 
 **Every change takes two calls.**
 
 1. The assistant calls the tool. Nothing is changed. The reply is a preview of what would happen (for `pause_tables`, whether any booking would be affected) and a `confirmToken`.
-2. The assistant shows you the preview. Only after you say yes does it call the same tool again with the `confirmToken`. The server then makes exactly the change in the preview, whatever else the assistant sends.
+2. The assistant calls the same tool again with the `confirmToken`. The server then makes exactly the change in the preview, whatever else the assistant sends. This is enforced by the server.
+
+The assistant is instructed to show you the preview and wait for your yes before the second call. The server cannot check that you said yes: whether you are actually prompted depends on your assistant app's tool-approval setting. Keep approval turned on for these tools.
 
 A `confirmToken` works once, for that tool and venue, and expires after 5 minutes. It is signed with your access token, so no one else can make one, and a changed, expired or reused token is refused. Every change a token makes is logged with the tool that made it.
 
