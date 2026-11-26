@@ -69,7 +69,6 @@ export const Listbox = forwardRef<HTMLDivElement, ListboxProps>(
     const [inner, setInner] = useState<string[]>(() => toList(defaultValue));
     const [active, setActive] = useState(-1);
     const typed = useRef({ text: "", at: 0 });
-    const listRef = useRef<HTMLDivElement | null>(null);
 
     const selected = value === undefined ? inner : toList(value);
     const optionId = (i: number) => `${baseId}-opt-${i}`;
@@ -164,11 +163,7 @@ export const Listbox = forwardRef<HTMLDivElement, ListboxProps>(
     return (
       <div
         {...rest}
-        ref={(node) => {
-          listRef.current = node;
-          if (typeof ref === "function") ref(node);
-          else if (ref) ref.current = node;
-        }}
+        ref={ref}
         role="listbox"
         tabIndex={0}
         aria-multiselectable={multiple ? "true" : undefined}

@@ -3,6 +3,7 @@ import type { CatalogMeta } from "./catalog-meta";
 import { chatPanelCatalogMeta } from "./ChatPanel/ChatPanel.catalog";
 import { fileUploadCatalogMeta } from "./FileUpload/FileUpload.catalog";
 import { imageUploadCatalogMeta } from "./ImageUpload/ImageUpload.catalog";
+import { listboxCatalogMeta } from "./Listbox/Listbox.catalog";
 import { masterOverrideCatalogMeta } from "./MasterOverride/MasterOverride.catalog";
 import { tagsInputCatalogMeta } from "./TagsInput/TagsInput.catalog";
 import { treeCatalogMeta } from "./Tree/Tree.catalog";
@@ -13,6 +14,7 @@ const metas: readonly (readonly [string, CatalogMeta])[] = [
   ["ChatPanel", chatPanelCatalogMeta],
   ["FileUpload", fileUploadCatalogMeta],
   ["ImageUpload", imageUploadCatalogMeta],
+  ["Listbox", listboxCatalogMeta],
   ["Tree", treeCatalogMeta],
   ["TagsInput", tagsInputCatalogMeta],
 ];
@@ -42,5 +44,11 @@ describe("TagsInput catalog meta", () => {
 describe("Tree catalog meta", () => {
   it("declares an explicit schema for its data prop", () => {
     expect(treeCatalogMeta.propSchemas.data).toMatch(/^z\.array\(/);
+  });
+});
+
+describe("Listbox catalog meta", () => {
+  it("declares an explicit schema for its options prop", () => {
+    expect(listboxCatalogMeta.propSchemas.options).toMatch(/^z\.array\(/);
   });
 });

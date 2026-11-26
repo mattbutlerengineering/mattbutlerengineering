@@ -294,6 +294,11 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     description:
       "Keyboard key cap for showing one key, such as Esc or K, inside help text or a hint. Put the key name in children.",
   },
+  Listbox: {
+    name: "Listbox",
+    description:
+      "Always-visible list for picking one option, or several with multiple=true. Use for short choices staff scan at a glance, such as a section, shift or table list. Give an aria-label and an options array of value and label.",
+  },
   MasterOverride: {
     name: "MasterOverride",
     description:
