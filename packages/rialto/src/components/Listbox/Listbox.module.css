@@ -1,0 +1,54 @@
+.listbox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-xs);
+  padding: var(--rialto-space-xs);
+  max-block-size: 16rem;
+  overflow-y: auto;
+  border-radius: var(--rialto-radius-default);
+  background: var(--rialto-surface-recessed);
+  border: 1px solid var(--rialto-border);
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-primary);
+}
+
+.listbox:focus-visible {
+  outline: 2px solid transparent;
+  box-shadow: var(--rialto-shadow-focus);
+}
+
+.option {
+  padding-block: var(--rialto-space-xs);
+  padding-inline: var(--rialto-space-sm);
+  border-radius: var(--rialto-radius-sharp);
+  cursor: pointer;
+  transition: background-color var(--rialto-duration-fast) var(--rialto-ease-precision);
+}
+
+.option:hover {
+  background: var(--rialto-surface-elevated);
+}
+
+.selected {
+  background: var(--rialto-accent-muted);
+  font-weight: 500;
+}
+
+.active {
+  box-shadow: inset 0 0 0 1px var(--rialto-accent);
+}
+
+.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.disabled:hover {
+  background: transparent;
+}
+
+.empty {
+  padding: var(--rialto-space-sm);
+  color: var(--rialto-text-secondary);
+}

@@ -110,6 +110,7 @@ import { TextArea } from "../../components/TextArea/TextArea";
 import { ThemeToggle } from "../../components/ThemeToggle/ThemeToggle";
 import { TimePicker } from "../../components/TimePicker/TimePicker";
 import { Timeline } from "../../components/Timeline/Timeline";
+import { Listbox } from "../../components/Listbox/Listbox";
 import { TimeSlots } from "../../components/TimeSlots/TimeSlots";
 import { ToastProvider } from "../../components/Toast/Toast";
 import { Toggle } from "../../components/Toggle/Toggle";
@@ -222,6 +223,7 @@ export type BarrelExportName =
   | "ThemeToggle"
   | "TimePicker"
   | "Timeline"
+  | "Listbox"
   | "TimeSlots"
   | "Toast"
   | "Toggle"
@@ -921,6 +923,18 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
 
   Toggle: {
     element: <Toggle label="Notifications" />,
+  },
+
+  Listbox: {
+    element: (
+      <Listbox
+        aria-label="Sections"
+        options={[
+          { value: "bar", label: "Bar" },
+          { value: "patio", label: "Patio" },
+        ]}
+      />
+    ),
   },
 
   Tooltip: {

@@ -6,6 +6,7 @@ const PAGES_TO_AUDIT = [
   { name: "Input", path: "/components/input" },
   { name: "Toggle", path: "/components/toggle" },
   { name: "Select", path: "/components/select" },
+  { name: "Listbox", path: "/components/listbox" },
   { name: "Tabs", path: "/components/tabs" },
   { name: "Dialog", path: "/components/dialog" },
   { name: "Badge", path: "/components/badge" },

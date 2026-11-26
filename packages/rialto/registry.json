@@ -2971,6 +2971,52 @@
       "slots": []
     },
     {
+      "name": "Listbox",
+      "description": "Always-visible listbox (WAI-ARIA APG Listbox). One Tab stop; focus stays on the\nlistbox and `aria-activedescendant` tracks the active option. Single selection\nfollows focus; `multiple` adds Space, Shift+Arrow and Ctrl/Cmd+A.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [
+        {
+          "name": "options",
+          "type": "readonly ListboxOption[]",
+          "required": true,
+          "description": "Options in display order."
+        },
+        {
+          "name": "multiple",
+          "type": "boolean | undefined",
+          "required": false,
+          "description": "Allow several selected options; `value` is then a string array."
+        },
+        {
+          "name": "value",
+          "type": "string | readonly string[] | undefined",
+          "required": false,
+          "description": "Controlled value (string, or string[] when `multiple`)."
+        },
+        {
+          "name": "defaultValue",
+          "type": "string | readonly string[] | undefined",
+          "required": false,
+          "description": "Uncontrolled initial value."
+        },
+        {
+          "name": "onValueChange",
+          "type": "((value: string | string[]) => void) | undefined",
+          "required": false,
+          "description": "Called with the new value (string, or string[] when `multiple`)."
+        }
+      ],
+      "slots": [
+        "children"
+      ]
+    },
+    {
+      "name": "ListboxOption",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [],
+      "slots": []
+    },
+    {
       "name": "MasterOverride",
       "description": "A safety-cover toggle: a hinged protective cover flips up to reveal a\ntwo-position switch beneath. Designed for destructive or irreversible actions\nthat warrant a deliberate, tactile commitment — the digital equivalent of a\nmissile-silo arming switch.",
       "importPath": "@mattbutlerengineering/rialto",
