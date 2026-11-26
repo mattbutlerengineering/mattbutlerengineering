@@ -36,6 +36,10 @@ export interface SaveAttemptsOptions {
  *   are what applied.
  * - Leaving after a save with no definite answer warns that it may have gone through. Leaving after
  *   any save reloads.
+ *
+ * Kept separate from `useDecisionsSession` on purpose: Pause (PauseOnlineDialog) does not decide
+ * on bookings and is not ported, but needs the same attempt and leave-guard bookkeeping, so the
+ * session builds on this hook rather than absorbing it (#9690).
  */
 export function useSaveAttempts(rules: readonly DateRule[], options: SaveAttemptsOptions) {
   const { firstRuleId, reload, onLeave } = options;
