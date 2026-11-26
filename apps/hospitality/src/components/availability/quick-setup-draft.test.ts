@@ -596,3 +596,45 @@ describe("setBlockDays", () => {
     expect(result.removed).toEqual([]);
   });
 });
+
+describe("per-service pacing in the draft", () => {
+  const dinner = (extra: Partial<ServiceDraft> = {}): QuickSetupDraft => ({
+    days: EVERY_DAY,
+    services: [draftService("s1", "Dinner", ["17:00", "21:00", "22:00"], extra)],
+  });
+
+  it("writes a service's pacing as its row's rules", () => {
+    const config = draftToConfig(
+      dinner({ pacing: { covers: "24", windowMinutes: 30 } }),
+      counter()
+    );
+    expect(config.scheduleServices.map((row) => row.rules)).toEqual([
+      { version: 1, pacing: { covers: 24, windowMinutes: 30 } },
+    ]);
+  });
+
+  it("writes no rules for a service with no pacing or an empty cap", () => {
+    for (const pacing of [undefined, { covers: "", windowMinutes: 30 }]) {
+      const config = draftToConfig(dinner(pacing ? { pacing } : {}), counter());
+      expect(config.scheduleServices.every((row) => row.rules === undefined)).toBe(true);
+    }
+  });
+
+  it("reads a stored row's pacing back and keeps it through a save", () => {
+    const stored = draftToConfig(
+      dinner({ pacing: { covers: "24", windowMinutes: 15 } }),
+      counter()
+    );
+    const draft = draftFromConfig(stored, counter());
+    expect(draft.services[0]?.pacing).toEqual({ covers: "24", windowMinutes: 15 });
+    const saved = draftToChanges(draft, stored, counter());
+    expect(saved.upsert?.scheduleServices?.map((row) => row.rules)).toEqual([
+      { version: 1, pacing: { covers: 24, windowMinutes: 15 } },
+    ]);
+  });
+
+  it("reads a row with no rules as no pacing", () => {
+    const draft = draftFromConfig(draftToConfig(dinner(), counter()), counter());
+    expect(draft.services[0]?.pacing).toBeUndefined();
+  });
+});

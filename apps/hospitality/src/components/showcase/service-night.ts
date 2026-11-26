@@ -63,6 +63,7 @@ export const SCENES: readonly Scene[] = [
       shipped("pauseBooking"),
       shipped("openSign"),
       shipped("kitchenAwareBooking"),
+      shipped("regularsClub"),
     ],
   },
   {
@@ -86,11 +87,7 @@ export const SCENES: readonly Scene[] = [
 ];
 
 /** Roadmap ideas, each from the weekly notes in `docs/ideas/`. */
-export const ROADMAP: readonly Claim[] = [
-  concept("guestPassport"),
-  concept("headlessVenue"),
-  concept("regularsClub"),
-];
+export const ROADMAP: readonly Claim[] = [concept("guestPassport"), concept("headlessVenue")];
 
 /** Scenes from doors to after hours play with the lights down. */
 const NIGHT_SCENES: ReadonlySet<SceneId> = new Set([

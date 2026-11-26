@@ -38,7 +38,9 @@ interface Column<T> {
 
 /**
  * A data table with built-in column sorting, row striping, and density control.
- * Sorting is handled internally -- click a sortable column header to cycle asc/desc.
+ * Sorting is handled internally — click a sortable column header to cycle asc/desc.
+ * Pass `manualSort` when `data` is one page of a larger sorted list: the table
+ * keeps that order and reports header clicks through `onSortChange`.
  *
  * @example
  * <Table<{ name: string; time: number }>
@@ -62,6 +64,16 @@ interface TablePropsGeneric<T> {
   /** Message when data is empty */
   emptyMessage?: string;
   className?: string;
+  /**
+   * Render `data` in the order given. Header clicks report the next asc/desc
+   * sort through `onSortChange` and do not reorder rows. Set this when `data`
+   * is a page: sort the full list, then slice.
+   */
+  manualSort?: boolean;
+  /** Header indicator while `manualSort` is set. `null` is unsorted. */
+  sort?: { key: string; direction: SortDirection } | null;
+  /** Next sort after a sortable header is activated. */
+  onSortChange?: (sort: { key: string; direction: SortDirection }) => void;
 }
 
 /** Registry documentation type -- concrete version of TableProps for AI tooling */
@@ -73,6 +85,9 @@ export interface TableProps {
   striped?: boolean;
   emptyMessage?: string;
   className?: string;
+  manualSort?: boolean;
+  sort?: { key: string; direction: SortDirection } | null;
+  onSortChange?: (sort: { key: string; direction: SortDirection }) => void;
 }
 
 /* ── Sort icon ──────────────────────────────── */
@@ -120,6 +135,9 @@ function TableInner<T extends Record<string, unknown>>(
     striped = false,
     emptyMessage: emptyMessageProp,
     className = "",
+    manualSort = false,
+    sort: sortProp = null,
+    onSortChange,
   }: TablePropsGeneric<T>,
   ref: React.ForwardedRef<HTMLDivElement>
 ) {
@@ -136,37 +154,48 @@ function TableInner<T extends Record<string, unknown>>(
   );
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDirection>("asc");
+  const activeKey = manualSort ? (sortProp?.key ?? null) : sortKey;
+  const activeDir: SortDirection = manualSort ? (sortProp?.direction ?? "asc") : sortDir;
 
   const handleSort = useCallback(
     (key: string) => {
-      if (sortKey === key) {
-        setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-      } else {
-        setSortKey(key);
-        setSortDir("asc");
+      const next = {
+        key,
+        direction: activeKey === key && activeDir === "asc" ? "desc" : "asc",
+      } as const;
+      if (!manualSort) {
+        if (sortKey === key) {
+          setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+        } else {
+          setSortKey(key);
+          setSortDir("asc");
+        }
       }
+      onSortChange?.(next);
     },
-    [sortKey]
+    [activeDir, activeKey, manualSort, onSortChange, sortKey]
   );
 
-  // Sort data
-  const sortedData = sortKey
-    ? [...data].sort((a, b) => {
-        const aVal = a[sortKey];
-        const bVal = b[sortKey];
-        if (aVal == null && bVal == null) return 0;
-        if (aVal == null) return 1;
-        if (bVal == null) return -1;
+  // Sort the rows this table was given. A paginated parent passes `manualSort`
+  // so a click sorts the full list before the slice, not this page alone.
+  const sortedData =
+    manualSort || !activeKey
+      ? data
+      : [...data].sort((a, b) => {
+          const aVal = a[activeKey];
+          const bVal = b[activeKey];
+          if (aVal == null && bVal == null) return 0;
+          if (aVal == null) return 1;
+          if (bVal == null) return -1;
 
-        let cmp: number;
-        if (typeof aVal === "number" && typeof bVal === "number") {
-          cmp = aVal - bVal;
-        } else {
-          cmp = String(aVal).localeCompare(String(bVal));
-        }
-        return sortDir === "asc" ? cmp : -cmp;
-      })
-    : data;
+          let cmp: number;
+          if (typeof aVal === "number" && typeof bVal === "number") {
+            cmp = aVal - bVal;
+          } else {
+            cmp = String(aVal).localeCompare(String(bVal));
+          }
+          return activeDir === "asc" ? cmp : -cmp;
+        });
 
   const densityClass = density !== "default" ? styles[density] : "";
   const tbodyClass = striped ? styles.striped : "";
@@ -196,13 +225,13 @@ function TableInner<T extends Record<string, unknown>>(
                 className={cn(
                   styles.th,
                   col.sortable && styles.sortable,
-                  sortKey === col.key && styles.sortActive,
+                  activeKey === col.key && styles.sortActive,
                   alignClass(col.align)
                 )}
                 style={col.width ? { width: col.width } : undefined}
                 aria-sort={
-                  sortKey === col.key
-                    ? sortDir === "asc"
+                  activeKey === col.key
+                    ? activeDir === "asc"
                       ? "ascending"
                       : "descending"
                     : col.sortable
@@ -219,7 +248,7 @@ function TableInner<T extends Record<string, unknown>>(
                   >
                     {col.header}
                     <span className={styles.sortIcon} aria-hidden="true">
-                      <SortArrow direction={sortKey === col.key ? sortDir : null} />
+                      <SortArrow direction={activeKey === col.key ? activeDir : null} />
                     </span>
                   </button>
                 ) : col.header === "" && col.ariaLabel ? (

@@ -8,12 +8,14 @@ export { UsersClient } from "./users.js";
 export { ReservationsClient, type ListReservationsParams } from "./reservations.js";
 export { VenuesClient, VenueGroupsClient } from "./venues.js";
 export { VenueTeamClient } from "./venue-team.js";
+export { AccessTokensClient } from "./access-tokens.js";
 export { TablesClient, type ListTablesParams } from "./tables.js";
 export {
   GuestsClient,
   type ListGuestsParams,
   type SearchGuestsParams,
   type FindOrCreateGuestRequest,
+  type InviteMemberRequest,
 } from "./guests.js";
 export { FloorPlansClient } from "./floor-plans.js";
 export { FloorPlanSectionsClient } from "./floor-plan-sections.js";
@@ -73,6 +75,7 @@ import { UsersClient } from "./users.js";
 import { ReservationsClient } from "./reservations.js";
 import { VenuesClient, VenueGroupsClient } from "./venues.js";
 import { VenueTeamClient } from "./venue-team.js";
+import { AccessTokensClient } from "./access-tokens.js";
 import { TablesClient } from "./tables.js";
 import { GuestsClient } from "./guests.js";
 import { FloorPlansClient } from "./floor-plans.js";
@@ -95,6 +98,7 @@ export function createApiClient(config: {
   timeout?: number;
   maxRetries?: number;
   onError?: (error: ApiClientError) => void;
+  defaultHeaders?: Record<string, string>;
 }) {
   const client = new ApiClient({
     baseUrl: config.baseUrl ?? "",
@@ -103,6 +107,7 @@ export function createApiClient(config: {
     timeout: config.timeout,
     maxRetries: config.maxRetries,
     onError: config.onError,
+    defaultHeaders: config.defaultHeaders,
   });
 
   return {
@@ -112,6 +117,7 @@ export function createApiClient(config: {
     venues: new VenuesClient(client),
     venueGroups: new VenueGroupsClient(client),
     venueTeam: new VenueTeamClient(client),
+    accessTokens: new AccessTokensClient(client),
     tables: new TablesClient(client),
     guests: new GuestsClient(client),
     floorPlans: new FloorPlansClient(client),

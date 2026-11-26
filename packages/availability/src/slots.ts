@@ -154,6 +154,7 @@ function freeTables(
 function pacingOk(
   snapshot: BookingSnapshot,
   day: ResolvedDaySummary,
+  service: ResolvedService,
   start: Date,
   partySize: number,
   now: Date
@@ -165,7 +166,8 @@ function pacingOk(
     snapshot.reservations,
     snapshot.holds,
     now,
-    day.pacingCovers
+    day.pacingCovers,
+    service.pacing
   );
 }
 
@@ -193,7 +195,7 @@ export function listSlots(
         const start = serviceDayInstant(serviceDate, minute, snapshot.timezone);
         if (!start) return [];
         const tables = freeTables(snapshot, day, minute, partySize, start, now);
-        const paced = pacingOk(snapshot, day, start, partySize, now);
+        const paced = pacingOk(snapshot, day, service, start, partySize, now);
         return [
           {
             start,
@@ -285,7 +287,9 @@ function softLimits(
   const maxParty = snapshot.settings?.maxPartySize;
   return [
     ...(minute > service.lastSeatingAt ? ["after_last_seating" as const] : []),
-    ...(pacingOk(snapshot, day, request.start, request.partySize, now) ? [] : ["pacing" as const]),
+    ...(pacingOk(snapshot, day, service, request.start, request.partySize, now)
+      ? []
+      : ["pacing" as const]),
     ...(maxParty !== undefined && request.partySize > maxParty ? ["party_size" as const] : []),
   ];
 }

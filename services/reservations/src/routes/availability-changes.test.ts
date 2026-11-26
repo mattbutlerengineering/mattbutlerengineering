@@ -212,6 +212,23 @@ describe("availability history routes", () => {
       expect(res.json().winningChange).toEqual(winningChange);
     });
 
+    it("carries currentVersion and changesSince on a stale version, like closures (#9680)", async () => {
+      const changesSince = { total: 3, changes: [] };
+      svc.revert.mockResolvedValueOnce({
+        kind: "version_conflict",
+        winningChange: null,
+        currentVersion: 7,
+        changesSince,
+      });
+      const res = await post(app);
+      expect(res.statusCode).toBe(409);
+      expect(res.json()).toMatchObject({
+        code: "version-conflict",
+        currentVersion: 7,
+        changesSince,
+      });
+    });
+
     it("answers bookings the revert would strand with 409 stranded-bookings", async () => {
       const reservations = [
         { id: "res-1", startTime: "2026-11-07T06:30:00.000Z", partySize: 2, reason: "closed" },

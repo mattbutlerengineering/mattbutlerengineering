@@ -86,7 +86,7 @@ export const FAMILIES = [
     // Hook-scoped regen (PostToolUse): a token-source edit regenerates just
     // this family, mirroring the dep-graph ergonomics.
     changedBy(path) {
-      return /(^|\/)packages\/rialto\/(src\/tokens\/colors(\.dark)?\.json|scripts\/(generate-colors-css|generate-figma-tokens)\.ts|scripts\/lib\/color-tokens\.ts)$/.test(
+      return /(^|\/)packages\/rialto\/(src\/tokens\/colors(\.dark|\.surfaces)?\.json|scripts\/(generate-colors-css|generate-figma-tokens)\.ts|scripts\/lib\/color-tokens\.ts)$/.test(
         path
       )
         ? { command: this.command, outputs: this.outputs }

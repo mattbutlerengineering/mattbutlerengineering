@@ -49,6 +49,10 @@ function serverError(method: string, path: string): ApiClientError {
   );
 }
 
+vi.mock("../components/crm/RegularsClubPanel.js", () => ({
+  RegularsClubPanel: () => <div data-testid="regulars-club" />,
+}));
+
 vi.mock("../components/crm/GuestCard.js", () => ({
   GuestCard: ({ guestId }: { guestId: string | null | undefined }) => (
     <div data-testid="guest-card" data-guest-id={guestId} />

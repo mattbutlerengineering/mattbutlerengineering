@@ -713,6 +713,16 @@ describe("AddSpecialDatesSheet from a holiday (autoNext, savedTitle, onSaved)", 
     expect(onSaved).not.toHaveBeenCalled();
   });
 
+  it("keeps the drawer open while a retry of the failed impact lookup loads", async () => {
+    preview.mockRejectedValueOnce(new Error("down")).mockReturnValue(new Promise(() => undefined));
+    renderSheet(fixtureConfig(), { initialRows: christmas, autoNext: true });
+    expect(await screen.findByText(/couldn.t check/i)).toBeTruthy();
+
+    fireEvent.click(primary());
+    await waitFor(() => expect(preview).toHaveBeenCalledTimes(2));
+    expect(screen.getByRole("dialog")).toBeTruthy();
+  });
+
   it("keeps the count toast and the drawer when autoNext is off", async () => {
     preview.mockResolvedValue([impact("2026-12-25", 0)]);
     create.mockResolvedValue({ version: 8, results: [result("c", 0, 0)] });

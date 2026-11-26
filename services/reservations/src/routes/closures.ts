@@ -1,17 +1,16 @@
-import type { FastifyPluginAsync, FastifyReply } from "fastify";
+import type { FastifyPluginAsync } from "fastify";
 import {
   availabilityConfigEndpoints,
   createProblemDetails,
   DEFAULT_GUEST_NOTICE_LOCALE,
-  type AvailabilityConfigProblem,
 } from "@mbe/types";
-import { SCOPE_HORIZON_DAYS } from "@mbe/availability";
 import { requireAuth } from "@mbe/auth/fastify";
 import { registerEndpoint } from "@mbe/service-bootstrap";
 import { createHostBrandResolver } from "../config/host-brand.js";
+import { forbidTokenChange, isPatRequest } from "../middleware/pat-auth.js";
 import { previewClosureNotice } from "../notifications/closure-preview.js";
-import type { CreateClosureOutcome } from "../services/closure-command.js";
 import { ClosureRefundEnqueueError } from "../services/closure-refund.js";
+import { CLOSURE_REFUSAL_COPY, sendAvailabilityRefusal } from "./availability-refusal.js";
 import { CLOSURE_FORBIDDEN, closureCaller } from "./closure-caller.js";
 import { runClosurePostCommit, runReopenNotice } from "./closure-post-commit.js";
 import { generateManageToken } from "./public-reservations.js";
@@ -34,96 +33,6 @@ const VENUE_NOT_FOUND = "Venue not found";
  */
 const SAMPLE_BOOKING_ID = "c".repeat(25);
 const SAMPLE_GUEST_EMAIL = `${"g".repeat(22)}@example.com`;
-
-type Refusal = Exclude<CreateClosureOutcome, { kind: "saved" }>;
-
-function problem(
-  status: 409 | 422,
-  detail: string,
-  extension: Omit<AvailabilityConfigProblem, "type" | "title" | "status" | "detail">
-): AvailabilityConfigProblem {
-  return {
-    type: "about:blank",
-    title: status === 409 ? "Conflict" : "Unprocessable Entity",
-    status,
-    detail,
-    ...extension,
-  };
-}
-
-export function sendRefusal(reply: FastifyReply, outcome: Refusal) {
-  switch (outcome.kind) {
-    case "not_found":
-      return reply.code(404).send(createProblemDetails(404, "Not Found", VENUE_NOT_FOUND));
-    case "forbidden":
-      return reply.code(403).send(createProblemDetails(403, "Forbidden", CLOSURE_FORBIDDEN));
-    case "too_long":
-      return reply
-        .code(400)
-        .send(
-          createProblemDetails(
-            400,
-            "Bad Request",
-            `A closure's dates can span at most ${SCOPE_HORIZON_DAYS} days; use "until I reopen" for an open end.`
-          )
-        );
-    case "version_conflict":
-      return reply.code(409).send(
-        problem(409, "Availability changed since you loaded it.", {
-          code: "version-conflict",
-          winningChange: outcome.winningChange,
-          ...(outcome.currentVersion !== undefined
-            ? { currentVersion: outcome.currentVersion }
-            : {}),
-          ...(outcome.changesSince ? { changesSince: outcome.changesSince } : {}),
-        })
-      );
-    case "closure_exists":
-      return reply.code(409).send(
-        problem(409, "This closure was already saved; reopen it or use a new rule id.", {
-          code: "closure-exists",
-        })
-      );
-    case "key_reused":
-      return reply.code(409).send(
-        problem(409, "This Idempotency-Key was already used for a different closure.", {
-          code: "idempotency-key-reused",
-        })
-      );
-    case "invalid":
-      return reply.code(422).send(
-        problem(422, "The closure is not valid.", {
-          code: "invalid-config",
-          issues: outcome.issues,
-        })
-      );
-    case "decision_required":
-      return reply.code(422).send(
-        problem(
-          422,
-          "Every affected group needs a choice (and keeping silently needs a confirmation).",
-          {
-            code: "decision-required",
-            groupKeys: outcome.groupKeys,
-          }
-        )
-      );
-    case "invalid_decision":
-      return reply.code(422).send(
-        problem(422, "A decision names an unknown or repeated group, or moves a closed day.", {
-          code: "invalid-decision",
-          groupKeys: outcome.groupKeys,
-        })
-      );
-    case "move_unavailable":
-      return reply.code(422).send(
-        problem(422, "Some bookings have no open time to move to; choose another outcome.", {
-          code: "move-unavailable",
-          reservationIds: outcome.reservationIds,
-        })
-      );
-  }
-}
 
 export const closureRoutes: FastifyPluginAsync = async (fastify) => {
   const { closureCommandService, closureNoticeService } = fastify.services;
@@ -154,7 +63,8 @@ export const closureRoutes: FastifyPluginAsync = async (fastify) => {
         idempotencyKey: key,
         now: new Date(),
       });
-      if (outcome.kind !== "saved") return sendRefusal(reply, outcome);
+      if (outcome.kind !== "saved")
+        return sendAvailabilityRefusal(reply, outcome, CLOSURE_REFUSAL_COPY);
       // After the commit; failures are logged, never returned.
       if (outcome.postCommit) await runClosurePostCommit(fastify, request.log, outcome.postCommit);
       return { data: outcome.result };
@@ -223,7 +133,8 @@ export const closureRoutes: FastifyPluginAsync = async (fastify) => {
         idempotencyKey: key,
         now: new Date(),
       });
-      if (outcome.kind !== "saved") return sendRefusal(reply, outcome);
+      if (outcome.kind !== "saved")
+        return sendAvailabilityRefusal(reply, outcome, CLOSURE_REFUSAL_COPY);
       // After the commit; failures are logged, never returned.
       for (const plan of outcome.postCommit) await runClosurePostCommit(fastify, request.log, plan);
       return { data: outcome.result };
@@ -306,6 +217,13 @@ export const closureRoutes: FastifyPluginAsync = async (fastify) => {
     },
     preHandler: requireAuth,
     handler: venueScoped(VENUE_FROM_ID, async (request, reply, { venueId, isAdmin }) => {
+      // A token may only resume a table pause (#9778); the guard checked its body, this the rule.
+      if (
+        isPatRequest(request) &&
+        !(await closureCommandService.isTablePause(venueId, request.params.ruleId))
+      ) {
+        return forbidTokenChange(reply);
+      }
       const caller = await closureCaller(request, venueId, isAdmin);
       const outcome = await closureCommandService.reopen({
         venueId,
@@ -320,7 +238,7 @@ export const closureRoutes: FastifyPluginAsync = async (fastify) => {
         if (outcome.notice) await runReopenNotice(fastify, request.log, outcome.notice);
         return { data: outcome.result };
       }
-      return sendRefusal(reply, outcome);
+      return sendAvailabilityRefusal(reply, outcome, CLOSURE_REFUSAL_COPY);
     }),
   });
 };

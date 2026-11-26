@@ -737,6 +737,10 @@
       "tableLabel": "Turned-away searches by weekday and hour",
       "anyTime": "No time given",
       "anyTimeNote": "Guests in the last row named no time and found no table that day, so they are counted by weekday only, never in an hour.",
+      "pacingFilter": "Refused by pacing only",
+      "pacingEmpty": "No searches were refused by pacing in the last 28 days.",
+      "pacingSummary_one": "{{count}} search was refused by pacing in the last 28 days.",
+      "pacingSummary_other": "{{count}} searches were refused by pacing in the last 28 days.",
       "loadFailed": "Couldn't load turned-away searches."
     },
     "whatIf": {
@@ -1265,6 +1269,21 @@
     "shown_other": "{{count}} guests shown",
     "addGuest": "Add Guest",
     "addAGuest": "Add a Guest",
+    "regulars": {
+      "title": "Regulars Club",
+      "description": "Invite guests by email. Each member gets a personal booking link you can revoke any time.",
+      "name": "Name",
+      "email": "Email",
+      "invite": "Send invitation",
+      "sending": "Sending...",
+      "sent": "Invitation sent to {{email}}",
+      "empty": "No members yet. Invite a regular above.",
+      "statusActive": "Active",
+      "statusRevoked": "Revoked",
+      "invitedOn": "Invited {{date}}",
+      "revoke": "Revoke",
+      "revokeAria": "Revoke {{name}}"
+    },
     "search": {
       "label": "Search guests",
       "placeholder": "Search guests...",
@@ -1396,6 +1415,9 @@
     "guests_one": "{{count}} guest",
     "guests_other": "{{count}} guests",
     "back": "← Back",
+    "member_banner_one": "Members book {{count}} day early",
+    "member_banner_other": "Members book {{count}} days early",
+    "member_invalid": "This member link isn't active. Showing the dates open to everyone.",
     "estimatedWait": "Estimated wait: ~{{minutes}} min",
     "dateParty": {
       "startDate": "Start Date",
@@ -2508,6 +2530,11 @@
       "loadError": "Couldn't load why this day looks this way"
     },
     "quickSetup": {
+      "pacing": {
+        "covers": "Pacing: covers per window",
+        "hint": "Most covers seated per window. Lowers the venue limit for this service; leave empty for none.",
+        "window": "Pacing window"
+      },
       "title": "Set your regular week",
       "intro": "Tell guests when you take bookings. You can change any day later.",
       "serviceN": "Service {{n}}",
@@ -2671,6 +2698,7 @@
         "tonightCloseEarly": "Tonight: closing early",
         "tonightStopWindow": "Tonight: booking stopped for a window",
         "tonightEnded": "Tonight change ended",
+        "sectionClosureMaterialised": "Section deleted: its closures now close its tables",
         "tonightBlockTables_one": "Tonight: {{count}} table blocked",
         "tonightBlockTables_other": "Tonight: {{count}} tables blocked",
         "tonightPacing_one": "Tonight: pacing lowered to {{count}} cover",
@@ -3243,6 +3271,7 @@
         "impactError": "Couldn't check the bookings after the new close.",
         "retry": "Try again",
         "discardMaybeSaved": "The last save didn't finish, so it may have gone through and cancelled guests. Check tonight's changes before closing again.",
+        "maybeSaved": "We couldn't confirm this save. It may have gone through and cancelled guests. Save again without changes to see what happened, or check tonight's changes.",
         "savedEarlier": {
           "body": "An earlier try was saved: {{summary}}. Guests were handled as that try chose; changes you made afterwards did not apply.",
           "bodyPlain": "An earlier try was saved. Changes you made afterwards did not apply."
@@ -3951,6 +3980,42 @@
       "title": "Account",
       "signedInAs": "Signed in as",
       "signOut": "Sign Out"
+    },
+    "accessTokens": {
+      "title": "Connect an AI assistant",
+      "description": "Let an AI assistant such as Claude look things up for you. A token is read-only and reaches every venue you belong to. Treat it like a password.",
+      "nameLabel": "Token name",
+      "nameRequired": "Give the token a name, such as the assistant it is for.",
+      "expiryLabel": "Expires",
+      "expiry": {
+        "30": "In 30 days",
+        "90": "In 90 days",
+        "365": "In 1 year",
+        "never": "Never"
+      },
+      "create": "Create token",
+      "empty": "No tokens yet.",
+      "loadError": "Couldn't load your tokens",
+      "created": "{{prefix}}… · created {{date}}",
+      "lastUsed": "Last used {{date}}",
+      "neverUsed": "Never used",
+      "expires": "Expires {{date}}",
+      "neverExpires": "Never expires",
+      "revoke": "Revoke",
+      "revokeNamed": "Revoke {{name}}",
+      "revokeConfirm": {
+        "title": "Revoke {{name}}?",
+        "description": "Anything using this token stops working right away. This can't be undone.",
+        "cancel": "Keep it"
+      },
+      "mintedTitle": "Token created for {{name}}",
+      "tokenLabel": "Your token",
+      "shownOnce": "Copy it now. You won't see this again.",
+      "copy": "Copy token",
+      "copied": "Copied",
+      "copyFailed": "Couldn't copy. Select the token and copy it by hand.",
+      "done": "Done",
+      "limitReached": "You have reached the limit of active tokens. Revoke one to create another."
     }
   },
   "admin": {
@@ -4306,7 +4371,7 @@
       },
       "regularsClub": {
         "label": "Regulars Club",
-        "detail": "Sell your own priority access for Friday night instead of renting your regulars out."
+        "detail": "Invite your regulars, and they get an early booking window through a signed link, with a cap on how many tables each can take."
       }
     },
     "prep": {
@@ -4369,8 +4434,7 @@
       "board": {
         "guestPassport": "Guest Passport",
         "kitchenAwareBooking": "Kitchen Aware",
-        "headlessVenue": "Headless Venue",
-        "regularsClub": "Regulars Club"
+        "headlessVenue": "Headless Venue"
       }
     },
     "morning": {

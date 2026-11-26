@@ -1,4 +1,4 @@
-import type { FastifyPluginAsync, FastifyReply } from "fastify";
+import type { FastifyPluginAsync } from "fastify";
 import {
   AVAILABILITY_DAYS_MAX_RANGE,
   availabilityConfigEndpoints,
@@ -9,8 +9,8 @@ import { SCOPE_HORIZON_DAYS, addDays } from "@mbe/availability";
 import { requireAuth } from "@mbe/auth/fastify";
 import { registerEndpoint } from "@mbe/service-bootstrap";
 import { actorNameOf } from "../services/actor-name.js";
+import { CONFIG_REFUSAL_COPY, sendAvailabilityRefusal } from "./availability-refusal.js";
 import { CLOSURE_FORBIDDEN, closureCaller } from "./closure-caller.js";
-import type { PreviewOutcome, SaveOutcome } from "../services/availability-config.js";
 import { venueScoped } from "./venue-scope.js";
 
 /**
@@ -31,51 +31,6 @@ function configProblem(
   extension: Omit<AvailabilityConfigProblem, "type" | "title" | "status" | "detail">
 ): AvailabilityConfigProblem {
   return { type: "about:blank", title, status, detail, ...extension };
-}
-
-type ConfigReply = FastifyReply;
-
-function sendRefusal(
-  reply: ConfigReply,
-  outcome: Exclude<SaveOutcome | PreviewOutcome, { kind: "saved" | "ok" }>
-) {
-  switch (outcome.kind) {
-    case "not_found":
-      return reply.code(404).send(createProblemDetails(404, "Not Found", VENUE_NOT_FOUND));
-    case "version_conflict":
-      return reply.code(409).send(
-        configProblem(409, "Conflict", "Availability changed since you loaded it.", {
-          code: "version-conflict",
-          winningChange: outcome.winningChange,
-          currentVersion: outcome.currentVersion,
-          ...(outcome.changesSince ? { changesSince: outcome.changesSince } : {}),
-        })
-      );
-    case "invalid":
-      return reply.code(422).send(
-        configProblem(422, "Unprocessable Entity", "The availability config is not valid.", {
-          code: "invalid-config",
-          issues: outcome.issues,
-        })
-      );
-    case "timeout":
-      return reply.code(503).send(
-        configProblem(503, "Service Unavailable", "The preview took too long; try again.", {
-          code: "preview-timeout",
-        })
-      );
-    case "stranded":
-      return reply
-        .code(409)
-        .send(
-          configProblem(
-            409,
-            "Conflict",
-            "This change affects existing bookings; save it through a closure so each one gets a decision.",
-            { code: "stranded-bookings", reservations: outcome.reservations }
-          )
-        );
-  }
 }
 
 export const availabilityConfigRoutes: FastifyPluginAsync = async (fastify) => {
@@ -121,7 +76,8 @@ export const availabilityConfigRoutes: FastifyPluginAsync = async (fastify) => {
           body: request.body,
           now: new Date(),
         });
-        if (outcome.kind !== "saved") return sendRefusal(reply, outcome);
+        if (outcome.kind !== "saved")
+          return sendAvailabilityRefusal(reply, outcome, CONFIG_REFUSAL_COPY);
         return { data: { version: outcome.version, changeId: outcome.changeId } };
       }
     ),
@@ -145,7 +101,8 @@ export const availabilityConfigRoutes: FastifyPluginAsync = async (fastify) => {
           body: request.body,
           now: new Date(),
         });
-        if (outcome.kind !== "ok") return sendRefusal(reply, outcome);
+        if (outcome.kind !== "ok")
+          return sendAvailabilityRefusal(reply, outcome, CONFIG_REFUSAL_COPY);
         return { data: outcome.result };
       }
     ),

@@ -35,7 +35,6 @@ const makeFakeClock = (startAt = 0) => {
 // itself) never actually runs on their PR (#3684).
 const PRODUCER_WORKFLOWS = {
   "drift-fix.yml": readFileSync(resolve(ROOT, ".github/workflows/drift-fix.yml"), "utf8"),
-  "pr-metrics.yml": readFileSync(resolve(ROOT, ".github/workflows/pr-metrics.yml"), "utf8"),
   "acmm-regression.yml": readFileSync(
     resolve(ROOT, ".github/workflows/acmm-regression.yml"),
     "utf8"

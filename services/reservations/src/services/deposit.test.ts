@@ -139,6 +139,30 @@ describe("DepositService", () => {
       expect(result.stripePaymentIntentId).toBe("pi_test_123");
     });
 
+    it("defaults the currency to usd when none is given", async () => {
+      mockDepositDb.create.mockResolvedValueOnce(makeDeposit());
+
+      await depositService.create({ reservationId: "res-123", amountCents: 5000 });
+
+      expect(mockDepositDb.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ currency: "usd" }) })
+      );
+    });
+
+    it("keeps an explicit currency instead of the usd default", async () => {
+      mockDepositDb.create.mockResolvedValueOnce(makeDeposit({ currency: "gbp" }));
+
+      await depositService.create({
+        reservationId: "res-123",
+        amountCents: 5000,
+        currency: "gbp",
+      });
+
+      expect(mockDepositDb.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ currency: "gbp" }) })
+      );
+    });
+
     it("writes the optional stripeCustomerId atomically when provided", async () => {
       const mockDeposit = makeDeposit({
         stripePaymentIntentId: "pi_test_123",
@@ -1619,6 +1643,48 @@ describe("DepositService", () => {
 
       await expect(depositService.refundPartial("dep-123", -1)).rejects.toThrow(/invalid.*amount/i);
       expect(mockDepositDb.updateMany).not.toHaveBeenCalled();
+    });
+
+    it("accepts a refund equal to the deposit amount (upper boundary)", async () => {
+      const heldDeposit = makeDeposit({
+        status: "held",
+        amountCents: 5000,
+        stripePaymentIntentId: "pi_test_123",
+      });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositDb.findUnique.mockResolvedValueOnce(makeDeposit({ status: "partial_refunded" }));
+      mockStripe.capturePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "succeeded",
+      });
+      mockStripe.createPartialRefund.mockResolvedValueOnce({
+        id: "re_1",
+        status: "succeeded",
+        amount: 5000,
+      });
+
+      await expect(depositService.refundPartial("dep-123", 5000)).resolves.toBeDefined();
+      expect(mockStripe.createPartialRefund).toHaveBeenCalledTimes(1);
+    });
+
+    it("accepts a zero refund: captures the hold but sends no refund to Stripe (lower boundary)", async () => {
+      const heldDeposit = makeDeposit({
+        status: "held",
+        amountCents: 5000,
+        stripePaymentIntentId: "pi_test_123",
+      });
+      mockDepositDb.findUnique.mockResolvedValueOnce(heldDeposit);
+      mockDepositDb.updateMany.mockResolvedValueOnce({ count: 1 });
+      mockDepositDb.findUnique.mockResolvedValueOnce(makeDeposit({ status: "partial_refunded" }));
+      mockStripe.capturePaymentIntent.mockResolvedValueOnce({
+        id: "pi_test_123",
+        status: "succeeded",
+      });
+
+      await expect(depositService.refundPartial("dep-123", 0)).resolves.toBeDefined();
+      expect(mockStripe.capturePaymentIntent).toHaveBeenCalledTimes(1);
+      expect(mockStripe.createPartialRefund).not.toHaveBeenCalled();
     });
 
     it("persists feeAmountCents and refundAmountCents on the deposit row at transition time", async () => {

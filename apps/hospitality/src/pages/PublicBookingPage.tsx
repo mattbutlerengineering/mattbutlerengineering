@@ -1,5 +1,5 @@
 import { useRef, useEffect } from "react";
-import { useParams, Link } from "react-router";
+import { useParams, useSearchParams, Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { EmptyState, Button, Text } from "@mattbutlerengineering/rialto";
@@ -39,6 +39,9 @@ export function PublicBookingPage() {
 function PublicBookingPageContent() {
   const { t } = useTranslation();
   const { venueSlug } = useParams<{ venueSlug: string }>();
+  // The Regulars Club invite links here with `?member=<signed token>` (#9627).
+  const [searchParams] = useSearchParams();
+  const memberToken = searchParams.get("member") || undefined;
   // Guests resolve the venue through the unauthenticated by-slug read
   // (getBySlug -> /api/v1/venues/by-slug/:slug), the endpoint dedicated to
   // public booking URLs. It returns a curated PublicVenue projection —
@@ -182,6 +185,7 @@ function PublicBookingPageContent() {
           maxPartySize={venue.settings?.maxPartySize}
           phone={venue.phone}
           venueTimezone={venue.ianaTimezone}
+          memberToken={memberToken}
           onHoldChange={(info) => {
             activeHoldRef.current = info;
           }}

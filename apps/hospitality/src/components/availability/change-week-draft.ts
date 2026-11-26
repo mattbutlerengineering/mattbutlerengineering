@@ -35,6 +35,7 @@ function serviceKey(service: ServiceDraft) {
     sorted(service.days),
     service.blocks.map((b) => [sorted(b.days), b.opens, b.lastSeating, b.closes, keptKey(b)]),
     keptKey(service),
+    service.pacing?.covers ? [service.pacing.covers, service.pacing.windowMinutes] : null,
   ]);
 }
 

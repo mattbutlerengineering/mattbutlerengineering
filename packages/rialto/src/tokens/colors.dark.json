@@ -21,6 +21,14 @@
       "deep": {
         "$value": "#4a4643",
         "$type": "color"
+      },
+      "tinted": {
+        "$value": "#3b3022",
+        "$type": "color"
+      },
+      "velvet": {
+        "$value": "#3b2f4a",
+        "$type": "color"
       }
     },
     "text": {
@@ -69,6 +77,20 @@
         "$value": "rgb(212 162 58 / 0.4)",
         "$type": "color"
       }
+    },
+    "plum": {
+      "default": { "$value": "#d58ac4", "$type": "color" },
+      "muted": { "$value": "rgb(213 138 196 / 0.15)", "$type": "color" },
+      "text-on": { "$value": "#1a1918", "$type": "color" }
+    },
+    "verdigris": {
+      "default": { "$value": "#5cc4b4", "$type": "color" },
+      "muted": { "$value": "rgb(92 196 180 / 0.15)", "$type": "color" },
+      "text-on": { "$value": "#1a1918", "$type": "color" }
+    },
+    "focus": {
+      "ring": { "$value": "#d4a23a", "$type": "color" },
+      "gap": { "$value": "#1e1c1a", "$type": "color" }
     },
     "semantic": {
       "error": {

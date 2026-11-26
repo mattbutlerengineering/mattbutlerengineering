@@ -76,14 +76,17 @@ The `Column<T>` interface defines each column's behavior:
 
 > See `registry.json` for authoritative prop types.
 
-| Prop           | Type                                   | Default     | Required | Description                                 |
-| -------------- | -------------------------------------- | ----------- | -------- | ------------------------------------------- |
-| `columns`      | `Column<T>[]`                          | —           | Yes      | Column definitions array                    |
-| `data`         | `T[]`                                  | —           | Yes      | Array of row data objects                   |
-| `rowKey`       | `(row: T) => string \| number`         | —           | Yes      | Unique key extractor per row — NOT optional |
-| `density`      | `"compact" \| "default" \| "spacious"` | `"default"` | No       | Row padding density                         |
-| `striped`      | `boolean`                              | `false`     | No       | Alternating row tints                       |
-| `emptyMessage` | `string`                               | `"No data"` | No       | Text shown when data array is empty         |
+| Prop           | Type                                   | Default     | Required | Description                                                                                   |
+| -------------- | -------------------------------------- | ----------- | -------- | --------------------------------------------------------------------------------------------- |
+| `columns`      | `Column<T>[]`                          | —           | Yes      | Column definitions array                                                                      |
+| `data`         | `T[]`                                  | —           | Yes      | Array of row data objects                                                                     |
+| `rowKey`       | `(row: T) => string \| number`         | —           | Yes      | Unique key extractor per row — NOT optional                                                   |
+| `density`      | `"compact" \| "default" \| "spacious"` | `"default"` | No       | Row padding density                                                                           |
+| `striped`      | `boolean`                              | `false`     | No       | Alternating row tints                                                                         |
+| `emptyMessage` | `string`                               | `"No data"` | No       | Text shown when data array is empty                                                           |
+| `manualSort`   | `boolean`                              | `false`     | No       | Keep `data` order. Sort the full list, then pass one page. Header clicks call `onSortChange`. |
+| `sort`         | `{ key, direction } \| null`           | `null`      | No       | Header indicator used with `manualSort`                                                       |
+| `onSortChange` | `(sort) => void`                       | —           | No       | Next asc/desc sort after a header click                                                       |
 
 ## Accessibility
 

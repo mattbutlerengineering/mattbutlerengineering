@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
@@ -158,4 +160,36 @@ describe("ShippedStoryPage", () => {
     expect(screen.queryByTestId("promo-video")).toBeNull();
     expect(screen.queryByRole("heading", { name: "Watch the demo" })).toBeNull();
   });
+
+  it("steps section headings down below 375px so an unbreakable word fits", () => {
+    // Heading size 2 is text-3xl (~48px). "Decomposition" is one word and
+    // paints ~313px wide, past the 256px content box a 320px viewport leaves
+    // once the presenting vibe's 32px padding is subtracted. The step-down
+    // has to live under the 375px visual-regression viewport, where text-3xl
+    // already stays on screen.
+    const css = readFileSync(join(__dirname, "ShippedStoryPage.module.css"), "utf8");
+    const narrow = narrowSectionHeadingRule(css);
+    expect(narrow, "expected a max-width query under 375px covering .section h2").not.toBe("");
+    expect(narrow).toMatch(/font-size:\s*var\(--rialto-text-2xl\)/);
+    expect(narrow).toMatch(/overflow-wrap:\s*anywhere/);
+    // Wider viewports, including the 375px visual baseline, keep size 2.
+    const aboveTheFold = css.replace(
+      /@media\s*\([^)]*max-width:\s*(?:3[0-6]\d|37[0-4])px[^)]*\)\s*\{[\s\S]*?\n\}/g,
+      ""
+    );
+    expect(aboveTheFold).not.toMatch(/\.section h2[\s\S]*font-size:\s*var\(--rialto-text-2xl\)/);
+  });
 });
+
+/** Body of a max-width query at 320–374px that restyles `.section h2`. */
+function narrowSectionHeadingRule(css: string): string {
+  const blocks = css.matchAll(/@media\s*\(([^)]*)\)\s*\{([\s\S]*?)\n\}/g);
+  for (const [, condition, body] of blocks) {
+    const max = condition?.match(/max-width:\s*(\d+)px/);
+    if (max === null || max === undefined) continue;
+    const width = Number(max[1]);
+    if (width < 320 || width > 374) continue;
+    if (body?.includes(".section h2")) return body;
+  }
+  return "";
+}

@@ -214,6 +214,16 @@ export const FRESH = "fresh";
 export const UNCONFIGURED = "unconfigured";
 
 /**
+ * Cost coverage below the floor: no in-repo source records per-issue spend for
+ * drain/implement-queue sessions (#5627, #9098), so no code fix can clear it
+ * (#9238). Routed like `unconfigured`: a finding (exit code stays 1) filed
+ * under the blocked dedupe key, never as an actionable failure.
+ */
+export const UNINSTRUMENTED = "uninstrumented";
+
+const BLOCKED_STATES = new Set([UNCONFIGURED, UNINSTRUMENTED]);
+
+/**
  * Whether a metric's declared prerequisite env var is absent.
  *
  * A blank string counts as absent: `gh secret set NAME` with empty stdin
@@ -402,18 +412,18 @@ export function assessQueueTelemetryCompleteness({
 
 /**
  * Minimum rows with a known (numeric) `cost_usd`, claimed in the trailing
- * COMPLETENESS_WINDOW_DAYS, below which the cost metric is `unmeasured`
+ * COMPLETENESS_WINDOW_DAYS, below which the cost metric is `uninstrumented`
  * (#9098). `cost_per_issue_usd` sat null 17+ days because no in-repo source
  * records per-issue cost, and nothing said so. The queue lands a handful of
  * issues a week, so a fraction would be noisy on a small denominator; an
  * absolute floor of 3 means "a mean over fewer than three issues is an
  * anecdote, not a measurement". Cost is never estimated to fill the gap
- * (#5885); below the floor the honest answer is "unmeasured".
+ * (#5885); below the floor the honest answer is "uninstrumented".
  */
 export const COST_COVERAGE_MIN_KNOWN_ROWS = 3;
 
 /**
- * Cost-coverage floor for queue-telemetry (#9098): `unmeasured` when fewer than
+ * Cost-coverage floor for queue-telemetry (#9098): `uninstrumented` when fewer than
  * COST_COVERAGE_MIN_KNOWN_ROWS rows claimed in the trailing 7 days carry a
  * numeric `cost_usd`. Missing, empty, or stale data all land here too, with
  * the known/total count shown. Appended to `assessFreshness` results.
@@ -456,7 +466,7 @@ export function assessQueueTelemetryCostCoverage({
   return [
     {
       ...base,
-      state: knownRows < COST_COVERAGE_MIN_KNOWN_ROWS ? "unmeasured" : FRESH,
+      state: knownRows < COST_COVERAGE_MIN_KNOWN_ROWS ? UNINSTRUMENTED : FRESH,
       knownRows,
       rowsN: windowed.length,
     },
@@ -490,8 +500,8 @@ export function freshnessFindings(results) {
 export function partitionFindings(results) {
   const findings = freshnessFindings(results);
   return {
-    blocked: findings.filter((result) => result.state === UNCONFIGURED),
-    failures: findings.filter((result) => result.state !== UNCONFIGURED),
+    blocked: findings.filter((result) => BLOCKED_STATES.has(result.state)),
+    failures: findings.filter((result) => !BLOCKED_STATES.has(result.state)),
   };
 }
 
@@ -526,7 +536,11 @@ export function freshnessRegressions(results) {
     current: result.state,
     previous: result.latest ?? null,
     delta: result.ageDays,
-    severity: result.state === UNCONFIGURED ? "low" : result.state === "stale" ? "medium" : "high",
+    severity: BLOCKED_STATES.has(result.state)
+      ? "low"
+      : result.state === "stale"
+        ? "medium"
+        : "high",
   }));
 }
 
@@ -540,8 +554,8 @@ export function formatFinding(result) {
   if (result.state === "incomplete") {
     return `${result.label}: incomplete — ${result.silentRows}/${result.rowsN} recent rows have a silent null; written by ${result.producer}`;
   }
-  if (result.state === "unmeasured") {
-    return `${result.label}: unmeasured — ${result.knownRows}/${result.rowsN} rows claimed in the last ${COMPLETENESS_WINDOW_DAYS}d have a known cost_usd (floor ${COST_COVERAGE_MIN_KNOWN_ROWS}); cost is not estimated; written by ${result.producer}`;
+  if (result.state === UNINSTRUMENTED) {
+    return `${result.label}: uninstrumented — ${result.knownRows}/${result.rowsN} rows claimed in the last ${COMPLETENESS_WINDOW_DAYS}d have a known cost_usd (floor ${COST_COVERAGE_MIN_KNOWN_ROWS}); known gap, nothing records per-issue spend for drain/implement-queue sessions (#5627, #9098); cost is not estimated; written by ${result.producer}`;
   }
   const age = result.ageDays === null ? "no dated entry" : `${result.ageDays}d old`;
   const detail = result.error ? ` (${result.error})` : "";

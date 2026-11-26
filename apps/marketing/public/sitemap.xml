@@ -165,6 +165,10 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://mattbutlerengineering.com/rialto/components/file-upload</loc>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://mattbutlerengineering.com/rialto/components/fireflies</loc>
     <priority>0.6</priority>
   </url>
@@ -214,6 +218,10 @@
   </url>
   <url>
     <loc>https://mattbutlerengineering.com/rialto/components/letterboard</loc>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://mattbutlerengineering.com/rialto/components/listbox</loc>
     <priority>0.6</priority>
   </url>
   <url>
@@ -349,6 +357,10 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://mattbutlerengineering.com/rialto/components/tags-input</loc>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://mattbutlerengineering.com/rialto/components/tape-chart</loc>
     <priority>0.6</priority>
   </url>
@@ -377,6 +389,10 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://mattbutlerengineering.com/rialto/components/toolbar</loc>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://mattbutlerengineering.com/rialto/components/tooltip</loc>
     <priority>0.6</priority>
   </url>
@@ -386,6 +402,10 @@
   </url>
   <url>
     <loc>https://mattbutlerengineering.com/rialto/components/typography</loc>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://mattbutlerengineering.com/rialto/components/visually-hidden</loc>
     <priority>0.6</priority>
   </url>
   <url>

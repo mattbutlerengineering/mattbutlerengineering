@@ -17,6 +17,7 @@ import { generateManageToken } from "./public-reservations.js";
 import { withoutGuestLink } from "../services/serializers.js";
 import { publicRateLimitHook } from "../middleware/public-rate-limit.js";
 import { publicVenueScoped } from "./public-venue-scope.js";
+import { verifiedMember } from "./public-member.js";
 import {
   getActiveHoldCount,
   incrementHoldCount,
@@ -37,6 +38,9 @@ const CONFIRM_ERROR_STATUS: Record<string, number> = {
   SESSION_MISMATCH: 403,
   CONFLICT: 409,
   PACING_EXCEEDED: 422,
+  MEMBER_REQUIRED: 403,
+  MEMBER_CAP_REACHED: 422,
+  MEMBER_SUSPENDED: 403,
 };
 
 const CONFIRM_ERROR_TITLE: Record<string, string> = {
@@ -45,6 +49,9 @@ const CONFIRM_ERROR_TITLE: Record<string, string> = {
   SESSION_MISMATCH: "Forbidden",
   CONFLICT: "Conflict",
   PACING_EXCEEDED: "Pacing Limit Reached",
+  MEMBER_REQUIRED: "Member Link Required",
+  MEMBER_CAP_REACHED: "Early Booking Limit Reached",
+  MEMBER_SUSPENDED: "Early Booking Paused",
 };
 
 /**
@@ -130,7 +137,8 @@ export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
         const sessionId = randomUUID();
         const result = await holdService.create(
           { venueId, date, time: startTime, partySize },
-          sessionId
+          sessionId,
+          { member: (await verifiedMember(request, venueId)) !== null }
         );
 
         if (result.rejection) {
@@ -296,6 +304,8 @@ export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
             guestDetails: { guestName, guestEmail, guestPhone, notes, occasion, seatingPreference },
             // No guest record exists yet, so the guest actor carries no id.
             actor: guestActor(null),
+            // A member-window hold books only for the verified member it was made for (#9625).
+            memberEmail: (await verifiedMember(request, venueId))?.email,
             // Captured from the request so later guest emails brand by it (#7892).
             originHost: resolveOriginHost(request.headers.origin),
             // The widget's language, so later notices speak it; unsupported reads as en-US.

@@ -27,11 +27,27 @@ export const LostDemandCellSchema = z.object({
   /** Venue-local hour of the requested time, 0-23. */
   hour: z.number().int().min(0).max(23),
   searches: z.number().int().min(1),
+  /** Of `searches`, those refused by pacing (#9622). Omitted when none, and on older rows. */
+  pacing: z.number().int().min(1).optional(),
 });
 
 const LostDemandAnyTimeSchema = z.object({
   weekday: WeekdaySchema,
   searches: z.number().int().min(1),
+  /** Of `searches`, those refused by pacing (#9622). Omitted when none. */
+  pacing: z.number().int().min(1).optional(),
+});
+
+/**
+ * Counted searches by the reason the engine found no slot (#9621). Precedence when
+ * several apply: closure > hours > tables > pacing. Rows recorded before reasons
+ * existed carry none, so the four can sum to less than `total`.
+ */
+const LostDemandByReasonSchema = z.object({
+  pacing: z.number().int().nonnegative(),
+  tables: z.number().int().nonnegative(),
+  hours: z.number().int().nonnegative(),
+  closure: z.number().int().nonnegative(),
 });
 
 export const LostDemandSchema = z.object({
@@ -40,6 +56,8 @@ export const LostDemandSchema = z.object({
   to: ServiceDateSchema,
   /** Every counted search in the window, timed or not. */
   total: z.number().int().nonnegative(),
+  /** Optional so existing clients and fixtures keep parsing; the service always sends it. */
+  byReason: LostDemandByReasonSchema.optional(),
   /** Searches that named a time, sparse: only non-empty weekday x hour cells. */
   cells: z.array(LostDemandCellSchema),
   /**

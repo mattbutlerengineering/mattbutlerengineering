@@ -6,12 +6,13 @@ import { tableRoutes } from "./routes/tables.js";
 import { reservationRoutes } from "./routes/reservations.js";
 import { venueRoutes } from "./routes/venues.js";
 import { venueTeamRoutes } from "./routes/venue-team.js";
+import { accessTokenRoutes } from "./routes/access-tokens.js";
 import { availabilityConfigRoutes } from "./routes/availability-config.js";
 import { availabilityChangesRoutes } from "./routes/availability-changes.js";
 import { holidayDecisionRoutes } from "./routes/holiday-decisions.js";
 import { closureRoutes } from "./routes/closures.js";
 import { tonightRoutes } from "./routes/tonight.js";
-import { AVAILABILITY_CONFIG_PREFIX, GUESTS_PREFIX } from "@mbe/types";
+import { ACCESS_TOKENS_PREFIX, AVAILABILITY_CONFIG_PREFIX, GUESTS_PREFIX } from "@mbe/types";
 import { availabilityRoutes } from "./routes/availability.js";
 import { holdRoutes } from "./routes/holds.js";
 import { eventRoutes } from "./routes/events.js";
@@ -88,6 +89,7 @@ import { allOutboundLive } from "./transitions/venue-policy.js";
 import type { JobsPort, PaymentsPort } from "./transitions/ports.js";
 import { StripeService } from "./services/stripe.js";
 import { DepositService } from "./services/deposit.js";
+import { createPatAwareVerifier, registerPatReadOnlyGuard } from "./middleware/pat-auth.js";
 import { resolveManageBaseUrl } from "./config/manage-base-url.js";
 import { createHostBrandResolver } from "./config/host-brand.js";
 
@@ -165,6 +167,14 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
         serverUrl: "http://localhost:3004",
       },
       registerSchemas,
+      // Personal access tokens (#9664) authenticate through the same plugin as
+      // Auth0 JWTs. The service resolves lazily from `fastify.services`:
+      // it is decorated after the app shell, before any request arrives.
+      wrapAuthVerifier: (fallback) =>
+        createPatAwareVerifier(
+          (token) => fastify.services.accessTokenService.authenticate(token),
+          fallback
+        ),
       database: {
         db,
         healthRoutes: [
@@ -176,6 +186,8 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
     },
     options
   );
+
+  registerPatReadOnlyGuard(fastify);
 
   // Venue-scope registry (docs/fixes/venue-scoped-routes/architecture.md):
   // records every route's `venueScoped` descriptor, or null, keyed
@@ -319,6 +331,7 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   const venuesPrefix = "/api/v1/venues";
   await fastify.register(venueRoutes, { prefix: venuesPrefix });
   await fastify.register(venueTeamRoutes, { prefix: venuesPrefix });
+  await fastify.register(accessTokenRoutes, { prefix: ACCESS_TOKENS_PREFIX });
   await fastify.register(availabilityConfigRoutes, { prefix: AVAILABILITY_CONFIG_PREFIX });
   await fastify.register(availabilityChangesRoutes, { prefix: AVAILABILITY_CONFIG_PREFIX });
   await fastify.register(holidayDecisionRoutes, { prefix: AVAILABILITY_CONFIG_PREFIX });

@@ -27,12 +27,47 @@ const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 /** Hard cap on in-memory entries; at the cap we stop counting rather than grow. */
 const MAX_TRACKED_ENTRIES = 50_000;
 
+/** Why a no-slot search found nothing (#9621). Precedence is `limitingReason`'s. */
+export type LimitingReason = "pacing" | "tables" | "hours" | "closure";
+
 export interface NoSlotSearchKey {
   venueId: string;
   /** YYYY-MM-DD */
   date: string;
   requestedMinute: number;
   partySize: number;
+  /** Absent only for callers that cannot tell; the row's reason counters then stay untouched. */
+  reason?: LimitingReason;
+}
+
+/** The engine's refusal of one seating the venue does run that day. */
+export interface SeatingRefusal {
+  /** Minutes past the service day's midnight. */
+  minute: number;
+  reason: "pacing" | "tables";
+}
+
+/**
+ * The first blocking reason of a no-slot search, by fixed precedence:
+ * `closure` (the date is closed) > `hours` (no online seating at the requested
+ * minute, or none that day) > the engine's refusal of that seating, `tables`
+ * (no suitable free table) before `pacing`. An any-time search has no single
+ * seating, so it takes `tables` when any seating lacked a table, else `pacing`.
+ */
+export function limitingReason(input: {
+  requestedMinute: number;
+  closure?: boolean;
+  hasSeatings: boolean;
+  refusals: readonly SeatingRefusal[];
+}): LimitingReason {
+  const { requestedMinute, refusals } = input;
+  if (input.closure) return "closure";
+  if (!input.hasSeatings) return "hours";
+  if (requestedMinute === ANY_TIME_MINUTE) {
+    if (refusals.some((r) => r.reason === "tables")) return "tables";
+    return refusals.length > 0 ? "pacing" : "hours";
+  }
+  return refusals.find((r) => r.minute === requestedMinute)?.reason ?? "hours";
 }
 
 /** Request signals used only to derive an in-memory hash; never stored. */
@@ -139,6 +174,7 @@ export function createLostDemandService(deps: LostDemandDeps) {
         date: search.date,
         requestedMinute: search.requestedMinute,
         partySize: search.partySize,
+        ...(search.reason ? { reason: search.reason } : {}),
       });
       return "recorded";
     } catch (error) {
@@ -154,14 +190,16 @@ export type LostDemandService = ReturnType<typeof createLostDemandService>;
 
 /** Counter upsert: bounded storage, one row per key regardless of search volume. */
 const prismaNoSlotSearchStore: NoSlotSearchStore = {
-  async increment({ venueId, date, requestedMinute, partySize }) {
+  async increment({ venueId, date, requestedMinute, partySize, reason }) {
     const day = new Date(`${date}T00:00:00.000Z`);
+    const byReason = reason ? ({ [`${reason}Searches`]: { increment: 1 } } as const) : {};
+    const createByReason = reason ? { [`${reason}Searches`]: 1 } : {};
     await prisma.noSlotSearch.upsert({
       where: {
         venueId_date_requestedMinute_partySize: { venueId, date: day, requestedMinute, partySize },
       },
-      create: { venueId, date: day, requestedMinute, partySize, searches: 1 },
-      update: { searches: { increment: 1 } },
+      create: { venueId, date: day, requestedMinute, partySize, searches: 1, ...createByReason },
+      update: { searches: { increment: 1 }, ...byReason },
     });
   },
 };

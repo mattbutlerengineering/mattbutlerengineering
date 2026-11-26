@@ -38,6 +38,8 @@ export interface PreviewInput {
   bookings: readonly BookedReservation[];
   tableIds: ReadonlySet<string>;
   sections?: SectionIndex;
+  /** Every rule row of the venue, removed ones too (a `seriesId` may name a removed series). */
+  ruleIds?: ReadonlySet<string>;
   /** The venue's tables, so a party size narrows the times to those a table fits. */
   tables?: readonly EngineTable[];
   now: Date;
@@ -79,6 +81,7 @@ export function planPreview(input: PreviewInput): PreviewPlan {
     scopeConflicts: draft.scopeConflicts,
     tableIds: input.tableIds,
     ...(input.sections ? { sections: input.sections } : {}),
+    ...(input.ruleIds ? { ruleIds: input.ruleIds } : {}),
     now,
     today: civilDateIn(now, state.timezone),
     newId: input.newId ?? randomUUID,

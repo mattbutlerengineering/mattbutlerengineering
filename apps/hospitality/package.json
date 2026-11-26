@@ -46,9 +46,9 @@
       "limit": "4 kB"
     },
     {
-      "name": "Quick Setup Form (shared by the availability page and onboarding)",
+      "name": "Quick Setup Form (shared by the availability page and onboarding; limit 8.5 kB at #9620 for the per-service pacing field, 8.17 kB measured)",
       "path": "dist/assets/QuickSetupForm-*.js",
-      "limit": "8 kB"
+      "limit": "8.5 kB"
     },
     {
       "name": "Weekday summary + schedule changes (one hoisted chunk, shared by the schedule editor, Change regular week, the Schedules tab, History and quick setup; rollup names it for change-summary-text since #8528)",
@@ -76,9 +76,9 @@
       "limit": "4.1 kB"
     },
     {
-      "name": "Edit dates of a repeating closure (SeriesEditDialog, a chunk of its own once the Closures page and the Special dates tab both load it, availability-hub L3.2; 3.42 kB (3,422 B) measured)",
+      "name": "Edit dates of a repeating closure (SeriesEditDialog, a chunk of its own once the Closures page and the Special dates tab both load it, availability-hub L3.2; 3.42 kB (3,422 B) measured; +0.67 kB at #9686 for the decisions session the dialog now owns (use-decisions-session and use-series-growth-session, which Step 2 used to carry as its own state), 4.09 kB (4,087 B) measured; back to 3.51 kB (3,508 B) at #9690 once Add, Close and Tonight shared the session and rollup hoisted it out of the dialog's chunk)",
       "path": "dist/assets/SeriesEditDialog-*.js",
-      "limit": "3.6 kB"
+      "limit": "3.7 kB"
     },
     {
       "name": "Hub closures wording (hub-closures-text, shared by the hub's row 4 and the Closures page, availability-hub L3.2; 2.31 kB (2,305 B) measured)",
@@ -171,9 +171,9 @@
       "limit": "64 kB"
     },
     {
-      "name": "Rialto Vendor (design system; 91.84 kB before typed dates in DatePicker: +1 kB at #8798, availability-hub C2.1, for the typed-date reader, the field's problem state and four message keys in three locales, 92.84 kB measured; +0.95 kB at #8972 for the framer-motion/motion-dom 14.12 → 14.14 bump that rialto bundles, 93.85 kB (93,846 B) measured, 92.9 kB on main before; re-measured at 93,846 B after merging main at #8978; +0.21 kB at #9031 for the Table scroll wrapper switching role=region to role=group, 94,061 B measured twice in CI, limit 95 kB for room against hash-driven drift); #9156 moved the three rialto locale dictionaries out to lazy chunks, 91.76 kB measured, limit 93 kB; #9378 removed Guilloche and the chunk measured 93.06 kB in CI against 92.97 kB on main (+0.09 kB; cause not isolated, likely brotli or chunk-composition drift, and hospitality imports nothing from Guilloche), limit 93.5 kB for room; #9518 added ConfirmDialog, HoverCard, ContextMenu and CommandPalette to the catalog registry, 94.35 kB measured in CI, limit 95 kB; #9519 added Navbar, GlobalNav, PageHeader, Heading and Hero, 95.32 kB measured in CI, limit 96 kB; #9521 added MasterOverride, ImageUpload and Tree, 103.23 kB measured in CI, limit 104 kB; #9562 added FeedbackDialog and FeedbackButton (in-app feedback), 104.14 kB measured locally, limit 104.5 kB",
+      "name": "Rialto Vendor (design system; 91.84 kB before typed dates in DatePicker: +1 kB at #8798, availability-hub C2.1, for the typed-date reader, the field's problem state and four message keys in three locales, 92.84 kB measured; +0.95 kB at #8972 for the framer-motion/motion-dom 14.12 → 14.14 bump that rialto bundles, 93.85 kB (93,846 B) measured, 92.9 kB on main before; re-measured at 93,846 B after merging main at #8978; +0.21 kB at #9031 for the Table scroll wrapper switching role=region to role=group, 94,061 B measured twice in CI, limit 95 kB for room against hash-driven drift); #9156 moved the three rialto locale dictionaries out to lazy chunks, 91.76 kB measured, limit 93 kB; #9378 removed Guilloche and the chunk measured 93.06 kB in CI against 92.97 kB on main (+0.09 kB; cause not isolated, likely brotli or chunk-composition drift, and hospitality imports nothing from Guilloche), limit 93.5 kB for room; #9518 added ConfirmDialog, HoverCard, ContextMenu and CommandPalette to the catalog registry, 94.35 kB measured in CI, limit 95 kB; #9519 added Navbar, GlobalNav, PageHeader, Heading and Hero, 95.32 kB measured in CI, limit 96 kB; #9521 added MasterOverride, ImageUpload and Tree, 103.23 kB measured in CI, limit 104 kB; #9562 added FeedbackDialog and FeedbackButton (in-app feedback), 104.14 kB measured locally, limit 104.5 kB; #9726 added VisuallyHidden to the catalog registry, 104.54 kB measured in CI (over by 43 B), limit 105 kB for room; #9727 kept focus outlines (transparent) for forced-colors mode across 22 rialto CSS files, combined size re-measured in CI, limit 105 kB; #9747 added Toolbar to the barrel, combined size re-measured in CI; #9725 added FileUpload to the catalog registry, 105.45 kB measured in CI (over by 449 B), limit 106 kB; #9758 added TagsInput to the catalog registry on top of FileUpload, 106.32 kB measured locally after merging main, limit 107 kB for room",
       "path": "dist/assets/rialto-vendor-*.js",
-      "limit": "104.5 kB"
+      "limit": "107 kB"
     },
     {
       "name": "Router Vendor (react-router)",

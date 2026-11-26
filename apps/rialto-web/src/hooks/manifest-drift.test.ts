@@ -24,6 +24,7 @@ const FORMS_COMPONENTS = [
   "Slider",
   "Select",
   "PinInput",
+  "TagsInput",
   "SegmentedControl",
   "Autocomplete",
   "InputGroup",
@@ -107,6 +108,7 @@ const LAYOUT_COMPONENTS = [
   "SplitScreenExit",
   "Stack",
   "Text",
+  "VisuallyHidden",
 ] as const;
 
 /**

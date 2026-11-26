@@ -5,12 +5,14 @@ import type {
   WaitlistEstimate,
   CreateDepositPaymentIntentRequest,
   DepositPaymentIntent,
+  PublicMemberStatus,
 } from "@mbe/types";
 import {
   GuestRecognitionSchema,
   WaitlistJoinResultSchema,
   WaitlistEstimateSchema,
   DepositPaymentIntentSchema,
+  PublicMemberStatusSchema,
 } from "@mbe/types";
 import { z } from "zod";
 import type { ApiClient } from "./client.js";
@@ -31,6 +33,18 @@ export class PublicVenueClient {
       `/public/v1/venues/${slug}/guests/recognize`,
       { email },
       GuestRecognitionSchema
+    );
+  }
+
+  /**
+   * Whether the client's `x-member-token` opens the Regulars Club early window at this venue,
+   * and how many days early (#9627). Every failure reads as `{ member: false, leadDays: 0 }`.
+   */
+  async memberStatus(slug: string): Promise<PublicMemberStatus> {
+    return this.client.getOne<PublicMemberStatus>(
+      `/public/v1/venues/${slug}/member`,
+      undefined,
+      PublicMemberStatusSchema
     );
   }
 

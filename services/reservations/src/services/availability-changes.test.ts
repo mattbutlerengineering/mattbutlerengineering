@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { Prisma } from "../generated/prisma/index.js";
+import { storeClientOf } from "../test/store-client.js";
 
 vi.mock("./database.js", () => ({ prisma: {} }));
 
@@ -8,18 +9,6 @@ const { listAvailabilityChanges, revertAvailabilityChange } =
 
 const NOW = new Date("2026-10-25T19:00:00.000Z");
 const TZ = "America/Los_Angeles";
-
-/** A `$transaction` client whose transaction is `tx`. */
-function fakeClient(tx: Record<string, unknown>) {
-  const full = {
-    $executeRaw: vi.fn(async () => 0),
-    $executeRawUnsafe: vi.fn(async () => 0),
-    ...tx,
-  };
-  return {
-    $transaction: vi.fn(async (work: (t: unknown) => Promise<unknown>) => work(full)),
-  } as never;
-}
 
 const row = (over: Record<string, unknown>) => ({
   id: "chg-1",
@@ -61,7 +50,7 @@ describe("listAvailabilityChanges", () => {
       },
     });
     const old = row({ id: "chg-1", kind: "closure", inverse: { closure: { ruleId: "r" } } });
-    const client = fakeClient({
+    const client = storeClientOf({
       venue: { findUnique: vi.fn(async () => ({ id: "venue-1", ianaTimezone: TZ })) },
       availabilityChange: {
         findMany: vi.fn(async () => [withOutcome, old]),
@@ -80,7 +69,7 @@ describe("listAvailabilityChanges", () => {
   });
 
   it("answers an unknown venue as null", async () => {
-    const client = fakeClient({ venue: { findUnique: vi.fn(async () => null) } });
+    const client = storeClientOf({ venue: { findUnique: vi.fn(async () => null) } });
     expect(await listAvailabilityChanges("venue-1", query, client)).toBeNull();
   });
 
@@ -88,7 +77,7 @@ describe("listAvailabilityChanges", () => {
     const newest = row({ id: "chg-3", at: new Date("2026-10-25T18:30:00.000Z") });
     const older = row({ id: "chg-2" });
     const findMany = vi.fn(async () => [newest, older]);
-    const client = fakeClient({
+    const client = storeClientOf({
       venue: { findUnique: vi.fn(async () => ({ id: "venue-1", ianaTimezone: TZ })) },
       availabilityChange: {
         findMany,
@@ -135,7 +124,7 @@ describe("listAvailabilityChanges", () => {
     const page = await listAvailabilityChanges(
       "venue-1",
       { limit: 2, offset: 0 },
-      fakeClient({
+      storeClientOf({
         venue: { findUnique: vi.fn(async () => ({ id: "venue-1", ianaTimezone: TZ })) },
         availabilityChange: {
           findMany: vi.fn(async () => [saved, row({ id: "old" })]),
@@ -154,7 +143,7 @@ describe("listAvailabilityChanges", () => {
       listAvailabilityChanges(
         "venue-1",
         { limit: 1, offset: 0 },
-        fakeClient({
+        storeClientOf({
           venue: { findUnique: vi.fn(async () => ({ id: "venue-1", ianaTimezone: TZ })) },
           availabilityChange: {
             // The page's one row is the save; the change Undo is on is the older-stamped reopen.
@@ -174,7 +163,7 @@ describe("listAvailabilityChanges", () => {
 
   it("picks the change Undo is offered on by the version it produced, rows without one after, by time", async () => {
     const findFirst = vi.fn(async () => null);
-    const client = fakeClient({
+    const client = storeClientOf({
       venue: { findUnique: vi.fn(async () => ({ id: "venue-1", ianaTimezone: TZ })) },
       availabilityChange: {
         findMany: vi.fn(async () => []),
@@ -197,23 +186,40 @@ describe("listAvailabilityChanges", () => {
       row({ id: "a", notifiedGuests: true }),
       row({ id: "b", revertedById: "z" }),
       row({ id: "c", kind: "revert" }),
+      row({ id: "d", kind: "section_closure_materialised" }),
     ];
-    const client = fakeClient({
+    const client = storeClientOf({
       venue: { findUnique: vi.fn(async () => ({ id: "venue-1", ianaTimezone: TZ })) },
       availabilityChange: {
         findMany: vi.fn(async () => rows),
-        count: vi.fn(async () => 3),
+        count: vi.fn(async () => 4),
         findFirst: vi.fn(async () => inForce(rows[0]!)),
       },
     });
 
     const page = await listAvailabilityChanges("venue-1", query, client);
 
-    expect(page?.items.map((i) => i.revertible)).toEqual([false, false, false]);
+    expect(page?.items.map((i) => i.revertible)).toEqual([false, false, false, false]);
+  });
+
+  it("offers no Revert on a section delete's materialised closure, even as the newest change", async () => {
+    const rows = [row({ id: "d", kind: "section_closure_materialised" })];
+    const client = storeClientOf({
+      venue: { findUnique: vi.fn(async () => ({ id: "venue-1", ianaTimezone: TZ })) },
+      availabilityChange: {
+        findMany: vi.fn(async () => rows),
+        count: vi.fn(async () => 1),
+        findFirst: vi.fn(async () => inForce(rows[0]!)),
+      },
+    });
+
+    const page = await listAvailabilityChanges("venue-1", query, client);
+
+    expect(page?.items.map((i) => i.revertible)).toEqual([false]);
   });
 
   it("names the person from the snapshot, and leaves older rows without a name", async () => {
-    const client = fakeClient({
+    const client = storeClientOf({
       venue: { findUnique: vi.fn(async () => ({ id: "venue-1", ianaTimezone: TZ })) },
       availabilityChange: {
         findMany: vi.fn(async () => [
@@ -232,7 +238,7 @@ describe("listAvailabilityChanges", () => {
 
   it("filters by made-on dates as the venue's local days, person and type", async () => {
     const findMany = vi.fn(async () => []);
-    const client = fakeClient({
+    const client = storeClientOf({
       venue: { findUnique: vi.fn(async () => ({ id: "venue-1", ianaTimezone: TZ })) },
       availabilityChange: {
         findMany,
@@ -266,7 +272,7 @@ describe("listAvailabilityChanges", () => {
 
   it("spans a daylight-saving change with the offset in force on each boundary", async () => {
     const findMany = vi.fn(async () => []);
-    const client = fakeClient({
+    const client = storeClientOf({
       venue: { findUnique: vi.fn(async () => ({ id: "venue-1", ianaTimezone: TZ })) },
       availabilityChange: {
         findMany,
@@ -299,7 +305,7 @@ describe("listAvailabilityChanges", () => {
 describe("listAvailabilityChanges in a zone whose local midnight does not exist", () => {
   it("begins the day at the first real instant, so the previous day owns late changes", async () => {
     const findMany = vi.fn(async () => []);
-    const client = fakeClient({
+    const client = storeClientOf({
       venue: {
         findUnique: vi.fn(async () => ({ id: "venue-1", ianaTimezone: "America/Santiago" })),
       },
@@ -440,7 +446,7 @@ describe("revertAvailabilityChange", () => {
 
     await revertAvailabilityChange(
       { ...request, actorName: "Ben Ito", expectedVersion: 5 },
-      fakeClient(tx)
+      storeClientOf(tx)
     );
 
     expect(tx.availabilityChange.create).toHaveBeenCalledWith(
@@ -455,7 +461,7 @@ describe("revertAvailabilityChange", () => {
     const withDetail = revertingTx({
       change: row({ id: "chg-5", inverse: inverse(), summaryDetail: detail }),
     });
-    await revertAvailabilityChange({ ...request, expectedVersion: 5 }, fakeClient(withDetail));
+    await revertAvailabilityChange({ ...request, expectedVersion: 5 }, storeClientOf(withDetail));
     expect(withDetail.availabilityChange.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ summaryDetail: { ...detail, reverted: true } }),
@@ -463,7 +469,7 @@ describe("revertAvailabilityChange", () => {
     );
 
     const without = revertingTx({});
-    await revertAvailabilityChange({ ...request, expectedVersion: 5 }, fakeClient(without));
+    await revertAvailabilityChange({ ...request, expectedVersion: 5 }, storeClientOf(without));
     const data = (
       without.availabilityChange.create.mock.calls[0] as unknown as [{ data: object }]
     )[0].data;
@@ -475,7 +481,7 @@ describe("revertAvailabilityChange", () => {
 
     const outcome = await revertAvailabilityChange(
       { ...request, expectedVersion: 5 },
-      fakeClient(tx)
+      storeClientOf(tx)
     );
 
     expect(outcome).toEqual({ kind: "saved", version: 6, changeId: "chg-6" });
@@ -534,7 +540,7 @@ describe("revertAvailabilityChange", () => {
 
       const outcome = await revertAvailabilityChange(
         { ...request, expectedVersion: 5 },
-        fakeClient(tx)
+        storeClientOf(tx)
       );
 
       expect(outcome).toEqual({ kind: "saved", version: 6, changeId: "chg-6" });
@@ -550,7 +556,7 @@ describe("revertAvailabilityChange", () => {
     it("undoes a varied-week save back to the uniform row", async () => {
       const tx = revertingTx({ service: VARIED });
 
-      await revertAvailabilityChange({ ...request, expectedVersion: 5 }, fakeClient(tx));
+      await revertAvailabilityChange({ ...request, expectedVersion: 5 }, storeClientOf(tx));
 
       expect(tx.scheduleService.update).toHaveBeenCalledWith({
         where: { id: "ss-1" },
@@ -570,7 +576,7 @@ describe("revertAvailabilityChange", () => {
 
       const outcome = await revertAvailabilityChange(
         { ...request, expectedVersion: 5 },
-        fakeClient(tx)
+        storeClientOf(tx)
       );
 
       expect(outcome).toEqual({ kind: "saved", version: 6, changeId: "chg-6" });
@@ -598,7 +604,7 @@ describe("revertAvailabilityChange", () => {
 
     const outcome = await revertAvailabilityChange(
       { ...request, expectedVersion: 4 },
-      fakeClient(tx)
+      storeClientOf(tx)
     );
 
     expect(outcome.kind).toBe("version_conflict");
@@ -609,7 +615,7 @@ describe("revertAvailabilityChange", () => {
     const tx = revertingTx({ change: null });
     const outcome = await revertAvailabilityChange(
       { ...request, expectedVersion: 5 },
-      fakeClient(tx)
+      storeClientOf(tx)
     );
     expect(outcome).toEqual({ kind: "change_not_found" });
     expect(tx.scheduleService.update).not.toHaveBeenCalled();
@@ -619,6 +625,9 @@ describe("revertAvailabilityChange", () => {
     ["guests_notified", { notifiedGuests: true }, undefined],
     ["already_reverted", { revertedById: "chg-9" }, undefined],
     ["not_revertable", { kind: "revert" }, undefined],
+    // A section delete's materialised closure: its inverse would name a section that is gone.
+    ["not_revertable", { kind: "section_closure_materialised" }, undefined],
+    // The change before a materialised closure: that row (chg-7) is now the newest in force.
     ["superseded", {}, "chg-7"],
   ])("refuses with %s and writes nothing", async (reason, over, newest) => {
     const tx = revertingTx({
@@ -628,7 +637,7 @@ describe("revertAvailabilityChange", () => {
 
     const outcome = await revertAvailabilityChange(
       { ...request, expectedVersion: 5 },
-      fakeClient(tx)
+      storeClientOf(tx)
     );
 
     expect(outcome).toEqual({ kind: "refused", reason });
@@ -640,7 +649,7 @@ describe("revertAvailabilityChange", () => {
     const tx = revertingTx({ change: row({ id: "chg-5", inverse: { version: 2 } }) });
     const outcome = await revertAvailabilityChange(
       { ...request, expectedVersion: 5 },
-      fakeClient(tx)
+      storeClientOf(tx)
     );
     expect(outcome).toEqual({ kind: "refused", reason: "not_revertable" });
   });
@@ -675,7 +684,7 @@ describe("revertAvailabilityChange", () => {
 
     const outcome = await revertAvailabilityChange(
       { ...request, expectedVersion: 5 },
-      fakeClient(tx)
+      storeClientOf(tx)
     );
 
     expect(outcome).toEqual({
@@ -712,7 +721,7 @@ describe("revertAvailabilityChange", () => {
 
     const outcome = await revertAvailabilityChange(
       { ...request, expectedVersion: 5 },
-      fakeClient(tx)
+      storeClientOf(tx)
     );
 
     expect(outcome).toEqual({ kind: "saved", version: 6, changeId: "chg-6" });
@@ -757,7 +766,7 @@ describe("revertAvailabilityChange", () => {
 
     const outcome = await revertAvailabilityChange(
       { ...request, expectedVersion: 5 },
-      fakeClient({ ...tx, dateRule, dateRuleTable })
+      storeClientOf({ ...tx, dateRule, dateRuleTable })
     );
 
     expect(outcome).toEqual({ kind: "saved", version: 6, changeId: "chg-6" });
@@ -789,7 +798,7 @@ describe("revertAvailabilityChange", () => {
 
     const outcome = await revertAvailabilityChange(
       { ...request, expectedVersion: 5 },
-      fakeClient({ ...tx, closureOutcome })
+      storeClientOf({ ...tx, closureOutcome })
     );
 
     expect(outcome).toEqual({ kind: "saved", version: 6, changeId: "chg-6" });

@@ -1,6 +1,6 @@
-import { useMemo, type CSSProperties } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
-import { Card, Skeleton, Text } from "@mattbutlerengineering/rialto";
+import { Card, Checkbox, Skeleton, Text } from "@mattbutlerengineering/rialto";
 import type { LostDemand } from "@mbe/types";
 import { formatCalendarDate, formatWallHour } from "../../utils/format.js";
 import styles from "./TurnedAwayHeatmap.module.css";
@@ -42,6 +42,20 @@ function toRows(demand: LostDemand): HeatRows {
   return { hours, byCell, anyTime, max };
 }
 
+/** The same read narrowed to searches the venue's pacing refused (#9622); other reasons drop out. */
+function pacingOnly(demand: LostDemand): LostDemand {
+  return {
+    ...demand,
+    total: demand.byReason?.pacing ?? 0,
+    cells: demand.cells.flatMap(({ pacing, ...cell }) =>
+      pacing ? [{ ...cell, searches: pacing }] : []
+    ),
+    anyTime: demand.anyTime.flatMap(({ pacing, ...day }) =>
+      pacing ? [{ ...day, searches: pacing }] : []
+    ),
+  };
+}
+
 function Cell({ count, max }: { readonly count: number; readonly max: number }) {
   // Shade is a second cue only: the count is always the visible text.
   const style = count > 0 ? ({ "--heat": count / max } as CSSProperties) : undefined;
@@ -55,7 +69,12 @@ function Cell({ count, max }: { readonly count: number; readonly max: number }) 
 export function TurnedAwayHeatmap({ demand }: TurnedAwayHeatmapProps) {
   const { t, i18n } = useTranslation();
   const locale = i18n.language;
-  const rows = useMemo(() => (demand && demand.total > 0 ? toRows(demand) : null), [demand]);
+  const [pacingFilter, setPacingFilter] = useState(false);
+  const shown = useMemo(
+    () => (demand && pacingFilter ? pacingOnly(demand) : demand),
+    [demand, pacingFilter]
+  );
+  const rows = useMemo(() => (shown && shown.total > 0 ? toRows(shown) : null), [shown]);
 
   // undefined = the read hasn't resolved; claiming "nobody was turned away" now would be false.
   if (demand === undefined) {
@@ -66,7 +85,27 @@ export function TurnedAwayHeatmap({ demand }: TurnedAwayHeatmapProps) {
     );
   }
 
-  if (!demand || !rows) {
+  // Only a read that carries reasons can be filtered by one.
+  const filter =
+    demand?.byReason && demand.total > 0 ? (
+      <Checkbox
+        label={t("home.turnedAway.pacingFilter")}
+        checked={pacingFilter}
+        onCheckedChange={setPacingFilter}
+      />
+    ) : null;
+
+  if (!demand || !shown || !rows) {
+    if (demand && pacingFilter) {
+      return (
+        <Card title={t("home.turnedAway.title")}>
+          {filter}
+          <Text variant="body" color="secondary">
+            {t("home.turnedAway.pacingEmpty")}
+          </Text>
+        </Card>
+      );
+    }
     return (
       <Card title={t("home.turnedAway.title")}>
         <Text variant="body" color="secondary">
@@ -78,8 +117,11 @@ export function TurnedAwayHeatmap({ demand }: TurnedAwayHeatmapProps) {
 
   return (
     <Card title={t("home.turnedAway.title")}>
+      {filter}
       <Text variant="body" color="secondary">
-        {t("home.turnedAway.summary", { count: demand.total })}
+        {t(pacingFilter ? "home.turnedAway.pacingSummary" : "home.turnedAway.summary", {
+          count: shown.total,
+        })}
       </Text>
       <div className={styles.scroll}>
         {/* eslint-disable mbe-local/prefer-rialto-components -- a weekday x hour matrix needs per-cell heat and two header axes; Rialto Table is a column list */}

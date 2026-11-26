@@ -42,48 +42,78 @@ export function defaultWindowStart(to: string): string {
   return from.toISOString().slice(0, 10);
 }
 
-function addCount(counts: ReadonlyMap<string, number>, key: string, by: number) {
+function addCount<K>(counts: ReadonlyMap<K, number>, key: K, by: number) {
   return new Map(counts).set(key, (counts.get(key) ?? 0) + by);
 }
+
+/** `{ pacing }` only when non-zero, so the payload stays sparse. */
+const withPacing = (pacing: number): { pacing?: number } => (pacing > 0 ? { pacing } : {});
 
 async function getLostDemand(params: GetLostDemandParams): Promise<LostDemand> {
   const { venueId, from, to } = params;
   const groups = await prisma.noSlotSearch.groupBy({
     by: ["date", "requestedMinute"],
     where: { venueId, date: { gte: toUtcMidnight(from), lte: toUtcMidnight(to) } },
-    _sum: { searches: true },
+    _sum: {
+      searches: true,
+      pacingSearches: true,
+      tablesSearches: true,
+      hoursSearches: true,
+      closureSearches: true,
+    },
   });
 
+  const byReason = { pacing: 0, tables: 0, hours: 0, closure: 0 };
   let cells: ReadonlyMap<string, number> = new Map();
   let anyTime: ReadonlyMap<number, number> = new Map();
+  let cellPacing: ReadonlyMap<string, number> = new Map();
+  let anyTimePacing: ReadonlyMap<number, number> = new Map();
   let total = 0;
   for (const group of groups) {
     const searches = group._sum?.searches ?? 0;
     const weekday = group.date.getUTCDay();
+    const pacing = group._sum?.pacingSearches ?? 0;
     const minute = group.requestedMinute;
     if (minute === ANY_TIME_MINUTE) {
-      anyTime = new Map(anyTime).set(weekday, (anyTime.get(weekday) ?? 0) + searches);
+      anyTime = addCount(anyTime, weekday, searches);
+      anyTimePacing = addCount(anyTimePacing, weekday, pacing);
     } else if (minute >= 0 && minute < MINUTES_PER_DAY) {
-      cells = addCount(cells, `${weekday}:${Math.floor(minute / 60)}`, searches);
+      const key = `${weekday}:${Math.floor(minute / 60)}`;
+      cells = addCount(cells, key, searches);
+      cellPacing = addCount(cellPacing, key, pacing);
     } else {
       // Malformed minute: dropping it beats placing it in the wrong cell.
       continue;
     }
     total += searches;
+    byReason.pacing += pacing;
+    byReason.tables += group._sum?.tablesSearches ?? 0;
+    byReason.hours += group._sum?.hoursSearches ?? 0;
+    byReason.closure += group._sum?.closureSearches ?? 0;
   }
 
   const cellList: LostDemandCell[] = [...cells].map(([key, searches]) => {
     const [weekday, hour] = key.split(":").map(Number);
-    return { weekday: weekday ?? 0, hour: hour ?? 0, searches };
+    return {
+      weekday: weekday ?? 0,
+      hour: hour ?? 0,
+      searches,
+      ...withPacing(cellPacing.get(key) ?? 0),
+    };
   });
   return {
     venueId,
     from,
     to,
     total,
+    byReason,
     cells: cellList.sort((a, b) => a.weekday - b.weekday || a.hour - b.hour),
     anyTime: [...anyTime]
-      .map(([weekday, searches]) => ({ weekday, searches }))
+      .map(([weekday, searches]) => ({
+        weekday,
+        searches,
+        ...withPacing(anyTimePacing.get(weekday) ?? 0),
+      }))
       .sort((a, b) => a.weekday - b.weekday),
   };
 }

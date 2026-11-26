@@ -756,6 +756,11 @@
       "tableLabel": "Búsquedas sin mesa por día de la semana y hora",
       "anyTime": "Sin hora indicada",
       "anyTimeNote": "Los invitados de la última fila no indicaron hora y no encontraron mesa ese día, por eso se cuentan solo por día de la semana, nunca en una hora.",
+      "pacingFilter": "Solo rechazadas por ritmo de reservas",
+      "pacingEmpty": "Ninguna búsqueda fue rechazada por el ritmo de reservas en los últimos 28 días.",
+      "pacingSummary_one": "{{count}} búsqueda fue rechazada por el ritmo de reservas en los últimos 28 días.",
+      "pacingSummary_many": "{{count}} de búsquedas fueron rechazadas por el ritmo de reservas en los últimos 28 días.",
+      "pacingSummary_other": "{{count}} búsquedas fueron rechazadas por el ritmo de reservas en los últimos 28 días.",
       "loadFailed": "No se pudieron cargar las búsquedas sin mesa."
     },
     "whatIf": {
@@ -1297,6 +1302,21 @@
     "shown_other": "{{count}} clientes mostrados",
     "addGuest": "Agregar cliente",
     "addAGuest": "Agregar un cliente",
+    "regulars": {
+      "title": "Club de clientes frecuentes",
+      "description": "Invita a clientes por correo. Cada miembro recibe un enlace de reservación personal que puedes revocar en cualquier momento.",
+      "name": "Nombre",
+      "email": "Correo electrónico",
+      "invite": "Enviar invitación",
+      "sending": "Enviando...",
+      "sent": "Invitación enviada a {{email}}",
+      "empty": "Aún no hay miembros. Invita a un cliente frecuente arriba.",
+      "statusActive": "Activo",
+      "statusRevoked": "Revocado",
+      "invitedOn": "Invitado el {{date}}",
+      "revoke": "Revocar",
+      "revokeAria": "Revocar a {{name}}"
+    },
     "search": {
       "label": "Buscar clientes",
       "placeholder": "Buscar clientes...",
@@ -1429,6 +1449,10 @@
     "guests_many": "{{count}} de personas",
     "guests_other": "{{count}} personas",
     "back": "← Atrás",
+    "member_banner_one": "Los miembros reservan {{count}} día antes",
+    "member_banner_many": "Los miembros reservan {{count}} de días antes",
+    "member_banner_other": "Los miembros reservan {{count}} días antes",
+    "member_invalid": "Este enlace de miembro no está activo. Mostramos las fechas abiertas para todos.",
     "estimatedWait": "Espera estimada: ~{{minutes}} min",
     "dateParty": {
       "startDate": "Fecha de inicio",
@@ -2568,6 +2592,11 @@
       "loadError": "No se pudo cargar por qué este día es así"
     },
     "quickSetup": {
+      "pacing": {
+        "covers": "Ritmo: cubiertos por franja",
+        "hint": "Máximo de cubiertos por franja. Reduce el límite del local para este servicio; déjalo vacío para no limitar.",
+        "window": "Franja del ritmo"
+      },
       "title": "Define tu semana regular",
       "intro": "Dile a tus invitados cuándo aceptas reservaciones. Puedes cambiar cualquier día después.",
       "serviceN": "Servicio {{n}}",
@@ -2735,6 +2764,7 @@
         "tonightCloseEarly": "Esta noche: cierre anticipado",
         "tonightStopWindow": "Esta noche: reservas detenidas por un periodo",
         "tonightEnded": "Se terminó el cambio de esta noche",
+        "sectionClosureMaterialised": "Sección eliminada: sus cierres ahora cierran sus mesas",
         "tonightBlockTables_one": "Esta noche: {{count}} mesa bloqueada",
         "tonightBlockTables_other": "Esta noche: {{count}} mesas bloqueadas",
         "tonightBlockTables_many": "Esta noche: {{count}} de mesas bloqueadas",
@@ -3335,6 +3365,7 @@
         "impactError": "No se pudieron revisar las reservas posteriores al nuevo cierre.",
         "retry": "Intentar de nuevo",
         "discardMaybeSaved": "El último guardado no terminó, así que pudo haberse aplicado y cancelado reservaciones. Revisa los cambios de esta noche antes de cerrar de nuevo.",
+        "maybeSaved": "No pudimos confirmar este guardado. Pudo haberse aplicado y cancelado reservaciones. Guarda de nuevo sin cambios para ver qué pasó, o revisa los cambios de esta noche.",
         "savedEarlier": {
           "body": "Un intento anterior se guardó: {{summary}}. Los comensales se atendieron como eligió ese intento; los cambios posteriores no se aplicaron.",
           "bodyPlain": "Un intento anterior se guardó. Los cambios posteriores no se aplicaron."
@@ -4065,6 +4096,42 @@
       "title": "Cuenta",
       "signedInAs": "Sesión iniciada como",
       "signOut": "Cerrar sesión"
+    },
+    "accessTokens": {
+      "title": "Conecta un asistente de IA",
+      "description": "Deja que un asistente de IA como Claude consulte información por ti. Un token es de solo lectura y llega a todos los locales a los que perteneces. Trátalo como una contraseña.",
+      "nameLabel": "Nombre del token",
+      "nameRequired": "Ponle un nombre al token, por ejemplo el del asistente que lo usará.",
+      "expiryLabel": "Vence",
+      "expiry": {
+        "30": "En 30 días",
+        "90": "En 90 días",
+        "365": "En 1 año",
+        "never": "Nunca"
+      },
+      "create": "Crear token",
+      "empty": "Aún no hay tokens.",
+      "loadError": "No se pudieron cargar tus tokens",
+      "created": "{{prefix}}… · creado el {{date}}",
+      "lastUsed": "Último uso: {{date}}",
+      "neverUsed": "Nunca usado",
+      "expires": "Vence el {{date}}",
+      "neverExpires": "No vence",
+      "revoke": "Revocar",
+      "revokeNamed": "Revocar {{name}}",
+      "revokeConfirm": {
+        "title": "¿Revocar {{name}}?",
+        "description": "Todo lo que use este token dejará de funcionar de inmediato. No se puede deshacer.",
+        "cancel": "Conservarlo"
+      },
+      "mintedTitle": "Token creado para {{name}}",
+      "tokenLabel": "Tu token",
+      "shownOnce": "Cópialo ahora. No volverás a verlo.",
+      "copy": "Copiar token",
+      "copied": "Copiado",
+      "copyFailed": "No se pudo copiar. Selecciona el token y cópialo a mano.",
+      "done": "Listo",
+      "limitReached": "Llegaste al límite de tokens activos. Revoca uno para crear otro."
     }
   },
   "admin": {
@@ -4421,7 +4488,7 @@
       },
       "regularsClub": {
         "label": "Club de habituales",
-        "detail": "Vende tu propio acceso prioritario del viernes en lugar de rentar a tus habituales."
+        "detail": "Invita a tus habituales y reciben una ventana de reserva anticipada mediante un enlace firmado, con un límite de mesas por cada uno."
       }
     },
     "prep": {
@@ -4484,8 +4551,7 @@
       "board": {
         "guestPassport": "Pasaporte",
         "kitchenAwareBooking": "Ritmo de cocina",
-        "headlessVenue": "Sin pantalla",
-        "regularsClub": "Club habituales"
+        "headlessVenue": "Sin pantalla"
       }
     },
     "morning": {

@@ -56,6 +56,7 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { createGhClient, COORDINATION_LABELS } from "@mbe/gh-client";
 import { fileIssueViaGhClient } from "./lib/issue-filing.mjs";
+import { AUTOMATION_MARKER } from "./lib/automation-marker.mjs";
 
 /** Pure: builds the original watchdog issue title (format unchanged, #2958). */
 export function buildBrokenMainTitle(sha) {
@@ -1138,7 +1139,14 @@ async function reopenCulpritIssues(args) {
     reopenIssue: async (n, comment) => {
       execFileSync(
         "gh",
-        ["api", "-X", "POST", `repos/{owner}/{repo}/issues/${n}/comments`, "-f", `body=${comment}`],
+        [
+          "api",
+          "-X",
+          "POST",
+          `repos/{owner}/{repo}/issues/${n}/comments`,
+          "-f",
+          `body=${AUTOMATION_MARKER}\n${comment}`,
+        ],
         { stdio: "ignore" }
       );
       execFileSync(

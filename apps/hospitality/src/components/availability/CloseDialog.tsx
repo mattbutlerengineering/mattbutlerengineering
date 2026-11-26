@@ -3,22 +3,15 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { Alert, Button, Dialog, Text, useToast } from "@mattbutlerengineering/rialto";
 import {
-  type AvailabilityChangeSummary,
   type AvailabilityConfigState,
   type ClosureImpact,
   type ClosureResult,
   type DateRule,
 } from "@mbe/types";
-import {
-  useClosureImpact,
-  useClosureImpacts,
-  useCreateClosure,
-  useCreateClosures,
-} from "../../hooks/useClosures.js";
+import { useClosureImpact, useClosureImpacts } from "../../hooks/useClosures.js";
 import { useVenueFloorPlanSections } from "../../hooks/useFloorPlans.js";
 import { useNow } from "../../hooks/useNow.js";
 import { useTables } from "../../hooks/useTables.js";
-import { useRefreshAvailability } from "../../hooks/useRefreshAvailability.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { serviceMinuteOf } from "../../utils/service-day.js";
 import {
@@ -28,7 +21,6 @@ import {
   closureForm,
   decisionsReady,
   editAlongside,
-  withoutChoicesFor,
   focusCloseField,
   inSeries,
   isUrgent,
@@ -41,26 +33,23 @@ import {
   willHaveStepTwo,
   stepTwoNote,
   stepTwoNoteId,
-  toDecisions,
   validateClose,
   type BookingChannel,
-  type ChoiceMap,
   type CloseField,
   type CloseForm,
 } from "./close-draft.js";
 import { closeButtonText, closeIncompleteText, closeToastText } from "./close-text.js";
-import { combineImpacts, decisionsFor } from "./add-dates-draft.js";
+import { combineImpacts } from "./add-dates-draft.js";
 import { AlreadyClosedNotice } from "./AlreadyClosedNotice.js";
 import { LeaveSaveDialog } from "./LeaveSaveDialog.js";
-import { useSaveAttempts } from "./use-save-attempts.js";
+import { useCloseSession, type CloseSaved } from "./use-close-session.js";
 import { useWinningChangeText } from "./use-winning-change-text.js";
 import { CloseStepOne } from "./CloseStepOne.js";
 import { CloseStepTwo } from "./CloseStepTwo.js";
 import { GivenBackChoice } from "./GivenBackChoice.js";
-import { outcomeLabel, outcomeSummary } from "./outcome-label.js";
+import { outcomeLabel } from "./outcome-label.js";
 import { sectionMembership } from "./section-membership.js";
-import { sameRow } from "./series-edit.js";
-import { refusalOf, refusalText } from "./step-two-refusal.js";
+import { sameEditedRow } from "./series-edit.js";
 import styles from "./CloseDialog.module.css";
 
 /**
@@ -185,10 +174,6 @@ export function CloseDialog(props: CloseDialogProps) {
   const format = useVenueFormat();
   const { toast } = useToast();
   const now = useNow();
-  const createOne = useCreateClosure();
-  const createMany = useCreateClosures();
-  const isPending = createOne.isPending || createMany.isPending;
-  const refresh = useRefreshAvailability();
 
   const sectionsRead = useVenueFloorPlanSections({ venueId });
   const tablesRead = useTables({ venueId, activeOnly: true, limit: 100 });
@@ -221,35 +206,10 @@ export function CloseDialog(props: CloseDialogProps) {
     return () => cancelAnimationFrame(frame);
   }, []);
   const [step, setStep] = useState<1 | 2>(1);
-  const [choices, setChoices] = useState<ChoiceMap>({});
   // Asked only when an edit gives back dates holding cancelled guests; like a Reopen, told by default.
   const [tellGivenBack, setTellGivenBack] = useState(true);
   const [invalid, setInvalid] = useState<CloseField | null>(null);
-  const [failure, setFailure] = useState<string | null>(null);
-  // Set on a 409 version conflict: the change that won, `null` when none is recorded.
-  const [winner, setWinner] = useState<{
-    readonly change: AvailabilityChangeSummary | null;
-  } | null>(null);
-  const winnerText = useWinningChangeText(winner?.change ?? null);
-  const attempts = useSaveAttempts(state.config.dateRules, { reload: refresh, onLeave: onClose });
-  const { ruleId, idempotencyKey, earlier } = attempts;
-  const savedEarlier = earlier !== undefined;
-  const leave = () => attempts.leave(isPending);
   const [startReset, setStartReset] = useState(false);
-  const edit = (changed: CloseForm) => {
-    const next = settleStartMinute(form, changed, state.config, timezone, today);
-    setStartReset(next.fromMinute !== changed.fromMinute);
-    if (!sameRequest(next, form)) {
-      setChoices({});
-      attempts.restart();
-    } else {
-      // A lost response then an edit to the message or a decision: see `useSaveAttempts`.
-      attempts.edited(form, next);
-    }
-    setForm(next);
-    setInvalid(null);
-    attempts.setDirty(true);
-  };
 
   const { series, editing } = props;
   const alongside = useMemo(() => (editing ? editAlongside(editing) : undefined), [editing]);
@@ -263,12 +223,11 @@ export function CloseDialog(props: CloseDialogProps) {
     ? null
     : !liveRow
       ? "gone"
-      : sameRow(liveRow, editing)
+      : sameEditedRow(liveRow, editing)
         ? null
         : "changed";
-  // Several dates are one closure each; these answer "which rule is for this date" so that a retry
-  // keeps its ids (`attempt` ids) and a preview keeps its own (below).
-  const [attemptIds] = useState(() => new Map<string, string>());
+  // Several dates are one closure each; a preview keeps its own ids per date, apart from the
+  // attempt's (the session's `ruleIdFor`), so a new attempt is not a new impact query.
   const [previewIds] = useState(() => new Map<string, string>());
   const idIn = (ids: Map<string, string>, key: string) => {
     if (!ids.has(key)) ids.set(key, crypto.randomUUID());
@@ -306,12 +265,28 @@ export function CloseDialog(props: CloseDialogProps) {
   const refetchImpact = () => void (several ? impactsQuery.refetch() : impactQuery.refetch());
   const groups = impact?.groups ?? [];
   const givenBack = editing ? impact?.givenBack : undefined;
-  const rules = buildCloseRules(
-    form,
-    (date) => (several ? idIn(attemptIds, `${ruleId}:${date}`) : ruleId),
-    today,
-    membership
-  ).map((r) => inSeries(r, series)!);
+  const rulesOf = (idFor: (date: string) => string) =>
+    buildCloseRules(form, idFor, today, membership).map((r) => inSeries(r, series)!);
+  const session = useCloseSession({
+    venueId,
+    rules: state.config.dateRules,
+    version: state.version,
+    several,
+    impacts: several ? perDate : impact ? [impact] : undefined,
+    refetch: async () => (several ? impactsQuery.refetch() : impactQuery.refetch()),
+    rulesOf,
+    alongside,
+    tellGivenBack: givenBack ? tellGivenBack : undefined,
+    onSaved: (saved) => onSaved(saved),
+    onClose,
+  });
+  const { attempts, state: sessionState } = session;
+  const { earlier } = attempts;
+  const savedEarlier = earlier !== undefined;
+  const isPending = session.isPending || sessionState.kind === "sending";
+  // The ids on screen only name the rules (the draft's count, the notice above); the ones that are
+  // sent come from the session, per attempt: a date's own for several, the attempt's for one.
+  const rules = rulesOf((date) => (several ? date : attempts.ruleId));
   const rule = rules[0] ?? null;
   const services = state.config.venueServices.filter((s) => !s.archivedAt);
   const { what } = form;
@@ -349,110 +324,62 @@ export function CloseDialog(props: CloseDialogProps) {
   const fullDate = (date: string) =>
     format.formatCalendarDate(date, { weekday: "short", month: "short", day: "numeric" });
 
+  const { choices } = session;
+  const winnerText = useWinningChangeText(session.winner?.change ?? null);
+  const leave = () => attempts.leave(isPending);
+  const edit = (changed: CloseForm) => {
+    const next = settleStartMinute(form, changed, state.config, timezone, today);
+    setStartReset(next.fromMinute !== changed.fromMinute);
+    if (!sameRequest(next, form)) {
+      // A new request: the decisions are void and the attempt ids start over.
+      session.reset();
+      attempts.restart();
+    } else {
+      // A lost response then an edit to the message or a decision: see `useSaveAttempts`.
+      session.edited(form, next);
+    }
+    setForm(next);
+    setInvalid(null);
+    attempts.setDirty(true);
+  };
+
   const next = () => {
     const problem = validateClose(form, today);
     setInvalid(problem);
     if (problem) return focusCloseField(problem);
     if (stepTwo) setStep(2);
-    else void save();
+    else void session.submit();
   };
 
-  const saveOne = async (only: DateRule) => {
-    const result = await createOne.mutateAsync({
-      venueId,
-      idempotencyKey,
-      body: {
-        expectedVersion: state.version,
-        rule: only,
-        ...(alongside ? { alongside } : {}),
-        decisions: toDecisions(groups, choices),
-        ...(givenBack ? { tellGivenBackGuests: tellGivenBack } : {}),
-      },
-    });
-    return { outcomes: result.outcomes, result };
-  };
-
-  /** One command, one closure rule per date, each with the decisions of its own date's groups. */
-  const saveMany = async () => {
-    const decisions = decisionsFor(perDate ?? [], choices);
-    const result = await createMany.mutateAsync({
-      venueId,
-      idempotencyKey,
-      body: {
-        expectedVersion: state.version,
-        items: rules.map((r, i) => ({ rule: r, decisions: decisions[i] ?? [] })),
-      },
-    });
-    const total = { cancel: 0, move: 0, keep_notify: 0, keep_silent: 0 };
-    for (const r of result.results) {
-      for (const key of Object.keys(total) as (keyof typeof total)[]) {
-        total[key] += r.outcomes[key];
-      }
-    }
-    return { outcomes: total, result: null };
-  };
-
-  const save = async () => {
+  const onSaved = (saved: CloseSaved) => {
     if (!rule) return;
-    setFailure(null);
-    setWinner(null);
-    attempts.record(
-      outcomeSummary(outcomeCounts(groups, choices), t),
-      rules.map((r) => r.id),
-      rules.map((r) => r.startsOn)
+    const { cancel, move, keep_notify } = saved.outcomes;
+    const notified = cancel + move + keep_notify;
+    const givenBackTold = saved.result?.givenBackNotified ?? 0;
+    // A repeat's From date may not be one of its days.
+    const firstDate = closedDates(rule)[0] ?? startsOn;
+    const date = fullDate(firstDate);
+    const title = closeToastText(
+      { form, date: firstDate, count: rules.length, name: targetName },
+      saved.outcomes,
+      t,
+      format
     );
-    try {
-      const saved = several ? await saveMany() : await saveOne(rule);
-      const { cancel, move, keep_notify } = saved.outcomes;
-      const notified = cancel + move + keep_notify;
-      const givenBackTold = saved.result?.givenBackNotified ?? 0;
-      // A repeat's From date may not be one of its days.
-      const firstDate = closedDates(rule)[0] ?? startsOn;
-      const date = fullDate(firstDate);
-      const title = closeToastText(
-        { form, date: firstDate, count: rules.length, name: targetName },
-        saved.outcomes,
-        t,
-        format
-      );
-      if (props.onSavedQuietly && saved.result && notified === 0 && givenBackTold === 0) {
-        // A save that told no guest is one History can revert: the caller offers Undo.
-        props.onSavedQuietly(saved.result, title);
-      } else {
-        toast({
-          title:
-            notified === 0 && givenBackTold > 0
-              ? t("availability.close.edit.toastTold", { date, count: givenBackTold })
-              : title,
-          variant: "success",
-        });
-      }
-      props.onSaved?.();
-      onClose();
-      settleFocusAfterSave();
-    } catch (error) {
-      const refused = refusalOf(error);
-      setFailure(refusalText(refused, t, { groups, format }));
-      if (refused.kind === "move-unavailable") {
-        // Nothing was saved. The groups holding those bookings need another choice.
-        setChoices(withoutChoicesFor(groups, choices, refused.reservationIds));
-        // What Step 2 proposed no longer matches what the save does: ask again before Move is offered.
-        refetchImpact();
-      }
-      if (refused.kind === "groups-changed") {
-        // The group changed since the Manager chose: drop the stale choices and load the new one.
-        setChoices({});
-        refetchImpact();
-        return;
-      }
-      attempts.failed(refused);
-      if (refused.kind === "version-conflict") {
-        setWinner({ change: refused.winningChange });
-        refresh();
-      } else if (refused.kind === "closure-exists") {
-        refresh();
-      }
+    if (props.onSavedQuietly && saved.result && notified === 0 && givenBackTold === 0) {
+      // A save that told no guest is one History can revert: the caller offers Undo.
+      props.onSavedQuietly(saved.result, title);
+    } else {
+      toast({
+        title:
+          notified === 0 && givenBackTold > 0
+            ? t("availability.close.edit.toastTold", { date, count: givenBackTold })
+            : title,
+        variant: "success",
+      });
     }
+    props.onSaved?.();
+    onClose();
+    settleFocusAfterSave();
   };
 
   const counts = outcomeCounts(groups, choices);
@@ -468,6 +395,7 @@ export function CloseDialog(props: CloseDialogProps) {
   // choices would read as complete.
   const primaryDisabled =
     savedEarlier ||
+    session.committed ||
     editState !== null ||
     (step === 2
       ? !impact || !decisionsReady(groups, choices)
@@ -542,7 +470,7 @@ export function CloseDialog(props: CloseDialogProps) {
                 variant="primary"
                 data-testid="close-primary"
                 aria-describedby={showStepTwoNote ? stepTwoNoteId : undefined}
-                onClick={step === 2 ? () => void save() : next}
+                onClick={step === 2 ? () => void session.submit() : next}
                 isLoading={isPending}
                 disabled={primaryDisabled}
               >
@@ -564,10 +492,10 @@ export function CloseDialog(props: CloseDialogProps) {
         {!savedEarlier && editState && (
           <Alert variant="warning">{t(`availability.close.edit.${editState}`)}</Alert>
         )}
-        {!savedEarlier && failure && (
+        {!savedEarlier && session.failure && (
           <Alert variant="error" title={t("availability.close.saveError")}>
-            {failure}
-            {winner && <Text variant="body">{winnerText}</Text>}
+            {session.failure}
+            {session.winner && <Text variant="body">{winnerText}</Text>}
           </Alert>
         )}
         {!savedEarlier && step === 1 && props.pauseOnline && form.when.kind === "until-reopen" && (
@@ -612,8 +540,7 @@ export function CloseDialog(props: CloseDialogProps) {
                   urgent={urgent}
                   guestMessage={form.guestMessage}
                   onChoose={(key, choice) => {
-                    attempts.edited(choices[key], choice);
-                    setChoices({ ...choices, [key]: choice });
+                    session.setChoice(key, choice);
                     attempts.setDirty(true);
                   }}
                 />
@@ -623,7 +550,7 @@ export function CloseDialog(props: CloseDialogProps) {
                   guests={givenBack.guests}
                   tell={tellGivenBack}
                   onChange={(tell) => {
-                    attempts.edited(tellGivenBack, tell);
+                    session.edited(tellGivenBack, tell);
                     setTellGivenBack(tell);
                     attempts.setDirty(true);
                   }}

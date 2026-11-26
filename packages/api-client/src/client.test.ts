@@ -26,6 +26,24 @@ describe("ApiClient", () => {
   });
 
   describe("basic request functionality", () => {
+    it("sends the client's default headers on every call, and a per-call header wins", async () => {
+      const client = new ApiClient({
+        baseUrl: "https://api.test.com",
+        maxRetries: 0,
+        defaultHeaders: { "x-member-token": "tok", "x-other": "a" },
+      });
+      mockFetch.mockImplementation(async () => jsonResponse({ data: "ok" }));
+
+      await client.request("/a");
+      await client.request("/b", {}, undefined, { headers: { "x-other": "b" } });
+
+      const first = mockFetch.mock.calls[0]![1]?.headers as Record<string, string>;
+      const second = mockFetch.mock.calls[1]![1]?.headers as Record<string, string>;
+      expect(first["x-member-token"]).toBe("tok");
+      expect(second["x-member-token"]).toBe("tok");
+      expect(second["x-other"]).toBe("b");
+    });
+
     it("should make a GET request with correct URL and headers", async () => {
       mockFetch.mockResolvedValueOnce(jsonResponse({ data: "ok" }));
 

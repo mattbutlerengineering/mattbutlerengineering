@@ -60,7 +60,7 @@
 }
 
 .navButton:focus-visible {
-  outline: none;
+  outline: var(--rialto-focus-ring-width) solid transparent;
   border-color: var(--rialto-accent);
   box-shadow: var(--rialto-shadow-focus);
 }
@@ -118,7 +118,7 @@
 }
 
 .day:focus-visible {
-  outline: none;
+  outline: var(--rialto-focus-ring-width) solid transparent;
   border-color: var(--rialto-accent);
   box-shadow: var(--rialto-shadow-focus);
 }

@@ -93,7 +93,7 @@ export const catalogMeta: Record<string, CatalogMeta> = {
   Checkbox: {
     name: "Checkbox",
     description:
-      "Checkbox for boolean selection. Use when users need to opt-in or out of something. Provide a label of at most 80 characters (a full sentence such as a terms agreement fits). Use description for additional context below the label. Use indeterminate for 'select all' with partial selection.",
+      "Checkbox for boolean selection. Use when users need to opt-in or out of something. Provide a label of at most 80 characters (a full sentence such as a terms agreement fits). Use description for additional context below the label. Use indeterminate for 'select all' with partial selection. For single choice use RadioGroup (exported alongside): pass `options` (value, label, optional description/disabled/disabledReason), `orientation` (vertical or horizontal), `description`, `error` and `required`.",
     charLimits: { label: 80, description: 80 },
   },
   Collapsible: {
@@ -205,6 +205,12 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     description:
       "Safety wrapper that catches a rendering error in the content inside it and shows a calm fallback instead of a blank page. Wrap any section that loads data or renders something that could fail. It has no text of its own to write.",
     slots: ["default"],
+  },
+  FileUpload: {
+    name: "FileUpload",
+    description:
+      "File picker with a drop zone and a removable file list. Use to collect documents or several files at once, such as a menu PDF or a CSV guest import. Give a label, and set accept (for example .pdf), maxSize and multiple to constrain the files.",
+    charLimits: { label: 40, hint: 120, error: 120 },
   },
   Footer: {
     name: "Footer",
@@ -435,6 +441,12 @@ export const catalogMeta: Record<string, CatalogMeta> = {
       "A short descriptive label, such as a guest tag (VIP, Regular), a dietary restriction (Gluten-free), an occasion (Birthday), or a seating preference. Put its words in label. Use Badge for status instead. variant=accent highlights, variant=success/error for positive or warning labels, default otherwise.",
     charLimits: { children: 30 },
     aliases: { label: "children" },
+  },
+  TagsInput: {
+    name: "TagsInput",
+    description:
+      "Free-text tags entry where typing a value and pressing Enter or comma adds a removable chip. Use for open-ended notes such as guest dietary needs or venue tags. Give a label, and optionally maxTags and defaultValue.",
+    charLimits: { label: 40, placeholder: 60, hint: 120 },
   },
   Text: {
     name: "Text",

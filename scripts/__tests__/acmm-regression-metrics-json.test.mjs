@@ -6,6 +6,7 @@
  * must regenerate it and ship it in the same automation PR.
  */
 
+import { readFileSync } from "node:fs";
 import { describe, it, expect } from "vitest";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -37,5 +38,39 @@ describe("acmm-regression regenerates the marketing metrics snapshot (#8699)", (
 
   it("commits metrics.json in the automation PR", () => {
     expect(steps[prIdx].with["add-paths"]).toContain("apps/marketing/public/metrics.json");
+  });
+});
+
+// #9669 / #9544: pr-metrics.yml regenerated metrics.json on its own weekly
+// branch from a stale state.json, conflicting with the daily audit PR; the
+// resolution kept main's copy and dropped a history row. acmm-regression is
+// the sole writer of metrics.json.
+describe("pr-metrics never writes the marketing metrics.json (#9669)", () => {
+  const prMetrics = loadWorkflow(resolve(ROOT, ".github/workflows/pr-metrics.yml"));
+  const prSteps = Object.values(prMetrics.jobs).flatMap((j) => j.steps);
+
+  it("does not regenerate metrics.json", () => {
+    expect(prSteps.some((s) => (s.run ?? "").includes("generate-metrics-json"))).toBe(false);
+  });
+
+  it("opens no PR that adds metrics.json", () => {
+    const adds = prSteps.map((s) => s.with?.["add-paths"] ?? "").join("\n");
+    expect(adds).not.toContain("apps/marketing/public/metrics.json");
+  });
+});
+
+// Scores below are the audit's own printed line in each day's
+// acmm-regression run log ("ACMM Level 5 ... N/84 criteria detected"):
+// 2026-11-14 run 43589039343, 2026-11-17 run 44086681820, 2026-11-23 run 45190223918.
+describe("ACMM history carries the days whose daily PR never merged (#9669)", () => {
+  const state = JSON.parse(readFileSync(resolve(ROOT, ".claude/acmm/state.json"), "utf8"));
+  const byDate = new Map(state.history.map((h) => [h.date, h]));
+
+  it.each([
+    ["2026-11-14", 73],
+    ["2026-11-17", 73],
+    ["2026-11-23", 71],
+  ])("has the %s row (%i/84, level 5)", (date, detected) => {
+    expect(byDate.get(date)).toEqual({ date, level: 5, detected, total: 84 });
   });
 });

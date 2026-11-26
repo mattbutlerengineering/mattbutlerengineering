@@ -1,6 +1,6 @@
 {
   "name": "@mattbutlerengineering/rialto",
-  "version": "3.1.2",
+  "version": "3.1.10",
   "type": "module",
   "main": "./dist/lib/rialto.js",
   "module": "./dist/lib/rialto.js",
@@ -194,6 +194,10 @@
       "types": "./dist/lib/components/FeedbackDialog/index.d.ts",
       "import": "./dist/lib/components/FeedbackDialog/index.js"
     },
+    "./FileUpload": {
+      "types": "./dist/lib/components/FileUpload/index.d.ts",
+      "import": "./dist/lib/components/FileUpload/index.js"
+    },
     "./Fireflies": {
       "types": "./dist/lib/components/Fireflies/index.d.ts",
       "import": "./dist/lib/components/Fireflies/index.js"
@@ -261,6 +265,10 @@
     "./Letterboard": {
       "types": "./dist/lib/components/Letterboard/index.d.ts",
       "import": "./dist/lib/components/Letterboard/index.js"
+    },
+    "./Listbox": {
+      "types": "./dist/lib/components/Listbox/index.d.ts",
+      "import": "./dist/lib/components/Listbox/index.js"
     },
     "./MasterOverride": {
       "types": "./dist/lib/components/MasterOverride/index.d.ts",
@@ -378,6 +386,10 @@
       "types": "./dist/lib/components/Tag/index.d.ts",
       "import": "./dist/lib/components/Tag/index.js"
     },
+    "./TagsInput": {
+      "types": "./dist/lib/components/TagsInput/index.d.ts",
+      "import": "./dist/lib/components/TagsInput/index.js"
+    },
     "./TapeChart": {
       "types": "./dist/lib/components/TapeChart/index.d.ts",
       "import": "./dist/lib/components/TapeChart/index.js"
@@ -414,6 +426,10 @@
       "types": "./dist/lib/components/Toggle/index.d.ts",
       "import": "./dist/lib/components/Toggle/index.js"
     },
+    "./Toolbar": {
+      "types": "./dist/lib/components/Toolbar/index.d.ts",
+      "import": "./dist/lib/components/Toolbar/index.js"
+    },
     "./Tooltip": {
       "types": "./dist/lib/components/Tooltip/index.d.ts",
       "import": "./dist/lib/components/Tooltip/index.js"
@@ -421,6 +437,10 @@
     "./Tree": {
       "types": "./dist/lib/components/Tree/index.d.ts",
       "import": "./dist/lib/components/Tree/index.js"
+    },
+    "./VisuallyHidden": {
+      "types": "./dist/lib/components/VisuallyHidden/index.d.ts",
+      "import": "./dist/lib/components/VisuallyHidden/index.js"
     },
     "./WatchLoader": {
       "types": "./dist/lib/components/WatchLoader/index.d.ts",
@@ -528,7 +548,7 @@
     {
       "name": "Locale es-MX (subpath)",
       "path": "dist/lib/i18n/locales/es-MX.js",
-      "limit": "2.2 kB"
+      "limit": "2.4 kB"
     },
     {
       "name": "Locale fr-CA (subpath)",

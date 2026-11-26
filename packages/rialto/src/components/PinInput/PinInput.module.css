@@ -50,7 +50,7 @@
   color: var(--rialto-text-primary);
   text-align: center;
   caret-color: var(--rialto-accent);
-  outline: none;
+  outline: var(--rialto-focus-ring-width) solid transparent;
   transition:
     border-color var(--rialto-duration-standard) var(--rialto-ease-precision),
     box-shadow var(--rialto-duration-standard) var(--rialto-ease-precision);
@@ -90,6 +90,7 @@
 }
 
 .error .cell:focus-visible {
+  outline: var(--rialto-focus-ring-width) solid transparent;
   box-shadow:
     0 0 0 2px var(--rialto-surface),
     0 0 0 4px var(--rialto-error),

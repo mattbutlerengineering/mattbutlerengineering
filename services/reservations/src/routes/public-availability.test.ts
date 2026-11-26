@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from "vitest";
 import { buildApp } from "../app.js";
 import type { FastifyInstance } from "fastify";
 import type { DomainServices } from "../services/domain-services.js";
@@ -26,12 +26,17 @@ vi.mock("../services/database.js", async () => {
 vi.mock("../services/resolve-venue.js", () => ({
   resolveVenueId: vi.fn().mockResolvedValue("venue-1"),
 }));
+vi.mock("../services/member-token.js", async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  verifyMemberToken: vi.fn(),
+}));
 vi.mock("jose", () => ({
   jwtVerify: vi.fn(),
   createRemoteJWKSet: vi.fn(() => vi.fn()),
 }));
 
 import { resolveVenueId } from "../services/resolve-venue.js";
+import { verifyMemberToken } from "../services/member-token.js";
 
 const mockVenue = {
   id: "venue_1",
@@ -103,6 +108,120 @@ describe("GET /public/v1/venues/:slug/availability", () => {
       undefined,
       expect.objectContaining({ logger: expect.anything() })
     );
+  });
+
+  describe("member early window (#9625)", () => {
+    const URL = "/public/v1/venues/the-oak-table/availability?date=2026-06-15&partySize=4";
+    const dayOptions = () =>
+      vi.mocked(availabilityService.getDayAvailability).mock.calls.at(-1)?.[4];
+
+    beforeEach(() => {
+      vi.mocked(venueService.getBySlug).mockResolvedValue(mockVenue);
+      vi.mocked(availabilityService.getDayAvailability).mockResolvedValue({ slots: [] });
+      vi.mocked(verifyMemberToken).mockReset();
+    });
+
+    it("asks for the member window when the token verifies for this venue", async () => {
+      vi.mocked(verifyMemberToken).mockResolvedValueOnce({
+        valid: true,
+        venueId: "venue_1",
+        email: "ada@example.com",
+      });
+
+      const response = await app.inject({
+        method: "GET",
+        url: URL,
+        headers: { "x-member-token": "t" },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(verifyMemberToken).toHaveBeenCalledWith("t");
+      expect(dayOptions()).toMatchObject({ member: true });
+    });
+
+    it.each([
+      ["no token", undefined, undefined],
+      ["an invalid or revoked token", "t", { valid: false, expired: false }],
+      ["an expired token", "t", { valid: false, expired: true }],
+      ["a token for another venue", "t", { valid: true, venueId: "other", email: "a@b.co" }],
+    ] as const)("serves the public window with %s", async (_label, token, verdict) => {
+      if (verdict) vi.mocked(verifyMemberToken).mockResolvedValueOnce(verdict);
+
+      const response = await app.inject({
+        method: "GET",
+        url: URL,
+        headers: token ? { "x-member-token": token } : {},
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(dayOptions()?.member).toBeFalsy();
+    });
+
+    it("asks for the member window on the dates listing too", async () => {
+      vi.mocked(verifyMemberToken).mockResolvedValueOnce({
+        valid: true,
+        venueId: "venue_1",
+        email: "ada@example.com",
+      });
+      vi.mocked(availabilityService.getAvailableDates).mockResolvedValueOnce([]);
+
+      await app.inject({
+        method: "GET",
+        url: "/public/v1/venues/the-oak-table/availability/dates?from=2026-06-01&to=2026-06-30",
+        headers: { "x-member-token": "t" },
+      });
+
+      expect(vi.mocked(availabilityService.getAvailableDates).mock.calls.at(-1)?.[4]).toMatchObject(
+        { member: true }
+      );
+    });
+  });
+
+  describe("member status (#9627)", () => {
+    const URL = "/public/v1/venues/the-oak-table/member";
+
+    beforeEach(() => {
+      vi.mocked(venueService.getBySlug).mockResolvedValue({
+        ...mockVenue,
+        settings: { ...mockVenue.settings, memberLeadDays: 14 },
+      });
+      vi.mocked(verifyMemberToken).mockReset();
+    });
+
+    it("reports the lead days for a token that verifies at this venue", async () => {
+      vi.mocked(verifyMemberToken).mockResolvedValueOnce({
+        valid: true,
+        venueId: "venue_1",
+        email: "ada@example.com",
+      });
+
+      const response = await app.inject({
+        method: "GET",
+        url: URL,
+        headers: { "x-member-token": "t" },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({ data: { member: true, leadDays: 14 } });
+    });
+
+    it.each([
+      ["no token", undefined, undefined],
+      ["an invalid or revoked token", "t", { valid: false, expired: false }],
+      ["an expired token", "t", { valid: false, expired: true }],
+      ["a token for another venue", "t", { valid: true, venueId: "other", email: "a@b.co" }],
+    ] as const)("says only member: false for %s", async (_label, token, verdict) => {
+      if (verdict) vi.mocked(verifyMemberToken).mockResolvedValueOnce(verdict);
+
+      const response = await app.inject({
+        method: "GET",
+        url: URL,
+        headers: token ? { "x-member-token": token } : {},
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({ data: { member: false, leadDays: 0 } });
+    });
   });
 
   it("returns the closure message for a closed date", async () => {
@@ -225,7 +344,13 @@ describe("GET /public/v1/venues/:slug/availability", () => {
 
       expect(response.statusCode).toBe(200);
       expect(lostDemandService.recordNoSlotSearch).toHaveBeenCalledWith(
-        { venueId: "venue_1", date: "2026-06-15", requestedMinute: 19 * 60, partySize: 4 },
+        {
+          venueId: "venue_1",
+          date: "2026-06-15",
+          requestedMinute: 19 * 60,
+          partySize: 4,
+          reason: "hours",
+        },
         expect.objectContaining({ sessionId: "sess-1" }),
         expect.anything()
       );
@@ -241,7 +366,13 @@ describe("GET /public/v1/venues/:slug/availability", () => {
       await search("date=2026-06-15&partySize=2");
 
       expect(lostDemandService.recordNoSlotSearch).toHaveBeenCalledWith(
-        { venueId: "venue_1", date: "2026-06-15", requestedMinute: -1, partySize: 2 },
+        {
+          venueId: "venue_1",
+          date: "2026-06-15",
+          requestedMinute: -1,
+          partySize: 2,
+          reason: "hours",
+        },
         expect.anything(),
         expect.anything()
       );
@@ -336,5 +467,36 @@ describe("GET /public/v1/venues/:slug/availability", () => {
       expect(response.statusCode).toBe(400);
       expect(response.json()).toMatchObject({ status: 400 });
     });
+  });
+});
+
+describe("public availability records the limiting reason (#9621)", () => {
+  it("records pacing for a refused seating, and leaves demand out of the reply", async () => {
+    const app = await buildApp({
+      logger: false,
+      services: { venueService, availabilityService, lostDemandService },
+    });
+    process.env.AUTH_BYPASS_IN_TESTS = "true";
+    await app.ready();
+    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
+    vi.mocked(availabilityService.getDayAvailability).mockResolvedValueOnce({
+      slots: [{ time: "2026-06-15T19:00:00", available: false, tables: [] }],
+      demand: { hasSeatings: true, refusals: [{ minute: 19 * 60, reason: "pacing" }] },
+    });
+    vi.mocked(lostDemandService.recordNoSlotSearch).mockClear();
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/public/v1/venues/the-oak-table/availability?date=2026-06-15&partySize=4&time=19:00",
+    });
+
+    expect(response.json()).not.toHaveProperty("demand");
+    expect(lostDemandService.recordNoSlotSearch).toHaveBeenCalledWith(
+      expect.objectContaining({ requestedMinute: 19 * 60, reason: "pacing" }),
+      expect.anything(),
+      expect.anything()
+    );
+    await app.close();
+    delete process.env.AUTH_BYPASS_IN_TESTS;
   });
 });

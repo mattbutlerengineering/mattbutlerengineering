@@ -1,6 +1,10 @@
 import type { FastifyPluginAsync, FastifyRequest } from "fastify";
-import { ANY_TIME_MINUTE, type NoSlotSearchKey } from "../services/lost-demand.js";
-import type { PublicAvailabilityDatesResponse, PublicAvailabilityResponse } from "@mbe/types";
+import { ANY_TIME_MINUTE, limitingReason, type NoSlotSearchKey } from "../services/lost-demand.js";
+import type {
+  PublicAvailabilityDatesResponse,
+  PublicAvailabilityResponse,
+  PublicMemberStatus,
+} from "@mbe/types";
 import {
   createProblemDetails,
   publicAvailabilityDatesQueryJsonSchema,
@@ -11,6 +15,7 @@ import {
 import { validateDateRange, validatePartySize } from "@mbe/database";
 import { publicRateLimitHook } from "../middleware/public-rate-limit.js";
 import { publicVenueScoped } from "./public-venue-scope.js";
+import { verifiedMember } from "./public-member.js";
 
 /** The longest range the dates listing accepts; matches the engine's own cap. */
 const MAX_DATES_RANGE_DAYS = 60;
@@ -53,6 +58,56 @@ export const publicAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
       request.log.warn({ err: error }, "lost-demand: recorder threw");
     }
   }
+
+  fastify.get<{
+    Params: { slug: string };
+    Reply: { data: PublicMemberStatus } | ReturnType<typeof createProblemDetails>;
+  }>(
+    "/:slug/member",
+    {
+      preHandler: publicRateLimitHook,
+      schema: {
+        summary: "Whether the request's member link opens the early booking window (public)",
+        tags: ["Public"],
+        params: {
+          type: "object",
+          properties: { slug: { type: "string" } },
+          required: ["slug"],
+        },
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              data: {
+                type: "object",
+                properties: { member: { type: "boolean" }, leadDays: { type: "integer" } },
+                required: ["member", "leadDays"],
+              },
+            },
+          },
+        },
+      },
+    },
+    publicVenueScoped(
+      {
+        slug: (request) => request.params.slug,
+        notFound: (slug) => ({
+          title: "Venue Not Found",
+          detail: `No venue found with slug '${slug}'.`,
+        }),
+      },
+      async (request, reply) => {
+        const venue = await venueService.getBySlug(request.params.slug);
+        // Every non-member reading is the same reply, so it never says why a link failed.
+        if (!venue || (await verifiedMember(request, venue.id)) === null) {
+          return reply.send({ data: { member: false, leadDays: 0 } });
+        }
+        return reply.send({
+          data: { member: true, leadDays: venue.settings?.memberLeadDays ?? 0 },
+        });
+      }
+    )
+  );
 
   fastify.get<{
     Params: { slug: string };
@@ -108,12 +163,12 @@ export const publicAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
             .send(createProblemDetails(400, "Invalid Party Size", partySizeResult.error));
         }
 
-        const { slots, ...notices } = await availabilityService.getDayAvailability(
+        const { slots, demand, ...notices } = await availabilityService.getDayAvailability(
           venue.id,
           date,
           partySizeResult.value,
           undefined,
-          { logger: request.log }
+          { logger: request.log, member: (await verifiedMember(request, venue.id)) !== null }
         );
 
         const open = slots.filter((s) => s.available);
@@ -123,7 +178,17 @@ export const publicAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
           const requestedMinute = missedMinute(open, time);
           if (requestedMinute !== null) {
             recordLostDemand(
-              { venueId: venue.id, date, requestedMinute, partySize: partySizeResult.value },
+              {
+                venueId: venue.id,
+                date,
+                requestedMinute,
+                partySize: partySizeResult.value,
+                reason: limitingReason({
+                  requestedMinute,
+                  hasSeatings: demand?.hasSeatings ?? false,
+                  refusals: demand?.refusals ?? [],
+                }),
+              },
               request
             );
           }
@@ -189,7 +254,7 @@ export const publicAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
           from,
           to,
           DATES_LISTING_PARTY_SIZE,
-          { logger: request.log }
+          { logger: request.log, member: (await verifiedMember(request, venue.id)) !== null }
         );
 
         return reply.send({

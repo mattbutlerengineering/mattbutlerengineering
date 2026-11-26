@@ -17,7 +17,10 @@ import {
 import { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 import { toTable } from "./serializers.js";
-import { materialiseSectionClosures } from "./section-closure-materialise.js";
+import {
+  materialiseSectionClosures,
+  type AvailabilityActor,
+} from "./section-closure-materialise.js";
 import { setVenueContext } from "../middleware/venue-context.js";
 
 type PrismaFloorPlan = {
@@ -297,7 +300,7 @@ export const floorPlanService = {
    * the venue must never be left without one — and so is a plan with a booking
    * still to come, which would otherwise sit on a table no longer shown.
    */
-  async delete(id: string): Promise<FloorPlanDeleteOutcome> {
+  async delete(id: string, actor: AvailabilityActor): Promise<FloorPlanDeleteOutcome> {
     // Read through the venue-scoped client first: the explicit transaction
     // below must set app.venue_id itself (ADR-026 part 6), so it needs the venue.
     const found = await prisma.floorPlan.findFirst({
@@ -344,12 +347,12 @@ export const floorPlanService = {
             where: { floorPlanId: id },
             select: { id: true },
           });
-          await materialiseSectionClosures(
-            tx,
+          await materialiseSectionClosures(tx, {
             venueId,
-            sections.map((s) => s.id),
-            new Date()
-          );
+            sectionIds: sections.map((s) => s.id),
+            now: new Date(),
+            actor,
+          });
           await tx.table.deleteMany({ where: { floorPlanId: id } });
           await tx.floorPlan.delete({ where: { id } });
           return "deleted" as const;

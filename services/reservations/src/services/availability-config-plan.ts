@@ -63,7 +63,14 @@ function withoutDerived(row: unknown): unknown {
   return Object.fromEntries(Object.entries(row).filter(([key]) => key !== "tableIds"));
 }
 
-const sameRow = (a: unknown, b: unknown): boolean =>
+/**
+ * Deliberate twin of `sameEditedRow` in `apps/hospitality/src/components/availability/series-edit.ts`;
+ * do not merge them, they disagree on purpose. This one does not sort `repeat.weekdays` (stored
+ * order is the plan's order), strips a section closure's derived `tableIds` (`withoutDerived`),
+ * and compares recursively with sorted keys (`canonical`). `sameEditedRow` sorts weekdays, treats
+ * null as absent and has no derived field to strip.
+ */
+const samePlannedRow = (a: unknown, b: unknown): boolean =>
   canonical(withoutDerived(a)) === canonical(withoutDerived(b));
 
 export { applyChanges };
@@ -92,7 +99,7 @@ const withoutRange = (r: DateRule) => ({ ...r, startsOn: "", endsOn: null });
  */
 function newlyCoveredShared(rule: DateRule, prior: DateRule | undefined, theirs: DateRule) {
   const shared = sharedDates(rule, theirs);
-  if (!prior || !sameRow(withoutRange(prior), withoutRange(rule))) return shared;
+  if (!prior || !samePlannedRow(withoutRange(prior), withoutRange(rule))) return shared;
   return shared.filter((date) => !coversDate(prior, date));
 }
 
@@ -106,7 +113,7 @@ function editedSchedules(before: AvailabilityConfig, next: AvailabilityConfig): 
     const now = new Map(next[table].map((r) => [r.id, r]));
     for (const id of new Set([...was.keys(), ...now.keys()])) {
       const [a, b] = [was.get(id), now.get(id)];
-      if (a && b && sameRow(a, b)) continue;
+      if (a && b && samePlannedRow(a, b)) continue;
       if (a) touched.add(a.scheduleId);
       if (b) touched.add(b.scheduleId);
     }
@@ -173,8 +180,8 @@ export function resolveScopeConflicts(
 ): AvailabilityConfig {
   const stored = new Map(before.dateRules.map((r) => [r.id, r]));
   const hours = next.dateRules.filter(isHoursRule);
-  const incoming = hours.filter((r) => !stored.has(r.id) || !sameRow(stored.get(r.id), r));
-  const untouched = hours.filter((r) => stored.has(r.id) && sameRow(stored.get(r.id), r));
+  const incoming = hours.filter((r) => !stored.has(r.id) || !samePlannedRow(stored.get(r.id), r));
+  const untouched = hours.filter((r) => stored.has(r.id) && samePlannedRow(stored.get(r.id), r));
   const skipped = new Set(
     next.dateRules.filter((r) => r.kind === "skip").map((r) => `${r.seriesId}@${r.startsOn}`)
   );
@@ -227,7 +234,7 @@ function diffTable<T extends ConfigTable>(
   return {
     create: nextRows.filter((r) => !before.has(r.id)) as AvailabilityConfig[T],
     update: nextRows.filter(
-      (r) => before.has(r.id) && !sameRow(before.get(r.id), r)
+      (r) => before.has(r.id) && !samePlannedRow(before.get(r.id), r)
     ) as AvailabilityConfig[T],
     remove: (stored as Row<T>[]).filter((r) => !after.has(r.id)).map((r) => r.id),
   };
@@ -322,17 +329,19 @@ export interface ReferenceIssue {
 }
 
 /**
- * Every schedule, service, section and table a row points at must be the venue's own.
- * The foreign keys alone would accept another venue's id. `seriesId` is not
- * checked: it may name a removed rule, and it only ever takes rules out.
+ * Every schedule, service, section, table and series a row points at must be the venue's own.
+ * The foreign keys alone would accept another venue's id. A `seriesId` may name a rule this
+ * config no longer holds (a removed series), so `venueRuleIds` is every rule row of the venue.
  */
 export function referenceIssues(
   config: AvailabilityConfig,
   venueTableIds: ReadonlySet<string>,
-  venueSectionIds: ReadonlySet<string>
+  venueSectionIds: ReadonlySet<string>,
+  venueRuleIds: ReadonlySet<string> = new Set()
 ): ReferenceIssue[] {
   const schedules = new Set(config.schedules.map((s) => s.id));
   const services = new Set(config.venueServices.map((s) => s.id));
+  const rules = new Set([...venueRuleIds, ...config.dateRules.map((r) => r.id)]);
   const check = (path: string, id: string, known: ReadonlySet<string>): ReferenceIssue[] =>
     known.has(id)
       ? []
@@ -362,6 +371,7 @@ export function referenceIssues(
             )
           )
         : []),
+      ...(r.seriesId ? check(`dateRules[${i}].seriesId`, r.seriesId, rules) : []),
       ...(r.sectionId ? check(`dateRules[${i}].sectionId`, r.sectionId, venueSectionIds) : []),
       // A section rule's tableIds are derived from the section, not taken from the request.
       ...(r.sectionId ? [] : (r.tableIds ?? [])).flatMap((t, k) =>
@@ -391,6 +401,8 @@ export function settleDraft(input: {
   tableIds: ReadonlySet<string>;
   /** The venue's sections; absent means none, so any section closure is refused. */
   sections?: SectionIndex;
+  /** Every rule row of the venue, removed ones too; absent means only the config's own rules. */
+  ruleIds?: ReadonlySet<string>;
   now: Date;
   today: string;
   newId: () => string;
@@ -410,6 +422,9 @@ export function settleDraft(input: {
   return {
     // A section closure's tables are the section's now, whatever list the draft carried.
     next: { ...next, dateRules: expandSectionRules(next.dateRules, sections.membership) },
-    issues: [...validateConfig(next), ...referenceIssues(next, input.tableIds, sections.ids)],
+    issues: [
+      ...validateConfig(next),
+      ...referenceIssues(next, input.tableIds, sections.ids, input.ruleIds),
+    ],
   };
 }

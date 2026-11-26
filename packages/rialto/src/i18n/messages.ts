@@ -165,8 +165,30 @@ export interface RialtoMessages {
   readonly fileTooLarge: (max: string, actual: string) => string;
   /** ImageUpload validation message: file type outside `accept`. */
   readonly fileTypeNotAccepted: (accept: string) => string;
+  /** FileUpload browse button label. */
+  readonly chooseFiles: string;
+  /** FileUpload drop-zone prompt shown beside the browse button. */
+  readonly dropFilesHint: string;
+  /** FileUpload rejection: more files than `maxFiles` allows. */
+  readonly tooManyFiles: (max: number) => string;
+  /** FileUpload per-file rejection line, e.g. "menu.png: File type not accepted". */
+  readonly fileRejected: (name: string, reason: string) => string;
+  /** FileUpload live announcement after files are added. */
+  readonly filesAdded: (count: number) => string;
+  /** FileUpload live announcement after files are rejected. */
+  readonly filesRejected: (count: number) => string;
+  /** FileUpload live announcement after a file is removed. */
+  readonly fileRemoved: (name: string) => string;
   /** Accessible name of a control that removes a tag or chip, e.g. "Remove VIP". */
   readonly removeItem: (label: string) => string;
+  /** TagsInput live-region announcement: a tag was added. */
+  readonly tagAdded: (label: string) => string;
+  /** TagsInput live-region announcement: a tag was removed. */
+  readonly tagRemoved: (label: string) => string;
+  /** TagsInput live-region announcement: a duplicate tag was rejected. */
+  readonly tagDuplicate: (label: string) => string;
+  /** TagsInput live-region announcement: the tag limit was reached. */
+  readonly tagLimitReached: (max: number) => string;
   /** Accessible name of an AvatarGroup overflow count. */
   readonly moreCount: (count: number) => string;
   /** Accessible name of one PinInput digit cell (1-based `index`). */
@@ -348,7 +370,18 @@ export const enUS: RialtoMessages = {
   addImage: "Add image",
   fileTooLarge: (max, actual) => `File exceeds maximum size of ${max} — this file is ${actual}`,
   fileTypeNotAccepted: (accept) => `File type not accepted. Accepted: ${accept}`,
+  chooseFiles: "Choose files",
+  dropFilesHint: "or drop files here",
+  tooManyFiles: (max) => `Only ${max} ${max === 1 ? "file" : "files"} allowed`,
+  fileRejected: (name, reason) => `${name}: ${reason}`,
+  filesAdded: (count) => `${count} ${count === 1 ? "file" : "files"} added`,
+  filesRejected: (count) => `${count} ${count === 1 ? "file" : "files"} rejected`,
+  fileRemoved: (name) => `${name} removed`,
   removeItem: (label) => `Remove ${label}`,
+  tagAdded: (label) => `${label} added`,
+  tagRemoved: (label) => `${label} removed`,
+  tagDuplicate: (label) => `${label} is already added`,
+  tagLimitReached: (max) => `Tag limit of ${max} reached`,
   moreCount: (count) => `${count} more`,
   digitOf: (index, length) => `Digit ${index} of ${length}`,
   soldOut: "sold out",

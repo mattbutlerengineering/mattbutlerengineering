@@ -211,6 +211,34 @@ describe("ui-quality-ledger family", () => {
 });
 
 // ---------------------------------------------------------------------------
+// rialto-color-tokens — every token JSON input of generate-colors-css.ts (#9770)
+// ---------------------------------------------------------------------------
+describe("rialto-color-tokens changedBy", () => {
+  const family = FAMILIES.find((f) => f.id === "rialto-color-tokens");
+
+  it("matches every color token source and generator script", () => {
+    for (const path of [
+      "packages/rialto/src/tokens/colors.json",
+      "packages/rialto/src/tokens/colors.dark.json",
+      "packages/rialto/src/tokens/colors.surfaces.json",
+      "packages/rialto/scripts/generate-colors-css.ts",
+      "packages/rialto/scripts/generate-figma-tokens.ts",
+      "packages/rialto/scripts/lib/color-tokens.ts",
+    ]) {
+      expect(family.changedBy(path), path).toEqual({
+        command: family.command,
+        outputs: family.outputs,
+      });
+    }
+  });
+
+  it("ignores unrelated token files", () => {
+    expect(family.changedBy("packages/rialto/src/tokens/spacing.css")).toBeNull();
+    expect(family.changedBy("packages/rialto/src/tokens/colors.css")).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // cursorrules family — #6954: .cursorrules is generated from AGENTS.md, so the
 // regen machinery (hook, pre-push, CI, post-merge auto-heal) must know it.
 // ---------------------------------------------------------------------------

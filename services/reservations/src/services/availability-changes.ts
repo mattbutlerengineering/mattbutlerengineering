@@ -9,18 +9,14 @@ import {
 } from "@mbe/types";
 import { Prisma, type PrismaClient } from "../generated/prisma/index.js";
 import { setVenueContext } from "../middleware/venue-context.js";
-import {
-  commitSave,
-  inSaveTransaction,
-  refuseSave,
-  toSummary,
-  type SaveOutcome,
-  type StoreClient,
-} from "./availability-config.js";
+import { toSummary, type SaveOutcome, type StoreClient } from "./availability-config.js";
+import { commitSave } from "./availability-commit.js";
+import { inAvailabilityTransaction, refuse } from "./availability-refusal.js";
 import { revertedDetail } from "./availability-change-detail.js";
 import { returnCarriedOutcomes } from "./closure-carry-outcomes.js";
 import { CONFIG_TABLES, type ConfigInverse } from "./availability-config-plan.js";
 import { prisma } from "./database.js";
+import { SECTION_CLOSURE_MATERIALISED_KIND } from "./section-closure-materialise.js";
 
 /**
  * History and undo (docs/features/venue-availability/architecture.md §
@@ -36,6 +32,15 @@ import { prisma } from "./database.js";
  */
 
 const REVERT_KIND = "revert";
+
+/**
+ * A revert is not undoable, and neither is a section delete's materialised closure: its inverse
+ * would name the section again, which no longer exists.
+ */
+const NOT_REVERTABLE_KINDS: ReadonlySet<string> = new Set([
+  REVERT_KIND,
+  SECTION_CLOSURE_MATERIALISED_KIND,
+]);
 
 const toDay = (d: Date | null): string | null => (d ? d.toISOString().slice(0, 10) : null);
 
@@ -140,11 +145,14 @@ export async function listAvailabilityChanges(
         r.id === newest?.id &&
         !r.notifiedGuests &&
         r.revertedById == null &&
-        r.kind !== REVERT_KIND,
+        !NOT_REVERTABLE_KINDS.has(r.kind),
     }));
     // The change Undo is on, whatever this page holds: a caller reading one row (the agent) would
     // otherwise see the newest by `at`, which after a lock-wait race is not the one in force.
-    const undoable = newest && !newest.notifiedGuests ? toSummary(newest) : null;
+    const undoable =
+      newest && !newest.notifiedGuests && !NOT_REVERTABLE_KINDS.has(newest.kind)
+        ? toSummary(newest)
+        : null;
     return { total, offset: query.offset, items, undoable };
   });
 }
@@ -192,43 +200,47 @@ export async function revertAvailabilityChange(
   client: StoreClient = prisma
 ): Promise<RevertOutcome> {
   const { venueId, changeId, actorId, actorName, expectedVersion, now } = input;
-  return inSaveTransaction<SaveOutcome, RevertOutcome>(client, venueId, (tx) =>
-    commitSave(tx, { venueId, actorId, actorName, expectedVersion, now }, async (state) => {
-      const change = await tx.availabilityChange.findFirst({ where: { id: changeId, venueId } });
-      if (!change) return refuseSave({ kind: "change_not_found" });
-      if (change.revertedById) return refuseSave(refused("already_reverted"));
-      if (change.kind === REVERT_KIND) return refuseSave(refused("not_revertable"));
-      if (change.notifiedGuests) return refuseSave(refused("guests_notified"));
-      const newest = await newestInForce(tx, venueId);
-      if (newest?.id !== change.id) return refuseSave(refused("superseded"));
-      const inverse = readInverse(change.inverse);
-      if (!inverse) return refuseSave(refused("not_revertable"));
+  return inAvailabilityTransaction<SaveOutcome, RevertOutcome>(client, venueId, (tx) =>
+    commitSave(
+      tx,
+      { venueId, actorId, actorName, version: { expected: expectedVersion }, now },
+      async (state) => {
+        const change = await tx.availabilityChange.findFirst({ where: { id: changeId, venueId } });
+        if (!change) return refuse({ kind: "change_not_found" });
+        if (change.revertedById) return refuse(refused("already_reverted"));
+        if (NOT_REVERTABLE_KINDS.has(change.kind)) return refuse(refused("not_revertable"));
+        if (change.notifiedGuests) return refuse(refused("guests_notified"));
+        const newest = await newestInForce(tx, venueId);
+        if (newest?.id !== change.id) return refuse(refused("superseded"));
+        const inverse = readInverse(change.inverse);
+        if (!inverse) return refuse(refused("not_revertable"));
 
-      const stored = new Set(state.stored.dateRules.map((r) => r.id));
-      const restore = inverse.restore;
-      return {
-        changes: { upsert: restore, remove: inverse.remove },
-        scopeConflicts: "keep",
-        // The inverse is the exact prior state: no scope-conflict skips on top.
-        exact: true,
-        kind: REVERT_KIND,
-        summary: `Reverted: ${change.summary}`,
-        detail: revertedDetail(change.summaryDetail),
-        // The column exactly as it was (null included), so undoing a venue's first
-        // save puts its hours back rather than projecting an empty week over them.
-        operatingHours: inverse.operatingHours == null ? Prisma.DbNull : inverse.operatingHours,
-        allowNoHours: true,
-        revive: new Set(restore.dateRules.map((r) => r.id).filter((id) => !stored.has(id))),
-        afterChange: async (db, revertId) => {
-          await db.availabilityChange.update({
-            where: { id: changeId },
-            data: { revertedById: revertId },
-          });
-          // A growth that moved the old series' outcomes onto its new id gives them back.
-          await returnCarriedOutcomes(db, change.inverse);
-        },
-      };
-    })
+        const stored = new Set(state.stored.dateRules.map((r) => r.id));
+        const restore = inverse.restore;
+        return {
+          changes: { upsert: restore, remove: inverse.remove },
+          scopeConflicts: "keep",
+          // The inverse is the exact prior state: no scope-conflict skips on top.
+          exact: true,
+          kind: REVERT_KIND,
+          summary: `Reverted: ${change.summary}`,
+          detail: revertedDetail(change.summaryDetail),
+          // The column exactly as it was (null included), so undoing a venue's first
+          // save puts its hours back rather than projecting an empty week over them.
+          operatingHours: inverse.operatingHours == null ? Prisma.DbNull : inverse.operatingHours,
+          allowNoHours: true,
+          revive: new Set(restore.dateRules.map((r) => r.id).filter((id) => !stored.has(id))),
+          afterChange: async (db, revertId) => {
+            await db.availabilityChange.update({
+              where: { id: changeId },
+              data: { revertedById: revertId },
+            });
+            // A growth that moved the old series' outcomes onto its new id gives them back.
+            await returnCarriedOutcomes(db, change.inverse);
+          },
+        };
+      }
+    )
   );
 }
 

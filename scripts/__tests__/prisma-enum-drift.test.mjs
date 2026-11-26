@@ -155,7 +155,15 @@ describe("real sources", () => {
     // schema, a CROSS_NAME_PAIRS entry, or genuinely stay server-internal.
     // RsvpStatus (#8663) stays server-internal: the public invite route validates
     // IN/OUT with an inline JSON-schema enum and no client schema consumes it yet.
+    // MembershipTier/MembershipStatus (#9623) stay server-internal until the member
+    // routes (#9625, #9626) define a client contract; pair them then.
     const { unpaired } = findEnumDrift(realPrismaEnums(), realZodEnums(), CROSS_NAME_PAIRS);
-    expect(unpaired.sort()).toEqual(["EmailStatus", "RsvpStatus", "VenueRole"]);
+    expect(unpaired.sort()).toEqual([
+      "EmailStatus",
+      "MembershipStatus",
+      "MembershipTier",
+      "RsvpStatus",
+      "VenueRole",
+    ]);
   });
 });

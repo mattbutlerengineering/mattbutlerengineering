@@ -83,9 +83,9 @@ jobs:
           # merge-queue.yml uses (#3787/#3796), instead of a hand-rolled
           # sensitive-path regex that silently drifted from
           # tier-classifier.yml (#3857). `--mode automation` swaps the
-          # has-pr requirement for auto-merge: the four workflows that apply
-          # this label (production-feedback, pr-metrics, drift-fix,
-          # acmm-regression) never carry has-pr — that label is the
+          # has-pr requirement for auto-merge: the workflows that apply
+          # this label (drift-fix, acmm-regression, docs-audit,
+          # shipped-features-snapshot) never carry has-pr — that label is the
           # implement-queue's own review boundary and is not loosened here.
           RESULT=$(node scripts/merge-queue-eligibility.mjs check --labels "$LABELS_CSV" --mode automation)
           echo "$RESULT"

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { DateRule } from "@mbe/types";
-import { carryByDate, rangeAround, splitIssues } from "./closure-reopen-date.js";
+import { carryByDate, rangeAround } from "./closure-reopen-date.js";
 
 const range = (startsOn: string, endsOn: string | undefined, extra: Partial<DateRule> = {}) =>
   ({
@@ -80,31 +80,6 @@ describe("a date that is not on the calendar", () => {
 
   it("accepts a real leap day", () => {
     expect(rangeAround(range("2028-02-27", "2028-03-02"), "2028-02-29", ids()).kind).toBe("parts");
-  });
-});
-
-describe("splitIssues", () => {
-  const config = (dateRules: DateRule[]) =>
-    ({
-      schedules: [],
-      venueServices: [],
-      scheduleServices: [],
-      assignments: [],
-      dateRules,
-    }) as never;
-  const inverted = range("2027-03-04", "2027-03-02", { id: "bad-existing" });
-
-  it("names a problem in a rule the split created", () => {
-    const made = range("2027-03-04", "2027-03-02", { id: "made" });
-    const issues = splitIssues(config([inverted, made]), [made]);
-    expect(issues.map((i) => [i.code, i.path])).toEqual([
-      ["ends_before_start", "dateRules[1].endsOn"],
-    ]);
-  });
-
-  it("ignores a rule the venue already held that is invalid, so a reopen is never held up by it", () => {
-    const made = range("2027-03-03", "2027-03-05", { id: "made" });
-    expect(splitIssues(config([inverted, made]), [made])).toEqual([]);
   });
 });
 

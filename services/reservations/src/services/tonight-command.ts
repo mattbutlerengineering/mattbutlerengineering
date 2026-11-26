@@ -2,10 +2,8 @@ import { createHash } from "node:crypto";
 import {
   MINUTES_PER_DAY,
   currentServiceDate,
-  projectLegacyOperatingHours,
   resolveDay,
   serviceDayInstant,
-  validateConfig,
   addDays,
 } from "@mbe/availability";
 import type {
@@ -16,26 +14,15 @@ import type {
   TonightChange,
   TonightResult,
 } from "@mbe/types";
-import type { Prisma, PrismaClient } from "../generated/prisma/index.js";
-import { setVenueContext } from "../middleware/venue-context.js";
+import type { PrismaClient } from "../generated/prisma/index.js";
 import {
-  affectedRange,
-  diffConfig,
-  inverseOf,
-  referenceIssues,
-} from "./availability-config-plan.js";
-import {
-  conflictIssue,
-  detailData,
   loadConfigState,
-  refuseStale,
-  toDbDate,
   type ConfigState,
+  type SavedChange,
   type StoreDb,
 } from "./availability-config.js";
+import { commitSave } from "./availability-commit.js";
 import { tonightDetail, tonightEndedDetail } from "./availability-change-detail.js";
-import { ConfigRowConflict, writeConfigDiff } from "./availability-config-rows.js";
-import { civilDateIn } from "./availability-migration.js";
 import {
   createClosure,
   mayCloseFor,
@@ -44,8 +31,8 @@ import {
   type ClosurePostCommit,
   type CreateClosureOutcome,
 } from "./closure-command.js";
+import { inAvailabilityTransaction, refuse, Refused } from "./availability-refusal.js";
 import { prisma } from "./database.js";
-import { loadSectionIndex } from "./section-index.js";
 
 /**
  * The Tonight API (docs/features/venue-availability/architecture.md
@@ -55,8 +42,8 @@ import { loadSectionIndex } from "./section-index.js";
  * day with no cron and no schedule touched.
  *
  * Pause online, stop window, table blocks and pacing leave existing bookings
- * alone and are written here, through the shared config row writer behind the
- * `availabilityVersion` compare-and-set. A close-early can strand bookings, so
+ * alone and are written here, through `commitSave`, the shared save path (version
+ * compare-and-set, rows, audit row). A close-early can strand bookings, so
  * it goes through the closure command (decisions, outcomes, cancels and moves
  * in one transaction); this file only builds its rule.
  */
@@ -70,16 +57,9 @@ const REST_OF_TONIGHT = 2 * MINUTES_PER_DAY;
 /** Only a close-early runs the closure command, so only it can owe post-commit work. */
 export type SetTonightOutcome =
   | { kind: "saved"; result: TonightResult; postCommit: ClosurePostCommit | null }
-  | Exclude<CreateClosureOutcome, { kind: "saved" }>
-  | { kind: "rule_exists" };
+  | SetTonightRefusal;
 
-type Refusal = Exclude<SetTonightOutcome, { kind: "saved" }>;
-
-class Refused extends Error {
-  constructor(readonly outcome: Refusal) {
-    super(outcome.kind);
-  }
-}
+type SetTonightRefusal = Exclude<CreateClosureOutcome, { kind: "saved" }>;
 
 interface TonightDeps {
   createClosure: typeof createClosure;
@@ -212,7 +192,7 @@ function storedSame(
   const existing = state.stored.dateRules.find((r) => r.id === rule.id);
   if (!existing) return null;
   if (existing.kind !== "tonight" || fingerprint(existing) !== fingerprint(rule)) {
-    throw new Refused({ kind: "rule_exists" });
+    throw new Refused({ kind: "closure_exists" });
   }
   return existing;
 }
@@ -257,28 +237,18 @@ async function replayOf(
   };
 }
 
-async function checkRule(
-  tx: Db,
-  venueId: string,
-  state: ConfigState,
-  rule: DateRule
-): Promise<AvailabilityConfig> {
-  const next: AvailabilityConfig = {
+/** The config with this Tonight rule in force, replacing any stored under its id. */
+function withRule(state: ConfigState, rule: DateRule): AvailabilityConfig {
+  return {
     ...state.effective,
     dateRules: [...state.effective.dateRules.filter((r) => r.id !== rule.id), rule],
   };
-  const [tables, sections] = await Promise.all([
-    tx.table.findMany({ where: { venueId }, select: { id: true } }),
-    loadSectionIndex(tx, venueId),
-  ]);
-  const issues = [
-    ...validateConfig(next),
-    ...referenceIssues(next, new Set(tables.map((t) => t.id)), sections.ids),
-  ];
-  if (issues.length > 0) throw new Refused({ kind: "invalid", issues });
-  return next;
 }
 
+/**
+ * Writes a Tonight change through the shared save path: the version compare-and-set, validation
+ * (no stranded check: these leave bookings alone), the rows, the audit row and the projection.
+ */
 async function writeChange(
   tx: Db,
   input: {
@@ -288,52 +258,31 @@ async function writeChange(
     now: Date;
     body: SetTonightBody;
   },
-  state: ConfigState,
   rule: Extract<DateRule, { kind: "tonight" }>
 ): Promise<TonightResult> {
   const { venueId, actorId, actorName, now, body } = input;
-  const cas = await tx.venue.updateMany({
-    where: { id: venueId, availabilityVersion: body.expectedVersion },
-    data: { availabilityVersion: { increment: 1 } },
-  });
-  if (cas.count === 0)
-    throw new Refused((await refuseStale(tx, venueId, body.expectedVersion)) as Refusal);
-
-  const next = await checkRule(tx, venueId, state, rule);
-  const diff = diffConfig(state.stored, next);
-  await writeConfigDiff(tx, venueId, diff, { actorId, now }).catch((e: unknown) => {
-    throw e instanceof ConfigRowConflict ? new Refused(conflictIssue(e, next) as Refusal) : e;
-  });
-  const version = body.expectedVersion + 1;
-  const range = affectedRange(state.stored, diff, civilDateIn(now, state.timezone));
-  const meta: TonightMeta = { ruleId: rule.id, version };
-  const change = await tx.availabilityChange.create({
-    data: {
-      venueId,
-      actorId,
-      actorName,
-      at: now,
+  const saved = await commitSave(
+    tx,
+    { venueId, actorId, actorName, version: { expected: body.expectedVersion }, now },
+    async (state, { committedVersion }) => ({
+      next: withRule(state, rule),
       kind: "tonight",
-      summary: describeChange(body.change),
-      ...detailData(tonightDetail(body.change)),
-      affectedFrom: toDbDate(range.from),
-      affectedTo: toDbDate(range.to),
-      inverse: {
-        ...inverseOf(state.stored, diff, state.operatingHours),
-        tonight: meta,
-      } as unknown as Prisma.InputJsonValue,
-      version,
-    },
-    select: { id: true },
-  });
-  await tx.venue.update({
-    where: { id: venueId },
-    data: { operatingHours: projectLegacyOperatingHours(next) },
-  });
+      validate: "full",
+      stranded: "caller",
+      prepare: () => {
+        const meta: TonightMeta = { ruleId: rule.id, version: committedVersion };
+        return {
+          summary: describeChange(body.change),
+          detail: tonightDetail(body.change),
+          inverseMeta: { tonight: meta },
+        };
+      },
+    })
+  );
   return {
     ruleId: rule.id,
-    version,
-    changeId: change.id,
+    version: saved.version,
+    changeId: saved.changeId,
     serviceDate: rule.startsOn,
     expiresAt: rule.expiresAt ?? "",
     outcomes: ZERO_OUTCOMES,
@@ -361,11 +310,12 @@ export async function setTonight(
   deps: TonightDeps = { createClosure }
 ): Promise<SetTonightOutcome> {
   const { venueId, caller, body, now } = input;
-  try {
-    const prepared = await client.$transaction(async (tx): Promise<Prepared> => {
-      await setVenueContext(tx, venueId);
+  const prepared = await inAvailabilityTransaction<Prepared, SetTonightRefusal>(
+    client,
+    venueId,
+    async (tx) => {
       const state = await loadConfigState(tx, venueId, now);
-      if (!state) throw new Refused({ kind: "not_found" });
+      if (!state) return refuse({ kind: "not_found" });
       const serviceDate = currentServiceDate(
         { timezone: state.timezone, config: state.effective },
         now
@@ -382,36 +332,33 @@ export async function setTonight(
         // close-early does (#7721); one that leaves a table and a channel open stays a Host's.
         // After the replay check: a saved stop's retry is not a new close.
         const allowed = await mayCloseFor(tx, venueId, caller, rule, now);
-        if (!allowed) throw new Refused({ kind: allowed === null ? "not_found" : "forbidden" });
+        if (!allowed) return refuse({ kind: allowed === null ? "not_found" : "forbidden" });
       }
       const result = await writeChange(
         tx,
         { venueId, actorId: caller.actorId, actorName: caller.actorName ?? null, now, body },
-        state,
         rule
       );
       return { kind: "saved", result };
-    });
-    if (prepared.kind === "saved") return { ...prepared, postCommit: null };
-    const { rule } = prepared;
-    const closed = await deps.createClosure({
-      venueId,
-      caller,
-      body: { expectedVersion: body.expectedVersion, rule, decisions: body.decisions },
-      idempotencyKey: closeEarlyKey(rule),
-      now,
-      ruleKinds: TONIGHT_RULE_KINDS,
-    });
-    if (closed.kind !== "saved") return closed;
-    return {
-      kind: "saved",
-      result: { ...closed.result, serviceDate: rule.startsOn, expiresAt: rule.expiresAt ?? "" },
-      postCommit: closed.postCommit,
-    };
-  } catch (error) {
-    if (error instanceof Refused) return error.outcome;
-    throw error;
-  }
+    }
+  );
+  if (prepared.kind !== "saved" && prepared.kind !== "delegate") return prepared;
+  if (prepared.kind === "saved") return { ...prepared, postCommit: null };
+  const { rule } = prepared;
+  const closed = await deps.createClosure({
+    venueId,
+    caller,
+    body: { expectedVersion: body.expectedVersion, rule, decisions: body.decisions },
+    idempotencyKey: closeEarlyKey(rule),
+    now,
+    ruleKinds: TONIGHT_RULE_KINDS,
+  });
+  if (closed.kind !== "saved") return closed;
+  return {
+    kind: "saved",
+    result: { ...closed.result, serviceDate: rule.startsOn, expiresAt: rule.expiresAt ?? "" },
+    postCommit: closed.postCommit,
+  };
 }
 
 export type EndTonightOutcome = { kind: "ended"; result: ReopenResult } | { kind: "not_found" };
@@ -419,6 +366,11 @@ export type EndTonightOutcome = { kind: "ended"; result: ReopenResult } | { kind
 /**
  * Ends a Tonight change early (a soft delete through the same writer, with its
  * inverse). Bookings a close-early cancelled stay cancelled.
+ *
+ * No expectedVersion is asked for: ending is by rule id, idempotent in effect, and a Host ending
+ * Tonight in live service must not be refused for a version they could not know (#8121). The
+ * version bump takes the venue row first, so the state the diff and the inverse read is the
+ * current one, never a save's that committed while this waited; a refusal rolls the bump back.
  */
 export async function endTonight(
   input: {
@@ -430,77 +382,40 @@ export async function endTonight(
   client: StoreClient = prisma
 ): Promise<EndTonightOutcome> {
   const { venueId, ruleId, caller, now } = input;
-  try {
-    return await endTonightIn(client, { venueId, ruleId, caller, now });
-  } catch (error) {
-    if (error instanceof Refused) return error.outcome as EndTonightOutcome;
-    throw error;
-  }
-}
-
-async function endTonightIn(
-  client: StoreClient,
-  input: {
-    venueId: string;
-    ruleId: string;
-    caller: Pick<ClosureCaller, "actorId" | "actorName">;
-    now: Date;
-  }
-): Promise<EndTonightOutcome> {
-  const { venueId, ruleId, caller, now } = input;
-  return client.$transaction(async (tx): Promise<EndTonightOutcome> => {
-    await setVenueContext(tx, venueId);
-    // Take the venue row first, as `reopenClosure` does: the state read below, the diff and the
-    // inverse are then the current ones, never a save's that committed while this waited. No
-    // expectedVersion is asked for: ending is by rule id, idempotent in effect, and a Host ending
-    // Tonight in live service must not be refused for a version they could not know (#8121). A
-    // refusal below rolls the bump back with the rest of the transaction.
-    await tx.venue.update({
-      where: { id: venueId },
-      data: { availabilityVersion: { increment: 1 } },
-      select: { id: true },
-    });
-    const state = await loadConfigState(tx, venueId, now);
-    const rule = state?.stored.dateRules.find((r) => r.id === ruleId);
-    if (!state || !rule || rule.kind !== "tonight") throw new Refused({ kind: "not_found" });
-
-    const next = {
-      ...state.stored,
-      dateRules: state.stored.dateRules.filter((r) => r.id !== ruleId),
-    };
-    const diff = diffConfig(state.stored, next);
-    await writeConfigDiff(tx, venueId, diff, { actorId: caller.actorId, now });
-    const bumped = await tx.venue.update({
-      where: { id: venueId },
-      data: { operatingHours: projectLegacyOperatingHours(next) },
-      select: { availabilityVersion: true },
-    });
-    const range = affectedRange(state.stored, diff, civilDateIn(now, state.timezone));
-    const change = await tx.availabilityChange.create({
-      data: {
-        venueId,
-        actorId: caller.actorId,
-        actorName: caller.actorName ?? null,
-        at: now,
-        kind: "tonight_end",
-        summary: "Tonight change ended",
-        ...detailData(tonightEndedDetail()),
-        affectedFrom: toDbDate(range.from),
-        affectedTo: toDbDate(range.to),
-        inverse: inverseOf(
-          state.stored,
-          diff,
-          state.operatingHours
-        ) as unknown as Prisma.InputJsonValue,
-        version: bumped.availabilityVersion,
-      },
-      select: { id: true },
-    });
-    return {
-      kind: "ended",
-      result: { version: bumped.availabilityVersion, changeId: change.id },
-    };
-  });
+  const saved = await inAvailabilityTransaction<SavedChange, { kind: "not_found" }>(
+    client,
+    venueId,
+    (tx) =>
+      commitSave(
+        tx,
+        {
+          venueId,
+          actorId: caller.actorId,
+          actorName: caller.actorName ?? null,
+          version: { current: true },
+          now,
+        },
+        async (state) => {
+          const rule = state.stored.dateRules.find((r) => r.id === ruleId);
+          if (!rule || rule.kind !== "tonight") return refuse({ kind: "not_found" });
+          return {
+            next: {
+              ...state.stored,
+              dateRules: state.stored.dateRules.filter((r) => r.id !== ruleId),
+            },
+            // Ending only removes a rule: nothing it touches can be invalid, and a venue holding
+            // some other invalid row must still be able to end Tonight.
+            validate: "touched",
+            stranded: "caller",
+            kind: "tonight_end",
+            summary: "Tonight change ended",
+            detail: tonightEndedDetail(),
+          };
+        }
+      )
+  );
+  if (saved.kind !== "saved") return saved;
+  return { kind: "ended", result: { version: saved.version, changeId: saved.changeId } };
 }
 
 /** The store as a domain-service record, for the `buildApp({ services })` seam. */

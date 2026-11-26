@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { holidayDecisionService } from "./holiday-decision.js";
+import { fakeStoreClient } from "../test/store-client.js";
 
 vi.mock("./database.js", () => ({ prisma: {} }));
 
@@ -16,21 +17,9 @@ const row = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
-/** A `$transaction` client whose transaction is `tx`, with the venue-context statements stubbed. */
-function fakeClient(tx: Record<string, unknown>) {
-  const full = {
-    $executeRaw: vi.fn(async () => 0),
-    $executeRawUnsafe: vi.fn(async () => 0),
-    venue: { findUnique: vi.fn(async () => ({ id: "venue-1" })) },
-    ...tx,
-  };
-  return {
-    client: {
-      $transaction: vi.fn(async (work: (t: unknown) => Promise<unknown>) => work(full)),
-    } as never,
-    tx: full,
-  };
-}
+/** The shared fake, seeded with a venue that exists. */
+const fakeClient = (tx: Record<string, unknown>) =>
+  fakeStoreClient(tx, { venue: { findUnique: vi.fn(async () => ({ id: "venue-1" })) } });
 
 const unknownVenue = { venue: { findUnique: vi.fn(async () => null) } };
 

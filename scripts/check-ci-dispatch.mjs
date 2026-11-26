@@ -86,7 +86,7 @@ if (isMain) {
       "FAIL: Some workflows open a PR that CI will never run on.\n" +
       "A GITHUB_TOKEN-authored PR does not trigger the `pull_request` event, so the\n" +
       "required CI Gate check never reports and the PR cannot be merged.\n" +
-      "See .github/workflows/pr-metrics.yml for the expected dispatch pattern.",
+      "See .github/workflows/drift-fix.yml or acmm-regression.yml for the expected dispatch pattern.",
   });
   process.exit(exitCode);
 }

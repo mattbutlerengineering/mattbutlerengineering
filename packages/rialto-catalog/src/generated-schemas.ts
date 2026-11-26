@@ -225,6 +225,16 @@ export const generatedSchemas = {
     fallback: z.string().optional(),
     headingLevel: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6)]).optional(),
   }),
+  FileUpload: z.object({
+    label: z.string().max(40),
+    accept: z.string().optional(),
+    maxSize: z.number().optional(),
+    multiple: z.boolean().optional(),
+    maxFiles: z.number().optional(),
+    disabled: z.boolean().optional(),
+    error: z.string().max(120).optional(),
+    hint: z.string().max(120).optional(),
+  }),
   Footer: z.object({
     variant: z.enum(["minimal", "rich"]).optional(),
     logo: z.string().optional(),
@@ -477,6 +487,7 @@ export const generatedSchemas = {
     density: z.enum(["compact", "default", "spacious"]).optional(),
     striped: z.boolean().optional(),
     emptyMessage: z.string().max(60).optional(),
+    manualSort: z.boolean().optional(),
   }),
   Tabs: z.object({
     tabs: z.array(z.object({ id: z.string(), label: z.string(), disabled: z.boolean().optional(), content: z.string() })),
@@ -488,6 +499,16 @@ export const generatedSchemas = {
     dismissible: z.boolean().optional(),
     selected: z.boolean().optional(),
     icon: z.string().optional(),
+  }),
+  TagsInput: z.object({
+    label: z.string().max(40),
+    defaultValue: z.array(z.string()).optional(),
+    maxTags: z.number().optional(),
+    allowDuplicates: z.boolean().optional(),
+    placeholder: z.string().max(60).optional(),
+    disabled: z.boolean().optional(),
+    error: z.boolean().optional(),
+    hint: z.string().max(120).optional(),
   }),
   Text: z.object({
     variant: z.enum(["body", "caption", "detail", "display", "label"]).optional(),

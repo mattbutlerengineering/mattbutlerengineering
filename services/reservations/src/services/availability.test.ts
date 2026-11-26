@@ -144,6 +144,19 @@ describe("availabilityService.generateTimeSlots", () => {
       expect(slots).toEqual([]);
     });
 
+    it("offers a date past maxAdvanceBooking to a member, up to memberLeadDays more", async () => {
+      const settings = { maxAdvanceBooking: 3, memberLeadDays: 2 }; // today 05-01 -> public 05-04, member 05-06
+      const slotsFor = async (date: string, member: boolean) => {
+        stubVenue(settings);
+        return availabilityService.generateTimeSlots(VENUE_ID, date, 2, undefined, { member });
+      };
+
+      expect(await slotsFor("2026-05-05", false)).toEqual([]);
+      expect((await slotsFor("2026-05-05", true)).length).toBeGreaterThan(0);
+      expect((await slotsFor("2026-05-06", true)).length).toBeGreaterThan(0);
+      expect(await slotsFor("2026-05-07", true)).toEqual([]);
+    });
+
     it("still offers the last permitted day", async () => {
       stubVenue({ maxAdvanceBooking: 4 });
 
@@ -831,7 +844,7 @@ describe("availabilityService.getDayAvailability", () => {
 
     const day = await availabilityService.getDayAvailability(VENUE_ID, "2026-05-05", 2);
 
-    expect(day).toEqual({ slots: [], closure: { message: "Burst pipe" } });
+    expect(day).toMatchObject({ slots: [], closure: { message: "Burst pipe" } });
   });
 
   it("returns the booking pause with the venue phone while phone booking is open", async () => {
@@ -842,7 +855,7 @@ describe("availabilityService.getDayAvailability", () => {
 
     const day = await availabilityService.getDayAvailability(VENUE_ID, "2026-05-05", 2);
 
-    expect(day).toEqual({
+    expect(day).toMatchObject({
       slots: [],
       bookingPaused: { message: "Online booking is paused right now.", phone: "(555) 123-4567" },
     });
@@ -904,7 +917,8 @@ describe("availabilityService.getDayAvailability", () => {
 
     const day = await availabilityService.getDayAvailability(VENUE_ID, "2026-05-05", 2);
 
-    expect(day).toEqual({ slots: [] });
+    expect(day).toMatchObject({ slots: [] });
+    expect(day).not.toHaveProperty("closure");
   });
 
   it("is closed, and logs a warning, when the legacy hours cannot be read", async () => {
@@ -915,7 +929,7 @@ describe("availabilityService.getDayAvailability", () => {
       logger,
     });
 
-    expect(day).toEqual({ slots: [], closure: { message: "Closed on this date." } });
+    expect(day).toMatchObject({ slots: [], closure: { message: "Closed on this date." } });
     expect(logger.warn).toHaveBeenCalledWith(
       expect.objectContaining({ table: "venues", id: VENUE_ID }),
       "availability_snapshot_row_invalid"

@@ -4,8 +4,8 @@
  * rescue-automation-prs.mjs — scheduled follow-up pass for automation/* PRs
  * that fall behind `main` after creation (#3966).
  *
- * production-feedback.yml (and its siblings drift-fix.yml, pr-metrics.yml,
- * acmm-regression.yml) each open a PR from an `automation/*` branch, dispatch
+ * drift-fix.yml, acmm-regression.yml, docs-audit.yml and
+ * shipped-features-snapshot.yml each open a PR from an `automation/*` branch, dispatch
  * CI on it, and now enable auto-merge directly right after creating the PR.
  * That direct enable exists because the workflow that would normally do it —
  * auto-merge.yml — never runs on these PRs: its own `pull_request` /
@@ -51,6 +51,16 @@
  * calling `gh pr merge --auto` unconditionally — closing the "not yet
  * reconciled" bypass flagged in #3972 review.
  *
+ * Agent-authored PRs (`agent-authored` label) take a third pass
+ * (`runGateMissingPass`). A PR pushed from a cloud session is
+ * GITHUB_TOKEN-authored, so `ci.yml` never fires (anti-recursion) and
+ * `CI Gate` never appears (`gate-missing`, #8011, #8157, #9758). Cloud
+ * routines lack `actions: write`, so this pass dispatches `ci.yml` for them,
+ * once per head SHA, and leaves one marker comment. The classification is
+ * `ci-gate-status.mjs`'s `evaluatePr`, so a dispatched run that already
+ * reported (`CI Gate` commit status, #4025, or a check-run visible only on
+ * the head SHA, #4023) is never read as `gate-missing` again.
+ *
  * Design: selection is a pure function (`selectPrsToRescue`), unit-tested
  * without the network (`scripts/__tests__/rescue-automation-prs.test.mjs`).
  * The GitHub mutations live behind injected callbacks in `runRescue`; the
@@ -69,6 +79,8 @@ import { fileURLToPath } from "node:url";
 import { isAutomationMergeAllowed } from "./merge-queue-eligibility.mjs";
 import { approvePendingRuns } from "./approve-automation-runs.mjs";
 import { AUTOMATION_BRANCH_PREFIX, AUTOMATION_LABEL, hasLabel } from "./lib/automation-pr.mjs";
+import { AUTOMATION_MARKER } from "./lib/automation-marker.mjs";
+import { evaluatePr } from "./ci-gate-status.mjs";
 
 // Re-exported for existing callers/tests importing these from this module —
 // scripts/lib/automation-pr.mjs is the source of truth (extracted to break
@@ -259,6 +271,120 @@ export async function runConductorPass({
   return { commented, updated };
 }
 
+/** Label the drain routine and other agent workers apply to their PRs. */
+export const AGENT_AUTHORED_LABEL = "agent-authored";
+
+/** `gh pr list --json` field set `runGateMissingPass` needs. */
+export const AGENT_PR_JSON_FIELDS =
+  "number,headRefName,headRefOid,isDraft,isCrossRepository,labels,statusCheckRollup";
+
+/** Stable marker so the 30-minute cron comments once per gate-missing PR. */
+export const GATE_MISSING_COMMENT_MARKER = "<!-- gate-missing-ci-dispatch -->";
+
+/** Body posted once on an agent PR this pass dispatched CI for. */
+export function gateMissingDispatchComment(pr) {
+  return [
+    GATE_MISSING_COMMENT_MARKER,
+    `No \`CI Gate\` was found on head \`${pr.headRefOid}\`, so this rescue pass dispatched \`ci.yml\` on \`${pr.headRefName}\`.`,
+    "Pushes from cloud sessions use GITHUB_TOKEN, which never triggers `ci.yml`. CI Gate reports as a commit status when the dispatched run finishes.",
+  ].join("\n\n");
+}
+
+function isAgentPrCandidate(pr) {
+  return (
+    typeof pr?.headRefName === "string" &&
+    !pr.isDraft &&
+    pr.isCrossRepository === false &&
+    hasLabel(pr, AGENT_AUTHORED_LABEL)
+  );
+}
+
+/**
+ * Pure: agent-authored PRs whose head SHA classifies `gate-missing` and has
+ * no dispatched `ci.yml` run yet. `headShaCheckRuns` and `ciDispatchRuns` are
+ * set by `runGateMissingPass`; `null` means the fetch failed, and the PR is
+ * skipped (a failed run lookup must never cause a second dispatch).
+ *
+ * @param {Array<{number:number, headRefName:string, headRefOid:string, isDraft?:boolean, isCrossRepository?:boolean, labels?:Array, statusCheckRollup?:Array, headShaCheckRuns?:Array|null, ciDispatchRuns?:Array|null}>} prs
+ * @returns {Array}
+ */
+export function selectGateMissingAgentPrs(prs) {
+  return (prs ?? []).filter(
+    (pr) =>
+      isAgentPrCandidate(pr) &&
+      Array.isArray(pr.ciDispatchRuns) &&
+      pr.ciDispatchRuns.length === 0 &&
+      evaluatePr(String(pr.number), {
+        viewPr: () => pr,
+        fetchCheckRuns: () => pr.headShaCheckRuns ?? null,
+      }).state === "gate-missing"
+  );
+}
+
+function hasGateMissingMarker(comment) {
+  const text = typeof comment === "string" ? comment : String(comment?.body ?? "");
+  return text.includes(GATE_MISSING_COMMENT_MARKER);
+}
+
+/**
+ * Dispatches `ci.yml` on each gate-missing agent PR, then comments once.
+ * Each PR is isolated: one failed fetch or dispatch never aborts the batch.
+ *
+ * @param {{
+ *   listPrs: () => Promise<Array>,
+ *   fetchCheckRuns: (sha:string) => Promise<Array|null>,
+ *   listCiDispatchRuns: (sha:string) => Promise<Array|null>,
+ *   dispatchCi: (headRefName:string) => Promise<void>,
+ *   comment: (number:number, body:string) => Promise<void>,
+ *   commentsFor: (number:number) => Promise<Array>,
+ *   dryRun?: boolean,
+ *   log?: (msg:string) => void,
+ * }} deps
+ * @returns {Promise<{dispatched:number[]}>}
+ */
+export async function runGateMissingPass({
+  listPrs,
+  fetchCheckRuns,
+  listCiDispatchRuns,
+  dispatchCi,
+  comment,
+  commentsFor,
+  dryRun = false,
+  log = () => {},
+}) {
+  const prs = (await listPrs()) ?? [];
+  const enriched = [];
+  for (const pr of prs.filter(isAgentPrCandidate)) {
+    enriched.push({
+      ...pr,
+      headShaCheckRuns: await fetchCheckRuns(pr.headRefOid),
+      ciDispatchRuns: await listCiDispatchRuns(pr.headRefOid),
+    });
+  }
+
+  const dispatched = [];
+  for (const pr of selectGateMissingAgentPrs(enriched)) {
+    if (dryRun) {
+      log(`[dry-run] would dispatch ci.yml for gate-missing #${pr.number} (${pr.headRefName})`);
+      dispatched.push(pr.number);
+      continue;
+    }
+    try {
+      await dispatchCi(pr.headRefName);
+      dispatched.push(pr.number);
+      log(`dispatched ci.yml for gate-missing #${pr.number} (${pr.headRefName})`);
+      const comments = await commentsFor(pr.number);
+      if (!(comments ?? []).some(hasGateMissingMarker)) {
+        await comment(pr.number, gateMissingDispatchComment(pr));
+      }
+    } catch (err) {
+      log(`failed gate-missing rescue of #${pr.number} (${pr.headRefName}): ${err.message}`);
+    }
+  }
+
+  return { dispatched };
+}
+
 /**
  * Rescues the selected PRs: update-branch, approve any resulting
  * `action_required` runs (#3982 — the update-branch merge commit parks
@@ -315,7 +441,10 @@ export async function runRescue({
   return rescued;
 }
 
-/** CLI entry: wires raw `gh` calls to {@link runRescue} and {@link runConductorPass}. */
+/**
+ * CLI entry: wires raw `gh` calls to {@link runRescue}, {@link runConductorPass}
+ * and {@link runGateMissingPass}.
+ */
 async function run() {
   const dryRun = process.argv.includes("--dry-run");
   const log = (msg) => console.log(`[rescue-automation-prs] ${msg}`);
@@ -422,37 +551,78 @@ async function run() {
     log,
   });
 
-  const conductor = await runConductorPass({
-    listPrs,
-    updateBranch,
-    dispatchCi,
-    comment: async (number, body) => {
+  const comment = async (number, body) => {
+    execFileSync(
+      "gh",
+      [
+        "api",
+        "-X",
+        "POST",
+        `repos/{owner}/{repo}/issues/${number}/comments`,
+        "--raw-field",
+        `body=${AUTOMATION_MARKER}\n${body}`,
+      ],
+      { stdio: "inherit" }
+    );
+  };
+
+  const commentsFor = async (number) =>
+    JSON.parse(
       execFileSync(
         "gh",
         [
           "api",
-          "-X",
-          "POST",
-          `repos/{owner}/{repo}/issues/${number}/comments`,
-          "--raw-field",
-          `body=${body}`,
+          `repos/{owner}/{repo}/issues/${number}/comments?per_page=100`,
+          "--jq",
+          "[.[] | {body}]",
         ],
-        { stdio: "inherit" }
-      );
-    },
-    commentsFor: async (number) =>
+        { encoding: "utf-8" }
+      )
+    );
+
+  const conductor = await runConductorPass({
+    listPrs,
+    updateBranch,
+    dispatchCi,
+    comment,
+    commentsFor,
+    dryRun,
+    log,
+  });
+
+  // A failed lookup returns null, which the selector treats as "skip": an
+  // unreadable SHA is never dispatched, so it is never dispatched twice.
+  const ghApiOrNull = (path, jq) => {
+    try {
+      return JSON.parse(execFileSync("gh", ["api", path, "--jq", jq], { encoding: "utf-8" }));
+    } catch (err) {
+      log(`gh api ${path} failed: ${err.message}`);
+      return null;
+    }
+  };
+
+  const gateMissing = await runGateMissingPass({
+    listPrs: async () =>
       JSON.parse(
         execFileSync(
           "gh",
-          [
-            "api",
-            `repos/{owner}/{repo}/issues/${number}/comments?per_page=100`,
-            "--jq",
-            "[.[] | {body}]",
-          ],
+          ["pr", "list", "--state", "open", "--json", AGENT_PR_JSON_FIELDS, "--limit", "50"],
           { encoding: "utf-8" }
         )
       ),
+    fetchCheckRuns: async (sha) =>
+      ghApiOrNull(`repos/{owner}/{repo}/commits/${sha}/check-runs?per_page=100`, ".check_runs"),
+    // Any dispatched ci.yml run on this SHA (queued, in progress or completed)
+    // blocks a second dispatch. Filtered by the REST API, not `gh run list
+    // --commit`, which is unreliable here.
+    listCiDispatchRuns: async (sha) =>
+      ghApiOrNull(
+        `repos/{owner}/{repo}/actions/workflows/ci.yml/runs?event=workflow_dispatch&head_sha=${sha}&per_page=10`,
+        ".workflow_runs"
+      ),
+    dispatchCi,
+    comment,
+    commentsFor,
     dryRun,
     log,
   });
@@ -466,6 +636,11 @@ async function run() {
     `[rescue-automation-prs] ${dryRun ? "[dry-run] " : ""}conductor commented ${
       conductor.commented.length
     }, updated ${conductor.updated.length}`
+  );
+  log(
+    `${dryRun ? "[dry-run] " : ""}gate-missing dispatched ${gateMissing.dispatched.length}: ${
+      gateMissing.dispatched.map((n) => `#${n}`).join(", ") || "none"
+    }`
   );
 }
 

@@ -1,77 +1,44 @@
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, Button, Dialog, Text, useToast } from "@mattbutlerengineering/rialto";
-import type { ClosureAlongside, ClosureImpact, DateRule } from "@mbe/types";
-import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
-import { useCreateClosure } from "../../hooks/useClosures.js";
+import { Alert, Button, Dialog, Text } from "@mattbutlerengineering/rialto";
 import { useNow } from "../../hooks/useNow.js";
-import { useVenueFormat } from "../../hooks/useVenueFormat.js";
-import { useRefreshAvailability } from "../../hooks/useRefreshAvailability.js";
 import { minutesOfDayIn } from "../../utils/service-day.js";
 import {
   decisionsReady,
-  withoutChoicesFor,
   isUrgent,
   outcomeCounts,
   stepTwoNote,
   stepTwoNoteId,
-  toDecisions,
-  type ChoiceMap,
 } from "./close-draft.js";
 import { CloseStepTwo } from "./CloseStepTwo.js";
-import { outcomeLabel, outcomeSummary } from "./outcome-label.js";
-import { growthAttempt } from "./series-edit.js";
-import { refusalOf, refusalText } from "./step-two-refusal.js";
-import type { SaveAttempts } from "./use-save-attempts.js";
+import { outcomeLabel } from "./outcome-label.js";
+import type { SeriesGrowth, SeriesGrowthSession } from "./use-series-growth-session.js";
 import styles from "./CloseDialog.module.css";
 
 export interface SeriesGrowthStepTwoProps {
   readonly venueId: string;
-  /**
-   * The version the plan was built on, never the latest: a plan older than the config has to get
-   * a 409, or it overwrites what it never saw.
-   */
-  readonly expectedVersion: number;
   readonly timezone: string;
   /** Today on the venue clock. */
   readonly today: string;
-  /** The edited series, as a closure draft, and the rows it replaces (`growthClosure`). */
-  readonly rule: DateRule;
-  readonly alongside: ClosureAlongside;
-  /** The bookings the edited series would newly close. */
-  readonly impact: ClosureImpact;
+  /** The edited series and the bookings it would newly close. */
+  readonly growth: SeriesGrowth;
   /** Held by `SeriesEditDialog`: going Back must not forget a save that may have gone through. */
-  readonly attempts: SaveAttempts;
+  readonly session: SeriesGrowthSession;
   readonly onBack: () => void;
-  readonly onClose: () => void;
-  /** A group's bookings changed: ask for the impact again and hand it back as `impact`. */
-  readonly onReload: () => Promise<void>;
-  /**
-   * Someone saved first. The edit was built from a config that is gone, so it cannot be sent
-   * again: the caller reloads the config and returns to the form with `message`.
-   */
-  readonly onStale: (message: string) => void;
 }
 
 /**
  * Step 2 of a series edit that closes new dates (ux.md F-SER step 4, S7): the same one-choice-
- * per-group step a new closure gets, then one closure-command save that replaces the series and
- * cancels, refunds and notifies exactly as for a new closure. The rule and the cancels commit
- * together or not at all.
+ * per-group step a new closure gets. The session owns the choices, the attempt ids and what each
+ * refusal does next; this renders them.
  */
 export function SeriesGrowthStepTwo(props: SeriesGrowthStepTwoProps) {
-  const { venueId, timezone, today, rule, alongside, impact, attempts, onBack, onClose } = props;
-  const refresh = useRefreshAvailability();
+  const { venueId, timezone, today, growth, session, onBack } = props;
+  const { rule, impact } = growth;
   const { t } = useTranslation();
-  const format = useVenueFormat();
-  const { toast } = useToast();
-  const offerUndo = useAvailabilityUndo();
   const now = useNow();
-  const { mutateAsync, isPending } = useCreateClosure();
-  const [choices, setChoices] = useState<ChoiceMap>({});
-  const [failure, setFailure] = useState<string | null>(null);
-  // This attempt's key already committed (a lost response): nothing more is sent from here.
-  const [savedEarlier, setSavedEarlier] = useState(false);
+  const { state, choices, failure, attempts } = session;
+  const sending = state.kind === "sending";
+  const ready = decisionsReady(impact.groups, choices);
 
   const firstDate = impact.groups[0]?.date ?? rule.startsOn;
   const urgent = isUrgent(
@@ -80,74 +47,10 @@ export function SeriesGrowthStepTwo(props: SeriesGrowthStepTwoProps) {
     minutesOfDayIn(now, timezone)
   );
 
-  const save = async () => {
-    setFailure(null);
-    attempts.record(outcomeSummary(outcomeCounts(impact.groups, choices), t));
-    try {
-      const result = await mutateAsync({
-        venueId,
-        idempotencyKey: attempts.idempotencyKey,
-        body: {
-          expectedVersion: props.expectedVersion,
-          ...growthAttempt({ rule, alongside }, attempts.ruleId),
-          decisions: toDecisions(impact.groups, choices),
-        },
-      });
-      const { cancel, move, keep_notify } = result.outcomes;
-      const notified = cancel + move + keep_notify;
-      if (notified > 0) {
-        // Told guests: History cannot revert it, so the toast offers no Undo.
-        toast({
-          title: t("availability.close.toast.notified", {
-            date: format.formatCalendarDate(firstDate, {
-              weekday: "short",
-              month: "short",
-              day: "numeric",
-            }),
-            count: notified,
-          }),
-          variant: "success",
-        });
-      } else {
-        offerUndo({
-          venueId,
-          saved: result,
-          title: t("availabilitySpecial.series.savedToast"),
-        });
-      }
-      onClose();
-    } catch (error) {
-      const refused = refusalOf(error);
-      const text = refusalText(refused, t, { groups: impact.groups, format });
-      if (refused.kind === "move-unavailable") {
-        setChoices(withoutChoicesFor(impact.groups, choices, refused.reservationIds));
-        void props.onReload().catch(() => undefined);
-      }
-      if (refused.kind === "groups-changed") {
-        // The bookings changed since the Manager chose: drop the choices and load the new ones.
-        setChoices({});
-        setFailure(text);
-        await props.onReload().catch(() => undefined);
-        return;
-      }
-      attempts.failed(refused);
-      if (refused.kind === "version-conflict") {
-        refresh();
-        props.onStale(text);
-        return;
-      }
-      if (refused.kind === "closure-exists") {
-        refresh();
-        setSavedEarlier(true);
-      }
-      setFailure(text);
-    }
-  };
-
   return (
     <Dialog
       open
-      onClose={() => attempts.leave(isPending)}
+      onClose={session.leave}
       title={t("availabilitySpecial.series.title")}
       description={t("availability.close.step", { step: 2 })}
       footer={
@@ -158,17 +61,21 @@ export function SeriesGrowthStepTwo(props: SeriesGrowthStepTwoProps) {
             color="secondary"
             className={styles.footerNote}
           >
-            {stepTwoNote(decisionsReady(impact.groups, choices), t)}
+            {stepTwoNote(ready, t)}
           </Text>
-          <Button variant="secondary" disabled={isPending} onClick={onBack}>
+          <Button variant="secondary" disabled={sending} onClick={onBack}>
             {t("availability.close.back")}
           </Button>
           <Button
             variant="primary"
             aria-describedby={stepTwoNoteId}
-            isLoading={isPending}
-            disabled={savedEarlier || !decisionsReady(impact.groups, choices)}
-            onClick={() => void save()}
+            isLoading={sending}
+            disabled={
+              session.savedEarlier ||
+              (state.kind === "settled" && state.reason === "earlier") ||
+              !ready
+            }
+            onClick={() => void session.submit()}
           >
             {outcomeLabel(outcomeCounts(impact.groups, choices), t)}
           </Button>
@@ -187,8 +94,7 @@ export function SeriesGrowthStepTwo(props: SeriesGrowthStepTwoProps) {
         urgent={urgent}
         guestMessage={rule.guestMessage ?? ""}
         onChoose={(key, choice) => {
-          attempts.edited(choices[key], choice);
-          setChoices({ ...choices, [key]: choice });
+          session.setChoice(key, choice);
           attempts.setDirty(true);
         }}
       />

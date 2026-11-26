@@ -3,6 +3,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { REF_PREFIX, buildRefName } from "../visual-diff-refs.mjs";
+import { BASELINE_PREFIX, buildBaselineRefName } from "../visual-baselines.mjs";
 import { parseWorkflow } from "../lib/workflow.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -194,6 +195,16 @@ describe("visual-diffs ref namespace cannot start a CI run", () => {
       readOnTriggers(readFileSync(resolve(WORKFLOW_DIR, file), "utf8")).triggers?.has("push")
     );
     expect(withPush.length).toBeGreaterThan(5);
+  });
+
+  it("finds no trigger that could fire for a visual-baselines/ ref either", () => {
+    // Every main push that runs a visual suite creates one of these refs.
+    const baselineRef = buildBaselineRefName({ suite: "rialto-web", sha: "a".repeat(40) });
+    expect(baselineRef.startsWith(`${BASELINE_PREFIX}/`)).toBe(true);
+    const violations = files.flatMap((file) =>
+      findTriggerViolations(readFileSync(resolve(WORKFLOW_DIR, file), "utf8"), file, baselineRef)
+    );
+    expect(violations, violations.join("\n")).toEqual([]);
   });
 
   it("keys on the exported ref prefix, so the namespace and the guard cannot drift", () => {

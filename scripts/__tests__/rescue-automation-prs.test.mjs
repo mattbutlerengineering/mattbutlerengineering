@@ -14,6 +14,12 @@ import {
   CONDUCTOR_BRANCH_PREFIX,
   CONFLICT_COMMENT_MARKER,
   PR_JSON_FIELDS,
+  selectGateMissingAgentPrs,
+  runGateMissingPass,
+  gateMissingDispatchComment,
+  AGENT_AUTHORED_LABEL,
+  AGENT_PR_JSON_FIELDS,
+  GATE_MISSING_COMMENT_MARKER,
 } from "../rescue-automation-prs.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -535,6 +541,181 @@ describe("constants", () => {
   it("PR_JSON_FIELDS requests every field selectPrsToRescue reads", () => {
     for (const field of ["number", "headRefName", "mergeStateStatus", "isDraft", "labels"]) {
       expect(PR_JSON_FIELDS.split(",")).toContain(field);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Gate-missing agent PRs (#8011, #8157, #9758): GITHUB_TOKEN-pushed PRs never
+// fire ci.yml, so CI Gate never appears and nothing dispatches it.
+// ---------------------------------------------------------------------------
+
+const agentPr = (overrides = {}) => ({
+  number: 9758,
+  headRefName: "feat/drain-9724",
+  headRefOid: "abc123",
+  isDraft: false,
+  isCrossRepository: false,
+  labels: [{ name: "agent-authored" }, { name: "needs-review" }],
+  statusCheckRollup: [],
+  headShaCheckRuns: [],
+  ciDispatchRuns: [],
+  ...overrides,
+});
+
+describe("selectGateMissingAgentPrs", () => {
+  it("selects an agent-authored PR whose head SHA has no CI Gate anywhere", () => {
+    expect(selectGateMissingAgentPrs([agentPr()]).map((pr) => pr.number)).toEqual([9758]);
+  });
+
+  it("does not mutate the input array", () => {
+    expect(() => selectGateMissingAgentPrs(Object.freeze([agentPr()]))).not.toThrow();
+  });
+
+  it("skips a green PR (CI Gate commit status SUCCESS, #4025)", () => {
+    const pr = agentPr({
+      statusCheckRollup: [{ __typename: "StatusContext", context: "CI Gate", state: "SUCCESS" }],
+    });
+    expect(selectGateMissingAgentPrs([pr])).toEqual([]);
+  });
+
+  it("skips a PR whose CI is still running", () => {
+    const pr = agentPr({ statusCheckRollup: [{ name: "Lint", status: "IN_PROGRESS" }] });
+    expect(selectGateMissingAgentPrs([pr])).toEqual([]);
+  });
+
+  it("skips a PR whose CI Gate failed", () => {
+    const pr = agentPr({
+      statusCheckRollup: [{ name: "CI Gate", status: "COMPLETED", conclusion: "FAILURE" }],
+    });
+    expect(selectGateMissingAgentPrs([pr])).toEqual([]);
+  });
+
+  it("skips a PR whose dispatched CI Gate is visible only in head-SHA check-runs (#4023)", () => {
+    const pr = agentPr({
+      headShaCheckRuns: [{ name: "CI Gate", status: "completed", conclusion: "success" }],
+    });
+    expect(selectGateMissingAgentPrs([pr])).toEqual([]);
+  });
+
+  it("skips a PR whose head-SHA check-runs could not be fetched (unknown, not gate-missing)", () => {
+    expect(selectGateMissingAgentPrs([agentPr({ headShaCheckRuns: null })])).toEqual([]);
+  });
+
+  it("skips a head SHA that already has a dispatched ci.yml run, in progress or completed", () => {
+    const prs = [
+      agentPr({ number: 1, ciDispatchRuns: [{ id: 10, status: "in_progress" }] }),
+      agentPr({ number: 2, ciDispatchRuns: [{ id: 11, status: "completed" }] }),
+    ];
+    expect(selectGateMissingAgentPrs(prs)).toEqual([]);
+  });
+
+  it("skips when the dispatched-run lookup failed, so it can never dispatch twice", () => {
+    expect(selectGateMissingAgentPrs([agentPr({ ciDispatchRuns: null })])).toEqual([]);
+  });
+
+  it("skips drafts, forks and PRs without agent-authored", () => {
+    const prs = [
+      agentPr({ number: 1, isDraft: true }),
+      agentPr({ number: 2, isCrossRepository: true }),
+      agentPr({ number: 3, labels: [{ name: "needs-review" }] }),
+    ];
+    expect(selectGateMissingAgentPrs(prs)).toEqual([]);
+  });
+});
+
+describe("runGateMissingPass", () => {
+  const deps = (overrides = {}) => ({
+    listPrs: async () => [agentPr()],
+    fetchCheckRuns: vi.fn(async () => []),
+    listCiDispatchRuns: vi.fn(async () => []),
+    dispatchCi: vi.fn(),
+    comment: vi.fn(),
+    commentsFor: vi.fn(async () => []),
+    ...overrides,
+  });
+
+  it("dispatches ci.yml once on the head branch and comments with the marker", async () => {
+    const d = deps();
+    const result = await runGateMissingPass(d);
+    expect(d.dispatchCi).toHaveBeenCalledTimes(1);
+    expect(d.dispatchCi).toHaveBeenCalledWith("feat/drain-9724");
+    expect(d.fetchCheckRuns).toHaveBeenCalledWith("abc123");
+    expect(d.listCiDispatchRuns).toHaveBeenCalledWith("abc123");
+    expect(d.comment).toHaveBeenCalledWith(9758, gateMissingDispatchComment(agentPr()));
+    expect(gateMissingDispatchComment(agentPr())).toContain(GATE_MISSING_COMMENT_MARKER);
+    expect(gateMissingDispatchComment(agentPr())).toContain("abc123");
+    expect(result).toEqual({ dispatched: [9758] });
+  });
+
+  it("dispatches but does not comment again when the marker is already present", async () => {
+    const d = deps({ commentsFor: async () => [{ body: `x ${GATE_MISSING_COMMENT_MARKER}` }] });
+    await runGateMissingPass(d);
+    expect(d.dispatchCi).toHaveBeenCalledTimes(1);
+    expect(d.comment).not.toHaveBeenCalled();
+  });
+
+  it("does not dispatch for a SHA that already has a dispatched ci.yml run", async () => {
+    const d = deps({ listCiDispatchRuns: vi.fn(async () => [{ id: 1, status: "queued" }]) });
+    const result = await runGateMissingPass(d);
+    expect(d.dispatchCi).not.toHaveBeenCalled();
+    expect(result).toEqual({ dispatched: [] });
+  });
+
+  it("never fetches for PRs it would skip anyway (draft, fork, unlabelled)", async () => {
+    const d = deps({
+      listPrs: async () => [
+        agentPr({ number: 1, isDraft: true }),
+        agentPr({ number: 2, isCrossRepository: true }),
+        agentPr({ number: 3, labels: [] }),
+      ],
+    });
+    await runGateMissingPass(d);
+    expect(d.fetchCheckRuns).not.toHaveBeenCalled();
+    expect(d.listCiDispatchRuns).not.toHaveBeenCalled();
+  });
+
+  it("isolates a failure on one PR from the rest of the batch", async () => {
+    const log = vi.fn();
+    const d = deps({
+      listPrs: async () => [
+        agentPr({ number: 1, headRefName: "a" }),
+        agentPr({ number: 2, headRefName: "b" }),
+      ],
+      dispatchCi: vi.fn(async (ref) => {
+        if (ref === "a") throw new Error("HTTP 500");
+      }),
+      log,
+    });
+    const result = await runGateMissingPass(d);
+    expect(result).toEqual({ dispatched: [2] });
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("HTTP 500"));
+  });
+
+  it("dry-run reports without dispatching or commenting", async () => {
+    const d = deps({ dryRun: true });
+    const result = await runGateMissingPass(d);
+    expect(result).toEqual({ dispatched: [9758] });
+    expect(d.dispatchCi).not.toHaveBeenCalled();
+    expect(d.comment).not.toHaveBeenCalled();
+  });
+});
+
+describe("gate-missing CLI wiring", () => {
+  it("runs the pass and looks up dispatched ci.yml runs by head SHA", () => {
+    expect(AGENT_AUTHORED_LABEL).toBe("agent-authored");
+    expect(SOURCE).toContain("runGateMissingPass(");
+    expect(SOURCE).toContain("actions/workflows/ci.yml/runs?event=workflow_dispatch&head_sha=");
+    for (const field of [
+      "number",
+      "headRefName",
+      "headRefOid",
+      "isDraft",
+      "isCrossRepository",
+      "labels",
+      "statusCheckRollup",
+    ]) {
+      expect(AGENT_PR_JSON_FIELDS.split(",")).toContain(field);
     }
   });
 });

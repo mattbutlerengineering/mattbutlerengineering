@@ -38,9 +38,11 @@ export * from "./Tag";
 export * from "./TextArea";
 export * from "./Timeline";
 export * from "./TimeSlots";
+export * from "./Listbox";
 export * from "./Toast";
 export * from "./ThemeToggle";
 export * from "./Toggle";
+export * from "./Toolbar";
 export * from "./Tooltip";
 export * from "./Tree";
 
@@ -87,7 +89,9 @@ export * from "./Text";
 export * from "./ChatPanel";
 
 // ── Media ──────────────────────────────────────
+export * from "./FileUpload";
 export * from "./ImageUpload";
+export * from "./TagsInput";
 
 // ── Specialty interaction ──────────────────────
 export * from "./MasterOverride";
@@ -105,6 +109,7 @@ export * from "./Fireflies";
 export * from "./Steam";
 export * from "./Constellation";
 export * from "./WatchLoader";
+export * from "./VisuallyHidden";
 export * from "./Handshake";
 export * from "./NeonSign";
 

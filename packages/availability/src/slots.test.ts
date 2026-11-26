@@ -169,6 +169,66 @@ describe("listSlots", () => {
     expect(first?.tables.map((t) => t.id)).toEqual(["t-2"]);
   });
 
+  describe("per-service pacing", () => {
+    const withServicePacing = (covers: number, extra: Partial<BookingSnapshot> = {}) =>
+      snapshot({
+        config: {
+          ...CONFIG,
+          scheduleServices: CONFIG.scheduleServices.map((s) =>
+            s.id === "dinner"
+              ? { ...s, rules: { version: 1 as const, pacing: { covers, windowMinutes: 30 } } }
+              : s
+          ),
+        },
+        reservations: [
+          { id: "r", tableId: "t-2", startTime: at("17:00"), endTime: at("18:15"), partySize: 2 },
+        ],
+        ...extra,
+      });
+
+    it("caps a service below the venue's cap", () => {
+      const [first] = listSlots(
+        withServicePacing(3, { settings: { pacingRules: [{ maxCoversPerSlot: 10 }] } }),
+        DATE,
+        2,
+        "online",
+        NOW
+      );
+      expect(first).toMatchObject({ available: false, reason: "pacing" });
+    });
+
+    it("never raises the venue's cap", () => {
+      const [first] = listSlots(
+        withServicePacing(10, { settings: { pacingRules: [{ maxCoversPerSlot: 3 }] } }),
+        DATE,
+        2,
+        "online",
+        NOW
+      );
+      expect(first).toMatchObject({ available: false, reason: "pacing" });
+    });
+
+    it("leaves a service without pacing on the venue's cap", () => {
+      const slots = listSlots(
+        withServicePacing(3, { settings: { pacingRules: [{ maxCoversPerSlot: 3 }] } }),
+        DATE,
+        2,
+        "phone",
+        NOW
+      ).filter((s) => s.venueServiceId === "vs-late");
+      expect(slots.every((s) => s.available)).toBe(true);
+    });
+
+    it("is a soft limit on judge", () => {
+      const verdict = judge(
+        withServicePacing(3),
+        { start: at("17:00"), partySize: 2, channel: "phone" },
+        NOW
+      );
+      expect(verdict).toMatchObject({ limits: ["pacing"] });
+    });
+  });
+
   it("applies Tonight's lowered pacing", () => {
     const tonight = snapshot({
       config: {

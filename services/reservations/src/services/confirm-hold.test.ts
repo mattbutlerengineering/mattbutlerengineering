@@ -16,6 +16,11 @@ vi.mock("./database.js", async () => {
       reservation: {
         create: vi.fn(),
         findFirst: vi.fn(),
+        count: vi.fn(),
+        findMany: vi.fn(),
+      },
+      guest: {
+        findFirst: vi.fn(),
       },
       $transaction: vi.fn(),
     },
@@ -143,6 +148,10 @@ describe("confirmHold", () => {
       reservations: [],
       holds: [],
     });
+    // Member-window history (#9628): a member with a clean record.
+    vi.mocked(prisma.guest.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.reservation.count).mockResolvedValue(0);
+    vi.mocked(prisma.reservation.findMany).mockResolvedValue([]);
   });
 
   afterEach(() => {
@@ -180,6 +189,188 @@ describe("confirmHold", () => {
         expect(result.reservation.status).toBe("CONFIRMED");
         expect(result.reservation.guestName).toBe("Jane Doe");
       }
+    });
+  });
+
+  describe("member-window hold (#9625)", () => {
+    const memberHold = () => makePrismaHold({ memberWindow: true });
+    const confirm = (memberEmail: string | null | undefined, guestEmail = "jane@example.com") =>
+      confirmHold({
+        holdId: "hold-1",
+        sessionId: "session-abc",
+        guestDetails: { guestName: "Jane Doe", guestEmail },
+        memberEmail,
+      });
+
+    function stubBook(hold: ReturnType<typeof makePrismaHold>) {
+      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(hold as never);
+      vi.mocked(prisma.$transaction).mockImplementationOnce(
+        async (fn: (tx: any) => Promise<unknown>) =>
+          fn(
+            makeTxMock({
+              reservation: {
+                ...makeTxMock().reservation,
+                create: vi.fn().mockResolvedValue(makeReservationResult(hold)),
+              },
+            })
+          )
+      );
+    }
+
+    it("refuses without a verified member, leaving the hold and booking nothing", async () => {
+      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(memberHold() as never);
+
+      const result = await confirm(undefined);
+
+      expect(result).toMatchObject({ success: false, errorCode: "MEMBER_REQUIRED" });
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+      expect(prisma.reservationHold.delete).not.toHaveBeenCalled();
+    });
+
+    it("refuses when the token email is not the reservation guest email", async () => {
+      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(memberHold() as never);
+
+      const result = await confirm("other@example.com");
+
+      expect(result).toMatchObject({ success: false, errorCode: "MEMBER_REQUIRED" });
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it("refuses a member booking with no guest email", async () => {
+      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(memberHold() as never);
+
+      const result = await confirmHold({
+        holdId: "hold-1",
+        sessionId: "session-abc",
+        guestDetails: { guestName: "Jane Doe" },
+        memberEmail: "jane@example.com",
+      });
+
+      expect(result).toMatchObject({ success: false, errorCode: "MEMBER_REQUIRED" });
+    });
+
+    it("confirms when the verified member email matches, ignoring case and spaces", async () => {
+      stubBook(memberHold());
+
+      const result = await confirm("Jane@Example.com ", " jane@example.COM");
+
+      expect(result.success).toBe(true);
+    });
+
+    it("leaves an ordinary hold unaffected by the member token", async () => {
+      stubBook(makePrismaHold());
+
+      expect((await confirm(undefined)).success).toBe(true);
+    });
+  });
+
+  describe("member-window cap and suspension (#9628)", () => {
+    const memberHold = () => makePrismaHold({ memberWindow: true });
+    const confirm = () =>
+      confirmHold({
+        holdId: "hold-1",
+        sessionId: "session-abc",
+        guestDetails: { guestName: "Jane Doe", guestEmail: "jane@example.com" },
+        memberEmail: "jane@example.com",
+      });
+    // reservation.count is the weekly member bookings; findMany the cancelled member bookings.
+    function stubHistory(opts: { weekly: number; lateCancels?: number; noShows?: number }) {
+      vi.mocked(prisma.reservationHold.findUnique).mockResolvedValueOnce(memberHold() as never);
+      vi.mocked(prisma.guest.findFirst).mockResolvedValueOnce({
+        noShowCount: opts.noShows ?? 0,
+        visitCount: 3,
+        lastNoShowAt: null,
+      } as never);
+      vi.mocked(prisma.reservation.count).mockResolvedValueOnce(opts.weekly);
+      const start = new Date("2026-12-01T19:00:00Z");
+      const late = { startTime: start, updatedAt: new Date(start.getTime() - 3_600_000) };
+      const early = { startTime: start, updatedAt: new Date(start.getTime() - 48 * 3_600_000) };
+      vi.mocked(prisma.reservation.findMany).mockResolvedValueOnce([
+        ...Array.from({ length: opts.lateCancels ?? 0 }, () => late),
+        early,
+      ] as never);
+    }
+    function stubBook() {
+      vi.mocked(prisma.$transaction).mockImplementationOnce(
+        async (fn: (tx: any) => Promise<unknown>) =>
+          fn(
+            makeTxMock({
+              reservation: {
+                ...makeTxMock().reservation,
+                create: vi.fn().mockResolvedValue(makeReservationResult(memberHold())),
+              },
+            })
+          )
+      );
+    }
+
+    it("refuses the booking past the venue's weekly cap, leaving the hold", async () => {
+      vi.mocked(prisma.venue.findUnique).mockResolvedValue({
+        id: "venue-1",
+        settings: { memberWeeklyBookingCap: 1 },
+      } as never);
+      stubHistory({ weekly: 1 });
+
+      const result = await confirm();
+
+      expect(result).toMatchObject({ success: false, errorCode: "MEMBER_CAP_REACHED" });
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it("allows the booking one below the cap", async () => {
+      vi.mocked(prisma.venue.findUnique).mockResolvedValue({
+        id: "venue-1",
+        settings: { memberWeeklyBookingCap: 2 },
+      } as never);
+      stubHistory({ weekly: 1 });
+      stubBook();
+
+      expect((await confirm()).success).toBe(true);
+    });
+
+    it("defaults the weekly cap to 2", async () => {
+      stubHistory({ weekly: 2 });
+
+      expect(await confirm()).toMatchObject({ errorCode: "MEMBER_CAP_REACHED" });
+    });
+
+    it("suspends a member whose no-shows plus member late cancels reach the venue threshold", async () => {
+      vi.mocked(prisma.venue.findUnique).mockResolvedValue({
+        id: "venue-1",
+        settings: { autoDepositAfterNoShows: 2 },
+      } as never);
+      stubHistory({ weekly: 0, noShows: 1, lateCancels: 1 });
+
+      const result = await confirm();
+
+      expect(result).toMatchObject({ success: false, errorCode: "MEMBER_SUSPENDED" });
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it("keeps a member one below the threshold", async () => {
+      vi.mocked(prisma.venue.findUnique).mockResolvedValue({
+        id: "venue-1",
+        settings: { autoDepositAfterNoShows: 2 },
+      } as never);
+      stubHistory({ weekly: 0, noShows: 1, lateCancels: 0 });
+      stubBook();
+
+      expect((await confirm()).success).toBe(true);
+    });
+
+    it("stamps the confirmed reservation as a member-window booking", async () => {
+      stubHistory({ weekly: 0 });
+      const create = vi.fn().mockResolvedValue(makeReservationResult(memberHold()));
+      vi.mocked(prisma.$transaction).mockImplementationOnce(
+        async (fn: (tx: any) => Promise<unknown>) =>
+          fn(makeTxMock({ reservation: { ...makeTxMock().reservation, create } }))
+      );
+
+      await confirm();
+
+      expect(create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ memberWindow: true }) })
+      );
     });
   });
 

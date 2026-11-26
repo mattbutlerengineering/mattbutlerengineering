@@ -73,3 +73,11 @@
     position: static;
   }
 }
+
+/* The cap and its window sit side by side where there is room, and stack where there is not. */
+.pacing {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: var(--rialto-space-sm);
+  align-items: start;
+}

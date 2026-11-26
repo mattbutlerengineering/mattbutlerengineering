@@ -234,4 +234,55 @@ describe("GuestsClient", () => {
       expect(result).toEqual({ sent: true });
     });
   });
+
+  describe("Regulars Club members", () => {
+    const member = {
+      id: "m1",
+      guestId: "g1",
+      guestName: "Ada",
+      guestEmail: "ada@example.com",
+      tier: "REGULAR",
+      status: "ACTIVE",
+      invitedAt: "2026-11-01T10:00:00.000Z",
+      revokedAt: null,
+    };
+
+    it("lists members for a venue and unwraps data", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: [member] }));
+
+      const result = await makeClient().listMembers("v1");
+
+      const call = lastCall();
+      expect(call.method).toBe("GET");
+      expect(call.url.pathname).toBe("/api/v1/guests/members");
+      expect(call.url.searchParams.get("venueId")).toBe("v1");
+      expect(result).toEqual([member]);
+    });
+
+    it("invites a member by email", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: member }, 201));
+
+      const result = await makeClient().inviteMember({
+        venueId: "v1",
+        email: "ada@example.com",
+        name: "Ada",
+      });
+
+      const call = lastCall();
+      expect(call.method).toBe("POST");
+      expect(call.url.pathname).toBe("/api/v1/guests/members");
+      expect(result).toEqual(member);
+    });
+
+    it("revokes a member by guest id", async () => {
+      mockFetch.mockResolvedValueOnce(jsonResponse({ data: { revoked: true } }));
+
+      const result = await makeClient().revokeMember("g1");
+
+      const call = lastCall();
+      expect(call.method).toBe("POST");
+      expect(call.url.pathname).toBe("/api/v1/guests/g1/revoke-membership");
+      expect(result).toEqual({ revoked: true });
+    });
+  });
 });

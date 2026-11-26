@@ -4,7 +4,7 @@ import { requireAuth } from "@mbe/auth/fastify";
 import { registerEndpoint } from "@mbe/service-bootstrap";
 import { closureCaller } from "./closure-caller.js";
 import { runClosurePostCommit } from "./closure-post-commit.js";
-import { sendRefusal } from "./closures.js";
+import { CLOSURE_REFUSAL_COPY, sendAvailabilityRefusal } from "./availability-refusal.js";
 import { venueScoped } from "./venue-scope.js";
 
 /**
@@ -45,10 +45,7 @@ export const tonightRoutes: FastifyPluginAsync = async (fastify) => {
         }
         return { data: outcome.result };
       }
-      return sendRefusal(
-        reply,
-        outcome.kind === "rule_exists" ? { kind: "closure_exists" } : outcome
-      );
+      return sendAvailabilityRefusal(reply, outcome, CLOSURE_REFUSAL_COPY);
     }),
   });
 

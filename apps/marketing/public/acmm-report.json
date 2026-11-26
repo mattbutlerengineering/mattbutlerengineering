@@ -1,18 +1,18 @@
 {
   "schema": "acmm-report/v2",
-  "generatedAt": "2026-11-24T14:39:30.393Z",
+  "generatedAt": "2026-11-25T14:00:01.623Z",
   "repo": {
     "currentLevel": 5,
     "levelName": "Semi-Automated",
     "role": "Operator",
-    "lastRun": "2026-11-24T14:39:27.929Z",
+    "lastRun": "2026-11-25T13:59:58.604Z",
     "summary": {
-      "detected": 71,
-      "total": 84,
-      "coverage": 0.8452380952380952
+      "detected": 73,
+      "total": 83,
+      "coverage": 0.8795180722891566
     },
     "behavioral": {
-      "ciFlakeRate": 0.022022022022022022,
+      "ciFlakeRate": 0.021021021021021023,
       "agentPrAcceptanceRate": 0.9811320754716981,
       "agentPrRevertRate": 0.0038461538461538464,
       "evalPassRate": 0.8,
@@ -107,14 +107,11 @@
       "acmm:nightly-compliance": {
         "passed": true
       },
-      "acmm:copilot-review-apply": {
-        "passed": false
-      },
       "acmm:auto-label": {
         "passed": true
       },
       "acmm:ai-fix-workflow": {
-        "passed": false
+        "passed": true
       },
       "acmm:tier-classifier": {
         "passed": true
@@ -144,7 +141,7 @@
         "passed": true
       },
       "acmm:github-actions-ai": {
-        "passed": false
+        "passed": true
       },
       "acmm:auto-qa-self-tuning": {
         "passed": true
@@ -278,7 +275,7 @@
         "level": 3,
         "name": "ci-flake-rate",
         "passed": true,
-        "value": 0.022022022022022022,
+        "value": 0.021021021021021023,
         "threshold": 0.2,
         "unverifiable": false
       },
@@ -294,7 +291,7 @@
         "level": 5,
         "name": "auto-qa-tuning-history",
         "passed": true,
-        "value": 65,
+        "value": 66,
         "threshold": 1,
         "unverifiable": false
       },
@@ -310,7 +307,7 @@
         "level": 6,
         "name": "human-touch-ratio",
         "passed": true,
-        "value": 0.023076923076923078,
+        "value": 0.019230769230769232,
         "threshold": 0.5,
         "unverifiable": false
       }

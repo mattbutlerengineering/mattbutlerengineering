@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { DateRule } from "@mbe/types";
+import { fakeStoreClient } from "../test/store-client.js";
 
 vi.mock("./database.js", () => ({ prisma: {} }));
 
@@ -92,20 +93,6 @@ const rows = () => ({
   },
 });
 
-function fakeClient(tx: ReturnType<typeof rows>) {
-  const full = {
-    $executeRaw: vi.fn(async () => 0),
-    $executeRawUnsafe: vi.fn(async () => 0),
-    ...tx,
-  };
-  return {
-    client: {
-      $transaction: vi.fn(async (work: (t: unknown) => Promise<unknown>) => work(full)),
-    } as never,
-    tx,
-  };
-}
-
 const closure = (patch: Partial<DateRule> = {}) =>
   ({
     id: "dr-new",
@@ -118,7 +105,7 @@ const closure = (patch: Partial<DateRule> = {}) =>
 
 describe("getClosureImpact", () => {
   it("returns the affected bookings, counting only deposits still held", async () => {
-    const { client, tx } = fakeClient(rows());
+    const { client, tx } = fakeStoreClient(rows());
 
     const outcome = await getClosureImpact("venue-1", closure(), NOW, client);
 
@@ -150,7 +137,7 @@ describe("getClosureImpact", () => {
   it("counts a section closure against the section's live tables, not the client's list", async () => {
     const tx = rows();
     tx.floorPlanSection.findMany.mockResolvedValue([{ id: "sec-1", tables: [{ id: "t-1" }] }]);
-    const { client } = fakeClient(tx);
+    const { client } = fakeStoreClient(tx);
 
     const outcome = await getClosureImpact(
       "venue-1",
@@ -163,7 +150,7 @@ describe("getClosureImpact", () => {
   });
 
   it("reads the bookings and unexpired holds on the affected tables, for the move check", async () => {
-    const { client, tx } = fakeClient(rows());
+    const { client, tx } = fakeStoreClient(rows());
 
     await getClosureImpact("venue-1", closure(), NOW, client);
 
@@ -187,7 +174,7 @@ describe("getClosureImpact", () => {
   });
 
   it("counts a captured deposit with a payment intent: a cancel owes the guest its refund", async () => {
-    const { client, tx } = fakeClient(rows());
+    const { client, tx } = fakeStoreClient(rows());
     const base = (await tx.reservation.findMany())[0]!;
     const withDeposit = (id: string, status: string, pi: string | null) => ({
       ...base,
@@ -209,7 +196,7 @@ describe("getClosureImpact", () => {
 
   // #8131: the impact (and so the stored outcome and the notice) carries what is still owed.
   it("carries the estimate of what is still owed, and keeps a deposit estimating 0 in the plan", async () => {
-    const { client, tx } = fakeClient(rows());
+    const { client, tx } = fakeStoreClient(rows());
     const base = (await tx.reservation.findMany())[0]!;
     const withDeposit = (id: string, status: string, pi: string | null, post: number | null) => ({
       ...base,
@@ -248,7 +235,7 @@ describe("getClosureImpact", () => {
   // #8130 reads `originHost` and the table ids off the same row, and `withProposedStarts` spreads
   // each reservation: the deposit estimate must survive both.
   it("keeps the deposit estimate beside the booking's origin host and proposed start", async () => {
-    const { client, tx } = fakeClient(rows());
+    const { client, tx } = fakeStoreClient(rows());
     const base = (await tx.reservation.findMany())[0]!;
     tx.reservation.findMany.mockResolvedValueOnce([
       {
@@ -284,7 +271,7 @@ describe("getClosureImpact", () => {
   });
 
   it("scans from yesterday's service day when the closure starts in the past", async () => {
-    const { client, tx } = fakeClient(rows());
+    const { client, tx } = fakeStoreClient(rows());
 
     await getClosureImpact("venue-1", closure({ startsOn: "2026-10-01" }), NOW, client);
 
@@ -298,7 +285,7 @@ describe("getClosureImpact", () => {
   });
 
   it("bounds an open-ended closure to a year", async () => {
-    const { client, tx } = fakeClient(rows());
+    const { client, tx } = fakeStoreClient(rows());
 
     await getClosureImpact("venue-1", closure({ endsOn: null }), NOW, client);
 
@@ -312,7 +299,7 @@ describe("getClosureImpact", () => {
   });
 
   it("refuses an explicit range longer than a year", async () => {
-    const { client } = fakeClient(rows());
+    const { client } = fakeStoreClient(rows());
     const outcome = await getClosureImpact(
       "venue-1",
       closure({ startsOn: "2026-12-24", endsOn: "2028-01-01" }),
@@ -323,7 +310,7 @@ describe("getClosureImpact", () => {
   });
 
   it("counts the year from today, so a long-running series is not too long", async () => {
-    const { client } = fakeClient(rows());
+    const { client } = fakeStoreClient(rows());
     const series = closure({
       startsOn: "2026-01-04",
       endsOn: "2027-02-01",
@@ -334,7 +321,7 @@ describe("getClosureImpact", () => {
   });
 
   it("refuses a draft that does not validate against the config", async () => {
-    const { client, tx } = fakeClient(rows());
+    const { client, tx } = fakeStoreClient(rows());
 
     const outcome = await getClosureImpact(
       "venue-1",
@@ -350,10 +337,41 @@ describe("getClosureImpact", () => {
     expect(tx.reservation.findMany).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ["venueServiceId", { targetKind: "service", venueServiceId: "vs-other" }],
+    ["sectionId", { targetKind: "tables", sectionId: "sec-other" }],
+    ["tableIds[0]", { targetKind: "tables", tableIds: ["t-other"] }],
+    ["useScheduleId", { kind: "use_schedule", useScheduleId: "sch-other" }],
+    ["seriesId", { seriesId: "dr-other-venue" }],
+  ] as const)(
+    "refuses a draft whose %s names a row of another venue, before reading bookings",
+    async (field, patch) => {
+      const { client, tx } = fakeStoreClient(rows());
+
+      const outcome = await getClosureImpact(
+        "venue-1",
+        closure(patch as Partial<DateRule>),
+        NOW,
+        client
+      );
+
+      expect(outcome).toMatchObject({
+        kind: "invalid",
+        issues: expect.arrayContaining([
+          expect.objectContaining({
+            code: "unknown_reference",
+            path: expect.stringContaining(field),
+          }),
+        ]),
+      });
+      expect(tx.reservation.findMany).not.toHaveBeenCalled();
+    }
+  );
+
   it("is not found for an unknown venue", async () => {
     const data = rows();
     data.venue.findUnique = vi.fn(async () => null as never);
-    const { client } = fakeClient(data);
+    const { client } = fakeStoreClient(data);
 
     expect(await getClosureImpact("venue-1", closure(), NOW, client)).toEqual({
       kind: "not_found",
@@ -404,7 +422,7 @@ describe("getClosureImpact and a booking that has already started", () => {
           deposit: null,
         }))
     ) as never;
-    const { client } = fakeClient(data);
+    const { client } = fakeStoreClient(data);
     const rule = closure({ startsOn: "2026-10-25", endsOn: "2026-10-25" });
     return getClosureImpact("venue-1", rule, now, client);
   }
@@ -482,7 +500,7 @@ describe("getClosureImpact for an edit that gives dates back (#8413)", () => {
   });
 
   it("counts the cancelled guests on the dates it gives back, so Step 2 can ask about them", async () => {
-    const { client } = fakeClient(withTold(2) as never);
+    const { client } = fakeStoreClient(withTold(2) as never);
     const outcome = await getClosureImpact(
       "venue-1",
       closure({ id: "c2", startsOn: "2026-12-24", endsOn: "2026-12-25" }),
@@ -494,7 +512,7 @@ describe("getClosureImpact for an edit that gives dates back (#8413)", () => {
   });
 
   it("asks nothing when no told guest is on a date it gives back", async () => {
-    const { client } = fakeClient(withTold(0) as never);
+    const { client } = fakeStoreClient(withTold(0) as never);
     const outcome = await getClosureImpact(
       "venue-1",
       closure({ id: "c2", startsOn: "2026-12-24", endsOn: "2026-12-25" }),
@@ -508,7 +526,7 @@ describe("getClosureImpact for an edit that gives dates back (#8413)", () => {
 
   it("asks nothing when it gives back no date", async () => {
     const tx = withTold(2);
-    const { client } = fakeClient(tx as never);
+    const { client } = fakeStoreClient(tx as never);
     const outcome = await getClosureImpact(
       "venue-1",
       closure({ id: "c2", startsOn: "2026-12-24", endsOn: "2026-12-27" }),
@@ -522,7 +540,7 @@ describe("getClosureImpact for an edit that gives dates back (#8413)", () => {
 
   it("asks nothing of a new closure, which replaces none", async () => {
     const tx = withTold(2);
-    const { client } = fakeClient(tx as never);
+    const { client } = fakeStoreClient(tx as never);
     const outcome = await getClosureImpact("venue-1", closure(), NOW, client);
     expect((outcome as { impact: object }).impact).not.toHaveProperty("givenBack");
     expect(tx.closureOutcome.findMany).not.toHaveBeenCalled();

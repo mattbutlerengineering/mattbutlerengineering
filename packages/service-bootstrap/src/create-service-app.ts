@@ -5,7 +5,12 @@ import rateLimit from "@fastify/rate-limit";
 import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
 import ScalarApiReference from "@scalar/fastify-api-reference";
-import { authPlugin, getAuthPluginOptionsFromEnv } from "@mbe/auth/fastify";
+import {
+  authPlugin,
+  createJoseVerifier,
+  getAuthPluginOptionsFromEnv,
+  type JwtVerifier,
+} from "@mbe/auth/fastify";
 import { createFeatureFlagsPlugin } from "./feature-flags.js";
 import {
   createRequestIdMiddleware,
@@ -75,6 +80,17 @@ export interface ServiceAppConfig {
   readonly registerSchemas?: (fastify: FastifyInstance) => void;
   /** Owns the service's database: health, /ready, and pool shutdown on close. */
   readonly database?: ServiceDatabaseConfig;
+  /**
+   * Wraps the default OIDC/JWKS verifier, e.g. to accept a second kind of
+   * bearer ahead of it. Receives the default verifier as the fallback.
+   */
+  readonly wrapAuthVerifier?: (fallback: JwtVerifier) => JwtVerifier;
+  /**
+   * Path prefixes the global auth hook skips, for a route that authenticates
+   * its own bearer (e.g. a personal access token the service can't verify).
+   * Such a route must do its own check.
+   */
+  readonly authExcludePaths?: readonly string[];
 }
 
 export interface AppOptions {
@@ -219,7 +235,7 @@ export async function createServiceApp(
   await fastify.register(cors, {
     origin: corsOrigins,
     credentials: true,
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: ["Content-Type", "Authorization", "x-member-token", "x-session-id"],
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   });
 
@@ -312,7 +328,24 @@ export async function createServiceApp(
 
   // --- Auth ---
   if (process.env.AUTH_AUTHORITY && process.env.AUTH_AUDIENCE) {
-    await fastify.register(authPlugin, getAuthPluginOptionsFromEnv());
+    const envOptions = getAuthPluginOptionsFromEnv();
+    const authOptions = config.authExcludePaths?.length
+      ? {
+          ...envOptions,
+          excludePaths: [...(envOptions.excludePaths ?? []), ...config.authExcludePaths],
+        }
+      : envOptions;
+    await fastify.register(
+      authPlugin,
+      config.wrapAuthVerifier
+        ? {
+            ...authOptions,
+            verifier: config.wrapAuthVerifier(
+              createJoseVerifier(authOptions.authority, authOptions.audience)
+            ),
+          }
+        : authOptions
+    );
   } else if (process.env.NODE_ENV === "production") {
     throw new Error("Fail-closed: AUTH_AUTHORITY and AUTH_AUDIENCE are required in production");
   } else {

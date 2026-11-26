@@ -252,7 +252,7 @@ jobs:
             REASON=$(echo "$OUTCOME" | jq -r '.reason')
             echo "::warning::No revert PR opened for $SHA: $REASON"
             if [ -n "$ISSUE_NUMBER" ]; then
-              gh issue comment "$ISSUE_NUMBER" --body "No automatic revert PR was opened for \`$SHA\`: $REASON. A manual revert or forward fix is needed." || true
+              gh issue comment "$ISSUE_NUMBER" --body "No automatic revert PR was opened for \`$SHA\`: $REASON. A manual revert or forward fix is needed. <!-- mbe-automation -->" || true
             fi
             exit 0
           fi

@@ -16,6 +16,7 @@ import { Input } from "./Input/Input";
 import { PinInput } from "./PinInput/PinInput";
 import { Select } from "./Select/Select";
 import { Tag } from "./Tag/Tag";
+import { TagsInput } from "./TagsInput/TagsInput";
 import { TextArea } from "./TextArea/TextArea";
 
 const noop = () => {};
@@ -39,6 +40,11 @@ const CASES: readonly Case[] = [
         VIP
       </Tag>
     ),
+    texts: [["Remove VIP", esMX.removeItem("VIP"), frCA.removeItem("VIP")]],
+  },
+  {
+    name: "TagsInput chip remove",
+    ui: () => <TagsInput label="Notes" defaultValue={["VIP"]} />,
     texts: [["Remove VIP", esMX.removeItem("VIP"), frCA.removeItem("VIP")]],
   },
   {

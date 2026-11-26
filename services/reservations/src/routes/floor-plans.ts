@@ -18,6 +18,7 @@ import {
 } from "@mbe/types";
 import { requireAuth, hasPermission } from "@mbe/auth/fastify";
 import { parsePaginationQuery } from "@mbe/database";
+import { actorNameOf } from "../services/actor-name.js";
 import { inNamedVenueContext } from "./named-venue.js";
 import { venueScoped } from "./venue-scope.js";
 
@@ -381,7 +382,10 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
       },
     },
     venueScoped({ venue: floorPlanVenue }, async (request, reply) => {
-      const outcome = await floorPlanService.delete(request.params.id);
+      const outcome = await floorPlanService.delete(request.params.id, {
+        actorId: request.user?.id ?? "unknown",
+        actorName: actorNameOf(request.user),
+      });
       if (outcome === "not_found") {
         return reply.code(404).send(createProblemDetails(404, "Not Found", FLOOR_PLAN_NOT_FOUND));
       }

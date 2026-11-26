@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { axe } from "vitest-axe";
@@ -74,5 +76,47 @@ describe("AvatarGroup", () => {
     expect(
       await axe(container, { rules: { "color-contrast": { enabled: false } } })
     ).toHaveNoViolations();
+  });
+
+  it("packs a stretched group toward the start edge without changing stack order", () => {
+    // jsdom does not apply CSS modules, so the rule under test is read from
+    // the stylesheet and injected. row-reverse keeps the first avatar on top;
+    // justify-content: flex-end is the inline-start in that direction, which
+    // is what stops a column-flex parent from pinning the stack to the end.
+    const css = fs.readFileSync(path.join(__dirname, "Avatar.module.css"), "utf8");
+    const groupRule = css.match(/\.group\s*\{([^}]+)\}/)?.[1] ?? "";
+    expect(groupRule).toMatch(/flex-direction:\s*row-reverse/);
+    expect(groupRule).toMatch(/justify-content:\s*flex-end/);
+
+    const style = document.createElement("style");
+    style.textContent = `.group { ${groupRule} }`;
+    document.head.appendChild(style);
+
+    const { container } = render(
+      <div style={{ display: "flex", flexDirection: "column", width: "480px" }}>
+        <AvatarGroup
+          max={3}
+          avatars={[
+            { name: "Charles Leclerc" },
+            { name: "Lewis Hamilton" },
+            { name: "Marc Newson" },
+            { name: "Adrian Newey" },
+          ]}
+        />
+      </div>
+    );
+
+    const group = container.querySelector(".group");
+    expect(group).not.toBeNull();
+    const computed = getComputedStyle(group as HTMLElement);
+    expect(computed.flexDirection).toBe("row-reverse");
+    expect(computed.justifyContent).toBe("flex-end");
+
+    const labels = [...(group as HTMLElement).querySelectorAll("[aria-label]")].map((el) =>
+      el.getAttribute("aria-label")
+    );
+    expect(labels).toEqual(["1 more", "Marc Newson", "Lewis Hamilton", "Charles Leclerc"]);
+
+    style.remove();
   });
 });

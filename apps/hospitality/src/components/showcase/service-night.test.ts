@@ -47,6 +47,12 @@ describe("service-night structure", () => {
     expect(byId.get("lostDemandLedger")).toBe("shipped");
   });
 
+  it("shows the Regulars Club as shipped where booking opens, not on the roadmap", () => {
+    const doors = SCENES.find((scene) => scene.id === "doors");
+    expect(doors?.claims).toContainEqual({ id: "regularsClub", status: "shipped" });
+    expect(ROADMAP.map((idea) => idea.id)).not.toContain("regularsClub");
+  });
+
   it("turns the lights down from doors until after hours and up again for morning", () => {
     expect(Object.fromEntries(SCENES.map((scene) => [scene.id, skyThemeFor(scene.id)]))).toEqual({
       hero: "light",
@@ -93,6 +99,13 @@ describe.each(Object.entries(CATALOGS))("showcase copy in %s", (_tag, catalog) =
       expect(row.length, row).toBeLessThanOrEqual(ROADMAP_ROW_MAX);
       expect(row, row).toMatch(/^[\x20-\x7E]+$/);
     }
+  });
+
+  it("describes only the shipped free Regulars Club, not paid membership or prepaid credit", () => {
+    const { label, detail } = showcase.claims.regularsClub;
+    expect(`${label} ${detail}`).not.toMatch(
+      /\b(sell|sold|paid|prepaid|credit|crédito|vend\w*|prépay\w*|prepag\w*|pagad\w*)\b/i
+    );
   });
 
   it("never promises a stated product non-goal", () => {

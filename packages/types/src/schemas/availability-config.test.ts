@@ -6,6 +6,7 @@ import {
   ScheduleAssignmentSchema,
   ScheduleServiceSchema,
   SeatingSchema,
+  ServiceRulesSchema,
   TonightPayloadSchema,
   WindowSchema,
 } from "./availability-config.js";
@@ -278,5 +279,37 @@ describe("ScheduleServiceSchema day scope", () => {
     expect(DayHoursSchema.safeParse({ version: 1, sets: [{ ...SET, weekdays: [] }] }).success).toBe(
       false
     );
+  });
+});
+
+describe("ServiceRulesSchema", () => {
+  const DINNER = {
+    id: "ss-1",
+    scheduleId: "s-1",
+    venueServiceId: "vs-1",
+    opensAt: 1020,
+    lastSeatingAt: 1320,
+    closesAt: 1440,
+    seating: { version: 1, interval: 15 },
+    bookingTypes: ["online"],
+  };
+
+  it("reads a row with no rules, or the column's `{}` default, unchanged", () => {
+    expect(ScheduleServiceSchema.parse(DINNER).rules).toBeUndefined();
+    expect(ScheduleServiceSchema.parse({ ...DINNER, rules: {} }).rules).toEqual({});
+  });
+
+  it("keeps a service's pacing", () => {
+    const rules = { version: 1, pacing: { covers: 12, windowMinutes: 30 } };
+    expect(ScheduleServiceSchema.parse({ ...DINNER, rules }).rules).toEqual(rules);
+  });
+
+  it.each([
+    ["a later version", { version: 2 }],
+    ["zero covers", { version: 1, pacing: { covers: 0, windowMinutes: 30 } }],
+    ["a missing window", { version: 1, pacing: { covers: 4 } }],
+    ["an unknown key", { version: 1, turnTimes: {} }],
+  ])("rejects %s", (_name, rules) => {
+    expect(ServiceRulesSchema.safeParse(rules).success).toBe(false);
   });
 });

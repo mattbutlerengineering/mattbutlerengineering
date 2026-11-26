@@ -89,15 +89,32 @@ export const Sizes: Story = {
 
 export const Group: StoryObj<typeof AvatarGroup> = {
   render: () => (
-    <AvatarGroup
-      avatars={[
-        { name: "Alice", src: "https://i.pravatar.cc/150?u=alice" },
-        { name: "Bob", src: "https://i.pravatar.cc/150?u=bob" },
-        { name: "Charlie", src: "https://i.pravatar.cc/150?u=charlie" },
-        { name: "David", src: "https://i.pravatar.cc/150?u=david" },
-        { name: "Eve", src: "https://i.pravatar.cc/150?u=eve" },
-      ]}
-      max={4}
-    />
+    <div style={{ display: "flex", flexDirection: "column", width: "100%" }}>
+      <AvatarGroup
+        avatars={[
+          { name: "Alice", src: "https://i.pravatar.cc/150?u=alice" },
+          { name: "Bob", src: "https://i.pravatar.cc/150?u=bob" },
+          { name: "Charlie", src: "https://i.pravatar.cc/150?u=charlie" },
+          { name: "David", src: "https://i.pravatar.cc/150?u=david" },
+          { name: "Eve", src: "https://i.pravatar.cc/150?u=eve" },
+        ]}
+        max={4}
+      />
+    </div>
   ),
+  play: async ({ canvasElement }) => {
+    const group = canvasElement.querySelector('[class*="group"]');
+    if (!(group instanceof HTMLElement)) throw new Error("AvatarGroup root not found");
+    const style = getComputedStyle(group);
+    // row-reverse + flex-end packs the stack to the inline-start. A stretched
+    // column (the docs section) otherwise pins it to the inline-end.
+    // Current Chromium computes `justify-content: flex-end` as `flow-end`.
+    await expect(style.flexDirection).toBe("row-reverse");
+    await expect(["flex-end", "flow-end"]).toContain(style.justifyContent);
+    const box = group.getBoundingClientRect();
+    const first = group.lastElementChild;
+    if (!(first instanceof HTMLElement)) throw new Error("AvatarGroup has no avatars");
+    const avatar = first.getBoundingClientRect();
+    await expect(avatar.left - box.left).toBeLessThan(box.right - avatar.right);
+  },
 };

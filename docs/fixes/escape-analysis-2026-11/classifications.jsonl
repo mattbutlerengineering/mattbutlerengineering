@@ -1,0 +1,329 @@
+{"h": "5948aa621", "escaped": true, "cls": "ui-layout", "found_by": "ux-a11y-audit", "cheapest_gate": "narrow-viewport-check", "note": "menus overflow 375px column"}
+{"h": "714adb317", "escaped": true, "cls": "a11y", "found_by": "ux-a11y-audit", "cheapest_gate": "unit-test", "note": "focus lost when dismiss control unmounted"}
+{"h": "614bfd945", "escaped": false, "cls": "test-only", "found_by": "feature-drain-issue", "cheapest_gate": "integration-test", "note": "random uuid slice collision in test fixture"}
+{"h": "0efe7a4d6", "escaped": true, "cls": "other", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "raw component-call text leaked into chat"}
+{"h": "c39d9c14b", "escaped": false, "cls": "test-only", "found_by": "feature-drain-issue", "cheapest_gate": "none-reasonable", "note": "Stryker config path in mutation tooling"}
+{"h": "5e9ecf99f", "escaped": true, "cls": "domain-logic", "found_by": "code-review-followup", "cheapest_gate": "unit-test", "note": "scarce-table hold ignored chain of larger parties"}
+{"h": "a3566dbaf", "escaped": true, "cls": "concurrency-idempotency", "found_by": "code-review-followup", "cheapest_gate": "integration-test", "note": "waitlist seat and walk-in not atomic"}
+{"h": "5ef2f1769", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "offers shown for half-seated party"}
+{"h": "e62fc9935", "escaped": true, "cls": "domain-logic", "found_by": "unknown", "cheapest_gate": "integration-test", "note": "deposit verdict decided client-side"}
+{"h": "c56c2fcd3", "escaped": true, "cls": "authz-privacy", "found_by": "code-review-followup", "cheapest_gate": "invariant-test", "note": "unauthenticated route disclosed guest details"}
+{"h": "5af8797e2", "escaped": true, "cls": "domain-logic", "found_by": "sentry", "cheapest_gate": "integration-test", "note": "profile/settings auth fail without email claim"}
+{"h": "f49bdfa4e", "escaped": true, "cls": "a11y", "found_by": "site-audit", "cheapest_gate": "axe-in-ci", "note": "2:1 contrast on gold button text"}
+{"h": "4bcd0f0ee", "escaped": false, "cls": "other", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "catalog generator tooling dropped union props"}
+{"h": "e0e1648c3", "escaped": true, "cls": "a11y", "found_by": "site-audit", "cheapest_gate": "e2e-blocking", "note": "Tab order skipped skip link on load"}
+{"h": "fa1efbbb5", "escaped": true, "cls": "domain-logic", "found_by": "code-review-followup", "cheapest_gate": "unit-test", "note": "catalog lacked Heading validation, phantom Navbar search"}
+{"h": "f4d490e9f", "escaped": true, "cls": "ui-layout", "found_by": "ux-a11y-audit", "cheapest_gate": "narrow-viewport-check", "note": "toolbar wrapped at 375px"}
+{"h": "7a09fbafd", "escaped": true, "cls": "silent-failure", "found_by": "sentry", "cheapest_gate": "unit-test", "note": "failed gen turns lacked diagnostics"}
+{"h": "a7574c532", "escaped": true, "cls": "i18n", "found_by": "feature-drain-issue", "cheapest_gate": "none-reasonable", "note": "24-hour times in es-MX replies; model behaviour"}
+{"h": "30aaacb9b", "escaped": true, "cls": "other", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "raw component-call text in chat"}
+{"h": "961b7b541", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "multi-date rows unsorted"}
+{"h": "c0cac95da", "escaped": true, "cls": "a11y", "found_by": "site-audit", "cheapest_gate": "axe-in-ci", "note": "no skip link on gen screens"}
+{"h": "002b7521f", "escaped": true, "cls": "ui-layout", "found_by": "unknown", "cheapest_gate": "e2e-blocking", "note": "signed-out landing could not scroll"}
+{"h": "a9630c80c", "escaped": true, "cls": "concurrency-idempotency", "found_by": "code-review-followup", "cheapest_gate": "integration-test", "note": "409 lacked currentVersion for conflict recovery"}
+{"h": "fc7dccd0a", "escaped": true, "cls": "copy-data-honesty", "found_by": "site-audit", "cheapest_gate": "unit-test", "note": "fake 0,000 painted in proof strip"}
+{"h": "f2fb1f7e3", "escaped": true, "cls": "copy-data-honesty", "found_by": "unknown", "cheapest_gate": "none-reasonable", "note": "shipped snapshot stale up to 7 days"}
+{"h": "d584b9ac9", "escaped": true, "cls": "copy-data-honesty", "found_by": "owner", "cheapest_gate": "reviewer-checklist", "note": "privacy page promised nonexistent analytics toggle"}
+{"h": "dda89b48d", "escaped": false, "cls": "other", "found_by": "feature-drain-issue", "cheapest_gate": "none-reasonable", "note": "motion token refactor labeled fix"}
+{"h": "a5afa1a51", "escaped": true, "cls": "a11y", "found_by": "ux-a11y-audit", "cheapest_gate": "axe-in-ci", "note": "WCAG 3.1.2 missing lang on endonyms"}
+{"h": "b237770a9", "escaped": true, "cls": "config-deploy", "found_by": "sentry", "cheapest_gate": "none-reasonable", "note": "KV free-tier write cap broke rate limiter"}
+{"h": "2d04dea6b", "escaped": true, "cls": "a11y", "found_by": "ux-a11y-audit", "cheapest_gate": "axe-in-ci", "note": "2.5.3 aria-label lacked visible text"}
+{"h": "c6ee9b7ee", "escaped": true, "cls": "a11y", "found_by": "ux-a11y-audit", "cheapest_gate": "axe-in-ci", "note": "2.5.3 row label mismatch"}
+{"h": "5aeea8228", "escaped": true, "cls": "a11y", "found_by": "ux-a11y-audit", "cheapest_gate": "axe-in-ci", "note": "2.5.3 names lacked visible text"}
+{"h": "3885445a0", "escaped": true, "cls": "a11y", "found_by": "ux-a11y-audit", "cheapest_gate": "axe-in-ci", "note": "2.5.3 timeline names mismatch"}
+{"h": "4bd90472b", "escaped": true, "cls": "a11y", "found_by": "ux-a11y-audit", "cheapest_gate": "axe-in-ci", "note": "2.5.3 holiday cell name order"}
+{"h": "f59cd192d", "escaped": true, "cls": "other", "found_by": "code-review-followup", "cheapest_gate": "unit-test", "note": "guest name expanded i18n nesting injection"}
+{"h": "b61954ebe", "escaped": false, "cls": "other", "found_by": "code-review-followup", "cheapest_gate": "none-reasonable", "note": "redundant query invalidation cleanup"}
+{"h": "212c06970", "escaped": true, "cls": "i18n", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "TapeChart ignored locale provider"}
+{"h": "238aa9ed5", "escaped": false, "cls": "other", "found_by": "code-review-followup", "cheapest_gate": "none-reasonable", "note": "unbound getter copy refactor"}
+{"h": "61683dce3", "escaped": true, "cls": "copy-data-honesty", "found_by": "unknown", "cheapest_gate": "unit-test", "note": "failed sign-out said sign-in failed"}
+{"h": "be45a4881", "escaped": true, "cls": "silent-failure", "found_by": "code-review-followup", "cheapest_gate": "unit-test", "note": "background effect failures not reported"}
+{"h": "4d9a11d2e", "escaped": true, "cls": "a11y", "found_by": "ux-a11y-audit", "cheapest_gate": "axe-in-ci", "note": "holiday row name mismatch and missing space"}
+{"h": "4d7154641", "escaped": true, "cls": "authz-privacy", "found_by": "code-review-followup", "cheapest_gate": "invariant-test", "note": "staff could link booking to foreign-venue guest"}
+{"h": "b0949379a", "escaped": false, "cls": "test-only", "found_by": "e2e", "cheapest_gate": "none-reasonable", "note": "UTC day fixture in e2e specs"}
+{"h": "34f66471e", "escaped": false, "cls": "other", "found_by": "unknown", "cheapest_gate": "none-reasonable", "note": "ledger tooling reconcile"}
+{"h": "b6320c409", "escaped": true, "cls": "config-deploy", "found_by": "sentry", "cheapest_gate": "none-reasonable", "note": "stale tab chunk preload error after deploy"}
+{"h": "84f0c8670", "escaped": true, "cls": "silent-failure", "found_by": "code-review-followup", "cheapest_gate": "unit-test", "note": "degraded lookups swallowed silently"}
+{"h": "d8d66aa00", "escaped": true, "cls": "other", "found_by": "unknown", "cheapest_gate": "unit-test", "note": "guest lookup flickered results while typing"}
+{"h": "4eb1254b2", "escaped": true, "cls": "authz-privacy", "found_by": "code-review-followup", "cheapest_gate": "invariant-test", "note": "browser Sentry events sent unredacted PII"}
+{"h": "3dd0a9e19", "escaped": true, "cls": "concurrency-idempotency", "found_by": "code-review-followup", "cheapest_gate": "integration-test", "note": "retry could overwrite terminal waitlist entry, resend SMS"}
+{"h": "faeb4c502", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "empty durationRules threw in estimateDuration"}
+{"h": "82c3bfd5c", "escaped": true, "cls": "other", "found_by": "unknown", "cheapest_gate": "unit-test", "note": "banner sign-in button gave no working feedback"}
+{"h": "1819c9481", "escaped": true, "cls": "domain-logic", "found_by": "code-review-followup", "cheapest_gate": "unit-test", "note": "empty guestId bypassed guest-link gates"}
+{"h": "a4b840635", "escaped": true, "cls": "ui-layout", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "decorative gradient violated ui-quality rule"}
+{"h": "d18892488", "escaped": true, "cls": "concurrency-idempotency", "found_by": "unknown", "cheapest_gate": "unit-test", "note": "double click saved multi-date edit twice"}
+{"h": "ec9453bba", "escaped": false, "cls": "silent-failure", "found_by": "unknown", "cheapest_gate": "none-reasonable", "note": "heartbeat dedupe in monitoring tooling"}
+{"h": "bf36aaefb", "escaped": true, "cls": "a11y", "found_by": "ux-a11y-audit", "cheapest_gate": "unit-test", "note": "slider page keys asymmetric"}
+{"h": "af773c647", "escaped": true, "cls": "copy-data-honesty", "found_by": "ux-a11y-audit", "cheapest_gate": "unit-test", "note": "saved flag stayed true after edit in demo"}
+{"h": "1d50ad789", "escaped": true, "cls": "copy-data-honesty", "found_by": "site-audit", "cheapest_gate": "none-reasonable", "note": "date label mislabeled as snapshot"}
+{"h": "c6de55ad6", "escaped": true, "cls": "a11y", "found_by": "ux-a11y-audit", "cheapest_gate": "e2e-blocking", "note": "kanban lost focus; tape bars unreachable by keyboard"}
+{"h": "d0aee9006", "escaped": true, "cls": "copy-data-honesty", "found_by": "site-audit", "cheapest_gate": "unit-test", "note": "bare dash shown for cost"}
+{"h": "2ee6f2718", "escaped": true, "cls": "copy-data-honesty", "found_by": "feature-drain-issue", "cheapest_gate": "none-reasonable", "note": "duration label misleading"}
+{"h": "3253b58be", "escaped": true, "cls": "copy-data-honesty", "found_by": "feature-drain-issue", "cheapest_gate": "none-reasonable", "note": "eval pass rate undated"}
+{"h": "6aee871e9", "escaped": true, "cls": "copy-data-honesty", "found_by": "feature-drain-issue", "cheapest_gate": "none-reasonable", "note": "duplicate criterion names ambiguous"}
+{"h": "27eb17695", "escaped": true, "cls": "domain-logic", "found_by": "ux-a11y-audit", "cheapest_gate": "unit-test", "note": "combobox kept uncommitted text; calendar empty month"}
+{"h": "4bc8ae776", "escaped": true, "cls": "ui-layout", "found_by": "ux-a11y-audit", "cheapest_gate": "narrow-viewport-check", "note": "timeline connector stopped short"}
+{"h": "6029ddafc", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "multi-date rows oldest-first ordering"}
+{"h": "96a27ecbb", "escaped": true, "cls": "copy-data-honesty", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "placeholder text and ISO dates in replies"}
+{"h": "ba98b6142", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "multi-date rows ambiguous without date"}
+{"h": "6c42fe187", "escaped": true, "cls": "i18n", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "raw ISO shown instead of localized time"}
+{"h": "dc4893107", "escaped": true, "cls": "a11y", "found_by": "ux-a11y-audit", "cheapest_gate": "e2e-blocking", "note": "mobile drawer lacked focus management"}
+{"h": "7584173cf", "escaped": true, "cls": "other", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "chat wrote element calls as prose"}
+{"h": "b5f08cab3", "escaped": true, "cls": "copy-data-honesty", "found_by": "site-audit", "cheapest_gate": "unit-test", "note": "literal unicode escapes rendered"}
+{"h": "5c9473d2c", "escaped": true, "cls": "ui-layout", "found_by": "ux-a11y-audit", "cheapest_gate": "narrow-viewport-check", "note": "room cards collapsed; past stays accepted"}
+{"h": "17b97b04e", "escaped": true, "cls": "a11y", "found_by": "ux-a11y-audit", "cheapest_gate": "unit-test", "note": "context menu not keyboard reachable"}
+{"h": "75760ec75", "escaped": true, "cls": "other", "found_by": "site-audit", "cheapest_gate": "none-reasonable", "note": "nav/footer missing links"}
+{"h": "90f8d671c", "escaped": true, "cls": "a11y", "found_by": "ux-a11y-audit", "cheapest_gate": "axe-in-ci", "note": "23px target under 24px WCAG 2.5.8"}
+{"h": "d48784b4e", "escaped": true, "cls": "domain-logic", "found_by": "ux-a11y-audit", "cheapest_gate": "unit-test", "note": "whitespace-only required text accepted"}
+{"h": "a45fdf920", "escaped": true, "cls": "config-deploy", "found_by": "unknown", "cheapest_gate": "e2e-blocking", "note": "Zod eval probe tripped CSP"}
+{"h": "c2322bcd7", "escaped": true, "cls": "a11y", "found_by": "ux-a11y-audit", "cheapest_gate": "axe-in-ci", "note": "input unnamed for assistive tech"}
+{"h": "77b2c586d", "escaped": true, "cls": "a11y", "found_by": "ux-a11y-audit", "cheapest_gate": "axe-in-ci", "note": "ghost buttons under 24px target"}
+{"h": "45ba8cbca", "escaped": true, "cls": "config-deploy", "found_by": "unknown", "cheapest_gate": "e2e-blocking", "note": "304 paired fresh CSP nonce with cached HTML"}
+{"h": "12d48db64", "escaped": true, "cls": "ui-layout", "found_by": "ux-a11y-audit", "cheapest_gate": "narrow-viewport-check", "note": "PinInput overflowed narrow card"}
+{"h": "24e909e91", "escaped": true, "cls": "a11y", "found_by": "ux-a11y-audit", "cheapest_gate": "axe-in-ci", "note": "duplicate region names; snippet unfocusable"}
+{"h": "f17261907", "escaped": true, "cls": "copy-data-honesty", "found_by": "ux-a11y-audit", "cheapest_gate": "unit-test", "note": "unknown path titled as Details"}
+{"h": "3a2c247fd", "escaped": true, "cls": "a11y", "found_by": "ux-a11y-audit", "cheapest_gate": "axe-in-ci", "note": "footer links under 24px target"}
+{"h": "a3fe4245e", "escaped": true, "cls": "a11y", "found_by": "ux-a11y-audit", "cheapest_gate": "axe-in-ci", "note": "scrolling table wrapper not keyboard-reachable"}
+{"h": "bdbfb6d33", "escaped": true, "cls": "a11y", "found_by": "ux-a11y-audit", "cheapest_gate": "axe-in-ci", "note": "pages lacked document titles"}
+{"h": "65c372bcc", "escaped": true, "cls": "a11y", "found_by": "ux-a11y-audit", "cheapest_gate": "axe-in-ci", "note": "not-found pages had no h1"}
+{"h": "691fbd198", "escaped": true, "cls": "a11y", "found_by": "ux-a11y-audit", "cheapest_gate": "axe-in-ci", "note": "logo button under 24px target"}
+{"h": "4366ee805", "escaped": true, "cls": "config-deploy", "found_by": "site-audit", "cheapest_gate": "e2e-blocking", "note": "crawlers got homepage title in raw HTML"}
+{"h": "12dacac3a", "escaped": true, "cls": "a11y", "found_by": "ux-a11y-audit", "cheapest_gate": "axe-in-ci", "note": "availability map click targets confusing for AT"}
+{"h": "6815348d2", "escaped": true, "cls": "copy-data-honesty", "found_by": "site-audit", "cheapest_gate": "none-reasonable", "note": "sidebar count looked inconsistent"}
+{"h": "165678463", "escaped": true, "cls": "copy-data-honesty", "found_by": "ux-a11y-audit", "cheapest_gate": "none-reasonable", "note": "availability map repeated regular week"}
+{"h": "6f8426fdb", "escaped": true, "cls": "config-deploy", "found_by": "feature-drain-issue", "cheapest_gate": "e2e-blocking", "note": "/index.html served noindex soft-404"}
+{"h": "4929a0973", "escaped": true, "cls": "copy-data-honesty", "found_by": "owner", "cheapest_gate": "unit-test", "note": "Tonight control mislabeled selected date"}
+{"h": "f9562b089", "escaped": true, "cls": "a11y", "found_by": "ux-a11y-audit", "cheapest_gate": "axe-in-ci", "note": "axe-serious violations on demos"}
+{"h": "6e7569f33", "escaped": true, "cls": "ui-layout", "found_by": "feature-drain-issue", "cheapest_gate": "e2e-blocking", "note": "public guest pages could not scroll document"}
+{"h": "74b1ebfe4", "escaped": true, "cls": "ui-layout", "found_by": "ux-a11y-audit", "cheapest_gate": "e2e-blocking", "note": "demo content hidden under floating controls"}
+{"h": "42749dfff", "escaped": false, "cls": "other", "found_by": "feature-drain-issue", "cheapest_gate": "none-reasonable", "note": "duration token refactor labeled fix"}
+{"h": "33db5ec48", "escaped": false, "cls": "other", "found_by": "feature-drain-issue", "cheapest_gate": "none-reasonable", "note": "docs-site vibe switcher missing option"}
+{"h": "b8fa17b95", "escaped": true, "cls": "a11y", "found_by": "code-review-followup", "cheapest_gate": "unit-test", "note": "duplicate holiday toggles; focus after dialog"}
+{"h": "23ddd2446", "escaped": true, "cls": "other", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "p nested in p React warning"}
+{"h": "abbd2f063", "escaped": false, "cls": "test-only", "found_by": "feature-drain-issue", "cheapest_gate": "none-reasonable", "note": "e2e spec tested removed demos index"}
+{"h": "4030ed2f0", "escaped": true, "cls": "copy-data-honesty", "found_by": "feature-drain-issue", "cheapest_gate": "none-reasonable", "note": "metrics.json stale weekly refresh"}
+{"h": "1776b39b2", "escaped": true, "cls": "domain-logic", "found_by": "owner", "cheapest_gate": "unit-test", "note": "replaced regular week still listed"}
+{"h": "00076cc51", "escaped": true, "cls": "domain-logic", "found_by": "code-review-followup", "cheapest_gate": "unit-test", "note": "tonight changes vanished past midnight"}
+{"h": "60711c196", "escaped": true, "cls": "a11y", "found_by": "ux-a11y-audit", "cheapest_gate": "unit-test", "note": "TimePicker ArrowDown did not open list"}
+{"h": "d498fe0c3", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "none-reasonable", "note": "Gemini forced render produced hollow elements live"}
+{"h": "46172a280", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "none-reasonable", "note": "Gemini parallel render calls repeated keys"}
+{"h": "124d31bed", "escaped": true, "cls": "copy-data-honesty", "found_by": "site-audit", "cheapest_gate": "unit-test", "note": "data-quality flags bare dash"}
+{"h": "1c9838d59", "escaped": true, "cls": "ui-layout", "found_by": "site-audit", "cheapest_gate": "reviewer-checklist", "note": "blank main during chunk load; no loading state"}
+{"h": "8258c18cb", "escaped": false, "cls": "test-only", "found_by": "ux-a11y-audit", "cheapest_gate": "none-reasonable", "note": "ui-quality capture lacked mock"}
+{"h": "221c0277b", "escaped": true, "cls": "ui-layout", "found_by": "site-audit", "cheapest_gate": "reviewer-checklist", "note": "demos index missing sidebar/footer"}
+{"h": "3c912189a", "escaped": true, "cls": "a11y", "found_by": "ux-a11y-audit", "cheapest_gate": "axe-in-ci", "note": "missing h1 during loading state"}
+{"h": "1f401a3eb", "escaped": true, "cls": "config-deploy", "found_by": "site-audit", "cheapest_gate": "unit-test", "note": "sitemap omitted pages"}
+{"h": "931f9e231", "escaped": true, "cls": "copy-data-honesty", "found_by": "site-audit", "cheapest_gate": "reviewer-checklist", "note": "component counts disagree without explanation"}
+{"h": "d5dbd89ac", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "past day editable; edit hours action wrong"}
+{"h": "6f33c086b", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "name chip times wrong; overlap message misplaced"}
+{"h": "69d52ad58", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "service chip placed Brunch at 11 PM"}
+{"h": "6204d5dc7", "escaped": true, "cls": "ui-layout", "found_by": "ux-a11y-audit", "cheapest_gate": "narrow-viewport-check", "note": "example layouts broken at medium widths"}
+{"h": "9a1e8677c", "escaped": true, "cls": "ui-layout", "found_by": "ux-a11y-audit", "cheapest_gate": "narrow-viewport-check", "note": "demo pages overflow 375px"}
+{"h": "4949f1404", "escaped": true, "cls": "domain-logic", "found_by": "ux-a11y-audit", "cheapest_gate": "unit-test", "note": "demo form validation accepted spaces-only password"}
+{"h": "15fbe9c1c", "escaped": true, "cls": "ui-layout", "found_by": "ux-a11y-audit", "cheapest_gate": "narrow-viewport-check", "note": "date picker translucent and mispositioned"}
+{"h": "699e916e7", "escaped": true, "cls": "ui-layout", "found_by": "ux-a11y-audit", "cheapest_gate": "narrow-viewport-check", "note": "narrow demos overflow; dark overlays translucent"}
+{"h": "c17b303a6", "escaped": true, "cls": "authz-privacy", "found_by": "sentry", "cheapest_gate": "invariant-test", "note": "transaction bypassed venue RLS context"}
+{"h": "770e039a5", "escaped": true, "cls": "ui-layout", "found_by": "ux-a11y-audit", "cheapest_gate": "narrow-viewport-check", "note": "narrow example pages scroll sideways"}
+{"h": "a47252b16", "escaped": true, "cls": "authz-privacy", "found_by": "sentry", "cheapest_gate": "invariant-test", "note": "tables read without venueId gave 4xx"}
+{"h": "863dbbf23", "escaped": true, "cls": "ui-layout", "found_by": "ux-a11y-audit", "cheapest_gate": "narrow-viewport-check", "note": "demo chrome covered content; empty combobox panel"}
+{"h": "0e03eca64", "escaped": true, "cls": "copy-data-honesty", "found_by": "site-audit", "cheapest_gate": "unit-test", "note": "chart captions miscounted unmeasured days"}
+{"h": "8ab4f5592", "escaped": true, "cls": "a11y", "found_by": "ux-a11y-audit", "cheapest_gate": "axe-in-ci", "note": "Steps/menus unreachable by keyboard"}
+{"h": "dc76e6f4e", "escaped": true, "cls": "ui-layout", "found_by": "site-audit", "cheapest_gate": "e2e-blocking", "note": "mobile menu stayed open after Back"}
+{"h": "540e5e98f", "escaped": true, "cls": "a11y", "found_by": "ux-a11y-audit", "cheapest_gate": "unit-test", "note": "PinInput controlled bug; missing aria-pressed"}
+{"h": "a0d7bd782", "escaped": true, "cls": "a11y", "found_by": "ux-a11y-audit", "cheapest_gate": "unit-test", "note": "ArrowDown did not open DropdownMenu"}
+{"h": "a5bc3f0bd", "escaped": true, "cls": "domain-logic", "found_by": "ux-a11y-audit", "cheapest_gate": "unit-test", "note": "pagination ellipsis hid a single page"}
+{"h": "be1cebac5", "escaped": true, "cls": "ui-layout", "found_by": "site-audit", "cheapest_gate": "narrow-viewport-check", "note": "proof cards overflow at 320px; unnamed toggle"}
+{"h": "67351edde", "escaped": true, "cls": "config-deploy", "found_by": "site-audit", "cheapest_gate": "unit-test", "note": "routes shared homepage canonical tags"}
+{"h": "2fe48e7c9", "escaped": true, "cls": "ui-layout", "found_by": "ux-a11y-audit", "cheapest_gate": "narrow-viewport-check", "note": "popover/tooltip rendered off viewport"}
+{"h": "2c7cfec6a", "escaped": true, "cls": "ui-layout", "found_by": "site-audit", "cheapest_gate": "reviewer-checklist", "note": "missing spacing between table and cards"}
+{"h": "c12a876ed", "escaped": true, "cls": "ui-layout", "found_by": "ux-a11y-audit", "cheapest_gate": "narrow-viewport-check", "note": "footer columns misaligned"}
+{"h": "d5c72e86f", "escaped": true, "cls": "concurrency-idempotency", "found_by": "sentry", "cheapest_gate": "unit-test", "note": "SSE opened before venueId resolved gave 4xx"}
+{"h": "f01fe0fea", "escaped": false, "cls": "test-only", "found_by": "e2e", "cheapest_gate": "none-reasonable", "note": "e2e clock pin flake"}
+{"h": "55ba2cac2", "escaped": true, "cls": "ui-layout", "found_by": "site-audit", "cheapest_gate": "e2e-blocking", "note": "demos route rendered empty main"}
+{"h": "426445f71", "escaped": true, "cls": "ui-layout", "found_by": "ux-a11y-audit", "cheapest_gate": "narrow-viewport-check", "note": "hidden status lines stretched page past viewport"}
+{"h": "ff6a7ab7f", "escaped": true, "cls": "ui-layout", "found_by": "e2e", "cheapest_gate": "unit-test", "note": "subpixel indicator flaked e2e; minor visual"}
+{"h": "23443dda9", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "See it live linked wrong target"}
+{"h": "397b7e02b", "escaped": false, "cls": "other", "found_by": "unknown", "cheapest_gate": "none-reasonable", "note": "ui-quality tooling finding closure"}
+{"h": "e6dfac34d", "escaped": true, "cls": "a11y", "found_by": "ux-a11y-audit", "cheapest_gate": "axe-in-ci", "note": "open menu contrast failure"}
+{"h": "d1fb2c7da", "escaped": true, "cls": "a11y", "found_by": "ux-a11y-audit", "cheapest_gate": "axe-in-ci", "note": "ambiguous link text"}
+{"h": "403092c96", "escaped": true, "cls": "domain-logic", "found_by": "e2e", "cheapest_gate": "integration-test", "note": "venue delete 409 with floor plans; journey failed"}
+{"h": "10af5d317", "escaped": true, "cls": "ui-layout", "found_by": "ux-a11y-audit", "cheapest_gate": "narrow-viewport-check", "note": "toolbar wrapped to two rows"}
+{"h": "91cf94a96", "escaped": false, "cls": "config-deploy", "found_by": "sentry", "cheapest_gate": "none-reasonable", "note": "Sentry noise from WebDriver sessions"}
+{"h": "1e42660ec", "escaped": true, "cls": "ui-layout", "found_by": "ux-a11y-audit", "cheapest_gate": "narrow-viewport-check", "note": "toasts overlapped drawer title"}
+{"h": "66647e406", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "Settings vs Booking rules validation mismatch"}
+{"h": "0de06300c", "escaped": true, "cls": "copy-data-honesty", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "error message wrong cardinality"}
+{"h": "1c922010b", "escaped": true, "cls": "copy-data-honesty", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "History wording for seven-day week"}
+{"h": "c35a5f01e", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "validation reported only first bad field"}
+{"h": "d03f2c8e8", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "integration-test", "note": "tables on inactive floor plan bookable"}
+{"h": "2eaccc0ee", "escaped": true, "cls": "domain-logic", "found_by": "unknown", "cheapest_gate": "integration-test", "note": "no refresh token; duplicate renewers; no revoke"}
+{"h": "860812528", "escaped": true, "cls": "copy-data-honesty", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "misleading Why this day text"}
+{"h": "2b0b116ee", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "new service started at wrong hours"}
+{"h": "789dfd65f", "escaped": true, "cls": "ui-layout", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "two days controls shown"}
+{"h": "a162fcc10", "escaped": true, "cls": "copy-data-honesty", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "toast wording wrong"}
+{"h": "a4224a269", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "Close offered on closed day"}
+{"h": "baf62ba37", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "special hours guessed Sunday services"}
+{"h": "627491e46", "escaped": false, "cls": "test-only", "found_by": "sentry", "cheapest_gate": "none-reasonable", "note": "e2e mocks invalid; Sentry from mock"}
+{"h": "958d02902", "escaped": true, "cls": "copy-data-honesty", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "line text disagreed with calendar times"}
+{"h": "5c028875d", "escaped": true, "cls": "ui-layout", "found_by": "feature-drain-issue", "cheapest_gate": "narrow-viewport-check", "note": "controls wider than phone"}
+{"h": "0aea43b33", "escaped": true, "cls": "ui-layout", "found_by": "ux-a11y-audit", "cheapest_gate": "narrow-viewport-check", "note": "TextArea default 20 columns"}
+{"h": "747e63ae0", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "Close stuck when bookings check failed"}
+{"h": "8e62439f6", "escaped": false, "cls": "config-deploy", "found_by": "unknown", "cheapest_gate": "none-reasonable", "note": "CI workflow permission for snapshot"}
+{"h": "d1e50702d", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "duplicate schedule silently took over regular week"}
+{"h": "2f9f8c925", "escaped": true, "cls": "ui-layout", "found_by": "feature-drain-issue", "cheapest_gate": "narrow-viewport-check", "note": "Edit button misaligned with long line"}
+{"h": "ef5c40220", "escaped": true, "cls": "ui-layout", "found_by": "feature-drain-issue", "cheapest_gate": "reviewer-checklist", "note": "More actions ordering on phone"}
+{"h": "3a6ab8270", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "integration-test", "note": "onboarding saved wrong hours closing early"}
+{"h": "ea9afa7d1", "escaped": true, "cls": "a11y", "found_by": "ux-a11y-audit", "cheapest_gate": "unit-test", "note": "demos/menu keyboard contract broken"}
+{"h": "d6188b7ce", "escaped": true, "cls": "a11y", "found_by": "feature-drain-issue", "cheapest_gate": "e2e-blocking", "note": "focus not restored on Escape"}
+{"h": "e0c92f928", "escaped": true, "cls": "ui-layout", "found_by": "ux-a11y-audit", "cheapest_gate": "narrow-viewport-check", "note": "demos clip, stall, or stay English"}
+{"h": "32881a06b", "escaped": true, "cls": "ui-layout", "found_by": "feature-drain-issue", "cheapest_gate": "reviewer-checklist", "note": "translucent popover over timeline"}
+{"h": "a7fe7b554", "escaped": true, "cls": "copy-data-honesty", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "blank window described as 30 days"}
+{"h": "31a87faaa", "escaped": false, "cls": "test-only", "found_by": "sentry", "cheapest_gate": "none-reasonable", "note": "mock faked 500 triggering Sentry"}
+{"h": "424962110", "escaped": true, "cls": "ui-layout", "found_by": "feature-drain-issue", "cheapest_gate": "reviewer-checklist", "note": "today hard to see"}
+{"h": "f551bc6d6", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "Create another schedule errored"}
+{"h": "cd51fc050", "escaped": true, "cls": "copy-data-honesty", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "redundant Regular week tag"}
+{"h": "4d5cc0610", "escaped": true, "cls": "ui-layout", "found_by": "feature-drain-issue", "cheapest_gate": "reviewer-checklist", "note": "Guest preview heading too large"}
+{"h": "39d5aba47", "escaped": true, "cls": "ui-layout", "found_by": "site-audit", "cheapest_gate": "narrow-viewport-check", "note": "weekly cards overflow at 320px"}
+{"h": "c45b0f102", "escaped": true, "cls": "ui-layout", "found_by": "ux-a11y-audit", "cheapest_gate": "reviewer-checklist", "note": "light panel went dark in dark mode"}
+{"h": "1aa7563de", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "planning holiday defaulted to Closed"}
+{"h": "a16904f42", "escaped": true, "cls": "ui-layout", "found_by": "feature-drain-issue", "cheapest_gate": "narrow-viewport-check", "note": "Details dropped onto own row"}
+{"h": "89ab9a05b", "escaped": true, "cls": "domain-logic", "found_by": "ux-a11y-audit", "cheapest_gate": "unit-test", "note": "demo selects discarded values"}
+{"h": "7f582f24d", "escaped": true, "cls": "a11y", "found_by": "ux-a11y-audit", "cheapest_gate": "axe-in-ci", "note": "missing aria-invalid/describedby"}
+{"h": "ff3fc77bd", "escaped": true, "cls": "a11y", "found_by": "ux-a11y-audit", "cheapest_gate": "e2e-blocking", "note": "focus lost after dialog close"}
+{"h": "16f6d6a05", "escaped": true, "cls": "authz-privacy", "found_by": "sentry", "cheapest_gate": "invariant-test", "note": "guest history 403 under RLS; waitlist needed Redis"}
+{"h": "96410f0ad", "escaped": true, "cls": "copy-data-honesty", "found_by": "feature-drain-issue", "cheapest_gate": "reviewer-checklist", "note": "needless 0 closures text"}
+{"h": "f3deea83b", "escaped": true, "cls": "ui-layout", "found_by": "feature-drain-issue", "cheapest_gate": "reviewer-checklist", "note": "drawer fields stacked"}
+{"h": "0cca666a8", "escaped": true, "cls": "copy-data-honesty", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "duplicate message"}
+{"h": "8ad5c10c0", "escaped": true, "cls": "copy-data-honesty", "found_by": "feature-drain-issue", "cheapest_gate": "reviewer-checklist", "note": "subtitle unclear"}
+{"h": "977915f91", "escaped": true, "cls": "ui-layout", "found_by": "feature-drain-issue", "cheapest_gate": "narrow-viewport-check", "note": "toasts covered drawer header"}
+{"h": "23a563eaf", "escaped": true, "cls": "ui-layout", "found_by": "site-audit", "cheapest_gate": "narrow-viewport-check", "note": "sha painted outside card"}
+{"h": "59a9cfab5", "escaped": true, "cls": "ui-layout", "found_by": "ux-a11y-audit", "cheapest_gate": "narrow-viewport-check", "note": "values overflowed at 375px"}
+{"h": "3c43adddb", "escaped": true, "cls": "copy-data-honesty", "found_by": "ux-a11y-audit", "cheapest_gate": "unit-test", "note": "missing space before code"}
+{"h": "3fb1235d5", "escaped": true, "cls": "domain-logic", "found_by": "ux-a11y-audit", "cheapest_gate": "unit-test", "note": "tape chart dates shifted by UTC"}
+{"h": "5973e6094", "escaped": true, "cls": "a11y", "found_by": "ux-a11y-audit", "cheapest_gate": "e2e-blocking", "note": "focus not moved after invalid submit"}
+{"h": "d9e4e4af1", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "Undo missing for series ops; counts lost"}
+{"h": "ccb10690d", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "refusal consumed confirmed action"}
+{"h": "115c870b8", "escaped": true, "cls": "i18n", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "change summaries English only"}
+{"h": "d0b63178e", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "integration-test", "note": "closure notice promised refund not recorded"}
+{"h": "21a514353", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "schedule preview missed use_schedule dates"}
+{"h": "70d7c8314", "escaped": true, "cls": "a11y", "found_by": "ux-a11y-audit", "cheapest_gate": "axe-in-ci", "note": "ImageUpload axe; alertdialog role; double announce"}
+{"h": "83100d6e4", "escaped": true, "cls": "concurrency-idempotency", "found_by": "feature-drain-issue", "cheapest_gate": "integration-test", "note": "Undo ordering by time not version; lock race"}
+{"h": "0a78860c1", "escaped": true, "cls": "concurrency-idempotency", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "409 named only latest change"}
+{"h": "673b90d7b", "escaped": true, "cls": "concurrency-idempotency", "found_by": "feature-drain-issue", "cheapest_gate": "integration-test", "note": "series edit skipped version conflict"}
+{"h": "a02c3bf96", "escaped": true, "cls": "a11y", "found_by": "feature-drain-issue", "cheapest_gate": "e2e-blocking", "note": "focus landed wrong after Cancel"}
+{"h": "eb42b1dcd", "escaped": true, "cls": "a11y", "found_by": "ux-a11y-audit", "cheapest_gate": "axe-in-ci", "note": "accessible name lacked visible label"}
+{"h": "2e0ff5f6d", "escaped": true, "cls": "i18n", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "layer labels not translated"}
+{"h": "1ec1e473f", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "refusal lacked stranded booking list"}
+{"h": "abc6811fe", "escaped": true, "cls": "a11y", "found_by": "feature-drain-issue", "cheapest_gate": "e2e-blocking", "note": "Escape focus landed wrong"}
+{"h": "8fa119778", "escaped": true, "cls": "concurrency-idempotency", "found_by": "feature-drain-issue", "cheapest_gate": "integration-test", "note": "win-back sends lacked record/cooldown idempotency"}
+{"h": "91589dca3", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "revert refusal lacked booking names"}
+{"h": "2f20e3b2c", "escaped": true, "cls": "concurrency-idempotency", "found_by": "feature-drain-issue", "cheapest_gate": "integration-test", "note": "Overwrite could clobber unseen version"}
+{"h": "fe1d5298e", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "scope switch lost draft edits"}
+{"h": "f87aed015", "escaped": true, "cls": "ui-layout", "found_by": "ux-a11y-audit", "cheapest_gate": "unit-test", "note": "Dropdown lists clipped inside Dialog; needs layered positioning test"}
+{"h": "b1a372942", "escaped": true, "cls": "i18n", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "API errors English in es/fr locales; catalog parity test"}
+{"h": "5f0c1b66b", "escaped": true, "cls": "concurrency-idempotency", "found_by": "code-review-followup", "cheapest_gate": "integration-test", "note": "Compare save overwrote colleague edit without 409; version pinning"}
+{"h": "8b49ecf94", "escaped": true, "cls": "ui-layout", "found_by": "ux-a11y-audit", "cheapest_gate": "narrow-viewport-check", "note": "Phone toolbar hid calendar; keyboard paths missing"}
+{"h": "b8c73fa9a", "escaped": true, "cls": "ui-layout", "found_by": "ux-a11y-audit", "cheapest_gate": "narrow-viewport-check", "note": "Select list off-screen for low triggers; no flip"}
+{"h": "ea52e9b13", "escaped": true, "cls": "ui-layout", "found_by": "ux-a11y-audit", "cheapest_gate": "unit-test", "note": "Toast covered Generate button; triple error report"}
+{"h": "7fd9c616c", "escaped": true, "cls": "a11y", "found_by": "ux-a11y-audit", "cheapest_gate": "unit-test", "note": "Stale focus requests, focus behind command palette"}
+{"h": "b1d01ff4e", "escaped": true, "cls": "domain-logic", "found_by": "ux-a11y-audit", "cheapest_gate": "unit-test", "note": "Closing closed date twice; reopen leaves closed"}
+{"h": "5d3f9764a", "escaped": true, "cls": "ui-layout", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "Drag shadow never rendered; wrong konva API"}
+{"h": "2122ae742", "escaped": true, "cls": "ui-layout", "found_by": "ux-a11y-audit", "cheapest_gate": "unit-test", "note": "Emoji icon grid, blank streaming preview in playground"}
+{"h": "cc90be7cc", "escaped": true, "cls": "a11y", "found_by": "ux-a11y-audit", "cheapest_gate": "unit-test", "note": "Timeline keys acted behind open dialogs"}
+{"h": "13dcf6633", "escaped": true, "cls": "silent-failure", "found_by": "ux-a11y-audit", "cheapest_gate": "unit-test", "note": "Dead-end refusals and load failures left Managers stuck"}
+{"h": "be684ebf7", "escaped": true, "cls": "copy-data-honesty", "found_by": "code-review-followup", "cheapest_gate": "unit-test", "note": "Agent claimed nothing changed after possibly committed write"}
+{"h": "2f647c672", "escaped": true, "cls": "copy-data-honesty", "found_by": "code-review-followup", "cheapest_gate": "unit-test", "note": "Wrong date in toast, misleading 502 and pause copy"}
+{"h": "b86da8372", "escaped": true, "cls": "domain-logic", "found_by": "ux-a11y-audit", "cheapest_gate": "unit-test", "note": "Drafts lost; bulk edit acted on wrong target"}
+{"h": "829944851", "escaped": true, "cls": "domain-logic", "found_by": "ux-a11y-audit", "cheapest_gate": "unit-test", "note": "Step 2 refusals dead-end; wrong closure wording"}
+{"h": "29379c34e", "escaped": true, "cls": "a11y", "found_by": "ux-a11y-audit", "cheapest_gate": "unit-test", "note": "Focus landed behind details surface after Walk-in"}
+{"h": "887198e9f", "escaped": true, "cls": "domain-logic", "found_by": "code-review-followup", "cheapest_gate": "integration-test", "note": "Reopen/retry flows misled Managers, stranded guests"}
+{"h": "288ab67ca", "escaped": true, "cls": "a11y", "found_by": "ux-a11y-audit", "cheapest_gate": "narrow-viewport-check", "note": "Dialogs under drawer on phone; focus not returned"}
+{"h": "dd6a0cd94", "escaped": true, "cls": "domain-logic", "found_by": "ux-a11y-audit", "cheapest_gate": "unit-test", "note": "Regular-week change opened closed days; drafts lost"}
+{"h": "36ade637f", "escaped": true, "cls": "ui-layout", "found_by": "ux-a11y-audit", "cheapest_gate": "narrow-viewport-check", "note": "Dialog panel see-through; primary action clipped"}
+{"h": "0fe18cf71", "escaped": true, "cls": "other", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "Perf: 60-table drag frame rate; mostly perf feature"}
+{"h": "b9b2e490a", "escaped": true, "cls": "a11y", "found_by": "ux-a11y-audit", "cheapest_gate": "axe-in-ci", "note": "Playground missing landmarks; failed ui-quality audit"}
+{"h": "3be9ea4f9", "escaped": true, "cls": "silent-failure", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "Journey API calls failed on transient network errors"}
+{"h": "263713898", "escaped": false, "cls": "a11y", "found_by": "ux-a11y-audit", "cheapest_gate": "unit-test", "note": "Refactor of rAF focus to documented pattern"}
+{"h": "e6d241134", "escaped": true, "cls": "copy-data-honesty", "found_by": "code-review-followup", "cheapest_gate": "unit-test", "note": "BarChart misread 'per week' as multiplier; wrong numbers"}
+{"h": "083fbaa09", "escaped": true, "cls": "concurrency-idempotency", "found_by": "ux-a11y-audit", "cheapest_gate": "unit-test", "note": "Double-clicked generate lost table and prompt"}
+{"h": "0096475eb", "escaped": true, "cls": "ui-layout", "found_by": "ux-a11y-audit", "cheapest_gate": "narrow-viewport-check", "note": "Floor-plan editor not stacked on phones"}
+{"h": "eaa1c669d", "escaped": true, "cls": "ui-layout", "found_by": "ux-a11y-audit", "cheapest_gate": "unit-test", "note": "Nested dialogs not dismissed; large generations unfinished"}
+{"h": "b39d18bf2", "escaped": false, "cls": "test-only", "found_by": "feature-drain-issue", "cheapest_gate": "none-reasonable", "note": "Test mock lacked Label/Tag; main red"}
+{"h": "7e72a9bbb", "escaped": false, "cls": "test-only", "found_by": "feature-drain-issue", "cheapest_gate": "none-reasonable", "note": "Test mock lacked Label/Tag"}
+{"h": "ad2f684b6", "escaped": true, "cls": "ui-layout", "found_by": "ux-a11y-audit", "cheapest_gate": "axe-in-ci", "note": "Missing error states and ui-quality tells"}
+{"h": "f2c5b8b8a", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "Expired session showed 'Session expired' instead of login"}
+{"h": "d7328725e", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "integration-test", "note": "Series reopen skipped skips and edited dates"}
+{"h": "a473af6c0", "escaped": true, "cls": "copy-data-honesty", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "Table art ignored stored footprint and party size"}
+{"h": "fa78c243f", "escaped": false, "cls": "ui-layout", "found_by": "feature-drain-issue", "cheapest_gate": "none-reasonable", "note": "Token usage cleanup in playground styles"}
+{"h": "1281dd9f5", "escaped": true, "cls": "a11y", "found_by": "ux-a11y-audit", "cheapest_gate": "unit-test", "note": "Overlay focus handling gaps across rialto"}
+{"h": "839d93b82", "escaped": true, "cls": "ui-layout", "found_by": "ux-a11y-audit", "cheapest_gate": "narrow-viewport-check", "note": "Floor-plan card text overflowed"}
+{"h": "66bf81141", "escaped": false, "cls": "test-only", "found_by": "e2e", "cheapest_gate": "none-reasonable", "note": "Hover translateY made E2E Save flaky"}
+{"h": "81606e037", "escaped": false, "cls": "other", "found_by": "feature-drain-issue", "cheapest_gate": "none-reasonable", "note": "Marketing metrics sensor messaging and retry"}
+{"h": "9ba889fab", "escaped": true, "cls": "copy-data-honesty", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "History said 'a teammate' not name"}
+{"h": "df7022294", "escaped": true, "cls": "concurrency-idempotency", "found_by": "ux-a11y-audit", "cheapest_gate": "unit-test", "note": "Playground sign-out/generate races"}
+{"h": "ec6ac5bb6", "escaped": true, "cls": "a11y", "found_by": "site-audit", "cheapest_gate": "reviewer-checklist", "note": "Landing lacked site nav; low contrast subtitle"}
+{"h": "90c222242", "escaped": true, "cls": "copy-data-honesty", "found_by": "site-audit", "cheapest_gate": "invariant-test", "note": "Rialto component count inconsistent across pages"}
+{"h": "aabb76fe2", "escaped": true, "cls": "copy-data-honesty", "found_by": "site-audit", "cheapest_gate": "reviewer-checklist", "note": "Stale live feeds presented as current"}
+{"h": "58cdc3d89", "escaped": true, "cls": "copy-data-honesty", "found_by": "site-audit", "cheapest_gate": "unit-test", "note": "Metrics count gates misformatted; stale evals unflagged"}
+{"h": "009029c4b", "escaped": true, "cls": "config-deploy", "found_by": "site-audit", "cheapest_gate": "none-reasonable", "note": "favicon.ico served 404 page"}
+{"h": "5a40f38ac", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "integration-test", "note": "Operating hours accepted empty open/close time"}
+{"h": "eaba57480", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "Custom table tint hidden when status available"}
+{"h": "aa5d94040", "escaped": true, "cls": "a11y", "found_by": "ux-a11y-audit", "cheapest_gate": "unit-test", "note": "Focus trap lost on Tab in walk-in dialog"}
+{"h": "bfea3e902", "escaped": true, "cls": "copy-data-honesty", "found_by": "site-audit", "cheapest_gate": "invariant-test", "note": "Duplicate page titles and meta descriptions"}
+{"h": "35942092d", "escaped": false, "cls": "other", "found_by": "feature-drain-issue", "cheapest_gate": "none-reasonable", "note": "Motion policy trim, not a defect"}
+{"h": "49667512a", "escaped": false, "cls": "other", "found_by": "feature-drain-issue", "cheapest_gate": "none-reasonable", "note": "Motion policy trim"}
+{"h": "2ff5d7af0", "escaped": false, "cls": "other", "found_by": "feature-drain-issue", "cheapest_gate": "none-reasonable", "note": "Bound decorative loops; perf/motion policy"}
+{"h": "83a8ef775", "escaped": false, "cls": "other", "found_by": "feature-drain-issue", "cheapest_gate": "none-reasonable", "note": "Motion policy trim"}
+{"h": "3043007a5", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "Waitlist SMS truncation cut manage link"}
+{"h": "9c2450793", "escaped": true, "cls": "config-deploy", "found_by": "feature-drain-issue", "cheapest_gate": "none-reasonable", "note": "Peer range excluded version in use"}
+{"h": "10088f676", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "integration-test", "note": "Failed Stripe refund stayed 'done'"}
+{"h": "c1c4ed4ba", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "integration-test", "note": "Unavailable table reported as 409 conflict"}
+{"h": "3dd18d832", "escaped": true, "cls": "domain-logic", "found_by": "code-review-followup", "cheapest_gate": "integration-test", "note": "Refund 'done' while deposit rolled back to held"}
+{"h": "d96b81935", "escaped": false, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "Pins walk-ins exempt from coverCap; test only"}
+{"h": "7dcaeda24", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "Now-line vanished after venue midnight"}
+{"h": "e48bd1fc0", "escaped": true, "cls": "domain-logic", "found_by": "code-review-followup", "cheapest_gate": "integration-test", "note": "Refund job edge cases: captured deposits, retries"}
+{"h": "aa21a9dc9", "escaped": true, "cls": "domain-logic", "found_by": "code-review-followup", "cheapest_gate": "integration-test", "note": "Closure emitted no SSE; reminders not re-timed; edit race"}
+{"h": "baf266470", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "History filter used UTC days; banner never showed"}
+{"h": "2ae4a2fb0", "escaped": false, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "Undo feature added; feature labeled fix"}
+{"h": "d50e042b7", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "Quick setup accepted days legacy reader closes"}
+{"h": "93dece7cd", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "Timeline columns stopped at midnight"}
+{"h": "71f98f15f", "escaped": true, "cls": "domain-logic", "found_by": "code-review-followup", "cheapest_gate": "integration-test", "note": "Closure decisions followed wrong group; started bookings skipped"}
+{"h": "52da0f416", "escaped": true, "cls": "domain-logic", "found_by": "code-review-followup", "cheapest_gate": "integration-test", "note": "Refunded deposit kept live auth; dashboard capture"}
+{"h": "5d28872d6", "escaped": true, "cls": "domain-logic", "found_by": "code-review-followup", "cheapest_gate": "integration-test", "note": "Gate gaps on party-size edits and rebook offers"}
+{"h": "4b74bfd3d", "escaped": true, "cls": "authz-privacy", "found_by": "code-review-followup", "cheapest_gate": "invariant-test", "note": "Host could close night bypassing grant via block-all"}
+{"h": "d1a4a07f4", "escaped": true, "cls": "copy-data-honesty", "found_by": "ux-a11y-audit", "cheapest_gate": "unit-test", "note": "Pause band named wrong channel"}
+{"h": "6af871b9e", "escaped": true, "cls": "ui-layout", "found_by": "ux-a11y-audit", "cheapest_gate": "narrow-viewport-check", "note": "Phone agenda started at 1st; drawer not full-screen"}
+{"h": "3dad91b6d", "escaped": true, "cls": "copy-data-honesty", "found_by": "ux-a11y-audit", "cheapest_gate": "unit-test", "note": "Calendar lacked month/week name and venue-time note"}
+{"h": "15f758b66", "escaped": true, "cls": "a11y", "found_by": "ux-a11y-audit", "cheapest_gate": "axe-in-ci", "note": "Form doubled counter, focus not moved"}
+{"h": "e0164f2bd", "escaped": true, "cls": "i18n", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "History showed raw ISO dates, untranslated English"}
+{"h": "f079df288", "escaped": true, "cls": "copy-data-honesty", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "Cancelled manage page omitted closure date and message"}
+{"h": "7037e7d9f", "escaped": true, "cls": "copy-data-honesty", "found_by": "ux-a11y-audit", "cheapest_gate": "unit-test", "note": "Online pause read 'Closed all day'"}
+{"h": "87a235d4a", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "Widget allowed regularly-closed weekdays"}
+{"h": "7061edd59", "escaped": true, "cls": "domain-logic", "found_by": "ux-a11y-audit", "cheapest_gate": "unit-test", "note": "Tonight selects ignored mouse picks; Apply sent wrong"}
+{"h": "dd8408978", "escaped": true, "cls": "authz-privacy", "found_by": "code-review-followup", "cheapest_gate": "invariant-test", "note": "Host without grant could close night via close-early"}
+{"h": "f831b811a", "escaped": true, "cls": "copy-data-honesty", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "Migrated schedules got placeholder names"}
+{"h": "5def94a71", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "Timeline defaulted to calendar date not service day"}
+{"h": "f1322e538", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "Bad hold date gave 500 not 400"}
+{"h": "e07bbe4d9", "escaped": true, "cls": "domain-logic", "found_by": "sentry", "cheapest_gate": "unit-test", "note": "Response schema union collapsed causing ApiValidationError"}
+{"h": "1a160e95f", "escaped": true, "cls": "ui-layout", "found_by": "ux-a11y-audit", "cheapest_gate": "narrow-viewport-check", "note": "Playground layout broken at desktop/tablet/phone"}
+{"h": "bce6d761c", "escaped": true, "cls": "concurrency-idempotency", "found_by": "ux-a11y-audit", "cheapest_gate": "unit-test", "note": "409 hid winning change; Tonight retry loop"}
+{"h": "f3ed4390b", "escaped": true, "cls": "domain-logic", "found_by": "code-review-followup", "cheapest_gate": "integration-test", "note": "Agent tools judged wrong channel; hid refusals"}
+{"h": "2b44c2cfe", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "Staff screens could not book past-midnight seatings"}
+{"h": "9c97eab1a", "escaped": true, "cls": "concurrency-idempotency", "found_by": "code-review-followup", "cheapest_gate": "integration-test", "note": "Booking raced closure; landed with no outcome"}
+{"h": "5af55a92a", "escaped": true, "cls": "silent-failure", "found_by": "code-review-followup", "cheapest_gate": "integration-test", "note": "Lost closure refund/notice enqueues never swept"}
+{"h": "47d4654da", "escaped": true, "cls": "domain-logic", "found_by": "code-review-followup", "cheapest_gate": "unit-test", "note": "Closure Move targeted past or closed window"}
+{"h": "b78e5d264", "escaped": true, "cls": "domain-logic", "found_by": "code-review-followup", "cheapest_gate": "integration-test", "note": "Gate accepted starts the listing never offers"}
+{"h": "e5f44c99d", "escaped": true, "cls": "domain-logic", "found_by": "code-review-followup", "cheapest_gate": "unit-test", "note": "Notice urgency used startsOn not next occurrence"}
+{"h": "a52d433c1", "escaped": true, "cls": "domain-logic", "found_by": "code-review-followup", "cheapest_gate": "integration-test", "note": "Client hold date not checked against service day"}
+{"h": "b46ecce86", "escaped": true, "cls": "domain-logic", "found_by": "code-review-followup", "cheapest_gate": "integration-test", "note": "Phone-only guests lacked manage token; rebook errored"}
+{"h": "89ab1339d", "escaped": false, "cls": "test-only", "found_by": "feature-drain-issue", "cheapest_gate": "none-reasonable", "note": "Locale sweep test false positives"}
+{"h": "0e60383c8", "escaped": true, "cls": "domain-logic", "found_by": "code-review-followup", "cheapest_gate": "integration-test", "note": "Undo reapplied scope-conflict skips"}
+{"h": "fc020b75b", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "Tonight used calendar date after midnight"}
+{"h": "960a18aa9", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "Guest preview showed schedules with no dates"}
+{"h": "6a131b022", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "History Type filter missed closure kinds"}
+{"h": "581cac401", "escaped": true, "cls": "domain-logic", "found_by": "code-review-followup", "cheapest_gate": "integration-test", "note": "Close-early cancelled bookings without refund or notice"}
+{"h": "5355e3ba9", "escaped": true, "cls": "silent-failure", "found_by": "sentry", "cheapest_gate": "integration-test", "note": "BullMQ rejected colon job ids; reminders not sent"}
+{"h": "6f03c335c", "escaped": true, "cls": "domain-logic", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "Quick setup past-midnight close and name length"}
+{"h": "4dd1ec727", "escaped": true, "cls": "copy-data-honesty", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "Windowed closure removal phrased wrongly"}
+{"h": "f0632516e", "escaped": false, "cls": "other", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "Tooling: declined findings became fix candidates"}
+{"h": "91259fa2f", "escaped": false, "cls": "other", "found_by": "feature-drain-issue", "cheapest_gate": "unit-test", "note": "Tooling: not_planned issue blocked findings filing"}
+{"h": "1de6b6d0a", "escaped": true, "cls": "domain-logic", "found_by": "ux-a11y-audit", "cheapest_gate": "unit-test", "note": "Drawer 'If removed' diffs wrong; phone agenda"}

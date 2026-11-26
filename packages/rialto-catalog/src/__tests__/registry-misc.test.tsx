@@ -1,7 +1,7 @@
 /**
  * registry-misc.test.tsx
  *
- * MasterOverride, ImageUpload and Tree render from a JSON spec. The spec seeds the
+ * MasterOverride, ImageUpload, FileUpload and Tree render from a JSON spec. The spec seeds the
  * initial state (switch position, image URL); the adapters hold it after user
  * actions, which are also emitted as events.
  * ChatPanel needs a host-injected transport, so it is excluded from the AI catalog.
@@ -42,6 +42,19 @@ describe("MasterOverride", () => {
     fireEvent.click(getByRole("button", { name: /lift safety cover/i }));
     fireEvent.click(getByRole("switch"));
     expect(getByRole("switch").getAttribute("aria-checked")).toBe("true");
+  });
+});
+
+describe("TagsInput", () => {
+  it("renders its label and seeded tags from the spec", () => {
+    const { getByText } = renderSpec({
+      root: "t",
+      elements: {
+        t: { type: "TagsInput", props: { label: "Dietary notes", defaultValue: ["vegan"] } },
+      },
+    });
+    expect(getByText("Dietary notes")).toBeTruthy();
+    expect(getByText("vegan")).toBeTruthy();
   });
 });
 
@@ -108,5 +121,16 @@ describe("ChatPanel", () => {
   it("stays out of the AI catalog and the registry", () => {
     expect(catalogMeta.ChatPanel?.include).toBe(false);
     expect(Object.keys(registry)).not.toContain("ChatPanel");
+  });
+});
+
+describe("FileUpload", () => {
+  it("renders its label and browse button from the spec", () => {
+    const { getByText, getByRole } = renderSpec({
+      root: "f",
+      elements: { f: { type: "FileUpload", props: { label: "Menus", accept: ".pdf" } } },
+    });
+    expect(getByText("Menus")).toBeTruthy();
+    expect(getByRole("button", { name: "Choose files" })).toBeTruthy();
   });
 });

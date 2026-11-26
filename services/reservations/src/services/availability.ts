@@ -1,3 +1,4 @@
+import type { SeatingRefusal } from "./lost-demand.js";
 import type {
   TimeSlot,
   AvailableTable,
@@ -50,6 +51,8 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 export interface ListingOptions {
   /** Receives one warning per configuration row (or legacy column) that could not be read. */
   logger?: SnapshotLogger;
+  /** The caller holds a verified Regulars Club member token: the booking window opens `memberLeadDays` wider (#9625). */
+  member?: boolean;
 }
 
 /** One date for the guest: its slots plus what to tell them when there are none. */
@@ -57,6 +60,11 @@ export interface DayAvailability {
   slots: TimeSlot[];
   closure?: AvailabilityClosure;
   bookingPaused?: BookingPaused;
+  /**
+   * Engine-internal, for the Lost Demand Ledger (#9621); the public route strips it.
+   * `hasSeatings`: the venue runs online seatings that date. `refusals`: those it refused.
+   */
+  demand?: { hasSeatings: boolean; refusals: SeatingRefusal[] };
 }
 
 async function loadOrNull(
@@ -122,7 +130,13 @@ function dayView(snapshot: BookingSnapshot, date: string): BookingSnapshot {
 }
 
 /** Every online seating of the date, and those a guest may book now (inside the booking window). */
-function listDay(loaded: LoadedSnapshot, date: string, partySize: number, now: Date) {
+function listDay(
+  loaded: LoadedSnapshot,
+  date: string,
+  partySize: number,
+  now: Date,
+  member = false
+) {
   const { venueSettings } = loaded;
   const snapshot = dayView(loaded.snapshot, date);
   const seatings = listSlots(snapshot, date, partySize, "online", now);
@@ -130,7 +144,7 @@ function listDay(loaded: LoadedSnapshot, date: string, partySize: number, now: D
   if (filterSuitableTables(snapshot.tables, partySize).length === 0) {
     return { seatings, offered: [] };
   }
-  const window = bookingWindow(venueSettings, now, snapshot.timezone);
+  const window = bookingWindow(venueSettings, now, snapshot.timezone, { member });
   return { seatings, offered: seatings.filter((s) => isSlotInBookingWindow(s.start, window)) };
 }
 
@@ -156,8 +170,15 @@ async function getDayAvailability(
   const loaded = await loadOrNull(venueId, date, date, now, options);
   if (!loaded) return { slots: [] };
   const timed = { ...loaded, snapshot: withDuration(loaded.snapshot, partySize, durationOverride) };
-  const { seatings, offered } = listDay(timed, date, partySize, now);
-  return { slots: offered.map(toTimeSlot), ...noticesFor(loaded, date, seatings.length) };
+  const { seatings, offered } = listDay(timed, date, partySize, now, options.member);
+  const refusals = seatings.flatMap((s): SeatingRefusal[] =>
+    s.reason ? [{ minute: s.minute, reason: s.reason === "no_table" ? "tables" : "pacing" }] : []
+  );
+  return {
+    slots: offered.map(toTimeSlot),
+    ...noticesFor(loaded, date, seatings.length),
+    demand: { hasSeatings: seatings.length > 0, refusals },
+  };
 }
 
 /**
@@ -197,7 +218,7 @@ async function getAvailableDates(
   if (!loaded) return dates.map((date) => ({ date, hasAvailability: false, slotCount: 0 }));
 
   return dates.map((date) => {
-    const { seatings, offered } = listDay(loaded, date, partySize, now);
+    const { seatings, offered } = listDay(loaded, date, partySize, now, options.member);
     const slotCount = offered.filter((s) => s.available).length;
     const { closure } = noticesFor(loaded, date, seatings.length);
     return { date, hasAvailability: slotCount > 0, slotCount, ...(closure ? { closure } : {}) };

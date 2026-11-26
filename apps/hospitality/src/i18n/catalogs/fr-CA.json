@@ -756,6 +756,11 @@
       "tableLabel": "Recherches sans table par jour de la semaine et heure",
       "anyTime": "Heure non précisée",
       "anyTimeNote": "Les clients de la dernière ligne n'ont précisé aucune heure et n'ont trouvé aucune table ce jour-là; ils sont donc comptés par jour de la semaine seulement, jamais dans une heure.",
+      "pacingFilter": "Refusées par le rythme seulement",
+      "pacingEmpty": "Aucune recherche n'a été refusée par le rythme des réservations au cours des 28 derniers jours.",
+      "pacingSummary_one": "{{count}} recherche a été refusée par le rythme des réservations au cours des 28 derniers jours.",
+      "pacingSummary_many": "{{count}} de recherches ont été refusées par le rythme des réservations au cours des 28 derniers jours.",
+      "pacingSummary_other": "{{count}} recherches ont été refusées par le rythme des réservations au cours des 28 derniers jours.",
       "loadFailed": "Impossible de charger les recherches sans table."
     },
     "whatIf": {
@@ -1297,6 +1302,21 @@
     "shown_other": "{{count}} clients affichés",
     "addGuest": "Ajouter un client",
     "addAGuest": "Ajouter un client",
+    "regulars": {
+      "title": "Club des habitués",
+      "description": "Invitez des clients par courriel. Chaque membre reçoit un lien de réservation personnel que vous pouvez révoquer en tout temps.",
+      "name": "Nom",
+      "email": "Courriel",
+      "invite": "Envoyer l'invitation",
+      "sending": "Envoi en cours...",
+      "sent": "Invitation envoyée à {{email}}",
+      "empty": "Aucun membre pour l'instant. Invitez un habitué ci-dessus.",
+      "statusActive": "Actif",
+      "statusRevoked": "Révoqué",
+      "invitedOn": "Invité le {{date}}",
+      "revoke": "Révoquer",
+      "revokeAria": "Révoquer {{name}}"
+    },
     "search": {
       "label": "Rechercher des clients",
       "placeholder": "Rechercher des clients...",
@@ -1429,6 +1449,10 @@
     "guests_many": "{{count}} de convives",
     "guests_other": "{{count}} convives",
     "back": "← Retour",
+    "member_banner_one": "Les membres réservent {{count}} jour à l'avance",
+    "member_banner_many": "Les membres réservent {{count}} de jours à l'avance",
+    "member_banner_other": "Les membres réservent {{count}} jours à l'avance",
+    "member_invalid": "Ce lien de membre n'est pas actif. Voici les dates ouvertes à tous.",
     "estimatedWait": "Attente estimée : ~{{minutes}} min",
     "dateParty": {
       "startDate": "Date de début",
@@ -2568,6 +2592,11 @@
       "loadError": "Impossible de charger pourquoi ce jour est ainsi"
     },
     "quickSetup": {
+      "pacing": {
+        "covers": "Rythme : couverts par période",
+        "hint": "Maximum de couverts par période. Abaisse la limite de l'établissement pour ce service; laissez vide pour aucune limite.",
+        "window": "Période du rythme"
+      },
       "title": "Définissez votre semaine habituelle",
       "intro": "Indiquez aux clients quand vous prenez des réservations. Vous pourrez modifier chaque jour plus tard.",
       "serviceN": "Service {{n}}",
@@ -2735,6 +2764,7 @@
         "tonightCloseEarly": "Ce soir : fermeture hâtive",
         "tonightStopWindow": "Ce soir : réservations arrêtées pour une plage",
         "tonightEnded": "Le changement de ce soir est terminé",
+        "sectionClosureMaterialised": "Section supprimée : ses fermetures bloquent maintenant ses tables",
         "tonightBlockTables_one": "Ce soir : {{count}} table bloquée",
         "tonightBlockTables_other": "Ce soir : {{count}} tables bloquées",
         "tonightBlockTables_many": "Ce soir : {{count}} de tables bloquées",
@@ -3335,6 +3365,7 @@
         "impactError": "Impossible de vérifier les réservations après la nouvelle fermeture.",
         "retry": "Réessayer",
         "discardMaybeSaved": "Le dernier enregistrement ne s'est pas terminé; il a peut-être été appliqué et des réservations annulées. Consultez les changements de ce soir avant de fermer de nouveau.",
+        "maybeSaved": "Impossible de confirmer cet enregistrement. Il a peut-être été appliqué et des réservations annulées. Enregistrez de nouveau sans modification pour voir ce qui s'est passé, ou consultez les changements de ce soir.",
         "savedEarlier": {
           "body": "Un essai précédent a été enregistré : {{summary}}. Les clients ont été traités selon les choix de cet essai; les modifications faites ensuite n'ont pas été appliquées.",
           "bodyPlain": "Un essai précédent a été enregistré. Les modifications faites ensuite n'ont pas été appliquées."
@@ -4065,6 +4096,42 @@
       "title": "Compte",
       "signedInAs": "Connecté en tant que",
       "signOut": "Se déconnecter"
+    },
+    "accessTokens": {
+      "title": "Connecter un assistant IA",
+      "description": "Laissez un assistant IA comme Claude consulter des informations pour vous. Un jeton est en lecture seule et couvre tous les établissements auxquels vous appartenez. Traitez-le comme un mot de passe.",
+      "nameLabel": "Nom du jeton",
+      "nameRequired": "Donnez un nom au jeton, par exemple celui de l'assistant concerné.",
+      "expiryLabel": "Expire",
+      "expiry": {
+        "30": "Dans 30 jours",
+        "90": "Dans 90 jours",
+        "365": "Dans 1 an",
+        "never": "Jamais"
+      },
+      "create": "Créer un jeton",
+      "empty": "Aucun jeton pour l'instant.",
+      "loadError": "Impossible de charger vos jetons",
+      "created": "{{prefix}}… · créé le {{date}}",
+      "lastUsed": "Dernière utilisation : {{date}}",
+      "neverUsed": "Jamais utilisé",
+      "expires": "Expire le {{date}}",
+      "neverExpires": "N'expire jamais",
+      "revoke": "Révoquer",
+      "revokeNamed": "Révoquer {{name}}",
+      "revokeConfirm": {
+        "title": "Révoquer {{name}} ?",
+        "description": "Tout ce qui utilise ce jeton cesse de fonctionner immédiatement. Cette action est irréversible.",
+        "cancel": "Le garder"
+      },
+      "mintedTitle": "Jeton créé pour {{name}}",
+      "tokenLabel": "Votre jeton",
+      "shownOnce": "Copiez-le maintenant. Vous ne le reverrez plus.",
+      "copy": "Copier le jeton",
+      "copied": "Copié",
+      "copyFailed": "Copie impossible. Sélectionnez le jeton et copiez-le manuellement.",
+      "done": "Terminé",
+      "limitReached": "Vous avez atteint la limite de jetons actifs. Révoquez-en un pour en créer un autre."
     }
   },
   "admin": {
@@ -4421,7 +4488,7 @@
       },
       "regularsClub": {
         "label": "Club des habitués",
-        "detail": "Vendez votre propre accès prioritaire du vendredi soir au lieu de louer vos habitués à d'autres."
+        "detail": "Invitez vos habitués et ils obtiennent une fenêtre de réservation anticipée par un lien signé, avec un plafond de tables par membre."
       }
     },
     "prep": {
@@ -4484,8 +4551,7 @@
       "board": {
         "guestPassport": "Passeport",
         "kitchenAwareBooking": "Rythme cuisine",
-        "headlessVenue": "Sans ecran",
-        "regularsClub": "Club habitues"
+        "headlessVenue": "Sans ecran"
       }
     },
     "morning": {

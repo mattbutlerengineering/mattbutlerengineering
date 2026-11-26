@@ -27,6 +27,7 @@ import {
 import { DayPicker, IssueText, timeProblems } from "./quick-setup-fields.js";
 import { setServiceKept, shownKept } from "./quick-setup-options.js";
 import { HoursBlockFieldset } from "./QuickSetupBlock.js";
+import { ServicePacingFields } from "./ServicePacingFields.js";
 import { ServiceFields, type ServiceFieldsValue } from "./service-fields/ServiceFields.js";
 import styles from "./QuickSetupForm.module.css";
 
@@ -208,6 +209,16 @@ export function ServiceRow({
             service.id
           )}
           options={optionFields ? "collapsed" : "hidden"}
+          extraOptions={
+            <ServicePacingFields
+              pacing={service.pacing}
+              onChange={(pacing) => {
+                const { pacing: _was, ...rest } = service;
+                onChange(pacing ? { ...rest, pacing } : rest);
+              }}
+              idScope={rowScope(service.id)}
+            />
+          }
         >
           {/* One control at a time: the opener while the service follows the shared Days, and
               "Use the shared days" once it has its own (ux.md F1 3). */}

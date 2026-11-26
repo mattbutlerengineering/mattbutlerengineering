@@ -10,12 +10,18 @@ name: auto-label
 on:
   issues:
     types: [opened, edited, reopened]
+  # Base-repo checkout only (never the PR head); the PR body reaches the script
+  # through env, never interpolated into a shell body.
+  pull_request_target:
+    types: [opened, edited]
 
 permissions:
   issues: write
+  pull-requests: write
 
 jobs:
   label:
+    if: github.event_name == 'issues'
     runs-on: ubuntu-latest
     timeout-minutes: 2
     env:
@@ -102,3 +108,25 @@ jobs:
             gh label create "$L" --color "ededed" --description "Auto-applied by auto-label.yml" --force >/dev/null 2>&1 || true
             gh issue edit "$ISSUE_NUMBER" --add-label "$L"
           done
+
+  negated-closing-refs:
+    # Advisory: GitHub closes #N on "does not close #N". Never fails, never edits the body (#9773).
+    if: github.event_name == 'pull_request_target'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    env:
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      PR_BODY: ${{ github.event.pull_request.body }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
+        with:
+          persist-credentials: false
+      - name: Warn on negated closing keywords
+        continue-on-error: true
+        run: |
+          node scripts/negated-closing-refs.mjs
+          [ -f comment.md ] || exit 0
+          if gh api "repos/$GH_REPO/issues/$PR_NUMBER/comments" --paginate --jq '.[].body' | grep -q 'negated-closing-refs'; then exit 0; fi
+          gh pr comment "$PR_NUMBER" --body-file comment.md

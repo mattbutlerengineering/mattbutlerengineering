@@ -1,11 +1,10 @@
 import {
   GUEST_MESSAGE_MAX_LENGTH,
   type ClosureAction,
-  type ClosureDecision,
   type ClosureImpact,
   type DateRule,
 } from "@mbe/types";
-import { buildCloseRule, toDecisions, type ChoiceMap, type OutcomeCounts } from "./close-draft.js";
+import { buildCloseRule, type OutcomeCounts } from "./close-draft.js";
 
 /**
  * The Add special date sheet's draft (ux.md F6): rows of one date each, saved together as
@@ -110,14 +109,6 @@ export function combineImpacts(impacts: readonly ClosureImpact[]): ClosureImpact
       .flatMap((i) => i.groups)
       .sort((a, b) => a.date.localeCompare(b.date) || a.groupKey.localeCompare(b.groupKey)),
   };
-}
-
-/** Each row's own decisions from the one choice map, in the order of `impacts`. */
-export function decisionsFor(
-  impacts: readonly ClosureImpact[],
-  choices: ChoiceMap
-): ClosureDecision[][] {
-  return impacts.map((impact) => toDecisions(impact.groups, choices));
 }
 
 /** What the Step 2 button says: how many dates, then each outcome with bookings in it. */

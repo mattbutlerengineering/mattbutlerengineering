@@ -21,6 +21,7 @@ import type {
   Schedule,
   ScheduleAssignment,
   ScheduleService,
+  ServiceRules,
   VenueService,
 } from "@mbe/types";
 
@@ -60,12 +61,23 @@ export interface HoursBlock extends DraftTimes {
   readonly ownKept?: { readonly seating: boolean; readonly bookingTypes: boolean };
 }
 
+/** A service's pacing cap on the form: covers seated per window of `windowMinutes`. */
+export interface ServicePacing {
+  readonly covers: string;
+  readonly windowMinutes: number;
+}
+
 export interface ServiceDraft extends DraftTimes {
   readonly id: string;
   readonly name: string;
   /** `null` follows the shared {@link QuickSetupDraft.days}. */
   readonly days: readonly number[] | null;
   readonly blocks: readonly HoursBlock[];
+  /**
+   * The service's own pacing cap, as the form holds it (`covers` is the text of the field, empty
+   * for none). Written to the row's `rules` and read back from it, so a save keeps it.
+   */
+  readonly pacing?: ServicePacing;
   /**
    * Set when a name chip moved the service off its preset times to follow the others (Late
    * after Dinner), with the times it gave; while they are untouched a change of days re-places it.
@@ -361,12 +373,20 @@ export function draftToConfig(
   };
   const venueServices: VenueService[] = [];
   const week: ServiceWeek[] = [];
+  const rulesOf = new Map<string, ServiceRules>();
   draft.services.forEach((service, position) => {
     const m = minutesOf(service);
     if (m === null) return;
     const name = service.name.trim();
     const venueServiceId = existing?.venueServiceIds?.[name.toLowerCase()] ?? newId();
     venueServices.push({ id: venueServiceId, name, position });
+    const covers = Number.parseInt(service.pacing?.covers ?? "", 10);
+    if (service.pacing && covers >= 1) {
+      rulesOf.set(venueServiceId, {
+        version: 1,
+        pacing: { covers, windowMinutes: service.pacing.windowMinutes },
+      });
+    }
     week.push({
       venueServiceId,
       days: weekOf(draft, service, m, existing?.keptOf?.[venueServiceId]),
@@ -377,6 +397,7 @@ export function draftToConfig(
     id: newId(),
     scheduleId,
     ...row,
+    ...(rulesOf.has(row.venueServiceId) ? { rules: rulesOf.get(row.venueServiceId) } : {}),
   }));
   const assignment: ScheduleAssignment = {
     id: newId(),
@@ -451,9 +472,13 @@ export function draftFromConfig(
     const running = week.find((w) => w.venueServiceId === row.venueServiceId);
     if (!venueService || !running) return [];
     const days = WEEK_DISPLAY_ORDER.filter((day) => running.days[day] !== null);
+    const pacing = rows.find((r) => r.venueServiceId === row.venueServiceId)?.rules?.pacing;
     return [
       {
         ...clockTimes(row),
+        ...(pacing
+          ? { pacing: { covers: String(pacing.covers), windowMinutes: pacing.windowMinutes } }
+          : {}),
         id: newId(),
         name: venueService.name,
         days: days.length === covered.length ? null : days,

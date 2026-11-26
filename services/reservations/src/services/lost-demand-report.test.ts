@@ -17,19 +17,43 @@ interface Row {
   date: string;
   requestedMinute: number;
   searches: number;
+  pacingSearches?: number;
 }
 
 function groupRows(rows: Row[]) {
   return rows.map((r) => ({
     date: new Date(`${r.date}T00:00:00.000Z`),
     requestedMinute: r.requestedMinute,
-    _sum: { searches: r.searches },
+    _sum: { searches: r.searches, pacingSearches: r.pacingSearches ?? 0 },
   }));
 }
 
 describe("lostDemandReportService.getLostDemand", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("carries the pacing-refused share of each cell and any-time day, only where non-zero (#9622)", async () => {
+    vi.mocked(prisma.noSlotSearch.groupBy).mockResolvedValueOnce(
+      groupRows([
+        { date: "2026-06-19", requestedMinute: 19 * 60, searches: 3, pacingSearches: 2 },
+        { date: "2026-06-26", requestedMinute: 19 * 60 + 15, searches: 4, pacingSearches: 1 },
+        { date: "2026-06-19", requestedMinute: 20 * 60, searches: 5 },
+        { date: "2026-06-19", requestedMinute: -1, searches: 2, pacingSearches: 2 },
+      ]) as never
+    );
+
+    const result = await lostDemandReportService.getLostDemand({
+      venueId: "v1",
+      from: "2026-06-01",
+      to: "2026-06-30",
+    });
+
+    expect(result.cells).toEqual([
+      { weekday: 5, hour: 19, searches: 7, pacing: 3 },
+      { weekday: 5, hour: 20, searches: 5 },
+    ]);
+    expect(result.anyTime).toEqual([{ weekday: 5, searches: 2, pacing: 2 }]);
   });
 
   it("buckets timed searches by venue-local weekday and hour", async () => {
@@ -113,6 +137,7 @@ describe("lostDemandReportService.getLostDemand", () => {
       from: "2026-06-01",
       to: "2026-06-30",
       total: 0,
+      byReason: { pacing: 0, tables: 0, hours: 0, closure: 0 },
       cells: [],
       anyTime: [],
     });
@@ -152,5 +177,64 @@ describe("lostDemandReportService.defaultWindow", () => {
     );
 
     expect(window).toEqual({ from: "2026-05-23", to: "2026-06-19" });
+  });
+});
+
+describe("lostDemandReportService.getLostDemand byReason (#9621)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("sums the per-reason counters across the window", async () => {
+    vi.mocked(prisma.noSlotSearch.groupBy).mockResolvedValueOnce([
+      {
+        date: new Date("2026-06-19T00:00:00.000Z"),
+        requestedMinute: 19 * 60,
+        _sum: {
+          searches: 6,
+          pacingSearches: 3,
+          tablesSearches: 2,
+          hoursSearches: 1,
+          closureSearches: 0,
+        },
+      },
+      {
+        date: new Date("2026-06-20T00:00:00.000Z"),
+        requestedMinute: -1,
+        _sum: {
+          searches: 4,
+          pacingSearches: 1,
+          tablesSearches: 0,
+          hoursSearches: 2,
+          closureSearches: 1,
+        },
+      },
+    ] as never);
+
+    const result = await lostDemandReportService.getLostDemand({
+      venueId: "v1",
+      from: "2026-06-01",
+      to: "2026-06-30",
+    });
+
+    expect(result.total).toBe(10);
+    expect(result.byReason).toEqual({ pacing: 4, tables: 2, hours: 3, closure: 1 });
+  });
+
+  it("counts rows recorded before reasons existed as no reason", async () => {
+    vi.mocked(prisma.noSlotSearch.groupBy).mockResolvedValueOnce([
+      {
+        date: new Date("2026-06-19T00:00:00.000Z"),
+        requestedMinute: 19 * 60,
+        _sum: { searches: 5 },
+      },
+    ] as never);
+    const result = await lostDemandReportService.getLostDemand({
+      venueId: "v1",
+      from: "2026-06-01",
+      to: "2026-06-30",
+    });
+    expect(result.total).toBe(5);
+    expect(result.byReason).toEqual({ pacing: 0, tables: 0, hours: 0, closure: 0 });
   });
 });

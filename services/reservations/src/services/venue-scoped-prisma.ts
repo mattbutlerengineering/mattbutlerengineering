@@ -39,6 +39,7 @@ export const RLS_MODELS: ReadonlySet<string> = new Set([
   "noSlotSearch",
   "reservationInvite",
   "reservationRsvp",
+  "guestMembership",
 ]);
 
 /** A Prisma model delegate — its query methods, keyed by name. */

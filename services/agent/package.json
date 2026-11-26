@@ -36,6 +36,7 @@
     "@mbe/sentry": "workspace:*",
     "@mbe/service-bootstrap": "workspace:*",
     "@mbe/types": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.31.0",
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
     "@prisma/client-runtime-utils": "^7.10.1",

@@ -161,10 +161,15 @@ describe("classify", () => {
     expect(classify({ ...base, p95: 1999 })).toEqual([]);
   });
 
-  it("ignores p95 breaches on fewer than 20 requests (single scanner probe)", () => {
+  it("ignores p95 breaches on fewer than 100 requests (cold-start noise)", () => {
     expect(classify({ ...base, total: 1, p95: 2291 })).toEqual([]);
-    expect(classify({ ...base, total: 19, p95: 5000 })).toEqual([]);
-    expect(classify({ ...base, total: 20, p95: 5000 })[0]).toMatch(/p95/);
+    expect(classify({ ...base, total: 48, p95: 2128 })).toEqual([]);
+    expect(classify({ ...base, total: 99, p95: 5000 })).toEqual([]);
+    expect(classify({ ...base, total: 100, p95: 5000 })[0]).toMatch(/p95/);
+  });
+
+  it("states the sample size next to the p95", () => {
+    expect(classify({ ...base, total: 100, p95: 2128 })).toEqual(["p95 2128 ms over 100 requests"]);
   });
 
   it("exposes the thresholds as named constants", () => {
@@ -174,7 +179,7 @@ describe("classify", () => {
       rate4xx: 0.1,
       min4xx: 50,
       p95Ms: 2000,
-      minP95: 20,
+      minP95: 100,
     });
   });
 });

@@ -47,6 +47,22 @@ describe("Telemetry HUD", () => {
     expect(screen.getByRole("region", { name: "Event feed" })).toBeInTheDocument();
   });
 
+  it("mounts the zone grid, its sort button, and the vibe switch on first paint", () => {
+    const { container } = renderRoute("?frozen=1");
+
+    expect(screen.getByRole("grid", { name: "Zone times" })).toBeInTheDocument();
+    const zoneSort = screen.getByRole("button", { name: "Zone" });
+    expect(zoneSort.tabIndex).toBeGreaterThanOrEqual(0);
+    expect(screen.getByRole("radio", { name: "Game" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Default" })).toBeInTheDocument();
+
+    const labels = [...container.querySelectorAll<HTMLElement>("button, [role='radio']")]
+      .filter((el) => !el.hasAttribute("disabled") && el.tabIndex >= 0)
+      .map((el) => (el.textContent ?? "").replace(/\s+/g, " ").trim());
+    expect(labels).toEqual(expect.arrayContaining(["Zone", "Game"]));
+    expect(container.querySelectorAll("table")).toHaveLength(1);
+  });
+
   it("hands the event ticker a start-aligned board class", () => {
     renderRoute("?frozen=1");
 

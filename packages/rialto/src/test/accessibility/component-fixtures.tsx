@@ -71,6 +71,7 @@ import { Heading } from "../../components/Heading/Heading";
 import { Hero } from "../../components/Hero/Hero";
 import { HoverCard } from "../../components/HoverCard/HoverCard";
 import { IconButton } from "../../components/IconButton/IconButton";
+import { FileUpload } from "../../components/FileUpload/FileUpload";
 import { ImageUpload } from "../../components/ImageUpload/ImageUpload";
 import { Input } from "../../components/Input/Input";
 import { InputGroup } from "../../components/InputGroup/InputGroup";
@@ -104,15 +105,19 @@ import { Steps } from "../../components/Steps/Steps";
 import { Table } from "../../components/Table/Table";
 import { Tabs } from "../../components/Tabs/Tabs";
 import { Tag } from "../../components/Tag/Tag";
+import { TagsInput } from "../../components/TagsInput/TagsInput";
 import { TapeChart } from "../../components/TapeChart/TapeChart";
 import { Text } from "../../components/Text/Text";
 import { TextArea } from "../../components/TextArea/TextArea";
 import { ThemeToggle } from "../../components/ThemeToggle/ThemeToggle";
 import { TimePicker } from "../../components/TimePicker/TimePicker";
 import { Timeline } from "../../components/Timeline/Timeline";
+import { Listbox } from "../../components/Listbox/Listbox";
 import { TimeSlots } from "../../components/TimeSlots/TimeSlots";
 import { ToastProvider } from "../../components/Toast/Toast";
 import { Toggle } from "../../components/Toggle/Toggle";
+import { Toolbar } from "../../components/Toolbar/Toolbar";
+import { VisuallyHidden } from "../../components/VisuallyHidden/VisuallyHidden";
 import { Tooltip } from "../../components/Tooltip/Tooltip";
 import { Tree } from "../../components/Tree/Tree";
 import { WatchLoader } from "../../components/WatchLoader/WatchLoader";
@@ -181,6 +186,7 @@ export type BarrelExportName =
   | "Hero"
   | "HoverCard"
   | "IconButton"
+  | "FileUpload"
   | "ImageUpload"
   | "Input"
   | "InputGroup"
@@ -215,17 +221,21 @@ export type BarrelExportName =
   | "Table"
   | "Tabs"
   | "Tag"
+  | "TagsInput"
   | "TapeChart"
   | "Text"
   | "TextArea"
   | "ThemeToggle"
   | "TimePicker"
   | "Timeline"
+  | "Listbox"
   | "TimeSlots"
   | "Toast"
   | "Toggle"
+  | "Toolbar"
   | "Tooltip"
   | "Tree"
+  | "VisuallyHidden"
   | "WatchLoader";
 
 // ── Helpers ──────────────────────────────────────────────────────────────
@@ -612,6 +622,10 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
     ),
   },
 
+  FileUpload: {
+    element: <FileUpload label="Menus" accept=".pdf" hint="PDF only" multiple />,
+  },
+
   ImageUpload: {
     element: <ImageUpload label="Logo" />,
   },
@@ -867,6 +881,10 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
     ),
   },
 
+  TagsInput: {
+    element: <TagsInput label="Dietary notes" defaultValue={["vegan"]} />,
+  },
+
   Tag: {
     element: <Tag>Beta</Tag>,
   },
@@ -921,6 +939,27 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
     element: <Toggle label="Notifications" />,
   },
 
+  Listbox: {
+    element: (
+      <Listbox
+        aria-label="Sections"
+        options={[
+          { value: "bar", label: "Bar" },
+          { value: "patio", label: "Patio" },
+        ]}
+      />
+    ),
+  },
+
+  Toolbar: {
+    element: (
+      <Toolbar aria-label="Formatting">
+        <button type="button">Bold</button>
+        <button type="button">Italic</button>
+      </Toolbar>
+    ),
+  },
+
   Tooltip: {
     element: (
       <Tooltip content="Save changes">
@@ -931,6 +970,14 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
 
   Tree: {
     element: <Tree data={[{ id: "1", label: "Root", children: [{ id: "2", label: "Child" }] }]} />,
+  },
+
+  VisuallyHidden: {
+    element: (
+      <button type="button">
+        <VisuallyHidden>Close</VisuallyHidden>
+      </button>
+    ),
   },
 
   WatchLoader: {

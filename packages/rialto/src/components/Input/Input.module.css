@@ -92,6 +92,7 @@
 }
 
 .error .input:focus-visible {
+  outline: var(--rialto-focus-ring-width) solid transparent;
   box-shadow:
     0 0 0 2px var(--rialto-surface),
     0 0 0 4px var(--rialto-error),
@@ -112,4 +113,34 @@
   color: var(--rialto-text-tertiary);
   font-size: var(--rialto-text-xs);
   font-weight: var(--rialto-weight-regular);
+}
+
+/* ── Signature palette (@internal kill test) ──
+   Reads the Tier-3 tokens that component-tokens.css re-points under
+   data-palette="signature". Scoped to that attribute, so nothing outside the
+   kill-test board changes. Promoted or deleted after the go/no-go. */
+:global([data-palette="signature"]) .input {
+  background: var(--rialto-input-bg);
+  color: var(--rialto-input-text);
+  caret-color: var(--rialto-input-caret);
+}
+
+:global([data-palette="signature"]) .input::selection {
+  background: var(--rialto-input-selection-bg);
+  color: var(--rialto-input-selection-text);
+}
+
+:global([data-palette="signature"]) .input:hover {
+  border-color: var(--rialto-input-border-hover);
+}
+
+/* Focus and error borders stay as they are: the scoped hover rule above
+   would otherwise outrank them. */
+:global([data-palette="signature"]) .input:focus-visible {
+  border-color: var(--rialto-accent);
+}
+
+:global([data-palette="signature"]) .error .input,
+:global([data-palette="signature"]) .error .input:hover {
+  border-color: var(--rialto-error);
 }
