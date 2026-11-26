@@ -79,3 +79,12 @@ describe("auto-label.yml", () => {
     expect(featureLine).not.toContain("\\bfeature\\b");
   });
 });
+
+describe("auto-label.yml negated-closing-refs job (#9773)", () => {
+  it("runs on pull_request_target opened/edited and stays advisory", () => {
+    expect(WORKFLOW).toMatch(/pull_request_target:\s*\n\s*types: \[opened, edited\]/);
+    expect(WORKFLOW).toContain("negated-closing-refs.mjs");
+    expect(WORKFLOW).toMatch(/continue-on-error: true/);
+    expect(WORKFLOW).not.toMatch(/ref:\s*\$\{\{\s*github\.event\.pull_request\.head/);
+  });
+});
