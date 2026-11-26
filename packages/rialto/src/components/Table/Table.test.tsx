@@ -225,6 +225,72 @@ describe("Table", () => {
       await user.keyboard(" ");
       expect(header).toHaveAttribute("aria-sort", "descending");
     });
+
+    it("does not reorder a page when manualSort is set", async () => {
+      const user = userEvent.setup();
+      const onSortChange = vi.fn();
+      // Deliberately not in points order. A table that sorts its own rows
+      // would put Leclerc (308) first after the header click.
+      const page = [
+        { name: "Sainz", team: "Williams", points: 1165 },
+        { name: "Leclerc", team: "Ferrari", points: 308 },
+      ];
+      render(
+        <Table
+          columns={columns}
+          data={page}
+          rowKey={(r) => r.name}
+          manualSort
+          sort={null}
+          onSortChange={onSortChange}
+        />
+      );
+
+      await user.click(screen.getByRole("button", { name: /Points/ }));
+
+      const rows = screen.getAllByRole("row").slice(1);
+      expect(rows[0]?.querySelector("td")?.textContent).toBe("Sainz");
+      expect(rows[1]?.querySelector("td")?.textContent).toBe("Leclerc");
+      expect(onSortChange).toHaveBeenCalledWith({ key: "points", direction: "asc" });
+      expect(screen.getByRole("columnheader", { name: /Points/ })).toHaveAttribute(
+        "aria-sort",
+        "none"
+      );
+    });
+
+    it("reflects a controlled sort and reports the next direction without reordering", async () => {
+      const user = userEvent.setup();
+      const onSortChange = vi.fn();
+      const page = [
+        { name: "Sainz", team: "Williams", points: 1165 },
+        { name: "Leclerc", team: "Ferrari", points: 308 },
+      ];
+      render(
+        <Table
+          columns={columns}
+          data={page}
+          rowKey={(r) => r.name}
+          manualSort
+          sort={{ key: "points", direction: "asc" }}
+          onSortChange={onSortChange}
+        />
+      );
+
+      expect(screen.getAllByRole("row").slice(1)[0]?.querySelector("td")?.textContent).toBe(
+        "Sainz"
+      );
+      expect(screen.getByRole("columnheader", { name: /Points/ })).toHaveAttribute(
+        "aria-sort",
+        "ascending"
+      );
+
+      await user.click(screen.getByRole("button", { name: /Points/ }));
+
+      expect(onSortChange).toHaveBeenCalledWith({ key: "points", direction: "desc" });
+      expect(screen.getAllByRole("row").slice(1)[0]?.querySelector("td")?.textContent).toBe(
+        "Sainz"
+      );
+    });
   });
 
   describe("density", () => {
