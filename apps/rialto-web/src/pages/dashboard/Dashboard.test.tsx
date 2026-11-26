@@ -125,7 +125,23 @@ vi.mock("@mattbutlerengineering/rialto", () => {
     Badge: Passthrough,
     Banner,
     Button,
-    Card: Passthrough,
+    Card: ({
+      title,
+      headingLevel = 3,
+      children,
+    }: {
+      title?: string;
+      headingLevel?: 2 | 3 | 4 | 5 | 6;
+      children?: ReactNode;
+    }) => {
+      const Tag = `h${headingLevel}` as "h2" | "h3" | "h4" | "h5" | "h6";
+      return (
+        <section>
+          {title && <Tag>{title}</Tag>}
+          {children}
+        </section>
+      );
+    },
     Divider: Passthrough,
     Kbd: Passthrough,
     PageHeader,
@@ -164,6 +180,15 @@ describe("Dashboard — accessible names", () => {
   it("gives the Lap Progress progressbar an accessible name (axe aria-progressbar-name)", () => {
     renderDashboardWithRoutes();
     expect(screen.getByRole("progressbar", { name: "Lap progress" })).toBeInTheDocument();
+  });
+});
+
+describe("Dashboard — heading order", () => {
+  it("titles the sidebar cards at level 2 so no level is skipped (axe heading-order)", () => {
+    renderDashboardWithRoutes();
+    for (const name of ["Upcoming Actions", "Active Channels", "Quick Actions"]) {
+      expect(screen.getByRole("heading", { name, level: 2 })).toBeInTheDocument();
+    }
   });
 });
 

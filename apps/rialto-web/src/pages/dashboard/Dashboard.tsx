@@ -434,7 +434,7 @@ export function Dashboard() {
           {/* Right — Strategy sidebar */}
           <Stack gap="md">
             {/* Upcoming actions */}
-            <Card variant="flat" title="Upcoming Actions">
+            <Card variant="flat" title="Upcoming Actions" headingLevel={2}>
               <Timeline
                 compact
                 events={[
@@ -465,7 +465,7 @@ export function Dashboard() {
             </Card>
 
             {/* Active channels */}
-            <Card variant="flat" title="Active Channels">
+            <Card variant="flat" title="Active Channels" headingLevel={2}>
               <Stack direction="row" gap="xs" wrap>
                 {["Track", "Box", "Strategy", "Engineer"].map((ch) => (
                   <Tag
@@ -481,7 +481,7 @@ export function Dashboard() {
             </Card>
 
             {/* Quick actions */}
-            <Card variant="flat" title="Quick Actions">
+            <Card variant="flat" title="Quick Actions" headingLevel={2}>
               <Stack gap="xs">
                 <Button variant="primary" size="sm">
                   Call to Pit
