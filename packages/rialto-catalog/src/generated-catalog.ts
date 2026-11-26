@@ -93,7 +93,7 @@ export const catalogMeta: Record<string, CatalogMeta> = {
   Checkbox: {
     name: "Checkbox",
     description:
-      "Checkbox for boolean selection. Use when users need to opt-in or out of something. Provide a label of at most 80 characters (a full sentence such as a terms agreement fits). Use description for additional context below the label. Use indeterminate for 'select all' with partial selection.",
+      "Checkbox for boolean selection. Use when users need to opt-in or out of something. Provide a label of at most 80 characters (a full sentence such as a terms agreement fits). Use description for additional context below the label. Use indeterminate for 'select all' with partial selection. For single choice use RadioGroup (exported alongside): pass `options` (value, label, optional description/disabled/disabledReason), `orientation` (vertical or horizontal), `description`, `error` and `required`.",
     charLimits: { label: 80, description: 80 },
   },
   Collapsible: {
@@ -205,6 +205,12 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     description:
       "Safety wrapper that catches a rendering error in the content inside it and shows a calm fallback instead of a blank page. Wrap any section that loads data or renders something that could fail. It has no text of its own to write.",
     slots: ["default"],
+  },
+  FileUpload: {
+    name: "FileUpload",
+    description:
+      "File picker with a drop zone and a removable file list. Use to collect documents or several files at once, such as a menu PDF or a CSV guest import. Give a label, and set accept (for example .pdf), maxSize and multiple to constrain the files.",
+    charLimits: { label: 40, hint: 120, error: 120 },
   },
   Footer: {
     name: "Footer",

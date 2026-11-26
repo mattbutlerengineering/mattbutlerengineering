@@ -490,4 +490,27 @@ describe("referenceIssues", () => {
       "dateRules[0].tableIds[1]",
     ]);
   });
+
+  it("lets a seriesId name a removed rule of the venue, never one it does not own", () => {
+    const config: AvailabilityConfig = {
+      ...BASE,
+      dateRules: [
+        {
+          id: "dr-skip",
+          kind: "closure",
+          targetKind: "venue",
+          seriesId: "dr-removed-series",
+          startsOn: "2026-11-06",
+          endsOn: "2026-11-06",
+        },
+      ],
+    };
+
+    expect(referenceIssues(config, new Set(), new Set(), new Set(["dr-removed-series"]))).toEqual(
+      []
+    );
+    expect(
+      referenceIssues(config, new Set(), new Set(), new Set(["dr-other"])).map((i) => i.path)
+    ).toEqual(["dateRules[0].seriesId"]);
+  });
 });

@@ -10,6 +10,7 @@ import { Calendar } from "./Calendar/Calendar";
 import { DatePicker } from "./DatePicker/DatePicker";
 import { DateRange } from "./DateRange/DateRange";
 import { DateRangePicker } from "./DateRangePicker/DateRangePicker";
+import { FileUpload } from "./FileUpload/FileUpload";
 import { GlobalNav } from "./GlobalNav/GlobalNav";
 import { ImageUpload } from "./ImageUpload/ImageUpload";
 import { Navbar } from "./Navbar/Navbar";
@@ -146,6 +147,16 @@ const CASES: readonly Case[] = [
     name: "SkeletonGroup",
     ui: () => <SkeletonGroup>x</SkeletonGroup>,
     checks: [["status", "Loading content", esMX.loadingContent]],
+  },
+  {
+    name: "FileUpload browse button",
+    ui: () => <FileUpload label="Menus" />,
+    checks: [["button", "Choose files", esMX.chooseFiles]],
+  },
+  {
+    name: "FileUpload remove button",
+    ui: () => <FileUpload label="Menus" defaultValue={[new File(["x"], "menu.pdf")]} />,
+    checks: [["button", "Remove menu.pdf", esMX.removeItem("menu.pdf")]],
   },
   {
     name: "ImageUpload empty",

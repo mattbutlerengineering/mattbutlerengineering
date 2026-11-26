@@ -1,5 +1,33 @@
 # @mattbutlerengineering/rialto
 
+## 3.1.9
+
+### Patch Changes
+
+- [#9766](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9766) [`ad49e94`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/ad49e944973401b27957ef446f6fba223a9fddb3) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Component tokens and `--rialto-shadow-focus` now re-resolve on `data-surface` and `data-palette` scope elements, and the focus shadow is composed from `--rialto-focus-gap` and `--rialto-focus-ring` (ADR-035). Computed values outside those scopes are unchanged.
+
+- [#9768](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9768) [`dacbd00`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/dacbd00c7e51ed746b17e29bf0b1a97199bcdcb5) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Extend `RadioGroup` (backward compatible): an `options` array form, `orientation`, `description`, `error` (with `aria-invalid`, icon and `aria-describedby`) and `required`. A single `Radio` child is now wired like many.
+
+- [#9766](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9766) [`ad49e94`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/ad49e944973401b27957ef446f6fba223a9fddb3) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add the signature palette tokens: `--rialto-surface-tinted` and `--rialto-surface-velvet`, the `--rialto-plum*` and `--rialto-verdigris*` families, and `--rialto-focus-ring` / `--rialto-focus-gap` (defaulting to today's accent and surface). Add `data-surface="tinted" | "velvet"` scopes that re-declare the surface, text, border and focus tokens for content on a mid-tone band (ADR-035). No existing token value changes.
+
+- [#9766](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9766) [`ad49e94`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/ad49e944973401b27957ef446f6fba223a9fddb3) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add the internal kill-test signature remap: under `data-palette="signature"` (not public API), Button, Input, Select, Card and Tabs repaint through Tier-3 tokens (plum secondary and hover tints, plum caret and selection, a tinted Tabs track). New Tier-3 tokens default to today's values and every new component rule is scoped to that attribute, so nothing renders differently outside it.
+
+## 3.1.8
+
+### Patch Changes
+
+- [#9762](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9762) [`29bcbd3`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/29bcbd36846bf9b0ea76f8c891a8d53fdb521417) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add `FileUpload`: a labelled file picker with a drop zone, `accept`/`maxSize`/`maxFiles` validation, a removable file list and polite live announcements (localized in en-GB, es-MX and fr-CA).
+
+- [#9765](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9765) [`5e299ce`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/5e299cedd875fb76eaca37078517b6d6ed065cee) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Declare `manualSort`, `sort` and `onSortChange` on the registry `TableProps`, so `registry.json` and the generated catalog schema list the server-side sort props.
+
+## 3.1.7
+
+### Patch Changes
+
+- [#9747](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9747) [`1a1bae2`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/1a1bae2d3028852d0f86a610efbf6e9590621e1d) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add `Toolbar` and `ToolbarSeparator`: a single-Tab-stop control group with roving arrow-key focus (RTL-aware).
+
+- [#9757](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9757) [`6ba5dd5`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/6ba5dd5e9533b8830e7bfe9c8002d0b494523250) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - `Table` can leave row order to the parent. Set `manualSort` when `data` is one page of a larger list: the table keeps that order, shows `sort` on the header, and reports the next asc/desc choice through `onSortChange`. Omitting `manualSort` still sorts the rows the table was given.
+
 ## 3.1.6
 
 ### Patch Changes

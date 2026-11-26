@@ -89,6 +89,7 @@ export * from "./Text";
 export * from "./ChatPanel";
 
 // ── Media ──────────────────────────────────────
+export * from "./FileUpload";
 export * from "./ImageUpload";
 
 // ── Specialty interaction ──────────────────────

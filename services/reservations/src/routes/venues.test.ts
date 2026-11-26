@@ -1035,6 +1035,52 @@ describe("Venue Routes", () => {
         process.env = originalEnv;
       });
 
+      async function createWithGroup(permissions: string[]) {
+        const originalEnv = process.env;
+        process.env = bootstrapEnv(originalEnv);
+        vi.mocked(jwtVerify).mockReset();
+        vi.mocked(jwtVerify).mockResolvedValueOnce({
+          payload: { ...newUserPayload, permissions },
+          protectedHeader: { alg: "RS256" },
+        } as never);
+        // Queued only where create is reached: an unconsumed Once value leaks
+        // into the next test.
+        if (permissions.includes("admin")) {
+          vi.mocked(venueService.create).mockResolvedValueOnce(mockVenue);
+        }
+        const hasAnyVenueMembership = vi.fn<HasAnyVenueMembership>().mockResolvedValue(false);
+        const scopedApp = await buildApp({ logger: false, hasAnyVenueMembership });
+        await scopedApp.ready();
+        const response = await scopedApp.inject({
+          method: "POST",
+          url: "/api/v1/venues",
+          headers: { authorization: "Bearer new-user-token" },
+          payload: { ...validBody, venueGroupId: "group-someone-else" },
+        });
+        await scopedApp.close();
+        process.env = originalEnv;
+        return response;
+      }
+
+      it("refuses a NON-ADMIN who names a venueGroupId on their first venue", async () => {
+        const response = await createWithGroup([]);
+
+        expect(response.statusCode).toBe(403);
+        expect(JSON.parse(response.body).title).toBe("Forbidden");
+        expect(venueService.create).not.toHaveBeenCalled();
+      });
+
+      it("lets an admin name a venueGroupId on a new venue", async () => {
+        const response = await createWithGroup(["admin"]);
+
+        expect(response.statusCode).toBe(201);
+        expect(venueService.create).toHaveBeenCalledWith(
+          expect.objectContaining({ venueGroupId: "group-someone-else" }),
+          "auth0|brand-new",
+          { isAdmin: true }
+        );
+      });
+
       it("refuses a NON-ADMIN who already holds a venue membership", async () => {
         const originalEnv = process.env;
         process.env = bootstrapEnv(originalEnv);

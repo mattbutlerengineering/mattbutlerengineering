@@ -1,0 +1,61 @@
+{
+  "$description": "Mid-tone surface scopes (ADR-035). Tokens re-declared for content on a data-surface band. Every scope declares the same keys in light and dark; generate-colors-css.ts checks it. Each key names the --rialto-<key> custom property it re-declares.",
+  "surface-scope": {
+    "tinted": {
+      "light": {
+        "surface": { "$value": "#e9dfcf", "$type": "color" },
+        "focus-gap": { "$value": "#e9dfcf", "$type": "color" },
+        "text-primary": { "$value": "#1a1918", "$type": "color" },
+        "text-secondary": { "$value": "#5f5a54", "$type": "color" },
+        "text-tertiary": { "$value": "#625d57", "$type": "color" },
+        "border": { "$value": "#7a746c", "$type": "color" },
+        "border-strong": { "$value": "#6e6861", "$type": "color" },
+        "focus-ring": {
+          "$value": "#8f6a14",
+          "$type": "color",
+          "$description": "Deeper gold: the base #b0841e ring is 2.58:1 on tinted"
+        }
+      },
+      "dark": {
+        "surface": { "$value": "#3b3022", "$type": "color" },
+        "focus-gap": { "$value": "#3b3022", "$type": "color" },
+        "text-primary": { "$value": "rgb(253 252 250 / 0.92)", "$type": "color" },
+        "text-secondary": { "$value": "rgb(253 252 250 / 0.6)", "$type": "color" },
+        "text-tertiary": {
+          "$value": "rgb(253 252 250 / 0.55)",
+          "$type": "color",
+          "$description": "55%, not the base 50%, which fails on the band"
+        },
+        "border": { "$value": "rgb(255 255 255 / 0.4)", "$type": "color" },
+        "border-strong": { "$value": "rgb(255 255 255 / 0.6)", "$type": "color" },
+        "focus-ring": { "$value": "#d4a23a", "$type": "color" }
+      }
+    },
+    "velvet": {
+      "light": {
+        "surface": { "$value": "#4a3a5c", "$type": "color" },
+        "focus-gap": { "$value": "#4a3a5c", "$type": "color" },
+        "text-primary": { "$value": "#f6efe2", "$type": "color" },
+        "text-secondary": { "$value": "rgb(246 239 226 / 0.72)", "$type": "color" },
+        "text-tertiary": {
+          "$value": "rgb(246 239 226 / 0.72)",
+          "$type": "color",
+          "$description": "Same as secondary: a fainter ivory fails on velvet"
+        },
+        "border": { "$value": "rgb(246 239 226 / 0.45)", "$type": "color" },
+        "border-strong": { "$value": "rgb(246 239 226 / 0.6)", "$type": "color" },
+        "focus-ring": { "$value": "#d4a23a", "$type": "color" }
+      },
+      "dark": {
+        "surface": { "$value": "#3b2f4a", "$type": "color" },
+        "focus-gap": { "$value": "#3b2f4a", "$type": "color" },
+        "text-primary": { "$value": "rgb(253 252 250 / 0.92)", "$type": "color" },
+        "text-secondary": { "$value": "rgb(253 252 250 / 0.6)", "$type": "color" },
+        "text-tertiary": { "$value": "rgb(253 252 250 / 0.55)", "$type": "color" },
+        "border": { "$value": "rgb(255 255 255 / 0.4)", "$type": "color" },
+        "border-strong": { "$value": "rgb(255 255 255 / 0.6)", "$type": "color" },
+        "focus-ring": { "$value": "#d4a23a", "$type": "color" }
+      }
+    }
+  }
+}

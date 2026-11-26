@@ -39,6 +39,7 @@ import { planPreview, type PreviewPlan } from "./availability-preview.js";
 import type { ConfigState, LegacyNotes } from "./availability-config-state.js";
 import { prisma } from "./database.js";
 import { onActivePlanWhere } from "./bookable-tables.js";
+import { loadDateRuleIds } from "./date-rule-ids.js";
 import { loadSectionIndex, type SectionIndex } from "./section-index.js";
 import { NOT_BOOKED_STATUSES } from "./slot-rules.js";
 
@@ -251,6 +252,8 @@ export function planSave(input: {
   /** Every table of the venue, active or not: a date rule may only block these. */
   tableIds: ReadonlySet<string>;
   sections?: SectionIndex;
+  /** Every rule row of the venue, removed ones too (a `seriesId` may name a removed series). */
+  ruleIds?: ReadonlySet<string>;
   now: Date;
   newId?: () => string;
   /** Undoing a venue's first save returns it to no hours at all, which is not an error. */
@@ -266,6 +269,7 @@ export function planSave(input: {
     ...(input.exact ? { exact: true } : {}),
     tableIds: input.tableIds,
     ...(input.sections ? { sections: input.sections } : {}),
+    ...(input.ruleIds ? { ruleIds: input.ruleIds } : {}),
     now,
     today: civilDateIn(now, state.timezone),
     newId: input.newId ?? randomUUID,
@@ -520,7 +524,7 @@ export async function previewAvailabilityConfig(
     await setVenueContext(tx, venueId);
     const state = await loadConfigState(tx, venueId, now);
     if (!state) return { kind: "not_found" };
-    const [bookings, tables, sections] = await Promise.all([
+    const [bookings, tables, sections, ruleIds] = await Promise.all([
       futureBookings(tx, venueId, civilDateIn(now, state.timezone), now),
       tx.table.findMany({
         where: { venueId, ...onActivePlanWhere() },
@@ -535,6 +539,7 @@ export async function previewAvailabilityConfig(
         },
       }),
       loadSectionIndex(tx, venueId),
+      loadDateRuleIds(tx, venueId),
     ]);
     return planPreview({
       state,
@@ -542,6 +547,7 @@ export async function previewAvailabilityConfig(
       bookings,
       tableIds: new Set(tables.map((t) => t.id)),
       sections,
+      ruleIds,
       tables,
       now,
     });

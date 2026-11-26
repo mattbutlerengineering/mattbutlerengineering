@@ -165,6 +165,10 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://mattbutlerengineering.com/rialto/components/file-upload</loc>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://mattbutlerengineering.com/rialto/components/fireflies</loc>
     <priority>0.6</priority>
   </url>

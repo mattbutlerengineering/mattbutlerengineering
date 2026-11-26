@@ -337,6 +337,37 @@ describe("getClosureImpact", () => {
     expect(tx.reservation.findMany).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ["venueServiceId", { targetKind: "service", venueServiceId: "vs-other" }],
+    ["sectionId", { targetKind: "tables", sectionId: "sec-other" }],
+    ["tableIds[0]", { targetKind: "tables", tableIds: ["t-other"] }],
+    ["useScheduleId", { kind: "use_schedule", useScheduleId: "sch-other" }],
+    ["seriesId", { seriesId: "dr-other-venue" }],
+  ] as const)(
+    "refuses a draft whose %s names a row of another venue, before reading bookings",
+    async (field, patch) => {
+      const { client, tx } = fakeStoreClient(rows());
+
+      const outcome = await getClosureImpact(
+        "venue-1",
+        closure(patch as Partial<DateRule>),
+        NOW,
+        client
+      );
+
+      expect(outcome).toMatchObject({
+        kind: "invalid",
+        issues: expect.arrayContaining([
+          expect.objectContaining({
+            code: "unknown_reference",
+            path: expect.stringContaining(field),
+          }),
+        ]),
+      });
+      expect(tx.reservation.findMany).not.toHaveBeenCalled();
+    }
+  );
+
   it("is not found for an unknown venue", async () => {
     const data = rows();
     data.venue.findUnique = vi.fn(async () => null as never);

@@ -59,3 +59,60 @@ describe("nested light theme scope", () => {
     expect(ruleBody('[data-theme="dark"]')).toMatch(/color-scheme:\s*dark\s*;/);
   });
 });
+
+/**
+ * Mid-tone surface scopes (ADR-035). Content on a `data-surface` band reads
+ * re-declared surface, focus-gap, text, border and focus-ring tokens. Each
+ * scope gets a light block, a dark block and a nested-light-island block.
+ */
+const SCOPES = ["tinted", "velvet"] as const;
+const SCOPE_TOKENS = [
+  "--rialto-surface",
+  "--rialto-focus-gap",
+  "--rialto-text-primary",
+  "--rialto-text-secondary",
+  "--rialto-text-tertiary",
+  "--rialto-border",
+  "--rialto-border-strong",
+  "--rialto-focus-ring",
+] as const;
+
+describe("focus ring tokens", () => {
+  it("default to today's accent and surface values, so the focus shadow is unchanged", () => {
+    expect(ROOT.get("--rialto-focus-ring")).toBe(ROOT.get("--rialto-accent"));
+    expect(ROOT.get("--rialto-focus-gap")).toBe(ROOT.get("--rialto-surface"));
+    expect(DARK.get("--rialto-focus-ring")).toBe(DARK.get("--rialto-accent"));
+    expect(DARK.get("--rialto-focus-gap")).toBe(DARK.get("--rialto-surface"));
+  });
+});
+
+describe("data-surface scopes", () => {
+  for (const scope of SCOPES) {
+    const selectors = {
+      light: `[data-surface="${scope}"]`,
+      dark: `[data-theme="dark"] [data-surface="${scope}"]`,
+      nestedLight: `[data-theme="dark"] [data-theme="light"] [data-surface="${scope}"]`,
+    } as const;
+
+    for (const [mode, selector] of Object.entries(selectors)) {
+      it(`${scope} (${mode}) re-declares the on-surface tokens`, () => {
+        const scoped = declarations(selector);
+        for (const name of SCOPE_TOKENS) {
+          expect(scoped.has(name), `${name} missing from ${selector}`).toBe(true);
+        }
+        // The gap behind the focus ring is the band itself.
+        expect(scoped.get("--rialto-focus-gap")).toBe(scoped.get("--rialto-surface"));
+      });
+    }
+
+    it(`${scope}: the band surface is the palette's surface-${scope} token`, () => {
+      expect(declarations(selectors.light).get("--rialto-surface")).toBe(
+        ROOT.get(`--rialto-surface-${scope}`)
+      );
+      expect(declarations(selectors.dark).get("--rialto-surface")).toBe(
+        DARK.get(`--rialto-surface-${scope}`)
+      );
+      expect(declarations(selectors.nestedLight)).toEqual(declarations(selectors.light));
+    });
+  }
+});

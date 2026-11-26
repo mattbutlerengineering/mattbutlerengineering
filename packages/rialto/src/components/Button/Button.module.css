@@ -177,3 +177,32 @@
     min-block-size: 44px;
   }
 }
+
+/* ── Signature palette (@internal kill test) ──
+   Reads the Tier-3 tokens that component-tokens.css re-points under
+   data-palette="signature". Scoped to that attribute, so nothing outside the
+   kill-test board changes. Promoted or deleted after the go/no-go. */
+:global([data-palette="signature"]) .secondary {
+  background: var(--rialto-button-secondary-bg);
+  border-color: var(--rialto-button-secondary-border);
+  color: var(--rialto-button-secondary-text);
+}
+
+/* The plum tint is translucent: layer it over the opaque sheet so plum text
+   never sits on a band (velvet) showing through. */
+:global([data-palette="signature"]) .secondary:hover {
+  background:
+    linear-gradient(
+      var(--rialto-button-secondary-bg-hover),
+      var(--rialto-button-secondary-bg-hover)
+    ),
+    var(--rialto-button-secondary-bg);
+}
+
+:global([data-palette="signature"]) .secondary:active {
+  background: var(--rialto-surface-recessed);
+}
+
+:global([data-palette="signature"]) .ghost:hover {
+  background: var(--rialto-button-ghost-bg-hover);
+}

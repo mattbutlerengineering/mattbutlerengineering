@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { Checkbox, Radio, RadioGroup } from "./Checkbox";
 
 describe("Checkbox", () => {
@@ -260,5 +261,176 @@ describe("RadioGroup", () => {
       </RadioGroup>
     );
     expect(screen.getByRole("radiogroup")).toBeInTheDocument();
+  });
+  it("wires a single Radio child like many children", () => {
+    render(
+      <RadioGroup name="size" value="sm" onChange={vi.fn()}>
+        <Radio label="Small" value="sm" />
+      </RadioGroup>
+    );
+    const radio = screen.getByRole("radio");
+    expect(radio).toBeChecked();
+    expect(radio).toHaveAttribute("name", "size");
+  });
+
+  describe("options array", () => {
+    const options = [
+      { value: "sm", label: "Small", description: "Compact" },
+      { value: "md", label: "Medium" },
+      { value: "lg", label: "Large", disabled: true, disabledReason: "Sold out" },
+    ];
+
+    it("renders one radio per option and selects by value", async () => {
+      const onChange = vi.fn();
+      render(<RadioGroup name="size" value="md" onChange={onChange} options={options} />);
+      const radios = screen.getAllByRole("radio");
+      expect(radios).toHaveLength(3);
+      expect(radios[1]).toBeChecked();
+      expect(screen.getByText("Compact")).toBeInTheDocument();
+      expect(radios[2]).toBeDisabled();
+      await userEvent.click(radios[0]!);
+      expect(onChange).toHaveBeenCalledWith("sm");
+    });
+
+    it("children win over options and warn in dev", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      render(
+        <RadioGroup name="size" value="x" onChange={vi.fn()} options={options}>
+          <Radio label="Only" value="x" />
+        </RadioGroup>
+      );
+      expect(screen.getAllByRole("radio")).toHaveLength(1);
+      expect(warn).toHaveBeenCalled();
+      warn.mockRestore();
+    });
+  });
+
+  describe("orientation", () => {
+    it("defaults to vertical and exposes aria-orientation", () => {
+      render(
+        <RadioGroup name="s" value="" onChange={vi.fn()} options={[{ value: "a", label: "A" }]} />
+      );
+      expect(screen.getByRole("radiogroup")).toHaveAttribute("aria-orientation", "vertical");
+    });
+
+    it("supports horizontal", () => {
+      render(
+        <RadioGroup
+          name="s"
+          value=""
+          orientation="horizontal"
+          onChange={vi.fn()}
+          options={[{ value: "a", label: "A" }]}
+        />
+      );
+      expect(screen.getByRole("radiogroup")).toHaveAttribute("aria-orientation", "horizontal");
+    });
+  });
+
+  describe("description, error and required", () => {
+    it("wires description and error via aria-describedby", () => {
+      render(
+        <RadioGroup
+          label="Size"
+          name="s"
+          value=""
+          onChange={vi.fn()}
+          description="Pick one"
+          error="Required choice"
+          options={[{ value: "a", label: "A" }]}
+        />
+      );
+      const group = screen.getByRole("radiogroup");
+      expect(group).toHaveAttribute("aria-invalid", "true");
+      const ids = group.getAttribute("aria-describedby")!.split(" ");
+      expect(ids).toHaveLength(2);
+      const text = ids.map((id) => document.getElementById(id)?.textContent).join("|");
+      expect(text).toContain("Pick one");
+      expect(text).toContain("Required choice");
+    });
+
+    it("error is not color-only (has an icon)", () => {
+      render(
+        <RadioGroup
+          name="s"
+          value=""
+          onChange={vi.fn()}
+          error="Oops"
+          options={[{ value: "a", label: "A" }]}
+        />
+      );
+      const err = screen.getByText("Oops").closest("[id]")!;
+      expect(err.querySelector("svg")).toBeInTheDocument();
+    });
+
+    it("has no aria-invalid without error", () => {
+      render(
+        <RadioGroup name="s" value="" onChange={vi.fn()} options={[{ value: "a", label: "A" }]} />
+      );
+      expect(screen.getByRole("radiogroup")).not.toHaveAttribute("aria-invalid");
+    });
+
+    it("required sets aria-required and input required", () => {
+      render(
+        <RadioGroup
+          name="s"
+          value=""
+          required
+          onChange={vi.fn()}
+          options={[{ value: "a", label: "A" }]}
+        />
+      );
+      expect(screen.getByRole("radiogroup")).toHaveAttribute("aria-required", "true");
+      expect(screen.getByRole("radio")).toBeRequired();
+    });
+  });
+
+  describe("keyboard", () => {
+    function Harness({ initial = "" }: { initial?: string }) {
+      const [v, setV] = useState(initial);
+      return (
+        <>
+          <button>before</button>
+          <RadioGroup
+            name="s"
+            value={v}
+            onChange={setV}
+            options={[
+              { value: "a", label: "A" },
+              { value: "b", label: "B", disabled: true },
+              { value: "c", label: "C" },
+            ]}
+          />
+        </>
+      );
+    }
+
+    it("Tab enters on the first enabled radio when none checked", async () => {
+      render(<Harness />);
+      await userEvent.tab();
+      await userEvent.tab();
+      expect(screen.getByLabelText("A")).toHaveFocus();
+    });
+
+    it("Tab enters on the checked radio", async () => {
+      render(<Harness initial="c" />);
+      await userEvent.tab();
+      await userEvent.tab();
+      expect(screen.getByLabelText("C")).toHaveFocus();
+    });
+
+    it("arrows move, select, skip disabled and wrap", async () => {
+      render(<Harness initial="a" />);
+      await userEvent.tab();
+      await userEvent.tab();
+      await userEvent.keyboard("{ArrowDown}");
+      expect(screen.getByLabelText("C")).toBeChecked();
+      await userEvent.keyboard("{ArrowRight}");
+      expect(screen.getByLabelText("A")).toBeChecked();
+      await userEvent.keyboard("{ArrowUp}");
+      expect(screen.getByLabelText("C")).toBeChecked();
+      await userEvent.keyboard("{ArrowLeft}");
+      expect(screen.getByLabelText("A")).toBeChecked();
+    });
   });
 });

@@ -27,6 +27,7 @@ vi.mock("../pages/forms/NumberInputPage.js", () => ({ NumberInputPage: () => nul
 vi.mock("../pages/forms/CheckboxRadioPage.js", () => ({ CheckboxRadioPage: () => null }));
 vi.mock("../pages/forms/TogglePage.js", () => ({ TogglePage: () => null }));
 vi.mock("../pages/forms/ListboxPage.js", () => ({ ListboxPage: () => null }));
+vi.mock("../pages/forms/FileUploadPage.js", () => ({ FileUploadPage: () => null }));
 vi.mock("../pages/forms/MasterOverridePage.js", () => ({ MasterOverridePage: () => null }));
 vi.mock("../pages/forms/SliderPage.js", () => ({ SliderPage: () => null }));
 vi.mock("../pages/forms/SelectPage.js", () => ({ SelectPage: () => null }));

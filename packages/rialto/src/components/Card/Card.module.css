@@ -87,3 +87,15 @@
 .flat[data-tilt]:hover::after {
   opacity: 1;
 }
+
+/* ── Signature palette (@internal kill test) ──
+   Reads the Tier-3 tokens that component-tokens.css re-points under
+   data-palette="signature". Scoped to that attribute, so nothing outside the
+   kill-test board changes. Promoted or deleted after the go/no-go. */
+:global([data-palette="signature"]) .card {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--rialto-card-elevated-bg) 70%, var(--rialto-card-sheen)) 0%,
+    var(--rialto-card-elevated-bg) 100%
+  );
+}

@@ -665,15 +665,27 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
       if (hoursError) {
         return reply.code(400).send(createProblemDetails(400, "Bad Request", hoursError));
       }
+      const isAdmin = request.user ? hasPermission(request.user, "admin") : false;
+      if (request.body.venueGroupId !== undefined && !isAdmin) {
+        // Same rule PATCH /:id applies: placing a venue in a venue group is
+        // platform authority, and the first-venue bootstrap admits non-admins.
+        return reply
+          .code(403)
+          .send(
+            createProblemDetails(
+              403,
+              "Forbidden",
+              "Admin role required to place a venue in a venue group"
+            )
+          );
+      }
       try {
         // requireVenueCreateAccess ran, so request.user is set; seed the creator
         // as the venue owner (VenueMembership) so it appears in their scoped
         // list (#3069). The guard read membership OUTSIDE the transaction that
         // establishes it, so the service re-checks inside — but only for
         // non-admins, which is why the caller's role is threaded through.
-        const venue = await venueService.create(request.body, request.user?.raw.sub, {
-          isAdmin: request.user ? hasPermission(request.user, "admin") : false,
-        });
+        const venue = await venueService.create(request.body, request.user?.raw.sub, { isAdmin });
         return reply.code(201).send({ data: venue });
       } catch (error) {
         if (error instanceof VenueBootstrapForbiddenError) {
