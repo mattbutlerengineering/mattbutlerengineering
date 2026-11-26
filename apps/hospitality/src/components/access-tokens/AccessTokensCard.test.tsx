@@ -98,7 +98,7 @@ describe("AccessTokensCard", () => {
     await userEvent.click(screen.getByRole("button", { name: "Create token" }));
 
     await waitFor(() => expect(screen.getByDisplayValue("mbe_pat_ef56_fake")).toBeInTheDocument());
-    expect(mint).toHaveBeenCalledWith({ name: "Cursor", expiresInDays: 90 });
+    expect(mint).toHaveBeenCalledWith({ name: "Cursor", expiresInDays: 90, write: false });
     expect(screen.getByText(/won.t see this again/i)).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Copy token" }));
@@ -107,6 +107,48 @@ describe("AccessTokensCard", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Done" }));
     expect(screen.queryByDisplayValue("mbe_pat_ef56_fake")).not.toBeInTheDocument();
+  });
+
+  it("offers an unchecked 'make changes' checkbox with a plain, exact warning", () => {
+    renderCard();
+    const box = screen.getByRole("checkbox", { name: /^Allow this token to make changes/ });
+    expect(box).not.toBeChecked();
+    expect(box).toHaveAccessibleDescription(
+      "The assistant can move a booking (date, time, table or party size) and pause or resume tables. It can do nothing else. Every change is logged."
+    );
+  });
+
+  it("mints read-only by default, sending write false", async () => {
+    renderCard();
+    await userEvent.type(screen.getByLabelText("Token name"), "Cursor");
+    await userEvent.click(screen.getByRole("button", { name: "Create token" }));
+    await waitFor(() => expect(mint).toHaveBeenCalled());
+    expect(mint).toHaveBeenCalledWith({ name: "Cursor", expiresInDays: 90, write: false });
+  });
+
+  it("mints with write true only when the box is ticked", async () => {
+    renderCard();
+    await userEvent.type(screen.getByLabelText("Token name"), "Cursor");
+    await userEvent.click(
+      screen.getByRole("checkbox", { name: /^Allow this token to make changes/ })
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Create token" }));
+    await waitFor(() =>
+      expect(mint).toHaveBeenCalledWith({ name: "Cursor", expiresInDays: 90, write: true })
+    );
+  });
+
+  it("shows each token's scope in the list", () => {
+    tokensQuery.value = {
+      data: [claudeToken, { ...idleToken, write: true }],
+      isLoading: false,
+      error: null,
+    };
+    renderCard();
+    const readOnly = screen.getByRole("listitem", { name: "Claude Desktop" });
+    expect(within(readOnly).getByText("Read only")).toBeInTheDocument();
+    const writable = screen.getByRole("listitem", { name: "Laptop" });
+    expect(within(writable).getByText("Can make changes")).toBeInTheDocument();
   });
 
   it("does not mint without a name", async () => {

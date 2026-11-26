@@ -4099,7 +4099,13 @@
     },
     "accessTokens": {
       "title": "Conecta un asistente de IA",
-      "description": "Deja que un asistente de IA como Claude consulte información por ti. Un token es de solo lectura y llega a todos los locales a los que perteneces. Trátalo como una contraseña.",
+      "description": "Deja que un asistente de IA como Claude consulte información por ti. Un token es de solo lectura, salvo que permitas cambios, y llega a todos los locales a los que perteneces. Trátalo como una contraseña.",
+      "writeLabel": "Permitir que este token haga cambios",
+      "writeWarning": "El asistente puede mover una reservación (fecha, hora, mesa o tamaño del grupo) y pausar o reanudar mesas. No puede hacer nada más. Cada cambio queda registrado.",
+      "scope": {
+        "readOnly": "Solo lectura",
+        "write": "Puede hacer cambios"
+      },
       "nameLabel": "Nombre del token",
       "nameRequired": "Ponle un nombre al token, por ejemplo el del asistente que lo usará.",
       "expiryLabel": "Vence",
