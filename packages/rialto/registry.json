@@ -3858,6 +3858,12 @@
           "description": "Secondary text rendered below the label"
         },
         {
+          "name": "required",
+          "type": "boolean | undefined",
+          "required": false,
+          "description": "Provided automatically by RadioGroup `required`"
+        },
+        {
           "name": "className",
           "type": "string | undefined",
           "required": false
@@ -3898,6 +3904,35 @@
           "name": "onChange",
           "type": "(value: string) => void",
           "required": true
+        },
+        {
+          "name": "options",
+          "type": "RadioGroupOption[] | undefined",
+          "required": false,
+          "description": "Options-array form, rendered when `children` is absent"
+        },
+        {
+          "name": "orientation",
+          "type": "\"horizontal\" | \"vertical\" | undefined",
+          "required": false,
+          "description": "Layout direction; also exposed as `aria-orientation`"
+        },
+        {
+          "name": "description",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Helper text below the legend"
+        },
+        {
+          "name": "error",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Error message below the legend; sets `aria-invalid` on the group"
+        },
+        {
+          "name": "required",
+          "type": "boolean | undefined",
+          "required": false
         },
         {
           "name": "className",
