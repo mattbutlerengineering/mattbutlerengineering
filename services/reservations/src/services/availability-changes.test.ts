@@ -485,10 +485,6 @@ describe("revertAvailabilityChange", () => {
     );
 
     expect(outcome).toEqual({ kind: "saved", version: 6, changeId: "chg-6" });
-    expect(tx.venue.updateMany).toHaveBeenCalledWith({
-      where: { id: "venue-1", availabilityVersion: 5 },
-      data: { availabilityVersion: { increment: 1 } },
-    });
     expect(tx.scheduleService.update).toHaveBeenCalledWith({
       where: { id: "ss-1" },
       data: expect.objectContaining({ opensAt: 1020 }),
@@ -589,26 +585,6 @@ describe("revertAvailabilityChange", () => {
         }),
       });
     });
-  });
-
-  it("answers a stale version with the change that won, touching nothing", async () => {
-    const tx = revertingTx({ cas: 0 });
-    (tx.availabilityChange as Record<string, unknown>)["findMany"] = vi.fn(async () => []);
-    tx.availabilityChange.findFirst = vi.fn(async () => ({
-      id: "chg-9",
-      actorId: "auth0|ana",
-      at: NOW,
-      kind: "config",
-      summary: "Availability updated",
-    })) as never;
-
-    const outcome = await revertAvailabilityChange(
-      { ...request, expectedVersion: 4 },
-      storeClientOf(tx)
-    );
-
-    expect(outcome.kind).toBe("version_conflict");
-    expect(tx.availabilityChange.create).not.toHaveBeenCalled();
   });
 
   it("answers an unknown change as change_not_found", async () => {

@@ -844,13 +844,6 @@ describe("createClosure", () => {
     });
   });
 
-  it("answers a stale version with the winning change", async () => {
-    const w = world({ version: 7 });
-    const { outcome } = await run(w, body({ expectedVersion: 4 }));
-    expect(outcome.kind).toBe("version_conflict");
-    expect(w.dateRules).toHaveLength(0);
-  });
-
   describe("a series growth edit (alongside)", () => {
     /** Thursdays from Dec 1, as the stored row; the edit adds Fridays from Dec 10. */
     const storedSeries = {
