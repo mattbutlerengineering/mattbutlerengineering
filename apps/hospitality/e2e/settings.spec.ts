@@ -99,7 +99,7 @@ test.describe("Connect an AI assistant (#9665)", () => {
     await expect(box).not.toBeChecked();
 
     await mockedPage.getByLabel("Token name").fill("Writer");
-    await box.check();
+    await box.check({ force: true });
     await mockedPage.getByRole("button", { name: "Create token" }).click();
     await mockedPage.getByRole("button", { name: "Done" }).click();
 
