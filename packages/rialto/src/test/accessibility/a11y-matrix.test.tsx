@@ -121,6 +121,7 @@ const BARREL_COMPONENT_NAMES: readonly BarrelExportName[] = [
   "TimeSlots",
   "Toast",
   "Toggle",
+  "Toolbar",
   "Tooltip",
   "Tree",
   "WatchLoader",

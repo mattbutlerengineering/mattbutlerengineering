@@ -414,6 +414,10 @@
       "types": "./dist/lib/components/Toggle/index.d.ts",
       "import": "./dist/lib/components/Toggle/index.js"
     },
+    "./Toolbar": {
+      "types": "./dist/lib/components/Toolbar/index.d.ts",
+      "import": "./dist/lib/components/Toolbar/index.js"
+    },
     "./Tooltip": {
       "types": "./dist/lib/components/Tooltip/index.d.ts",
       "import": "./dist/lib/components/Tooltip/index.js"

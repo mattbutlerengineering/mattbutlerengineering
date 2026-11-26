@@ -333,6 +333,10 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://mattbutlerengineering.com/rialto/components/toolbar</loc>
+    <priority>0.6</priority>
+  </url>
+  <url>
     <loc>https://mattbutlerengineering.com/rialto/components/surfaces</loc>
     <priority>0.6</priority>
   </url>
