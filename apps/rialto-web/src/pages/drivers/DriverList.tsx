@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router";
 import { useDrivers, type Driver } from "./DriverContext";
+import { filterDrivers, paginateDrivers, sortDrivers, type DriverSort } from "./driver-list-query";
 import { DriverLayout } from "./DriverLayout";
 import { DEMO_ROUTES } from "../../data/demo-routes";
 import {
@@ -91,26 +92,18 @@ export function DriverList() {
   const [teamFilter, setTeamFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [page, setPage] = useState(1);
+  const [sort, setSort] = useState<DriverSort | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Driver | null>(null);
   const [drawerDriver, setDrawerDriver] = useState<Driver | null>(null);
 
-  /* ── Filtered + paginated data ─────────────── */
+  /* ── Filter, then sort the full set, then paginate ── */
 
-  const filtered = useMemo(() => {
-    return drivers.filter((d) => {
-      const matchesSearch =
-        !search ||
-        d.name.toLowerCase().includes(search.toLowerCase()) ||
-        String(d.number).includes(search);
-      const matchesTeam = teamFilter === "all" || d.team === teamFilter;
-      const matchesStatus = statusFilter === "all" || d.status === statusFilter;
-      return matchesSearch && matchesTeam && matchesStatus;
-    });
-  }, [drivers, search, teamFilter, statusFilter]);
+  const filtered = useMemo(
+    () => sortDrivers(filterDrivers(drivers, search, teamFilter, statusFilter), sort),
+    [drivers, search, teamFilter, statusFilter, sort]
+  );
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / ROWS_PER_PAGE));
-  const safePage = Math.min(page, totalPages);
-  const paged = filtered.slice((safePage - 1) * ROWS_PER_PAGE, safePage * ROWS_PER_PAGE);
+  const { rows: paged, safePage, totalPages } = paginateDrivers(filtered, page, ROWS_PER_PAGE);
 
   /* ── Delete handler ────────────────────────── */
 
@@ -312,6 +305,9 @@ export function DriverList() {
             data={paged as unknown as Record<string, unknown>[]}
             rowKey={(row) => row.id as string}
             striped
+            manualSort
+            sort={sort}
+            onSortChange={setSort}
           />
 
           <div className={styles.paginationRow}>

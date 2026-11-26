@@ -114,6 +114,7 @@ import { Listbox } from "../../components/Listbox/Listbox";
 import { TimeSlots } from "../../components/TimeSlots/TimeSlots";
 import { ToastProvider } from "../../components/Toast/Toast";
 import { Toggle } from "../../components/Toggle/Toggle";
+import { Toolbar } from "../../components/Toolbar/Toolbar";
 import { VisuallyHidden } from "../../components/VisuallyHidden/VisuallyHidden";
 import { Tooltip } from "../../components/Tooltip/Tooltip";
 import { Tree } from "../../components/Tree/Tree";
@@ -227,6 +228,7 @@ export type BarrelExportName =
   | "TimeSlots"
   | "Toast"
   | "Toggle"
+  | "Toolbar"
   | "Tooltip"
   | "Tree"
   | "VisuallyHidden"
@@ -934,6 +936,15 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
           { value: "patio", label: "Patio" },
         ]}
       />
+    ),
+  },
+
+  Toolbar: {
+    element: (
+      <Toolbar aria-label="Formatting">
+        <button type="button">Bold</button>
+        <button type="button">Italic</button>
+      </Toolbar>
     ),
   },
 

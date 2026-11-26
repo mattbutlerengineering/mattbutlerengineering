@@ -186,6 +186,7 @@ const RAW_PAGE_ENTRIES: RawPageEntry[] = [
   { id: "pagination", label: "Pagination", category: "Navigation" },
   { id: "navigation-menu", label: "Navigation Menu", category: "Navigation" },
   { id: "tree", label: "Tree", category: "Navigation" },
+  { id: "toolbar", label: "Toolbar", category: "Navigation" },
   { id: "sidebar", label: "Sidebar", category: "Navigation" },
   { id: "navbar", label: "Navbar", category: "Navigation" },
   // ── Feedback ────────────────────────────────────────────────────────────

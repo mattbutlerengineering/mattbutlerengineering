@@ -1,5 +1,5 @@
 {
-  "version": "3.1.5",
+  "version": "3.1.6",
   "components": [
     {
       "name": "Accordion",
@@ -5415,6 +5415,38 @@
           "prop": "label",
           "max": 30
         }
+      ]
+    },
+    {
+      "name": "Toolbar",
+      "description": "Groups related controls into a single Tab stop with roving focus (WAI-ARIA APG Toolbar).\nArrow keys move between enabled controls, Home/End jump to the ends, and the arrow\nkeys are mirrored for horizontal toolbars in RTL.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [
+        {
+          "name": "orientation",
+          "type": "\"horizontal\" | \"vertical\" | undefined",
+          "required": false,
+          "description": "Layout axis and which arrow keys move focus. Defaults to horizontal."
+        }
+      ],
+      "slots": [
+        "children"
+      ]
+    },
+    {
+      "name": "ToolbarSeparator",
+      "description": "Visual divider between toolbar control groups. Rendered perpendicular to the toolbar axis.\nPass `orientation` matching the parent toolbar's orientation; it defaults to horizontal\ntoolbars (a vertical rule).",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [
+        {
+          "name": "toolbarOrientation",
+          "type": "\"horizontal\" | \"vertical\" | undefined",
+          "required": false,
+          "description": "The parent toolbar's orientation. The rule is drawn perpendicular to it."
+        }
+      ],
+      "slots": [
+        "children"
       ]
     },
     {

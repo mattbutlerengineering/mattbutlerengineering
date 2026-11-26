@@ -73,6 +73,7 @@ vi.mock("../pages/navigation/PaginationPage.js", () => ({ PaginationPage: () => 
 vi.mock("../pages/navigation/NavigationMenuPage.js", () => ({
   NavigationMenuPage: () => null,
 }));
+vi.mock("../pages/navigation/ToolbarPage.js", () => ({ ToolbarPage: () => null }));
 vi.mock("../pages/navigation/SidebarPage.js", () => ({ SidebarPage: () => null }));
 vi.mock("../pages/navigation/NavbarPage.js", () => ({ NavbarPage: () => null }));
 vi.mock("../pages/feedback/ToastPage.js", () => ({ ToastPage: () => null }));
