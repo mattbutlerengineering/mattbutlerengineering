@@ -89,6 +89,7 @@ import { allOutboundLive } from "./transitions/venue-policy.js";
 import type { JobsPort, PaymentsPort } from "./transitions/ports.js";
 import { StripeService } from "./services/stripe.js";
 import { DepositService } from "./services/deposit.js";
+import { registerPatWriteAudit } from "./middleware/pat-audit.js";
 import { createPatAwareVerifier, registerPatReadOnlyGuard } from "./middleware/pat-auth.js";
 import { resolveManageBaseUrl } from "./config/manage-base-url.js";
 import { createHostBrandResolver } from "./config/host-brand.js";
@@ -188,6 +189,7 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   );
 
   registerPatReadOnlyGuard(fastify);
+  registerPatWriteAudit(fastify);
 
   // Venue-scope registry (docs/fixes/venue-scoped-routes/architecture.md):
   // records every route's `venueScoped` descriptor, or null, keyed

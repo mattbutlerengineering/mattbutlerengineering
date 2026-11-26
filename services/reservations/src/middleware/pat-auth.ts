@@ -12,6 +12,8 @@ import { isBookingMove, isTablePauseResume, isTablePauseSave } from "./pat-write
 const PAT_CLAIM = "mbePat";
 /** Claim set, alongside `PAT_CLAIM`, when that token carries the write scope (#9778). */
 const PAT_WRITE_CLAIM = "mbePatWrite";
+/** Claim carrying the token's id (never the token itself), for the write audit (#9780). */
+const PAT_ID_CLAIM = "mbePatId";
 const TOKEN_READ_ONLY_PROBLEM = "urn:mbe:problem:token-read-only";
 const READ_METHODS = new Set(["GET", "HEAD"]);
 
@@ -54,7 +56,12 @@ export function createPatAwareVerifier(
     if (!isAccessToken(token)) return fallback(token);
     const found = await authenticate(token);
     if (!found) throw new Error("Invalid personal access token");
-    return { sub: found.userSub, [PAT_CLAIM]: true, [PAT_WRITE_CLAIM]: found.write };
+    return {
+      sub: found.userSub,
+      [PAT_CLAIM]: true,
+      [PAT_WRITE_CLAIM]: found.write,
+      [PAT_ID_CLAIM]: found.id,
+    };
   };
 }
 

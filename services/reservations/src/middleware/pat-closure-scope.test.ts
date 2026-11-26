@@ -39,6 +39,7 @@ const commandSvc = {
   isTablePause: vi.fn(),
 };
 const impactSvc = { impact: vi.fn() };
+const auditSvc = { record: vi.fn(), recordStatus: vi.fn() };
 
 const tablePause = {
   id: "dr-pause",
@@ -84,6 +85,8 @@ describe("write-scoped token on the closure routes (#9778)", () => {
       payload: { sub: "auth0|me", iss: "https://test.auth0.com/", aud: "https://api.example.com" },
       protectedHeader: { alg: "RS256" },
     } as never);
+    auditSvc.record.mockResolvedValue("audit-1");
+    auditSvc.recordStatus.mockResolvedValue(undefined);
     commandSvc.mayClose.mockResolvedValue(true);
     commandSvc.create.mockResolvedValue(SAVED);
     commandSvc.reopen.mockResolvedValue(REOPENED);
@@ -91,6 +94,7 @@ describe("write-scoped token on the closure routes (#9778)", () => {
       logger: false,
       services: {
         accessTokenService: tokens as never,
+        accessTokenAuditService: auditSvc as never,
         closureCommandService: commandSvc as never,
         closureImpactService: impactSvc as never,
       },
@@ -116,6 +120,24 @@ describe("write-scoped token on the closure routes (#9778)", () => {
       const res = await post(pauseBody);
       expect(res.statusCode).toBe(200);
       expect(commandSvc.create).toHaveBeenCalledOnce();
+    });
+
+    it("audits the pause with its venue and the final status (#9780)", async () => {
+      const res = await post(pauseBody);
+      expect(auditSvc.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tokenId: "tok-2",
+          method: "POST",
+          route: `${AVAILABILITY_CONFIG_PREFIX}/:id/closures`,
+          venueId: "venue-1",
+        })
+      );
+      expect(auditSvc.recordStatus).toHaveBeenCalledWith("audit-1", res.statusCode);
+    });
+
+    it("writes no audit row for a session caller (#9780)", async () => {
+      await post(pauseBody, SESSION);
+      expect(auditSvc.record).not.toHaveBeenCalled();
     });
 
     it.each([
