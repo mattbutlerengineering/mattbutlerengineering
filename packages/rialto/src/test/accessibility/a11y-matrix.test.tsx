@@ -112,6 +112,7 @@ const BARREL_COMPONENT_NAMES: readonly BarrelExportName[] = [
   "Table",
   "Tabs",
   "Tag",
+  "TagsInput",
   "TapeChart",
   "Text",
   "TextArea",

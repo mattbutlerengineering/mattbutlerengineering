@@ -378,6 +378,10 @@
       "types": "./dist/lib/components/Tag/index.d.ts",
       "import": "./dist/lib/components/Tag/index.js"
     },
+    "./TagsInput": {
+      "types": "./dist/lib/components/TagsInput/index.d.ts",
+      "import": "./dist/lib/components/TagsInput/index.js"
+    },
     "./TapeChart": {
       "types": "./dist/lib/components/TapeChart/index.d.ts",
       "import": "./dist/lib/components/TapeChart/index.js"

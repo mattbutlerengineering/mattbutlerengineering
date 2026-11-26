@@ -24,6 +24,7 @@ const FORMS_COMPONENTS = [
   "Slider",
   "Select",
   "PinInput",
+  "TagsInput",
   "SegmentedControl",
   "Autocomplete",
   "InputGroup",

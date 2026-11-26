@@ -91,6 +91,7 @@ import {
   Table,
   Tabs,
   Tag,
+  TagsInput,
   Text,
   ThemeToggle,
   Timeline,
@@ -1124,6 +1125,11 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
         <MasterOverrideAdapter props={props} emit={emit} />
       )),
 
+      TagsInput: typed(
+        ({ props, emit }: AdapterArgs<Omit<ComponentProps<typeof TagsInput>, "onValueChange">>) => (
+          <TagsInput {...props} onValueChange={() => emit("change")} />
+        )
+      ),
       ImageUpload: typed(({ props, emit }: AdapterArgs<ImageUploadSpecProps>) => (
         <ImageUploadAdapter props={props} emit={emit} />
       )),

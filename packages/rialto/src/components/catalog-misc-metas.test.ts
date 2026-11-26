@@ -3,6 +3,7 @@ import type { CatalogMeta } from "./catalog-meta";
 import { chatPanelCatalogMeta } from "./ChatPanel/ChatPanel.catalog";
 import { imageUploadCatalogMeta } from "./ImageUpload/ImageUpload.catalog";
 import { masterOverrideCatalogMeta } from "./MasterOverride/MasterOverride.catalog";
+import { tagsInputCatalogMeta } from "./TagsInput/TagsInput.catalog";
 import { treeCatalogMeta } from "./Tree/Tree.catalog";
 
 /** Misc/complex catalog metas (#9521): each names its component and tells the AI when to use it. */
@@ -11,6 +12,7 @@ const metas: readonly (readonly [string, CatalogMeta])[] = [
   ["ChatPanel", chatPanelCatalogMeta],
   ["ImageUpload", imageUploadCatalogMeta],
   ["Tree", treeCatalogMeta],
+  ["TagsInput", tagsInputCatalogMeta],
 ];
 
 describe.each(metas)("%s catalog meta", (name, meta) => {
@@ -26,6 +28,12 @@ describe.each(metas)("%s catalog meta", (name, meta) => {
   it("holds Zod only as source strings, never as an import", () => {
     for (const source of Object.values(meta.propSchemas ?? {}))
       expect(typeof source).toBe("string");
+  });
+});
+
+describe("TagsInput catalog meta", () => {
+  it("declares an explicit schema for its defaultValue prop", () => {
+    expect(tagsInputCatalogMeta.propSchemas.defaultValue).toMatch(/^z\.array\(/);
   });
 });
 

@@ -489,6 +489,16 @@ export const generatedSchemas = {
     selected: z.boolean().optional(),
     icon: z.string().optional(),
   }),
+  TagsInput: z.object({
+    label: z.string().max(40),
+    defaultValue: z.array(z.string()).optional(),
+    maxTags: z.number().optional(),
+    allowDuplicates: z.boolean().optional(),
+    placeholder: z.string().max(60).optional(),
+    disabled: z.boolean().optional(),
+    error: z.boolean().optional(),
+    hint: z.string().max(120).optional(),
+  }),
   Text: z.object({
     variant: z.enum(["body", "caption", "detail", "display", "label"]).optional(),
     color: z.enum(["accent", "error", "on-accent", "primary", "secondary", "success", "tertiary", "warning"]).optional(),

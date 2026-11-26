@@ -30,6 +30,7 @@ vi.mock("../pages/forms/MasterOverridePage.js", () => ({ MasterOverridePage: () 
 vi.mock("../pages/forms/SliderPage.js", () => ({ SliderPage: () => null }));
 vi.mock("../pages/forms/SelectPage.js", () => ({ SelectPage: () => null }));
 vi.mock("../pages/forms/PinInputPage.js", () => ({ PinInputPage: () => null }));
+vi.mock("../pages/forms/TagsInputPage.js", () => ({ TagsInputPage: () => null }));
 vi.mock("../pages/forms/SegmentedControlPage.js", () => ({ SegmentedControlPage: () => null }));
 vi.mock("../pages/forms/AutocompletePage.js", () => ({ AutocompletePage: () => null }));
 vi.mock("../pages/forms/ComboboxPage.js", () => ({ ComboboxPage: () => null }));
