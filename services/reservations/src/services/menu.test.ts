@@ -45,6 +45,15 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
+/** Every bound value of a tagged-template `$executeRaw` call, nested `Prisma.join`s included. */
+function boundValues(call: unknown[]): unknown[] {
+  const walk = (v: unknown): unknown[] =>
+    v && typeof v === "object" && Array.isArray((v as { values?: unknown }).values)
+      ? (v as { values: unknown[] }).values.flatMap(walk)
+      : [v];
+  return call.slice(1).flatMap(walk);
+}
+
 describe("menuService", () => {
   it("filters every menu read and write by venueId", async () => {
     db.menu.findFirst.mockResolvedValue(null);
@@ -88,9 +97,10 @@ describe("menuService", () => {
 
   it("reorder writes displayOrder = index, all scoped to the venue", async () => {
     const tx = {
+      $executeRaw: vi.fn().mockResolvedValue(2),
       menuSection: {
         count: vi.fn().mockResolvedValue(2),
-        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        updateMany: vi.fn(),
         findMany: vi.fn().mockResolvedValue([]),
       },
     };
@@ -103,10 +113,33 @@ describe("menuService", () => {
       menuId: "m1",
       venueId: "v1",
     });
-    expect(tx.menuSection.updateMany.mock.calls.map((c) => [c[0]?.where, c[0]?.data])).toEqual([
-      [{ id: "s2", menuId: "m1", venueId: "v1" }, { displayOrder: 0 }],
-      [{ id: "s1", menuId: "m1", venueId: "v1" }, { displayOrder: 1 }],
-    ]);
+    // One batched statement, not one round-trip per row.
+    expect(tx.menuSection.updateMany).not.toHaveBeenCalled();
+    expect(tx.$executeRaw).toHaveBeenCalledTimes(1);
+    expect(boundValues(tx.$executeRaw.mock.calls[0]!)).toEqual(
+      expect.arrayContaining(["s2", 0, "s1", 1, "m1", "v1"])
+    );
+  });
+
+  it("reorderItems writes displayOrder = index in one batched statement", async () => {
+    const tx = {
+      $executeRaw: vi.fn().mockResolvedValue(2),
+      menuSection: { count: vi.fn().mockResolvedValue(1) },
+      menuItem: {
+        count: vi.fn().mockResolvedValue(2),
+        updateMany: vi.fn(),
+        findMany: vi.fn().mockResolvedValue([]),
+      },
+    };
+    db.$transaction.mockImplementation((fn: (t: unknown) => unknown) => fn(tx));
+
+    await menuService.reorderItems("v1", "m1", "s1", ["i2", "i1"]);
+
+    expect(tx.menuItem.updateMany).not.toHaveBeenCalled();
+    expect(tx.$executeRaw).toHaveBeenCalledTimes(1);
+    expect(boundValues(tx.$executeRaw.mock.calls[0]!)).toEqual(
+      expect.arrayContaining(["i2", 0, "i1", 1, "s1", "v1"])
+    );
   });
 
   it("reorder writes nothing when an id is not owned by the menu in this venue", async () => {

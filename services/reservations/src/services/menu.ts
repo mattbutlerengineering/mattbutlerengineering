@@ -19,6 +19,7 @@ import {
   CreateMenuItemRequestSchema,
   UpdateMenuItemRequestSchema,
 } from "@mbe/types";
+import { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 import { setVenueContext } from "../middleware/venue-context.js";
 
@@ -262,9 +263,13 @@ export const menuService = {
       await setVenueContext(tx, venueId);
       const owned = await tx.menuSection.count({ where: { id: { in: ids }, menuId, venueId } });
       if (owned !== ids.length) return null;
-      for (const [displayOrder, id] of ids.entries()) {
-        await tx.menuSection.updateMany({ where: { id, menuId, venueId }, data: { displayOrder } });
-      }
+      const order = Prisma.join(ids.map((id, i) => Prisma.sql`(${id}, ${i}::int)`));
+      await tx.$executeRaw`
+        UPDATE "menu_sections" AS s
+        SET display_order = v.display_order
+        FROM (VALUES ${order}) AS v(id, display_order)
+        WHERE s.id = v.id AND s.menu_id = ${menuId} AND s.venue_id = ${venueId}
+      `;
       const sections = await tx.menuSection.findMany({
         where: { menuId, venueId },
         orderBy: BY_ORDER,
@@ -287,9 +292,13 @@ export const menuService = {
       if (section === 0) return null;
       const owned = await tx.menuItem.count({ where: { id: { in: ids }, sectionId, venueId } });
       if (owned !== ids.length) return null;
-      for (const [displayOrder, id] of ids.entries()) {
-        await tx.menuItem.updateMany({ where: { id, sectionId, venueId }, data: { displayOrder } });
-      }
+      const order = Prisma.join(ids.map((id, i) => Prisma.sql`(${id}, ${i}::int)`));
+      await tx.$executeRaw`
+        UPDATE "menu_items" AS i
+        SET display_order = v.display_order
+        FROM (VALUES ${order}) AS v(id, display_order)
+        WHERE i.id = v.id AND i.section_id = ${sectionId} AND i.venue_id = ${venueId}
+      `;
       const items = await tx.menuItem.findMany({
         where: { sectionId, venueId },
         orderBy: BY_ORDER,

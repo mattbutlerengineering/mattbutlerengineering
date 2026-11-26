@@ -365,12 +365,16 @@ export const floorPlanService = {
           venueTables.map((t) => t.name).filter((name) => !ownNames.has(name)),
           (name, n) => `${name.slice(0, -")".length)} ${n})`
         );
-        for (const [i, table] of tables.entries()) {
-          await tx.table.update({
-            where: { id: table.id },
-            data: { name: archivedNames[i]!, isActive: false },
-          });
-        }
+        // One statement for every table (each needs its own name).
+        const renames = Prisma.join(
+          tables.map((t, i) => Prisma.sql`(${t.id}, ${archivedNames[i]!})`)
+        );
+        await tx.$executeRaw`
+          UPDATE "tables" AS t
+          SET name = v.name, is_active = false, updated_at = now()
+          FROM (VALUES ${renames}) AS v(id, name)
+          WHERE t.id = v.id AND t.floor_plan_id = ${id}
+        `;
         await tx.floorPlan.update({ where: { id }, data: { archivedAt: new Date() } });
         return "archived" as const;
       });
