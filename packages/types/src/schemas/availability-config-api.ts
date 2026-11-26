@@ -119,7 +119,7 @@ export const AvailabilityConfigSaveResultSchema = z.object({
  * A change's stable code and the facts its sentence is made of. The server writes `config_saved`,
  * `closure_saved`, `close_early_saved`, `closure_reopened`, `tonight_pause_online`,
  * `tonight_close_early`, `tonight_stop_window`, `tonight_block_tables`, `tonight_pacing`,
- * `tonight_ended` and `regular_week_changed`; the client maps each to its own catalog keys. The wire accepts any string, so a
+ * `tonight_ended`, `section_closure_materialised` and `regular_week_changed`; the client maps each to its own catalog keys. The wire accepts any string, so a
  * newer server's code reads as unknown (the English `summary` is shown) rather than failing the
  * response, and the fields are flat and optional: a code missing a field its sentence needs is
  * shown as `summary` too.

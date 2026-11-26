@@ -20,6 +20,8 @@ import { runWithVenueContext } from "./venue-context-store.js";
  * Shares the FORCE-toggling suites' advisory lock so it never sees their window.
  */
 const DATABASE_URL = process.env.DATABASE_URL;
+const ACTOR = { actorId: "mgr-1", actorName: "Mia" };
+
 const RLS_SUITE_LOCK_KEY = 5369;
 
 describe.skipIf(!DATABASE_URL)(
@@ -143,7 +145,7 @@ describe.skipIf(!DATABASE_URL)(
       // And back in.
       await inVenue((tx) => tx.table.update({ where: { id: moved }, data: { sectionId } }));
       expect(await read()).toEqual(tableIds);
-      await asVenue(() => floorPlanSectionService.delete(venueId, sectionId, now));
+      await asVenue(() => floorPlanSectionService.delete(venueId, sectionId, ACTOR, now));
       await inVenue((tx) => tx.floorPlan.deleteMany({ where: { id: planId } }));
     });
 
@@ -156,9 +158,9 @@ describe.skipIf(!DATABASE_URL)(
         })
       );
 
-      expect(await asVenue(() => floorPlanSectionService.delete(venueId, sectionId, now))).toBe(
-        true
-      );
+      expect(
+        await asVenue(() => floorPlanSectionService.delete(venueId, sectionId, ACTOR, now))
+      ).toBe(true);
 
       expect(await ruleState(ruleId)).toEqual({ sectionId: null, tableIds, deletedAt: null });
       const after = await inVenue((tx) =>
@@ -178,7 +180,7 @@ describe.skipIf(!DATABASE_URL)(
     it("does not materialise a closure that has already ended", async () => {
       const { sectionId, ruleId } = await seed("2026-10-01");
 
-      await asVenue(() => floorPlanSectionService.delete(venueId, sectionId, now));
+      await asVenue(() => floorPlanSectionService.delete(venueId, sectionId, ACTOR, now));
 
       // The foreign key clears the section; nothing is written for a closure that is over.
       expect(await ruleState(ruleId)).toEqual({ sectionId: null, tableIds: [], deletedAt: null });
@@ -187,7 +189,7 @@ describe.skipIf(!DATABASE_URL)(
     it("hard-deletes a never-booked plan's sections by cascade and materialises their closures", async () => {
       const { planId, sectionId, ruleId, tableIds } = await seed(null);
 
-      expect(await asVenue(() => floorPlanService.delete(planId))).toBe("deleted");
+      expect(await asVenue(() => floorPlanService.delete(planId, ACTOR))).toBe("deleted");
 
       const left = await inVenue((tx) => tx.floorPlanSection.count({ where: { id: sectionId } }));
       // Verified: the plan's sections are hard-deleted (ON DELETE CASCADE), so the plan-delete path
@@ -218,7 +220,7 @@ describe.skipIf(!DATABASE_URL)(
         });
       });
 
-      expect(await asVenue(() => floorPlanService.delete(planId))).toBe("archived");
+      expect(await asVenue(() => floorPlanService.delete(planId, ACTOR))).toBe("archived");
 
       expect(await inVenue((tx) => tx.floorPlanSection.count({ where: { id: sectionId } }))).toBe(
         1

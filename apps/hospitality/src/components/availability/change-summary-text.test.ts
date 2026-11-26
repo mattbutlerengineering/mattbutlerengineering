@@ -180,6 +180,17 @@ describe("changeSummaryText from a code", () => {
     );
   });
 
+  it("words a section delete's materialised closures in each language", async () => {
+    const c = change("Section deleted: 1 closure now closes its tables", {
+      code: "section_closure_materialised",
+    });
+    expect(await textOf("en-US", c)).toBe("Section deleted: its closures now close its tables");
+    expect(await textOf("es-MX", c)).toBe("Sección eliminada: sus cierres ahora cierran sus mesas");
+    expect(await textOf("fr-CA", c)).toBe(
+      "Section supprimée : ses fermetures bloquent maintenant ses tables"
+    );
+  });
+
   it("marks a revert, wording the change it undid", async () => {
     const c = change("Reverted: Tonight change ended", { code: "tonight_ended", reverted: true });
     expect(await textOf("en-US", c)).toBe("Reverted: Tonight change ended");

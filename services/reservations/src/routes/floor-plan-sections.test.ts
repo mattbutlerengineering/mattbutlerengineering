@@ -204,6 +204,10 @@ describe("Floor plan section routes", () => {
     expect(
       (await app.inject({ method: "DELETE", url: `${URL_}/sec-1${Q}`, headers: ADMIN })).statusCode
     ).toBe(204);
+    expect(svc.delete).toHaveBeenCalledWith("venue-1", "sec-1", {
+      actorId: expect.any(String),
+      actorName: expect.toBeOneOf([null, expect.any(String)]),
+    });
     svc.delete.mockResolvedValueOnce(false);
     expect(
       (await app.inject({ method: "DELETE", url: `${URL_}/nope${Q}`, headers: ADMIN })).statusCode

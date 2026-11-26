@@ -673,7 +673,11 @@ describe("Floor Plan Routes", () => {
       });
 
       expect(response.statusCode).toBe(204);
-      expect(floorPlanService.delete).toHaveBeenCalledWith("floor-plan-123");
+      // History's "by" on the closures the delete keeps blocking.
+      expect(floorPlanService.delete).toHaveBeenCalledWith("floor-plan-123", {
+        actorId: expect.any(String),
+        actorName: expect.toBeOneOf([null, expect.any(String)]),
+      });
     });
 
     it("returns 404 when deleting nonexistent floor plan", async () => {

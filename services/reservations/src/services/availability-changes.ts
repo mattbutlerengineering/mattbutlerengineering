@@ -16,6 +16,7 @@ import { revertedDetail } from "./availability-change-detail.js";
 import { returnCarriedOutcomes } from "./closure-carry-outcomes.js";
 import { CONFIG_TABLES, type ConfigInverse } from "./availability-config-plan.js";
 import { prisma } from "./database.js";
+import { SECTION_CLOSURE_MATERIALISED_KIND } from "./section-closure-materialise.js";
 
 /**
  * History and undo (docs/features/venue-availability/architecture.md §
@@ -31,6 +32,15 @@ import { prisma } from "./database.js";
  */
 
 const REVERT_KIND = "revert";
+
+/**
+ * A revert is not undoable, and neither is a section delete's materialised closure: its inverse
+ * would name the section again, which no longer exists.
+ */
+const NOT_REVERTABLE_KINDS: ReadonlySet<string> = new Set([
+  REVERT_KIND,
+  SECTION_CLOSURE_MATERIALISED_KIND,
+]);
 
 const toDay = (d: Date | null): string | null => (d ? d.toISOString().slice(0, 10) : null);
 
@@ -135,11 +145,14 @@ export async function listAvailabilityChanges(
         r.id === newest?.id &&
         !r.notifiedGuests &&
         r.revertedById == null &&
-        r.kind !== REVERT_KIND,
+        !NOT_REVERTABLE_KINDS.has(r.kind),
     }));
     // The change Undo is on, whatever this page holds: a caller reading one row (the agent) would
     // otherwise see the newest by `at`, which after a lock-wait race is not the one in force.
-    const undoable = newest && !newest.notifiedGuests ? toSummary(newest) : null;
+    const undoable =
+      newest && !newest.notifiedGuests && !NOT_REVERTABLE_KINDS.has(newest.kind)
+        ? toSummary(newest)
+        : null;
     return { total, offset: query.offset, items, undoable };
   });
 }
@@ -195,7 +208,7 @@ export async function revertAvailabilityChange(
         const change = await tx.availabilityChange.findFirst({ where: { id: changeId, venueId } });
         if (!change) return refuse({ kind: "change_not_found" });
         if (change.revertedById) return refuse(refused("already_reverted"));
-        if (change.kind === REVERT_KIND) return refuse(refused("not_revertable"));
+        if (NOT_REVERTABLE_KINDS.has(change.kind)) return refuse(refused("not_revertable"));
         if (change.notifiedGuests) return refuse(refused("guests_notified"));
         const newest = await newestInForce(tx, venueId);
         if (newest?.id !== change.id) return refuse(refused("superseded"));

@@ -2698,6 +2698,7 @@
         "tonightCloseEarly": "Tonight: closing early",
         "tonightStopWindow": "Tonight: booking stopped for a window",
         "tonightEnded": "Tonight change ended",
+        "sectionClosureMaterialised": "Section deleted: its closures now close its tables",
         "tonightBlockTables_one": "Tonight: {{count}} table blocked",
         "tonightBlockTables_other": "Tonight: {{count}} tables blocked",
         "tonightPacing_one": "Tonight: pacing lowered to {{count}} cover",
