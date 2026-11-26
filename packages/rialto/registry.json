@@ -4793,6 +4793,21 @@
           "name": "className",
           "type": "string | undefined",
           "required": false
+        },
+        {
+          "name": "manualSort",
+          "type": "boolean | undefined",
+          "required": false
+        },
+        {
+          "name": "sort",
+          "type": "{ key: string; direction: SortDirection; } | null | undefined",
+          "required": false
+        },
+        {
+          "name": "onSortChange",
+          "type": "((sort: { key: string; direction: SortDirection; }) => void) | undefined",
+          "required": false
         }
       ],
       "slots": [],

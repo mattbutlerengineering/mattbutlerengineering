@@ -487,6 +487,7 @@ export const generatedSchemas = {
     density: z.enum(["compact", "default", "spacious"]).optional(),
     striped: z.boolean().optional(),
     emptyMessage: z.string().max(60).optional(),
+    manualSort: z.boolean().optional(),
   }),
   Tabs: z.object({
     tabs: z.array(z.object({ id: z.string(), label: z.string(), disabled: z.boolean().optional(), content: z.string() })),
