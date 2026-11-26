@@ -2,6 +2,8 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import { AVAILABILITY_CONFIG_PREFIX, createProblemDetails } from "@mbe/types";
 import type { Prisma } from "../generated/prisma/index.js";
 import { DuplicateConfirmNonceError } from "../services/access-token-audit.js";
+import { resolveVenueId } from "../services/resolve-venue.js";
+import { RESERVATION_ROUTE } from "./pat-auth.js";
 
 const TOOL_HEADER = "mbe-tool";
 const NONCE_HEADER = "mbe-confirm-nonce";
@@ -18,9 +20,16 @@ const headerValue = (request: FastifyRequest, name: string): string | null => {
 /** Routes under the venues prefix address the venue by their own `:id`. */
 const VENUE_ROUTE_PREFIX = `${AVAILABILITY_CONFIG_PREFIX}/:id`;
 
-/** The venue the request names in its route params, body or query, else `null` (informational). */
-const venueOf = (request: FastifyRequest): string | null => {
+/**
+ * The request's venue, else `null` (informational). A reservation is resolved
+ * through `app_resolve_venue_id`; an unknown reservation is `null` and the
+ * handler 404s. A lookup that throws propagates, and the caller fails closed.
+ */
+const venueOf = async (request: FastifyRequest): Promise<string | null> => {
   const params = request.params as { id?: unknown } | null;
+  if (request.routeOptions.url === RESERVATION_ROUTE && typeof params?.id === "string") {
+    return (await resolveVenueId("reservation", params.id)) ?? null;
+  }
   if (request.routeOptions.url?.startsWith(VENUE_ROUTE_PREFIX) && typeof params?.id === "string") {
     return params.id;
   }
@@ -52,7 +61,7 @@ export function registerPatWriteAudit(fastify: FastifyInstance): void {
         userSub: request.user!.id,
         method: request.method,
         route: request.routeOptions.url ?? "",
-        venueId: venueOf(request),
+        venueId: await venueOf(request),
         input: {
           params: request.params,
           query: request.query,
@@ -75,7 +84,7 @@ export function registerPatWriteAudit(fastify: FastifyInstance): void {
             )
           );
       }
-      request.log.error({ err: error }, "personal access token write audit insert failed");
+      request.log.error({ err: error }, "personal access token write audit failed");
       return reply
         .code(503)
         .send(

@@ -17,6 +17,9 @@ const PAT_ID_CLAIM = "mbePatId";
 const TOKEN_READ_ONLY_PROBLEM = "urn:mbe:problem:token-read-only";
 const READ_METHODS = new Set(["GET", "HEAD"]);
 
+/** The reservation route a booking move goes through; the audit resolves its venue (#9780). */
+export const RESERVATION_ROUTE = "/api/v1/reservations/:id";
+
 const routeKey = (method: string, url: string): string => `${method} ${url}`;
 
 /** Whether a token may send this body to the route; `null` = a read-only preview, not narrowed. */
@@ -30,7 +33,7 @@ type BodyCheck = ((body: unknown) => boolean) | null;
  * read-only.
  */
 const PAT_WRITE_ROUTES: ReadonlyMap<string, BodyCheck> = new Map<string, BodyCheck>([
-  [routeKey("PATCH", "/api/v1/reservations/:id"), isBookingMove],
+  [routeKey("PATCH", RESERVATION_ROUTE), isBookingMove],
   [routeKey("POST", availabilityConfigEndpoints.createClosure.path), isTablePauseSave],
   [routeKey("DELETE", availabilityConfigEndpoints.reopenClosure.path), isTablePauseResume],
   [routeKey("POST", availabilityConfigEndpoints.closureImpact.path), null],

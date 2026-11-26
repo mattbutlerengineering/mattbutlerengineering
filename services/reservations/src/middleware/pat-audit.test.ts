@@ -13,6 +13,9 @@ vi.mock("jose", () => ({
   jwtVerify: vi.fn(),
 }));
 
+const { resolveVenueId } = vi.hoisted(() => ({ resolveVenueId: vi.fn() }));
+vi.mock("../services/resolve-venue.js", () => ({ resolveVenueId }));
+
 import { jwtVerify } from "jose";
 
 const WRITER = { authorization: "Bearer mbe_pat_writer" };
@@ -79,6 +82,42 @@ describe("write audit for write-scoped tokens (#9780)", () => {
       confirmNonce: "n-1",
     });
     expect(audit.recordStatus).toHaveBeenCalledWith("audit-1", res.statusCode);
+  });
+
+  it("records the reservation's venue for a booking move", async () => {
+    resolveVenueId.mockResolvedValue("venue-7");
+    await app.inject({
+      method: "PATCH",
+      url: "/api/v1/reservations/r1",
+      headers: WRITER,
+      payload: MOVE,
+    });
+    expect(resolveVenueId).toHaveBeenCalledWith("reservation", "r1");
+    expect(audit.record).toHaveBeenCalledWith(expect.objectContaining({ venueId: "venue-7" }));
+  });
+
+  it("records a null venue, and still audits, when the reservation does not exist", async () => {
+    resolveVenueId.mockResolvedValue(null);
+    await app.inject({
+      method: "PATCH",
+      url: "/api/v1/reservations/gone",
+      headers: WRITER,
+      payload: MOVE,
+    });
+    expect(audit.record).toHaveBeenCalledWith(expect.objectContaining({ venueId: null }));
+  });
+
+  it("answers 503 and inserts nothing when the venue lookup throws", async () => {
+    resolveVenueId.mockRejectedValue(new Error("db down"));
+    const res = await app.inject({
+      method: "PATCH",
+      url: "/api/v1/reservations/r1",
+      headers: WRITER,
+      payload: MOVE,
+    });
+    expect(res.statusCode).toBe(503);
+    expect(audit.record).not.toHaveBeenCalled();
+    expect(handlerCalls).not.toHaveBeenCalled();
   });
 
   it("answers 503 and runs no handler when the insert fails", async () => {
