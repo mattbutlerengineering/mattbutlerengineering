@@ -85,6 +85,9 @@ export interface TableProps {
   striped?: boolean;
   emptyMessage?: string;
   className?: string;
+  manualSort?: boolean;
+  sort?: { key: string; direction: SortDirection } | null;
+  onSortChange?: (sort: { key: string; direction: SortDirection }) => void;
 }
 
 /* ── Sort icon ──────────────────────────────── */
