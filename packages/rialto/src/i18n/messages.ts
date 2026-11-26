@@ -181,6 +181,14 @@ export interface RialtoMessages {
   readonly fileRemoved: (name: string) => string;
   /** Accessible name of a control that removes a tag or chip, e.g. "Remove VIP". */
   readonly removeItem: (label: string) => string;
+  /** TagsInput live-region announcement: a tag was added. */
+  readonly tagAdded: (label: string) => string;
+  /** TagsInput live-region announcement: a tag was removed. */
+  readonly tagRemoved: (label: string) => string;
+  /** TagsInput live-region announcement: a duplicate tag was rejected. */
+  readonly tagDuplicate: (label: string) => string;
+  /** TagsInput live-region announcement: the tag limit was reached. */
+  readonly tagLimitReached: (max: number) => string;
   /** Accessible name of an AvatarGroup overflow count. */
   readonly moreCount: (count: number) => string;
   /** Accessible name of one PinInput digit cell (1-based `index`). */
@@ -370,6 +378,10 @@ export const enUS: RialtoMessages = {
   filesRejected: (count) => `${count} ${count === 1 ? "file" : "files"} rejected`,
   fileRemoved: (name) => `${name} removed`,
   removeItem: (label) => `Remove ${label}`,
+  tagAdded: (label) => `${label} added`,
+  tagRemoved: (label) => `${label} removed`,
+  tagDuplicate: (label) => `${label} is already added`,
+  tagLimitReached: (max) => `Tag limit of ${max} reached`,
   moreCount: (count) => `${count} more`,
   digitOf: (index, length) => `Digit ${index} of ${length}`,
   soldOut: "sold out",

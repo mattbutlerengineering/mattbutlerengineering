@@ -105,6 +105,7 @@ import { Steps } from "../../components/Steps/Steps";
 import { Table } from "../../components/Table/Table";
 import { Tabs } from "../../components/Tabs/Tabs";
 import { Tag } from "../../components/Tag/Tag";
+import { TagsInput } from "../../components/TagsInput/TagsInput";
 import { TapeChart } from "../../components/TapeChart/TapeChart";
 import { Text } from "../../components/Text/Text";
 import { TextArea } from "../../components/TextArea/TextArea";
@@ -219,6 +220,7 @@ export type BarrelExportName =
   | "Table"
   | "Tabs"
   | "Tag"
+  | "TagsInput"
   | "TapeChart"
   | "Text"
   | "TextArea"
@@ -875,6 +877,10 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
         ]}
       />
     ),
+  },
+
+  TagsInput: {
+    element: <TagsInput label="Dietary notes" defaultValue={["vegan"]} />,
   },
 
   Tag: {

@@ -144,6 +144,7 @@ const RAW_PAGE_ENTRIES: RawPageEntry[] = [
   { id: "slider", label: "Slider", category: "Forms" },
   { id: "select", label: "Select", category: "Forms" },
   { id: "pin-input", label: "Pin Input", category: "Forms" },
+  { id: "tags-input", label: "Tags Input", category: "Forms" },
   { id: "segmented-control", label: "Segmented Control", category: "Forms" },
   { id: "autocomplete", label: "Autocomplete", category: "Forms" },
   { id: "combobox", label: "Combobox", category: "Forms" },

@@ -4959,6 +4959,90 @@
       ]
     },
     {
+      "name": "TagsInput",
+      "description": "Free-text tags entry: type a value and press Enter or `,` to commit it as a\nremovable chip. Use it for open-ended notes such as guest dietary needs or\nvenue tags. For picking from a fixed list use `Combobox multiple` instead.",
+      "importPath": "@mattbutlerengineering/rialto",
+      "props": [
+        {
+          "name": "label",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "value",
+          "type": "string[] | undefined",
+          "required": false,
+          "description": "Controlled tags"
+        },
+        {
+          "name": "defaultValue",
+          "type": "string[] | undefined",
+          "required": false,
+          "description": "Initial tags when uncontrolled"
+        },
+        {
+          "name": "onValueChange",
+          "type": "((tags: string[]) => void) | undefined",
+          "required": false,
+          "description": "Called with the full tag list after every add or remove"
+        },
+        {
+          "name": "maxTags",
+          "type": "number | undefined",
+          "required": false,
+          "description": "Maximum number of tags; further commits are rejected"
+        },
+        {
+          "name": "allowDuplicates",
+          "type": "boolean | undefined",
+          "required": false,
+          "description": "Allow the same tag (compared case-insensitively) more than once"
+        },
+        {
+          "name": "placeholder",
+          "type": "string | undefined",
+          "required": false
+        },
+        {
+          "name": "disabled",
+          "type": "boolean | undefined",
+          "required": false
+        },
+        {
+          "name": "error",
+          "type": "boolean | undefined",
+          "required": false,
+          "description": "Applies error styling and sets `aria-invalid`"
+        },
+        {
+          "name": "hint",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Helper text; doubles as the error message when `error` is set"
+        },
+        {
+          "name": "className",
+          "type": "string | undefined",
+          "required": false
+        }
+      ],
+      "slots": [],
+      "characterLimits": [
+        {
+          "prop": "hint",
+          "max": 120
+        },
+        {
+          "prop": "label",
+          "max": 40
+        },
+        {
+          "prop": "placeholder",
+          "max": 60
+        }
+      ]
+    },
+    {
       "name": "TapeChart",
       "importPath": "@mattbutlerengineering/rialto",
       "props": [

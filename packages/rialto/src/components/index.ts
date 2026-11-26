@@ -90,6 +90,7 @@ export * from "./ChatPanel";
 // ── Media ──────────────────────────────────────
 export * from "./FileUpload";
 export * from "./ImageUpload";
+export * from "./TagsInput";
 
 // ── Specialty interaction ──────────────────────
 export * from "./MasterOverride";

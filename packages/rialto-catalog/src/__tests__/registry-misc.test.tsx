@@ -45,6 +45,19 @@ describe("MasterOverride", () => {
   });
 });
 
+describe("TagsInput", () => {
+  it("renders its label and seeded tags from the spec", () => {
+    const { getByText } = renderSpec({
+      root: "t",
+      elements: {
+        t: { type: "TagsInput", props: { label: "Dietary notes", defaultValue: ["vegan"] } },
+      },
+    });
+    expect(getByText("Dietary notes")).toBeTruthy();
+    expect(getByText("vegan")).toBeTruthy();
+  });
+});
+
 describe("ImageUpload", () => {
   it("renders its label from the spec", () => {
     const { getByText } = renderSpec({

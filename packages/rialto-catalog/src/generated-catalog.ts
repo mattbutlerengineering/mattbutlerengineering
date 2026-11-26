@@ -442,6 +442,12 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     charLimits: { children: 30 },
     aliases: { label: "children" },
   },
+  TagsInput: {
+    name: "TagsInput",
+    description:
+      "Free-text tags entry where typing a value and pressing Enter or comma adds a removable chip. Use for open-ended notes such as guest dietary needs or venue tags. Give a label, and optionally maxTags and defaultValue.",
+    charLimits: { label: 40, placeholder: 60, hint: 120 },
+  },
   Text: {
     name: "Text",
     description:
