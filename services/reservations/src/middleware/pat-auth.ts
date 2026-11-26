@@ -6,6 +6,7 @@ import {
   createProblemDetails,
 } from "@mbe/types";
 import { isAccessToken, type AuthenticatedAccessToken } from "../services/access-token.js";
+import { isBookingMove, isTablePauseResume, isTablePauseSave } from "./pat-write-scope.js";
 
 /** Claim set on the identity of a request authenticated by a personal access token. */
 const PAT_CLAIM = "mbePat";
@@ -16,41 +17,26 @@ const READ_METHODS = new Set(["GET", "HEAD"]);
 
 const routeKey = (method: string, url: string): string => `${method} ${url}`;
 
-/**
- * A token may only move a booking: date, time, table, party size. Status
- * (a cancel or a no-show fee), `override` (skips pacing limits), notes and the
- * other fields stay with signed-in staff.
- */
-const MOVE_BOOKING_FIELDS: ReadonlySet<string> = new Set([
-  "date",
-  "startTime",
-  "endTime",
-  "tableId",
-  "partySize",
-]);
+/** Whether a token may send this body to the route; `null` = a read-only preview, not narrowed. */
+type BodyCheck = ((body: unknown) => boolean) | null;
 
 /**
  * The only writes a write-scoped token may make (#9778), keyed on method plus
- * the route's own pattern: what the first MCP write tools need to move a
- * booking and to pause or resume tables (#9489). The value is the body fields
- * the token may send, or `null` when the route's body is not narrowed. Each new
- * write tool adds its routes here deliberately; anything absent stays read-only.
+ * the route's own pattern: a token may only move a booking and pause or resume
+ * tables (#9489). Each value checks the parsed body (`pat-write-scope.ts`).
+ * Each new write tool adds its routes here deliberately; anything absent stays
+ * read-only.
  */
-const PAT_WRITE_ROUTES: ReadonlyMap<string, ReadonlySet<string> | null> = new Map([
-  [routeKey("PATCH", "/api/v1/reservations/:id"), MOVE_BOOKING_FIELDS],
-  ...[
-    availabilityConfigEndpoints.closureImpact,
-    availabilityConfigEndpoints.createClosure,
-    availabilityConfigEndpoints.reopenClosure,
-  ].map(({ method, path }) => [routeKey(method, path), null] as const),
+const PAT_WRITE_ROUTES: ReadonlyMap<string, BodyCheck> = new Map<string, BodyCheck>([
+  [routeKey("PATCH", "/api/v1/reservations/:id"), isBookingMove],
+  [routeKey("POST", availabilityConfigEndpoints.createClosure.path), isTablePauseSave],
+  [routeKey("DELETE", availabilityConfigEndpoints.reopenClosure.path), isTablePauseResume],
+  [routeKey("POST", availabilityConfigEndpoints.closureImpact.path), null],
 ]);
 
-/** True when `body` sends only fields in `allowed` (an absent body sends none). */
-const bodyWithin = (body: unknown, allowed: ReadonlySet<string>): boolean => {
-  if (body === undefined || body === null) return true;
-  if (typeof body !== "object" || Array.isArray(body)) return false;
-  return Object.keys(body).every((field) => allowed.has(field));
-};
+/** True when the request was authenticated by a personal access token. */
+export const isPatRequest = (request: FastifyRequest): boolean =>
+  request.user?.raw[PAT_CLAIM] === true;
 
 type Authenticate = (token: string) => Promise<AuthenticatedAccessToken | null>;
 
@@ -79,22 +65,12 @@ export function createPatAwareVerifier(
  * endpoints (a token cannot mint or revoke tokens), whatever the route.
  */
 export function registerPatReadOnlyGuard(fastify: FastifyInstance): void {
-  const isPat = (request: FastifyRequest): boolean => request.user?.raw[PAT_CLAIM] === true;
+  const isPat = isPatRequest;
   const writeRouteOf = (request: FastifyRequest) =>
     PAT_WRITE_ROUTES.get(routeKey(request.method, request.routeOptions.url ?? ""));
   const mayWrite = (request: FastifyRequest): boolean =>
     request.user?.raw[PAT_WRITE_CLAIM] === true && writeRouteOf(request) !== undefined;
-  const forbid = (reply: FastifyReply) =>
-    reply
-      .code(403)
-      .send(
-        createProblemDetails(
-          403,
-          "Forbidden",
-          "This personal access token cannot make this change or manage tokens.",
-          TOKEN_READ_ONLY_PROBLEM
-        )
-      );
+  const forbid = forbidTokenChange;
 
   // The route's own pattern (`routeOptions.url`), never the raw URL: a
   // percent-encoded path still matches its route but not a string test.
@@ -105,12 +81,26 @@ export function registerPatReadOnlyGuard(fastify: FastifyInstance): void {
   });
 
   // preHandler, not onRequest: the body is parsed by now. A write that got past
-  // onRequest is on PAT_WRITE_ROUTES; a narrowed route accepts only its fields.
+  // onRequest is on PAT_WRITE_ROUTES; its check decides what body it may send.
   fastify.addHook("preHandler", async (request, reply) => {
     if (!isPat(request)) return;
     if (request.routeOptions.url?.startsWith(ACCESS_TOKENS_PREFIX)) return forbid(reply);
     if (READ_METHODS.has(request.method)) return;
-    const fields = writeRouteOf(request);
-    if (fields && !bodyWithin(request.body, fields)) return forbid(reply);
+    const check = writeRouteOf(request);
+    if (check && !check(request.body)) return forbid(reply);
   });
+}
+
+/** The same 403 the guard answers, for a route's own token check (a stored rule's shape). */
+export function forbidTokenChange(reply: FastifyReply) {
+  return reply
+    .code(403)
+    .send(
+      createProblemDetails(
+        403,
+        "Forbidden",
+        "This personal access token cannot make this change or manage tokens.",
+        TOKEN_READ_ONLY_PROBLEM
+      )
+    );
 }
