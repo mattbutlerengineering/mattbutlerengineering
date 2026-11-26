@@ -243,7 +243,7 @@ Radio.displayName = "Radio";
 /** Bundlers replace `process.env.NODE_ENV`; declared locally because rialto does not load Node types. */
 declare const process: { env: { NODE_ENV?: string } } | undefined;
 
-export interface RadioGroupOption {
+interface RadioGroupOption {
   value: string;
   label: string;
   description?: string;

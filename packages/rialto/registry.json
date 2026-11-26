@@ -3952,12 +3952,6 @@
       ]
     },
     {
-      "name": "RadioGroupOption",
-      "importPath": "@mattbutlerengineering/rialto",
-      "props": [],
-      "slots": []
-    },
-    {
       "name": "ReservationList",
       "description": "Display-only list of bookings as aligned rows: time, guest (or Walk-in),\nparty size in words, and the status word in its Badge tone. Rows render in\nthe order given; nothing in it is focusable.",
       "importPath": "@mattbutlerengineering/rialto",
