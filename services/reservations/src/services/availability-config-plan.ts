@@ -329,17 +329,19 @@ export interface ReferenceIssue {
 }
 
 /**
- * Every schedule, service, section and table a row points at must be the venue's own.
- * The foreign keys alone would accept another venue's id. `seriesId` is not
- * checked: it may name a removed rule, and it only ever takes rules out.
+ * Every schedule, service, section, table and series a row points at must be the venue's own.
+ * The foreign keys alone would accept another venue's id. A `seriesId` may name a rule this
+ * config no longer holds (a removed series), so `venueRuleIds` is every rule row of the venue.
  */
 export function referenceIssues(
   config: AvailabilityConfig,
   venueTableIds: ReadonlySet<string>,
-  venueSectionIds: ReadonlySet<string>
+  venueSectionIds: ReadonlySet<string>,
+  venueRuleIds: ReadonlySet<string> = new Set()
 ): ReferenceIssue[] {
   const schedules = new Set(config.schedules.map((s) => s.id));
   const services = new Set(config.venueServices.map((s) => s.id));
+  const rules = new Set([...venueRuleIds, ...config.dateRules.map((r) => r.id)]);
   const check = (path: string, id: string, known: ReadonlySet<string>): ReferenceIssue[] =>
     known.has(id)
       ? []
@@ -369,6 +371,7 @@ export function referenceIssues(
             )
           )
         : []),
+      ...(r.seriesId ? check(`dateRules[${i}].seriesId`, r.seriesId, rules) : []),
       ...(r.sectionId ? check(`dateRules[${i}].sectionId`, r.sectionId, venueSectionIds) : []),
       // A section rule's tableIds are derived from the section, not taken from the request.
       ...(r.sectionId ? [] : (r.tableIds ?? [])).flatMap((t, k) =>
@@ -398,6 +401,8 @@ export function settleDraft(input: {
   tableIds: ReadonlySet<string>;
   /** The venue's sections; absent means none, so any section closure is refused. */
   sections?: SectionIndex;
+  /** Every rule row of the venue, removed ones too; absent means only the config's own rules. */
+  ruleIds?: ReadonlySet<string>;
   now: Date;
   today: string;
   newId: () => string;
@@ -417,6 +422,9 @@ export function settleDraft(input: {
   return {
     // A section closure's tables are the section's now, whatever list the draft carried.
     next: { ...next, dateRules: expandSectionRules(next.dateRules, sections.membership) },
-    issues: [...validateConfig(next), ...referenceIssues(next, input.tableIds, sections.ids)],
+    issues: [
+      ...validateConfig(next),
+      ...referenceIssues(next, input.tableIds, sections.ids, input.ruleIds),
+    ],
   };
 }

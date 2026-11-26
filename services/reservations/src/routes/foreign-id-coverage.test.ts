@@ -20,8 +20,20 @@ vi.mock("../services/database.js", async () => {
  * listed in `FOREIGN_ID_GUARDS`, with the guard that checks it against the
  * route's venue (and the test that proves it), or a reason it needs none.
  */
-const ENTITY_ID_FIELD =
-  /^(guest|table|reservation|floorPlan|section|waitlistEntry|deposit|hold)Ids?$/;
+const ENTITY_ID_FIELD = /Ids?$/;
+
+/**
+ * Id-shaped fields that are not another venue-scoped entity, excluded by EXACT
+ * name only (never a pattern, so a new `fooId` is always classified).
+ */
+const EXCLUDED_ID_FIELDS: Readonly<Record<string, string>> = {
+  venueId: "the route's own venue, covered by venue-scope-coverage.test.ts",
+  // External ids name something at a third party, not a row this service scopes by venue.
+  paymentIntentId: "Stripe payment intent id (external)",
+  // Tracing ids identify a request, not an entity.
+  requestId: "request id (tracing)",
+  correlationId: "correlation id (tracing)",
+};
 
 /**
  * `guard`: where the id is checked against the route's venue; `provenBy`: the
@@ -30,8 +42,19 @@ const ENTITY_ID_FIELD =
  * - "is the scope": the route's venue is resolved FROM this id, so it cannot be foreign.
  * - "filter only": the id only narrows a read already filtered by the route's
  *   venue; a foreign id matches nothing.
+ * - "new row id": the client names the id of the row this request creates; an id
+ *   that already exists fails the unique key and writes nothing.
+ * - "derived slot id": computed from the route's own venue and matched against
+ *   values computed for that venue; it names no stored row.
  */
-type Guard = { guard: string; provenBy: string } | { none: "is the scope" | "filter only" };
+type Guard =
+  | { guard: string; provenBy: string }
+  | { none: "is the scope" | "filter only" | "new row id" | "derived slot id" };
+
+const CLOSURE_REFERENCES = {
+  guard: "referenceIssues via impactInTransaction: must be a row of this venue (unknown_reference)",
+  provenBy: "services/closure-impact-store.test.ts",
+} as const;
 
 const FOREIGN_ID_GUARDS: Readonly<Record<string, Guard>> = {
   // Deposits: the venue is resolved from the reservation itself.
@@ -64,6 +87,10 @@ const FOREIGN_ID_GUARDS: Readonly<Record<string, Guard>> = {
   "POST /api/v1/floor-plans/tables/positions body.floorPlanId": {
     guard:
       "floor-plans.ts: floorPlanId is the scope; positions[].tableId cross-venue check (#5042)",
+    provenBy: "routes/floor-plans.test.ts",
+  },
+  "POST /api/v1/floor-plans/tables/positions body.positions[].tableId": {
+    guard: "floor-plans.ts: every positions[].tableId is checked against the venue (#5042)",
     provenBy: "routes/floor-plans.test.ts",
   },
   "POST /api/v1/tables body.floorPlanId": {
@@ -123,36 +150,165 @@ const FOREIGN_ID_GUARDS: Readonly<Record<string, Guard>> = {
     provenBy: "services/reservation.test.ts",
   },
   "POST /api/v1/venues/:id/availability/check body.tableId": { none: "filter only" },
+
+  // Venue groups: a group sits above venues, and placing a venue in one is admin-only.
+  "GET /api/v1/venues query.venueGroupId": { none: "filter only" },
+  "POST /api/v1/venues body.venueGroupId": {
+    guard: "venues.ts POST: admin-only when venueGroupId is set",
+    provenBy: "routes/venues.test.ts",
+  },
+  "PATCH /api/v1/venues/:id body.venueGroupId": {
+    guard: "venues.ts PATCH: a non-admin may not change the venue group (#5515)",
+    provenBy: "routes/venues.test.ts",
+  },
+
+  // Availability history, Tonight and closures.
+  "GET /api/v1/venues/:id/availability/changes query.actorId": { none: "filter only" },
+  "POST /api/v1/venues/:id/tonight body.ruleId": { none: "new row id" },
+  "POST /api/v1/venues/:id/tonight body.change.tableIds": {
+    guard: "commitSave: referenceIssues must find every table in this venue (unknown_reference)",
+    provenBy: "services/tonight-command.test.ts",
+  },
+  "POST /api/v1/venues/:id/tonight body.change.venueServiceId": {
+    guard: "close-early runs the closure command: referenceIssues via impactInTransaction",
+    provenBy: "services/tonight-command.test.ts",
+  },
+  "POST /api/v1/venues/:id/tonight body.decisions[].reservationIds": { none: "filter only" },
+  "POST /api/v1/venues/:id/closures body.decisions[].reservationIds": { none: "filter only" },
+  "POST /api/v1/venues/:id/closures body.rule.sectionId": CLOSURE_REFERENCES,
+  "POST /api/v1/venues/:id/closures body.rule.seriesId": CLOSURE_REFERENCES,
+  "POST /api/v1/venues/:id/closures body.rule.tableIds": CLOSURE_REFERENCES,
+  "POST /api/v1/venues/:id/closures body.rule.useScheduleId": CLOSURE_REFERENCES,
+  "POST /api/v1/venues/:id/closures body.rule.venueServiceId": CLOSURE_REFERENCES,
+  "POST /api/v1/venues/:id/closures/impact body.rule.sectionId": CLOSURE_REFERENCES,
+  "POST /api/v1/venues/:id/closures/impact body.rule.seriesId": CLOSURE_REFERENCES,
+  "POST /api/v1/venues/:id/closures/impact body.rule.tableIds": CLOSURE_REFERENCES,
+  "POST /api/v1/venues/:id/closures/impact body.rule.useScheduleId": CLOSURE_REFERENCES,
+  "POST /api/v1/venues/:id/closures/impact body.rule.venueServiceId": CLOSURE_REFERENCES,
+
+  // Public rebook.
+  "POST /public/v1/reservations/manage/rebook body.offerId": { none: "derived slot id" },
 };
+
+interface Schema {
+  $ref?: string;
+  type?: string;
+  properties?: Record<string, Schema>;
+  items?: Schema;
+  anyOf?: Schema[];
+  oneOf?: Schema[];
+  allOf?: Schema[];
+}
 
 interface OpenApiOperation {
   parameters?: { in: string; name: string }[];
-  requestBody?: { content?: Record<string, { schema?: { properties?: object } }> };
+  requestBody?: { content?: Record<string, { schema?: Schema }> };
 }
 
-function entityIdFields(spec: { paths: Record<string, Record<string, OpenApiOperation>> }) {
+interface OpenApiSpec {
+  paths: Record<string, Record<string, OpenApiOperation>>;
+  components?: { schemas?: Record<string, Schema> };
+}
+
+/** Nesting levels followed below the top level (`positions[].tableId` is one). */
+const MAX_NESTING = 1;
+
+function entityIdFields(spec: OpenApiSpec) {
+  const schemas = spec.components?.schemas ?? {};
+  const resolve = (schema: Schema | undefined): Schema | undefined =>
+    schema?.$ref == null
+      ? schema
+      : resolve(schemas[schema.$ref.replace("#/components/schemas/", "")]);
+
+  // Id field paths in `raw`: top-level names, then `name.child` / `name[].child` one level down.
+  const idsIn = (raw: Schema | undefined, prefix: string, depth: number): string[] => {
+    const schema = resolve(raw);
+    if (schema == null) return [];
+    const parts = [...(schema.anyOf ?? []), ...(schema.oneOf ?? []), ...(schema.allOf ?? [])];
+    const fromParts = parts.flatMap((part) => idsIn(part, prefix, depth));
+    const fromItems = depth > 0 ? idsIn(schema.items, `${prefix}[].`, depth - 1) : [];
+    const fromProps = Object.entries(schema.properties ?? {}).flatMap(([name, prop]) => {
+      const own =
+        ENTITY_ID_FIELD.test(name) && !(name in EXCLUDED_ID_FIELDS) ? [prefix + name] : [];
+      const child = resolve(prop);
+      const nested =
+        depth === 0 || child == null
+          ? []
+          : child.items == null
+            ? idsIn(child, `${prefix}${name}.`, depth - 1)
+            : idsIn(child.items, `${prefix}${name}[].`, depth - 1);
+      return [...own, ...nested];
+    });
+    return [...fromParts, ...fromItems, ...fromProps];
+  };
+
   const found: string[] = [];
   for (const [path, ops] of Object.entries(spec.paths)) {
     // A prefix-root route prints as "/x/"; the same route as "/x" (see normalizeRouteKey).
     const routePath = path.replace(/\{(\w+)\}/g, ":$1").replace(/(.)\/$/, "$1");
     for (const [method, op] of Object.entries(ops)) {
       const route = `${method.toUpperCase()} ${routePath}`;
-      const query = (op.parameters ?? []).filter((p) => p.in === "query").map((p) => p.name);
-      const body = Object.keys(
-        op.requestBody?.content?.["application/json"]?.schema?.properties ?? {}
+      const query = (op.parameters ?? [])
+        .filter((p) => p.in === "query" && ENTITY_ID_FIELD.test(p.name))
+        .filter((p) => !(p.name in EXCLUDED_ID_FIELDS))
+        .map((p) => p.name);
+      const body = Object.values(op.requestBody?.content ?? {}).flatMap((media) =>
+        idsIn(media.schema, "", MAX_NESTING)
       );
-      for (const [where, names] of [
-        ["query", query],
-        ["body", body],
-      ] as const) {
-        for (const name of names) {
-          if (ENTITY_ID_FIELD.test(name)) found.push(`${route} ${where}.${name}`);
-        }
-      }
+      found.push(...query.map((name) => `${route} query.${name}`));
+      found.push(...body.map((name) => `${route} body.${name}`));
     }
   }
-  return found.sort();
+  return [...new Set(found)].sort();
 }
+
+const EXPECTED_FIELD_COUNT = 46;
+
+describe("entityIdFields", () => {
+  const spec = {
+    paths: {
+      "/things/{id}/": {
+        post: {
+          parameters: [
+            { in: "query", name: "ownerId" },
+            { in: "query", name: "venueId" },
+            { in: "query", name: "page" },
+          ],
+          requestBody: {
+            content: {
+              "application/json": {
+                schema: {
+                  properties: {
+                    fooId: { type: "string" },
+                    venueId: { type: "string" },
+                    name: { type: "string" },
+                    plan: { $ref: "#/components/schemas/Plan" },
+                    rows: { type: "array", items: { $ref: "#/components/schemas/Row" } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    components: {
+      schemas: {
+        Plan: { properties: { zoneIds: { type: "array" }, label: { type: "string" } } },
+        Row: { properties: { barId: { type: "string" } } },
+      },
+    },
+  };
+
+  it("collects top-level, $ref-resolved and nested array ids, and skips excluded names", () => {
+    expect(entityIdFields(spec)).toEqual([
+      "POST /things/:id body.fooId",
+      "POST /things/:id body.plan.zoneIds",
+      "POST /things/:id body.rows[].barId",
+      "POST /things/:id query.ownerId",
+    ]);
+  });
+});
 
 describe("foreign entity id coverage (no database)", () => {
   const originalEnv = process.env;
@@ -176,8 +332,9 @@ describe("foreign entity id coverage (no database)", () => {
     process.env = originalEnv;
   });
 
-  it("finds entity id fields at all (the scan is not silently empty)", () => {
-    expect(fields.length).toBeGreaterThan(0);
+  it("finds exactly the entity id fields the registry classifies (the scan cannot shrink)", () => {
+    // Raise this with the registry; never lower it to make a smaller scan pass.
+    expect(fields).toHaveLength(EXPECTED_FIELD_COUNT);
   });
 
   it("every entity id field in a body or query names its venue guard or a reason", () => {

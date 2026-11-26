@@ -6,6 +6,7 @@ vi.mock("./database.js", () => ({ prisma: {} }));
 
 const { setTonight, endTonight } = await import("./tonight-command.js");
 const { getAvailabilityConfig } = await import("./availability-config.js");
+const { createClosure } = await import("./closure-command.js");
 
 const NOW = new Date("2026-10-25T19:00:00.000Z"); // Sun Oct 25, noon in Los Angeles
 const TZ = "America/Los_Angeles";
@@ -282,6 +283,32 @@ describe("setTonight", () => {
     });
     expect(w.dateRules).toEqual([]);
     expect(w.version).toBe(4);
+  });
+
+  it("refuses a close-early naming a service the venue does not have, through the closure command", async () => {
+    const w = world();
+    const { client, tx } = fakeClient(w);
+    Object.assign(tx, {
+      closureOutcome: { count: vi.fn(async () => 0) },
+      reservation: { findMany: vi.fn(async () => []) },
+      reservationHold: { findMany: vi.fn(async () => []) },
+    });
+    const outcome = await setTonight(
+      {
+        venueId: "v",
+        caller: MANAGER,
+        body: body({ type: "close_early", closeAt: 1260, venueServiceId: "vs-other" }),
+        now: NOW,
+      },
+      client,
+      { createClosure: (input) => createClosure(input, client) }
+    );
+
+    expect(outcome).toMatchObject({
+      kind: "invalid",
+      issues: [expect.objectContaining({ code: "unknown_reference" })],
+    });
+    expect(w.dateRules).toEqual([]);
   });
 
   it("writes a stop window and a pacing change as venue-wide Tonight rules", async () => {

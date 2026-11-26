@@ -15,6 +15,7 @@ import {
   type Occupancy,
 } from "./closure-impact.js";
 import { prisma } from "./database.js";
+import { loadDateRuleIds } from "./date-rule-ids.js";
 import { loadSectionIndex } from "./section-index.js";
 import { activeHoldWindow, NOT_BOOKED_STATUSES } from "./slot-rules.js";
 
@@ -27,7 +28,7 @@ import { activeHoldWindow, NOT_BOOKED_STATUSES } from "./slot-rules.js";
 type StoreClient = Pick<PrismaClient, "$transaction">;
 type ImpactDb = Pick<
   PrismaClient,
-  "table" | "reservation" | "reservationHold" | "floorPlanSection"
+  "table" | "reservation" | "reservationHold" | "floorPlanSection" | "dateRule"
 >;
 
 export type ClosureImpactOutcome =
@@ -106,9 +107,10 @@ export async function impactInTransaction(
   now: Date,
   draftAlongside?: ClosureAlongside
 ): Promise<ClosureImpactOutcome> {
-  const [tables, sections] = await Promise.all([
+  const [tables, sections, ruleIds] = await Promise.all([
     tx.table.findMany({ where: { venueId }, select: { id: true } }),
     loadSectionIndex(tx, venueId),
+    loadDateRuleIds(tx, venueId),
   ]);
   // A section closure blocks its section's tables now, whatever tableIds the client sent (ADR-032).
   const [expandedRule] = expandSectionRules([draft], sections.membership);
@@ -120,7 +122,7 @@ export async function impactInTransaction(
   const next = withClosure(state.effective, rule, alongside);
   const issues = [
     ...validateConfig(next),
-    ...referenceIssues(next, new Set(tables.map((t) => t.id)), sections.ids),
+    ...referenceIssues(next, new Set(tables.map((t) => t.id)), sections.ids, ruleIds),
   ];
   if (issues.length > 0) return { kind: "invalid", issues };
 
