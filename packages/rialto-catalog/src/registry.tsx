@@ -1083,7 +1083,7 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
 
       Listbox: typed(
         ({ props, emit }: AdapterArgs<Omit<ComponentProps<typeof Listbox>, "onValueChange">>) => (
-          <Listbox {...props} onValueChange={() => emit("valueChange")} />
+          <Listbox {...props} onValueChange={() => emit("change")} />
         )
       ),
 

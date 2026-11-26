@@ -165,4 +165,17 @@ describe("Listbox", () => {
     fireEvent.keyDown(box, { key: "ArrowDown" });
     expect(getByRole("option", { name: "Patio" }).getAttribute("aria-selected")).toBe("true");
   });
+
+  it('emits "change" when the selection moves', () => {
+    const emit = vi.fn();
+    const Adapter = registry.Listbox as unknown as (ctx: {
+      element: unknown;
+      emit: (event: string) => void;
+    }) => React.ReactElement;
+    const { getByRole } = render(<Adapter element={spec.elements.l} emit={emit} />);
+    const box = getByRole("listbox");
+    fireEvent.focus(box);
+    fireEvent.keyDown(box, { key: "ArrowDown" });
+    expect(emit).toHaveBeenCalledWith("change");
+  });
 });
