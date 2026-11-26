@@ -1,5 +1,11 @@
 # @mattbutlerengineering/rialto
 
+## 3.1.12
+
+### Patch Changes
+
+- [#9795](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9795) [`2cb5522`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/2cb5522ae6095cf49c72077ea4daa68c9be9b800) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Listbox: add catalog metadata and forward the ref directly instead of re-attaching it through an unused inline callback on every render.
+
 ## 3.1.11
 
 ### Patch Changes
