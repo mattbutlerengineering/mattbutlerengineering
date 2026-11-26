@@ -37,7 +37,15 @@ const toAccessToken = (row: PersonalAccessToken): AccessToken => ({
   createdAt: row.createdAt.toISOString(),
   lastUsedAt: row.lastUsedAt?.toISOString() ?? null,
   expiresAt: row.expiresAt?.toISOString() ?? null,
+  write: row.canWrite,
 });
+
+/** The owner a presented token resolves to, and whether it carries the write scope (#9778). */
+export interface AuthenticatedAccessToken {
+  readonly id: string;
+  readonly userSub: string;
+  readonly write: boolean;
+}
 
 export function createAccessTokenService(
   client: PrismaClient = prisma,
@@ -63,6 +71,7 @@ export function createAccessTokenService(
           name: input.name,
           tokenHash: hashAccessToken(token),
           prefix: token.slice(0, DISPLAY_PREFIX_LENGTH),
+          canWrite: input.write === true,
           expiresAt: input.expiresInDays
             ? new Date(at.getTime() + input.expiresInDays * DAY_MS)
             : null,
@@ -84,7 +93,7 @@ export function createAccessTokenService(
      * Resolves a presented plaintext token to its owner, or `null` when it is
      * unknown, revoked or expired. Stamps `lastUsedAt` at most once a minute.
      */
-    async authenticate(token: string): Promise<{ id: string; userSub: string } | null> {
+    async authenticate(token: string): Promise<AuthenticatedAccessToken | null> {
       if (!isAccessToken(token)) return null;
       const row = await client.personalAccessToken.findUnique({
         where: { tokenHash: hashAccessToken(token) },
@@ -101,7 +110,7 @@ export function createAccessTokenService(
         },
         data: { lastUsedAt: at },
       });
-      return { id: row.id, userSub: row.userSub };
+      return { id: row.id, userSub: row.userSub, write: row.canWrite };
     },
 
     /** `false` when the token is unknown, not the caller's, or already revoked. */

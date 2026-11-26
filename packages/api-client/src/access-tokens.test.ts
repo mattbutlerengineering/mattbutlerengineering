@@ -36,8 +36,23 @@ describe("AccessTokensClient", () => {
 
   it("lists tokens", async () => {
     mockFetch.mockResolvedValueOnce(jsonResponse({ data: [token] }));
-    await expect(client.list()).resolves.toEqual([token]);
+    await expect(client.list()).resolves.toEqual([{ ...token, write: false }]);
     expect(lastCall().slice(0, 2)).toEqual(["GET", "https://api.test.com/api/v1/me/tokens"]);
+  });
+
+  it("reads each token's write scope, defaulting to read-only (#9778)", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: [{ ...token, write: true }, token] }));
+    const listed = await client.list();
+    expect(listed.map((t) => t.write)).toEqual([true, false]);
+  });
+
+  it("sends an opt-in write scope when minting (#9778)", async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({ data: { ...token, write: true, token: "mbe_pat_secret" } }, 201)
+    );
+    const minted = await client.mint({ name: "Claude Desktop", write: true });
+    expect(minted.write).toBe(true);
+    expect(lastCall()[2]).toEqual({ name: "Claude Desktop", write: true });
   });
 
   it("mints a token and returns the one-time plaintext", async () => {

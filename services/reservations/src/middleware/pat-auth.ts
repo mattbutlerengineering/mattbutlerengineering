@@ -1,14 +1,37 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import type { JwtVerifier } from "@mbe/auth/fastify";
-import { ACCESS_TOKENS_PREFIX, createProblemDetails } from "@mbe/types";
-import { isAccessToken } from "../services/access-token.js";
+import {
+  ACCESS_TOKENS_PREFIX,
+  availabilityConfigEndpoints,
+  createProblemDetails,
+} from "@mbe/types";
+import { isAccessToken, type AuthenticatedAccessToken } from "../services/access-token.js";
 
 /** Claim set on the identity of a request authenticated by a personal access token. */
 const PAT_CLAIM = "mbePat";
+/** Claim set, alongside `PAT_CLAIM`, when that token carries the write scope (#9778). */
+const PAT_WRITE_CLAIM = "mbePatWrite";
 const TOKEN_READ_ONLY_PROBLEM = "urn:mbe:problem:token-read-only";
 const READ_METHODS = new Set(["GET", "HEAD"]);
 
-type Authenticate = (token: string) => Promise<{ id: string; userSub: string } | null>;
+const routeKey = (method: string, url: string): string => `${method} ${url}`;
+
+/**
+ * The only writes a write-scoped token may make (#9778), keyed on method plus
+ * the route's own pattern: what the first MCP write tools need to move a
+ * booking and to pause or resume tables (#9489). Each new write tool adds its
+ * routes here deliberately; anything absent stays read-only.
+ */
+const PAT_WRITE_ROUTES: ReadonlySet<string> = new Set(
+  [
+    { method: "PATCH", path: "/api/v1/reservations/:id" },
+    availabilityConfigEndpoints.closureImpact,
+    availabilityConfigEndpoints.createClosure,
+    availabilityConfigEndpoints.reopenClosure,
+  ].map(({ method, path }) => routeKey(method, path))
+);
+
+type Authenticate = (token: string) => Promise<AuthenticatedAccessToken | null>;
 
 /**
  * Verifier that accepts `mbe_pat_…` bearers (#9664) and defers every other
@@ -24,17 +47,21 @@ export function createPatAwareVerifier(
     if (!isAccessToken(token)) return fallback(token);
     const found = await authenticate(token);
     if (!found) throw new Error("Invalid personal access token");
-    return { sub: found.userSub, [PAT_CLAIM]: true };
+    return { sub: found.userSub, [PAT_CLAIM]: true, [PAT_WRITE_CLAIM]: found.write };
   };
 }
 
 /**
- * Server-side read-only enforcement: a request authenticated by a PAT may only
- * GET/HEAD, and never reaches the token endpoints (a token cannot mint or
- * revoke tokens), whatever the route.
+ * Server-side scope enforcement for a request authenticated by a PAT: a
+ * read-only token may only GET/HEAD; a write-scoped token may also make the
+ * writes in `PAT_WRITE_ROUTES` and no other. No token ever reaches the token
+ * endpoints (a token cannot mint or revoke tokens), whatever the route.
  */
 export function registerPatReadOnlyGuard(fastify: FastifyInstance): void {
   const isPat = (request: FastifyRequest): boolean => request.user?.raw[PAT_CLAIM] === true;
+  const mayWrite = (request: FastifyRequest): boolean =>
+    request.user?.raw[PAT_WRITE_CLAIM] === true &&
+    PAT_WRITE_ROUTES.has(routeKey(request.method, request.routeOptions.url ?? ""));
   const forbid = (reply: FastifyReply) =>
     reply
       .code(403)
@@ -42,17 +69,19 @@ export function registerPatReadOnlyGuard(fastify: FastifyInstance): void {
         createProblemDetails(
           403,
           "Forbidden",
-          "Personal access tokens are read-only and cannot manage tokens.",
+          "This personal access token cannot make this change or manage tokens.",
           TOKEN_READ_ONLY_PROBLEM
         )
       );
 
+  // The route's own pattern (`routeOptions.url`), never the raw URL: a
+  // percent-encoded path still matches its route but not a string test.
   fastify.addHook("onRequest", async (request, reply) => {
-    if (isPat(request) && !READ_METHODS.has(request.method)) return forbid(reply);
+    if (isPat(request) && !READ_METHODS.has(request.method) && !mayWrite(request)) {
+      return forbid(reply);
+    }
   });
 
-  // The route's own pattern, known only after routing: a percent-encoded URL
-  // (`/me/%74okens`) still matches the route but not a raw-URL prefix test.
   fastify.addHook("preHandler", async (request, reply) => {
     if (isPat(request) && request.routeOptions.url?.startsWith(ACCESS_TOKENS_PREFIX)) {
       return forbid(reply);

@@ -25,6 +25,7 @@ const token = {
   createdAt: "2026-11-25T12:00:00.000Z",
   lastUsedAt: null,
   expiresAt: null,
+  write: false,
 };
 
 const svc = { mint: vi.fn(), list: vi.fn(), revoke: vi.fn() };
@@ -96,6 +97,22 @@ describe("Access token routes", () => {
       name: "Claude Desktop",
       expiresInDays: 90,
     });
+  });
+
+  it("passes an opt-in write scope through and returns it (#9778)", async () => {
+    app = await appAs("auth0|me");
+    svc.mint.mockResolvedValueOnce({ ...token, write: true, token: "mbe_pat_secret" });
+
+    const res = await app.inject({
+      method: "POST",
+      url: URL,
+      headers: BEARER,
+      payload: { name: "Claude Desktop", write: true },
+    });
+
+    expect(res.statusCode).toBe(201);
+    expect(res.json().data.write).toBe(true);
+    expect(svc.mint).toHaveBeenCalledWith("auth0|me", { name: "Claude Desktop", write: true });
   });
 
   it("rejects an expiry beyond one year or a blank name with 400", async () => {
