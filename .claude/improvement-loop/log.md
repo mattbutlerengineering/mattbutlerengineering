@@ -1244,4 +1244,3 @@ Phase 4: worktree reaper ran live (0 eligible — the one remaining worktree is 
 **Coverage before this fire:** 96.5% (141/146), `coverage.mjs` exit 1 — a breach on five never-audited rialto-web component routes (`file-upload`, `listbox`, `tags-input`, `toolbar`, `visually-hidden`). All five were captured and judged this fire; coverage after is 100% (146/146).
 
 **Blockers / pipeline bugs:** none. Browser resolved (`chrome-headless-shell`), all three capture runs passed first try.
-
