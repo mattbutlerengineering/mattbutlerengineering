@@ -1,6 +1,6 @@
 {
   "schema": "acmm-metrics/v1",
-  "generatedAt": "2026-11-25T21:24:38.700Z",
+  "generatedAt": "2026-11-26T13:39:22.868Z",
   "level": 5,
   "levelName": "Semi-Automated",
   "role": "Operator",
@@ -15,8 +15,8 @@
   },
   "behavioral": {
     "ciFlakeRate": 0.021021021021021023,
-    "agentPrAcceptanceRate": 0.9811320754716981,
-    "agentPrRevertRate": 0.0038461538461538464,
+    "agentPrAcceptanceRate": 0.9837133550488599,
+    "agentPrRevertRate": 0.0033112582781456954,
     "evalPassRate": 0.8,
     "evalsStale": false,
     "evalsLastRun": "2026-11-20T15:59:17.181Z",
@@ -742,128 +742,134 @@
       "level": 5,
       "detected": 73,
       "total": 83
+    },
+    {
+      "date": "2026-11-26",
+      "level": 5,
+      "detected": 73,
+      "total": 83
     }
   ],
   "recentAgentChanges": [
     {
-      "number": 9649,
-      "title": "test(reservations): one shared in-memory StoreClient fake for the availability suites (mbe-feature-drain #9629)",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9649",
-      "mergedAt": "2026-11-25T13:07:07Z"
+      "number": 9808,
+      "title": "perf(reservations): batch reorder and archive row updates (mbe-feature-drain #9805)",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9808",
+      "mergedAt": "2026-11-26T12:24:49Z"
     },
     {
-      "number": 9648,
-      "title": "feat(hospitality): invite and revoke Regulars Club members (mbe-feature-drain #9626)",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9648",
-      "mergedAt": "2026-11-25T12:52:17Z"
+      "number": 9807,
+      "title": "perf: restore size-limit headroom on six budgets (mbe-feature-drain #9804)",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9807",
+      "mergedAt": "2026-11-26T11:47:21Z"
     },
     {
-      "number": 9647,
-      "title": "feat(reservations): member early booking window (mbe-feature-drain #9625)",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9647",
-      "mergedAt": "2026-11-25T12:20:56Z"
+      "number": 9806,
+      "title": "perf(hospitality): re-baseline 14 eroded size-limit budgets (mbe-feature-drain #9803)",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9806",
+      "mergedAt": "2026-11-26T11:19:53Z"
     },
     {
-      "number": 9646,
-      "title": "feat(hospitality): refused-by-pacing filter on the turned-away heatmap (mbe-feature-drain #9622)",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9646",
-      "mergedAt": "2026-11-25T11:31:49Z"
+      "number": 9802,
+      "title": "fix(rialto-catalog): Listbox adapter emits \"change\" (mbe-feature-drain #9799)",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9802",
+      "mergedAt": "2026-11-26T10:17:52Z"
     },
     {
-      "number": 9645,
-      "title": "feat(hospitality): per-service pacing field in the service editor (mbe-feature-drain #9620)",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9645",
-      "mergedAt": "2026-11-25T11:11:32Z"
+      "number": 9801,
+      "title": "fix(rialto-web): dashboard sidebar cards use h2 to keep heading order (mbe-feature-drain #9794)",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9801",
+      "mergedAt": "2026-11-26T09:52:44Z"
     },
     {
-      "number": 9644,
-      "title": "fix(reservations): collision-safe table names in section-closure-delete test (mbe-feature-drain #9630)",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9644",
-      "mergedAt": "2026-11-25T10:21:52Z"
+      "number": 9798,
+      "title": "test(rialto): Alert dismiss-focus test is timing-flaky (mbe-feature-drain #9788)",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9798",
+      "mergedAt": "2026-11-26T09:25:13Z"
     },
     {
-      "number": 9643,
-      "title": "feat(reservations): signed member link (mbe-feature-drain #9624)",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9643",
-      "mergedAt": "2026-11-25T10:08:11Z"
+      "number": 9797,
+      "title": "feat(agent): MCP write tools with a preview-then-confirm step (#9781)",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9797",
+      "mergedAt": "2026-11-26T09:21:16Z"
     },
     {
-      "number": 9642,
-      "title": "feat(reservations): GuestMembership model (mbe-feature-drain #9623)",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9642",
-      "mergedAt": "2026-11-25T09:29:17Z"
+      "number": 9795,
+      "title": "feat(rialto): wire Listbox into the catalog (mbe-feature-drain #9756)",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9795",
+      "mergedAt": "2026-11-26T09:14:44Z"
     },
     {
-      "number": 9641,
-      "title": "feat(reservations): record the limiting reason for each no-slot search (mbe-feature-drain #9621)",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9641",
-      "mergedAt": "2026-11-25T09:07:24Z"
+      "number": 9791,
+      "title": "feat(reservations): audit every write made with a personal access token (#9780)",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9791",
+      "mergedAt": "2026-11-26T08:36:44Z"
     },
     {
-      "number": 9639,
-      "title": "feat(availability): per-service pacing in ScheduleService.rules (mbe-feature-drain #9619)",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9639",
-      "mergedAt": "2026-11-25T08:39:55Z"
+      "number": 9789,
+      "title": "feat(hospitality): opt-in \"can make changes\" for assistant tokens (#9779)",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9789",
+      "mergedAt": "2026-11-26T08:30:13Z"
     },
     {
-      "number": 9638,
-      "title": "fix(agent): harden the component-call scrubber (mbe-feature-drain #9617)",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9638",
-      "mergedAt": "2026-11-25T08:04:06Z"
+      "number": 9790,
+      "title": "fix(rialto): TagsInput announcement, key and locale follow-ups (mbe-feature-drain #9775)",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9790",
+      "mergedAt": "2026-11-26T08:26:05Z"
     },
     {
-      "number": 9637,
-      "title": "fix(reservations): make Stryker reservations scope pass its dry run",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9637",
-      "mergedAt": "2026-11-25T07:43:46Z"
+      "number": 9755,
+      "title": "feat(rialto): add Listbox (mbe-feature-drain #9723)",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9755",
+      "mergedAt": "2026-11-26T08:07:07Z"
     },
     {
-      "number": 9636,
-      "title": "feat(hospitality): standing pacing editor in Booking rules (mbe-feature-drain #9618)",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9636",
-      "mergedAt": "2026-11-25T07:38:23Z"
+      "number": 9787,
+      "title": "ci: warn when a PR body negates a closing keyword (mbe-feature-drain #9773)",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9787",
+      "mergedAt": "2026-11-26T07:49:24Z"
     },
     {
-      "number": 9635,
-      "title": "fix(ai-health): make Sensor Status human-readable with labels and descriptions (mbe-feature-drain #9612)",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9635",
-      "mergedAt": "2026-11-25T06:58:20Z"
+      "number": 9785,
+      "title": "feat(reservations): opt-in write scope on personal access tokens (#9778)",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9785",
+      "mergedAt": "2026-11-26T07:43:17Z"
     },
     {
-      "number": 9610,
-      "title": "feat(scripts): run reservations mutation scope in the weekly workflow (mbe-feature-drain #9597)",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9610",
-      "mergedAt": "2026-11-25T05:15:39Z"
+      "number": 9786,
+      "title": "test(hospitality): relax fr-CA Go to date viewport check (mbe-feature-drain #9777)",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9786",
+      "mergedAt": "2026-11-26T07:27:42Z"
     },
     {
-      "number": 9600,
-      "title": "feat(scripts): mutation summary row carries extra scopes' per-package scores (mbe-feature-drain #9596)",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9600",
-      "mergedAt": "2026-11-25T04:34:40Z"
+      "number": 9758,
+      "title": "feat(rialto): add TagsInput (mbe-feature-drain #9724)",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9758",
+      "mergedAt": "2026-11-26T06:56:49Z"
     },
     {
-      "number": 9582,
-      "title": "fix(users): fall back to OIDC userinfo when the access token has no email claim",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9582",
-      "mergedAt": "2026-11-25T03:41:52Z"
+      "number": 9771,
+      "title": "fix(regen): rerun rialto color tokens when colors.surfaces.json changes (#9770)",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9771",
+      "mergedAt": "2026-11-26T06:31:02Z"
     },
     {
-      "number": 9587,
-      "title": "docs(gen): update catalog coverage count after widening (mbe-feature-drain #9523)",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9587",
-      "mergedAt": "2026-11-25T02:46:54Z"
+      "number": 9772,
+      "title": "test(reservations): scan every body/query id generically for a venue guard (#9713)",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9772",
+      "mergedAt": "2026-11-26T06:30:14Z"
     },
     {
-      "number": 9581,
-      "title": "fix(gen): catalog generator drops numeric-literal union props",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9581",
-      "mergedAt": "2026-11-25T02:15:31Z"
+      "number": 9768,
+      "title": "feat(rialto): extend RadioGroup with options, orientation, error and keyboard coverage (mbe-feature-drain #9719)",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9768",
+      "mergedAt": "2026-11-26T05:39:47Z"
     },
     {
-      "number": 9580,
-      "title": "test(agent): cover menu-structure tool refusal branches",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9580",
-      "mergedAt": "2026-11-25T02:14:39Z"
+      "number": 9765,
+      "title": "fix(rialto): declare manualSort/sort/onSortChange on the registry TableProps (#9759)",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9765",
+      "mergedAt": "2026-11-26T04:55:12Z"
     }
   ],
   "detectedByLevel": {
@@ -885,28 +891,28 @@
       "level": 4,
       "name": "agent-pr-acceptance",
       "passed": true,
-      "value": 0.9811320754716981,
+      "value": 0.9837133550488599,
       "threshold": 0.5
     },
     {
       "level": 5,
       "name": "auto-qa-tuning-history",
       "passed": true,
-      "value": 66,
+      "value": 67,
       "threshold": 1
     },
     {
       "level": 6,
       "name": "agent-pr-revert-rate",
       "passed": true,
-      "value": 0.0038461538461538464,
+      "value": 0.0033112582781456954,
       "threshold": 0.1
     },
     {
       "level": 6,
       "name": "human-touch-ratio",
       "passed": true,
-      "value": 0.019230769230769232,
+      "value": 0.016556291390728478,
       "threshold": 0.5
     }
   ]
