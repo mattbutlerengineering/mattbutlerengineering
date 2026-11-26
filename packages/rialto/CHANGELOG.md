@@ -1,5 +1,11 @@
 # @mattbutlerengineering/rialto
 
+## 3.1.10
+
+### Patch Changes
+
+- [#9758](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9758) [`c8b973a`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/c8b973a090c1242679a71170e7de01470624e92b) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add `TagsInput`: free-text tags entry with removable chips, duplicate and `maxTags` handling, paste-to-split and a polite live region.
+
 ## 3.1.9
 
 ### Patch Changes
