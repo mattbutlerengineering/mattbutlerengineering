@@ -28,21 +28,16 @@
  * `main()` also sweeps the sibling `visual-baselines/**` namespace
  * (`scripts/visual-baselines.mjs`, #9696/#9703) — one ref per main push that
  * runs a visual suite, grouped and retired per suite by `planBaselineSweep`
- * rather than per PR. Both sweeps share this one workflow
- * (`.github/workflows/visual-diff-ref-sweep.yml`) and report separately.
+ * below rather than per PR. `visual-baselines.mjs` imports and re-exports
+ * `planBaselineSweep` and its ref-name helpers from here (this file has no
+ * import from it) so its own CLI and tests keep the same public names. Both
+ * sweeps share one workflow (`.github/workflows/visual-diff-ref-sweep.yml`)
+ * and report separately.
  */
 
 import { execFileSync } from "node:child_process";
 import { appendFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-
-// The one local import: visual-baselines.mjs carries the same "bare node, no
-// node_modules" guarantee this file does (see its own docstring) — it is
-// where the visual-baselines/ ref-name parsing already lives, and main()
-// below extends the sweep to that namespace rather than duplicating it.
-// scripts/__tests__/visual-diff-ref-sweep.test.mjs asserts this stays the
-// only non-builtin import.
-import { BASELINE_PREFIX, planBaselineSweep } from "./visual-baselines.mjs";
 
 /**
  * Ref root. Milestone 5 of the run's breakdown probes whether a custom
@@ -177,6 +172,114 @@ export function ageHours(committedAt, now) {
   const then = new Date(committedAt).getTime();
   if (!Number.isFinite(then)) return null;
   return (now.getTime() - then) / 3_600_000;
+}
+
+// ---------------------------------------------------------------------------
+// The visual-baselines/ namespace (#9696/#9703). Lives here, not in
+// visual-baselines.mjs, so that file's `buildOrphanCommit` import (transitively
+// reaching this one through publish-visual-diffs.mjs) never closes a cycle
+// back to here — `visual-baselines.mjs` imports and re-exports these names
+// instead of defining them, so its own public API is unchanged.
+// ---------------------------------------------------------------------------
+
+/** Branch-name prefix. Must never match a workflow `push:` filter
+ * (`visual-diff-ref-trigger-safety.test.mjs` checks this namespace too). */
+export const BASELINE_PREFIX = "visual-baselines";
+
+/** How many first-parent ancestors of the base a PR searches. */
+export const DEFAULT_DEPTH = 50;
+
+const BASELINE_SUITE_PATTERN = /^[a-z][a-z0-9-]*$/;
+const BASELINE_SHA_PATTERN = /^[0-9a-f]{40}$/;
+const BASELINE_REF_NAME_PATTERN = new RegExp(
+  `^${BASELINE_PREFIX}/([a-z][a-z0-9-]*)/([0-9a-f]{40})$`
+);
+
+/** @returns {string} `visual-baselines/<suite>/<sha>` */
+export function buildBaselineRefName({ suite, sha }) {
+  if (!BASELINE_SUITE_PATTERN.test(suite ?? "")) throw new Error(`invalid suite: ${suite}`);
+  if (!BASELINE_SHA_PATTERN.test(sha ?? "")) {
+    throw new Error(`invalid sha (need 40 hex chars): ${sha}`);
+  }
+  return `${BASELINE_PREFIX}/${suite}/${sha}`;
+}
+
+/** @returns {{suite: string, sha: string} | null} */
+export function parseBaselineRefName(name) {
+  const match = BASELINE_REF_NAME_PATTERN.exec(name ?? "");
+  return match ? { suite: match[1], sha: match[2] } : null;
+}
+
+/**
+ * Pure: the keep/delete verdict for the visual-baselines/ namespace — the
+ * retention #9696 left unwired.
+ *
+ * Mirrors {@link planRefSweep}'s shape ({toDelete, retained}, one verdict per
+ * ref, every entry carrying a `reason`), but groups per SUITE rather than per
+ * PR: a baseline ref carries no PR, only a suite and the main commit it was
+ * published for. A PR only ever READS this namespace (`fetchBaseline` /
+ * `pickBaseline` in `visual-baselines.mjs`, searching `depth` first-parent
+ * ancestors), so a ref beyond rank `keep` can never be picked by one and is
+ * safe to retire.
+ *
+ * Both overrides are decided BEFORE ranking, so neither one occupies a `keep`
+ * slot or displaces an older, dated ref out of them:
+ *   - a ref younger than `minAgeHours` — its publish may still be in flight;
+ *   - a ref whose date is unreadable — failing to date it must never be read
+ *     as a reason to delete it, the same rule {@link planRefSweep} enforces.
+ *
+ * A name {@link parseBaselineRefName} cannot read is never selected, same
+ * fail-safe direction as the other namespace.
+ *
+ * @param {{refs?: Array<{name:string, committedAt:string|null}>, now?: Date,
+ *          keep?: number, minAgeHours?: number}} input
+ * @returns {{toDelete: Array<object>, retained: Array<object>}}
+ */
+export function planBaselineSweep({
+  refs,
+  now = new Date(),
+  keep = DEFAULT_DEPTH,
+  minAgeHours = MIN_AGE_HOURS,
+}) {
+  const bySuite = new Map();
+  const retained = [];
+
+  for (const refEntry of refs ?? []) {
+    const parsed = parseBaselineRefName(refEntry.name);
+    if (parsed === null) {
+      retained.push({ ...refEntry, reason: "unparsable" });
+      continue;
+    }
+
+    const age = ageHours(refEntry.committedAt, now);
+    if (age === null) {
+      retained.push({ ...refEntry, ...parsed, reason: "undated" });
+      continue;
+    }
+    if (age < minAgeHours) {
+      retained.push({ ...refEntry, ...parsed, reason: "too-recent" });
+      continue;
+    }
+
+    const group = bySuite.get(parsed.suite) ?? [];
+    group.push({ ref: refEntry, parsed, age });
+    bySuite.set(parsed.suite, group);
+  }
+
+  const toDelete = [];
+  for (const group of bySuite.values()) {
+    group.sort((a, b) => a.age - b.age); // newest (smallest age) first
+    group.forEach(({ ref: refEntry, parsed }, index) => {
+      const verdict = { ...refEntry, ...parsed };
+      if (index < keep) {
+        retained.push({ ...verdict, reason: "newest" });
+      } else {
+        toDelete.push({ ...verdict, reason: "old" });
+      }
+    });
+  }
+
+  return { toDelete, retained };
 }
 
 /** Pure: is ordinal `a` strictly newer than ordinal `b`? Tuple-lexicographic

@@ -15,9 +15,14 @@
  *
  * Same storage rules as `visual-diff-refs.mjs`: one ref per writer, nothing
  * ever overwrites a ref, `--force` is never used. Retention is `planBaselineSweep`
- * below (#9703) — `visual-diff-refs.mjs`'s `main()` lists this namespace
- * alongside `visual-diffs/**` and applies it, keeping the newest `DEFAULT_DEPTH`
- * refs per suite by commit date.
+ * (#9703) — `visual-diff-refs.mjs`'s `main()` lists this namespace alongside
+ * `visual-diffs/**` and applies it, keeping the newest `DEFAULT_DEPTH` refs
+ * per suite by commit date. `planBaselineSweep` and this namespace's ref-name
+ * helpers are defined in `visual-diff-refs.mjs`, not here, and re-exported
+ * below under their original names — this file's own `buildOrphanCommit`
+ * import (via `publish-visual-diffs.mjs`) reaches `visual-diff-refs.mjs`
+ * transitively, so defining them here instead would close an import cycle
+ * back to this file (`no-circular`, dependency-cruiser).
  *
  * Runs with bare `node` and no `node_modules`. Every shell-out is
  * `execFileSync` with an argv array.
@@ -35,31 +40,22 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 
 import { buildOrphanCommit } from "./publish-visual-diffs.mjs";
-import { MIN_AGE_HOURS, REF_ROOT, ageHours } from "./visual-diff-refs.mjs";
+import {
+  BASELINE_PREFIX,
+  DEFAULT_DEPTH,
+  REF_ROOT,
+  buildBaselineRefName,
+  parseBaselineRefName,
+  planBaselineSweep,
+} from "./visual-diff-refs.mjs";
 
-/** Branch-name prefix. Must never match a workflow `push:` filter
- * (`visual-diff-ref-trigger-safety.test.mjs` checks this namespace too). */
-export const BASELINE_PREFIX = "visual-baselines";
-
-/** How many first-parent ancestors of the base a PR searches. */
-export const DEFAULT_DEPTH = 50;
-
-const SUITE_PATTERN = /^[a-z][a-z0-9-]*$/;
-const SHA_PATTERN = /^[0-9a-f]{40}$/;
-const REF_NAME_PATTERN = new RegExp(`^${BASELINE_PREFIX}/([a-z][a-z0-9-]*)/([0-9a-f]{40})$`);
-
-/** @returns {string} `visual-baselines/<suite>/<sha>` */
-export function buildBaselineRefName({ suite, sha }) {
-  if (!SUITE_PATTERN.test(suite ?? "")) throw new Error(`invalid suite: ${suite}`);
-  if (!SHA_PATTERN.test(sha ?? "")) throw new Error(`invalid sha (need 40 hex chars): ${sha}`);
-  return `${BASELINE_PREFIX}/${suite}/${sha}`;
-}
-
-/** @returns {{suite: string, sha: string} | null} */
-export function parseBaselineRefName(name) {
-  const match = REF_NAME_PATTERN.exec(name ?? "");
-  return match ? { suite: match[1], sha: match[2] } : null;
-}
+export {
+  BASELINE_PREFIX,
+  DEFAULT_DEPTH,
+  buildBaselineRefName,
+  parseBaselineRefName,
+  planBaselineSweep,
+};
 
 /** Baseline ref names from `git ls-remote` output, without the ref root. */
 export function parseLsRemote(output) {
@@ -89,77 +85,6 @@ export function pickBaseline({ suite, ancestors, refNames }) {
   if (distance === -1) return null;
   const sha = ancestors[distance];
   return { sha, refName: buildBaselineRefName({ suite, sha }), distance };
-}
-
-/**
- * Pure: the keep/delete verdict for the visual-baselines/ namespace — the
- * retention #9696 left unwired (see the module docstring).
- *
- * Mirrors {@link planRefSweep}'s shape ({toDelete, retained}, one verdict per
- * ref, every entry carrying a `reason`), but groups per SUITE rather than per
- * PR: a baseline ref carries no PR, only a suite and the main commit it was
- * published for. A PR only ever READS this namespace (`fetchBaseline` /
- * `pickBaseline`, searching `depth` first-parent ancestors), so a ref beyond
- * rank `keep` can never be picked by one and is safe to retire.
- *
- * Both overrides are decided BEFORE ranking, so neither one occupies a `keep`
- * slot or displaces an older, dated ref out of them:
- *   - a ref younger than `minAgeHours` — its publish may still be in flight;
- *   - a ref whose date is unreadable — failing to date it must never be read
- *     as a reason to delete it, the same rule {@link planRefSweep} enforces.
- *
- * A name {@link parseBaselineRefName} cannot read is never selected, same
- * fail-safe direction as the other namespace.
- *
- * @param {{refs?: Array<{name:string, committedAt:string|null}>, now?: Date,
- *          keep?: number, minAgeHours?: number}} input
- * @returns {{toDelete: Array<object>, retained: Array<object>}}
- */
-export function planBaselineSweep({
-  refs,
-  now = new Date(),
-  keep = DEFAULT_DEPTH,
-  minAgeHours = MIN_AGE_HOURS,
-}) {
-  const bySuite = new Map();
-  const retained = [];
-
-  for (const refEntry of refs ?? []) {
-    const parsed = parseBaselineRefName(refEntry.name);
-    if (parsed === null) {
-      retained.push({ ...refEntry, reason: "unparsable" });
-      continue;
-    }
-
-    const age = ageHours(refEntry.committedAt, now);
-    if (age === null) {
-      retained.push({ ...refEntry, ...parsed, reason: "undated" });
-      continue;
-    }
-    if (age < minAgeHours) {
-      retained.push({ ...refEntry, ...parsed, reason: "too-recent" });
-      continue;
-    }
-
-    const group = bySuite.get(parsed.suite) ?? [];
-    group.push({ ref: refEntry, parsed, age });
-    bySuite.set(parsed.suite, group);
-  }
-
-  const toDelete = [];
-  for (const group of bySuite.values()) {
-    group.sort((a, b) => a.age - b.age); // newest (smallest age) first
-    group.forEach(({ ref: refEntry, parsed }, index) => {
-      const verdict = { ...refEntry, ...parsed };
-      if (index < keep) {
-        retained.push({ ...verdict, reason: "newest" });
-      } else {
-        toDelete.push({ ...verdict, reason: "old" });
-      }
-    });
-  }
-
-  return { toDelete, retained };
 }
 
 function git(args, cwd) {
