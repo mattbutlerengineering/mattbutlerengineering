@@ -554,6 +554,30 @@ model PersonalAccessToken {
   @@map("personal_access_tokens")
 }
 
+/// One write made with a write-scoped personal access token (#9780). Keyed by
+/// token, not venue: like `personal_access_tokens` it carries no RLS policy, and
+/// `venueId` is informational (null when the request names no venue). `input`
+/// can hold guest notes, so it is never logged. `confirmNonce` is unique so a
+/// replayed confirm is refused. No FK to `personal_access_tokens` on purpose, so
+/// audit rows outlive their token.
+model AccessTokenWriteAudit {
+  id           String   @id @default(cuid())
+  tokenId      String   @map("token_id")
+  userSub      String   @map("user_sub")
+  method       String
+  route        String
+  venueId      String?  @map("venue_id")
+  input        Json
+  tool         String?
+  confirmNonce String?  @unique @map("confirm_nonce")
+  statusCode   Int?     @map("status_code")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([tokenId])
+  @@index([createdAt])
+  @@map("access_token_write_audit")
+}
+
 // ── Venue availability (ADR-030) ────────────────────────────────────────────
 // Layered rows resolved by the pure @mbe/availability engine. Times are minutes
 // from the service day's local midnight; `closesAt` may exceed 1440. jsonb
