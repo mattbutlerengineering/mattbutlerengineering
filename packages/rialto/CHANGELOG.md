@@ -1,5 +1,13 @@
 # @mattbutlerengineering/rialto
 
+## 3.1.7
+
+### Patch Changes
+
+- [#9747](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9747) [`1a1bae2`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/1a1bae2d3028852d0f86a610efbf6e9590621e1d) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add `Toolbar` and `ToolbarSeparator`: a single-Tab-stop control group with roving arrow-key focus (RTL-aware).
+
+- [#9757](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9757) [`6ba5dd5`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/6ba5dd5e9533b8830e7bfe9c8002d0b494523250) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - `Table` can leave row order to the parent. Set `manualSort` when `data` is one page of a larger list: the table keeps that order, shows `sort` on the header, and reports the next asc/desc choice through `onSortChange`. Omitting `manualSort` still sorts the rows the table was given.
+
 ## 3.1.6
 
 ### Patch Changes
