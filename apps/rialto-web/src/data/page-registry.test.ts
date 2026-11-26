@@ -97,6 +97,7 @@ vi.mock("../pages/layout/StackPage.js", () => ({ StackPage: () => null }));
 vi.mock("../pages/layout/CollapsiblePage.js", () => ({ CollapsiblePage: () => null }));
 vi.mock("../pages/layout/AccordionPage.js", () => ({ AccordionPage: () => null }));
 vi.mock("../pages/layout/AspectRatioPage.js", () => ({ AspectRatioPage: () => null }));
+vi.mock("../pages/layout/VisuallyHiddenPage.js", () => ({ VisuallyHiddenPage: () => null }));
 vi.mock("../pages/layout/SplitScreenExitPage.js", () => ({ SplitScreenExitPage: () => null }));
 vi.mock("../pages/layout/ScrollAreaPage.js", () => ({ ScrollAreaPage: () => null }));
 vi.mock("../pages/layout/HeroPage.js", () => ({ HeroPage: () => null }));

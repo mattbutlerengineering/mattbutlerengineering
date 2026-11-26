@@ -105,6 +105,7 @@ export * from "./Fireflies";
 export * from "./Steam";
 export * from "./Constellation";
 export * from "./WatchLoader";
+export * from "./VisuallyHidden";
 export * from "./Handshake";
 export * from "./NeonSign";
 
