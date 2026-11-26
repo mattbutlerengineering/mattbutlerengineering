@@ -95,4 +95,32 @@ describe("TagsInput", () => {
       input.getAttribute("aria-describedby")!
     );
   });
+
+  it("gives error and hint spans distinct keys so role=alert lands on a fresh node", () => {
+    const { rerender } = render(<TagsInput label="T" hint="Help" />);
+    const hintNode = screen.getByText("Help");
+    rerender(<TagsInput label="T" error hint="Bad" />);
+    const errorNode = screen.getByText("Bad");
+    expect(errorNode).not.toBe(hintNode);
+    expect(errorNode).toHaveAttribute("role", "alert");
+  });
+
+  it("re-announces an identical repeated announcement", async () => {
+    const user = userEvent.setup();
+    render(<TagsInput label="T" defaultValue={["Vegan"]} />);
+    const status = screen.getByRole("status");
+    await user.type(screen.getByLabelText("T"), "vegan{Enter}");
+    const first = status.textContent;
+    await user.type(screen.getByLabelText("T"), "vegan{Enter}");
+    expect(status.textContent?.trim()).toBe(first?.trim());
+    expect(status.textContent).not.toBe(first);
+  });
+
+  it("keeps later chips mounted when an earlier one is removed", async () => {
+    const user = userEvent.setup();
+    render(<TagsInput label="T" defaultValue={["a", "b", "c"]} />);
+    const c = screen.getByText("c").closest("li");
+    await user.click(screen.getByRole("button", { name: "Remove a" }));
+    expect(screen.getByText("c").closest("li")).toBe(c);
+  });
 });

@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { describe, expect, it } from "vitest";
 import { RialtoLocaleProvider } from "../i18n/RialtoLocaleProvider";
@@ -252,4 +253,21 @@ describe("announcements and fallbacks built in a conditional localize", () => {
       await waitFor(() => expect(screen.getByRole("status").textContent).toBe(text));
     }
   );
+
+  it.each([
+    ["es-MX", esMX],
+    ["fr-CA", frCA],
+  ] as const)("TagsInput status announcements in %s", async (_tag, messages) => {
+    const user = userEvent.setup();
+    render(
+      <RialtoLocaleProvider messages={messages}>
+        <TagsInput label="Notes" maxTags={2} defaultValue={["VIP"]} />
+      </RialtoLocaleProvider>
+    );
+    const input = screen.getByRole("textbox");
+    await user.type(input, "Nuts{Enter}");
+    expect(screen.getByRole("status").textContent?.trim()).toBe(messages.tagAdded("Nuts"));
+    await user.type(input, "Extra{Enter}");
+    expect(screen.getByRole("status").textContent?.trim()).toBe(messages.tagLimitReached(2));
+  });
 });
