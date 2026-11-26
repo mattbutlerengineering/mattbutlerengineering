@@ -20,6 +20,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { formatSweepSummary, resolveDryRun, sweepExitCode } from "../visual-diff-refs.mjs";
+import { buildBaselineRefName } from "../visual-baselines.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, "../..");
@@ -108,7 +109,7 @@ describe("visual-diff-ref-sweep.yml", () => {
     }
   });
 
-  it("installs nothing — the script imports only node builtins", () => {
+  it("installs nothing — the script imports only node builtins (plus the one pure-node sibling it extends)", () => {
     // Comments are allowed to mention pnpm — this file's whole point is
     // explaining why it does not need it. Only executable lines are scanned.
     const executable = SWEEP.split("\n").filter((line) => !line.trim().startsWith("#"));
@@ -116,9 +117,31 @@ describe("visual-diff-ref-sweep.yml", () => {
     expect(executable.join("\n")).not.toContain("setup-workspace");
     expect(SWEEP).toContain("node scripts/visual-diff-refs.mjs");
 
+    // visual-baselines.mjs carries the same "bare node, no node_modules"
+    // guarantee (its own docstring says so) — it is where the
+    // visual-baselines/ ref-name parsing already lives, and #9703's main()
+    // extends the sweep to that namespace through it rather than duplicating
+    // the parsing here. Anything else must be a node builtin.
     const imports = [...SCRIPT.matchAll(/^import .* from "([^"]+)";$/gm)].map((m) => m[1]);
     for (const spec of imports) {
-      expect(spec, `${spec} is not a node builtin`).toMatch(/^node:/);
+      expect(spec, `${spec} is neither a node builtin nor ./visual-baselines.mjs`).toMatch(
+        /^(node:|\.\/visual-baselines\.mjs$)/
+      );
+    }
+
+    // That exception is only safe because the sibling is just as installable
+    // for free — assert it, rather than trust the docstring unverified.
+    const BASELINES_SCRIPT = readFileSync(
+      resolve(REPO_ROOT, "scripts/visual-baselines.mjs"),
+      "utf8"
+    );
+    const baselineImports = [...BASELINES_SCRIPT.matchAll(/^import .* from "([^"]+)";$/gm)].map(
+      (m) => m[1]
+    );
+    for (const spec of baselineImports) {
+      expect(spec, `${spec} is not a node builtin or a pure-node sibling`).toMatch(
+        /^(node:|\.\/(visual-diff-refs|publish-visual-diffs)\.mjs$)/
+      );
     }
   });
 });
@@ -246,6 +269,7 @@ describe("sweepExitCode", () => {
 const SCRIPT_PATH = resolve(REPO_ROOT, "scripts/visual-diff-refs.mjs");
 const OLD_COMMIT_DATE = "2020-01-01T00:00:00Z";
 const DOOMED_REF = "visual-diffs/pr-9/run-1-attempt-1";
+const BASELINE_REF = buildBaselineRefName({ suite: "rialto-web", sha: "3".repeat(40) });
 
 let sandbox;
 beforeEach(() => {
@@ -273,7 +297,14 @@ function shimPath({ pushExit }) {
     `#!/bin/sh
 case "$1 $2" in
   "ls-remote --heads")
-    echo "1111111111111111111111111111111111111111\trefs/heads/${DOOMED_REF}"
+    case "$4" in
+      *visual-baselines*)
+        echo "2222222222222222222222222222222222222222\trefs/heads/${BASELINE_REF}"
+        ;;
+      *)
+        echo "1111111111111111111111111111111111111111\trefs/heads/${DOOMED_REF}"
+        ;;
+    esac
     exit 0 ;;
   "push origin")
     if [ "${pushExit}" -ne 0 ]; then
@@ -340,5 +371,22 @@ describe("the sweep's real main(), against a remote that rejects every delete", 
     expect(status).toBe(0);
     expect(summary).toContain(`Deleted: ${DOOMED_REF}`);
     expect(summary).not.toMatch(/FAILED/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// #9703 — main() also sweeps refs/heads/visual-baselines/**, reported under
+// its own heading. The shim's ls-remote returns one lone baseline ref
+// (DEFAULT_DEPTH is 50, so a single ref is always kept); this exercises the
+// SECOND ls-remote query real main() must now make, separate from the
+// visual-diffs/ one DOOMED_REF already covers above.
+// ---------------------------------------------------------------------------
+
+describe("the sweep's real main(), against the visual-baselines/ namespace", () => {
+  it("lists refs/heads/visual-baselines/* separately and keeps the lone baseline ref", () => {
+    const { status, summary } = runSweep({ pushExit: 0 });
+    expect(status).toBe(0);
+    expect(summary).toContain("=== Visual baseline ref sweep ===");
+    expect(summary).toContain(`Keeping: ${BASELINE_REF} (newest)`);
   });
 });

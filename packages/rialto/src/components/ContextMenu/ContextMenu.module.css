@@ -1,6 +1,6 @@
 /* Injected onto targets that were not already focusable, so Tab shows a ring. */
 .target:focus-visible {
-  outline: none;
+  outline: var(--rialto-focus-ring-width) solid transparent;
   box-shadow: var(--rialto-shadow-focus);
 }
 
