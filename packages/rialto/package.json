@@ -266,6 +266,10 @@
       "types": "./dist/lib/components/Letterboard/index.d.ts",
       "import": "./dist/lib/components/Letterboard/index.js"
     },
+    "./Listbox": {
+      "types": "./dist/lib/components/Listbox/index.d.ts",
+      "import": "./dist/lib/components/Listbox/index.js"
+    },
     "./MasterOverride": {
       "types": "./dist/lib/components/MasterOverride/index.d.ts",
       "import": "./dist/lib/components/MasterOverride/index.js"

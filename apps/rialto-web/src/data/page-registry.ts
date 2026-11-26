@@ -139,6 +139,7 @@ const RAW_PAGE_ENTRIES: RawPageEntry[] = [
   { id: "number-input", label: "Number Input", category: "Forms" },
   { id: "checkbox-radio", label: "Checkbox & Radio", category: "Forms" },
   { id: "toggle", label: "Toggle", category: "Forms" },
+  { id: "listbox", label: "Listbox", category: "Forms" },
   { id: "file-upload", label: "File Upload", category: "Forms" },
   { id: "master-override", label: "Master Override", category: "Forms" },
   { id: "slider", label: "Slider", category: "Forms" },
