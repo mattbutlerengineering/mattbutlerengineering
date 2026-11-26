@@ -43,6 +43,10 @@ const PAT_WRITE_ROUTES: ReadonlyMap<string, BodyCheck> = new Map<string, BodyChe
 export const isPatRequest = (request: FastifyRequest): boolean =>
   request.user?.raw[PAT_CLAIM] === true;
 
+/** True when the request's personal access token carries the write scope (#9778). */
+export const isWriteScopedPatRequest = (request: FastifyRequest): boolean =>
+  isPatRequest(request) && request.user?.raw[PAT_WRITE_CLAIM] === true;
+
 type Authenticate = (token: string) => Promise<AuthenticatedAccessToken | null>;
 
 /**

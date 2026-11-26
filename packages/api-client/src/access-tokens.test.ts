@@ -76,4 +76,10 @@ describe("AccessTokensClient", () => {
       "https://api.test.com/api/v1/me/tokens/tok%2F1",
     ]);
   });
+
+  it("reads the presented token's scope", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: { write: true } }));
+    await expect(client.current()).resolves.toEqual({ write: true });
+    expect(lastCall().slice(0, 2)).toEqual(["GET", "https://api.test.com/api/v1/me/access-token"]);
+  });
 });
