@@ -90,5 +90,5 @@
 .item:hover,
 .item:focus-visible {
   background: var(--rialto-surface-recessed);
-  outline: none;
+  outline: var(--rialto-focus-ring-width) solid transparent;
 }

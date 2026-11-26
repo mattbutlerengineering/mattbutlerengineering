@@ -24,6 +24,15 @@
  * Shaped after `scripts/branch-cleanup.mjs` — pure exported predicates, one
  * impure `main()`, unit tests over the predicates only
  * (`scripts/__tests__/visual-diff-refs.test.mjs`).
+ *
+ * `main()` also sweeps the sibling `visual-baselines/**` namespace
+ * (`scripts/visual-baselines.mjs`, #9696/#9703) — one ref per main push that
+ * runs a visual suite, grouped and retired per suite by `planBaselineSweep`
+ * below rather than per PR. `visual-baselines.mjs` imports and re-exports
+ * `planBaselineSweep` and its ref-name helpers from here (this file has no
+ * import from it) so its own CLI and tests keep the same public names. Both
+ * sweeps share one workflow (`.github/workflows/visual-diff-ref-sweep.yml`)
+ * and report separately.
  */
 
 import { execFileSync } from "node:child_process";
@@ -158,11 +167,119 @@ export const MIN_AGE_HOURS = 24;
  * opposite of the fail-safe direction this rule promises. Only a non-empty
  * string is ever a date here; everything else is "unknown", which retains.
  */
-function ageHours(committedAt, now) {
+export function ageHours(committedAt, now) {
   if (typeof committedAt !== "string" || committedAt.trim() === "") return null;
   const then = new Date(committedAt).getTime();
   if (!Number.isFinite(then)) return null;
   return (now.getTime() - then) / 3_600_000;
+}
+
+// ---------------------------------------------------------------------------
+// The visual-baselines/ namespace (#9696/#9703). Lives here, not in
+// visual-baselines.mjs, so that file's `buildOrphanCommit` import (transitively
+// reaching this one through publish-visual-diffs.mjs) never closes a cycle
+// back to here — `visual-baselines.mjs` imports and re-exports these names
+// instead of defining them, so its own public API is unchanged.
+// ---------------------------------------------------------------------------
+
+/** Branch-name prefix. Must never match a workflow `push:` filter
+ * (`visual-diff-ref-trigger-safety.test.mjs` checks this namespace too). */
+export const BASELINE_PREFIX = "visual-baselines";
+
+/** How many first-parent ancestors of the base a PR searches. */
+export const DEFAULT_DEPTH = 50;
+
+const BASELINE_SUITE_PATTERN = /^[a-z][a-z0-9-]*$/;
+const BASELINE_SHA_PATTERN = /^[0-9a-f]{40}$/;
+const BASELINE_REF_NAME_PATTERN = new RegExp(
+  `^${BASELINE_PREFIX}/([a-z][a-z0-9-]*)/([0-9a-f]{40})$`
+);
+
+/** @returns {string} `visual-baselines/<suite>/<sha>` */
+export function buildBaselineRefName({ suite, sha }) {
+  if (!BASELINE_SUITE_PATTERN.test(suite ?? "")) throw new Error(`invalid suite: ${suite}`);
+  if (!BASELINE_SHA_PATTERN.test(sha ?? "")) {
+    throw new Error(`invalid sha (need 40 hex chars): ${sha}`);
+  }
+  return `${BASELINE_PREFIX}/${suite}/${sha}`;
+}
+
+/** @returns {{suite: string, sha: string} | null} */
+export function parseBaselineRefName(name) {
+  const match = BASELINE_REF_NAME_PATTERN.exec(name ?? "");
+  return match ? { suite: match[1], sha: match[2] } : null;
+}
+
+/**
+ * Pure: the keep/delete verdict for the visual-baselines/ namespace — the
+ * retention #9696 left unwired.
+ *
+ * Mirrors {@link planRefSweep}'s shape ({toDelete, retained}, one verdict per
+ * ref, every entry carrying a `reason`), but groups per SUITE rather than per
+ * PR: a baseline ref carries no PR, only a suite and the main commit it was
+ * published for. A PR only ever READS this namespace (`fetchBaseline` /
+ * `pickBaseline` in `visual-baselines.mjs`, searching `depth` first-parent
+ * ancestors), so a ref beyond rank `keep` can never be picked by one and is
+ * safe to retire.
+ *
+ * Both overrides are decided BEFORE ranking, so neither one occupies a `keep`
+ * slot or displaces an older, dated ref out of them:
+ *   - a ref younger than `minAgeHours` — its publish may still be in flight;
+ *   - a ref whose date is unreadable — failing to date it must never be read
+ *     as a reason to delete it, the same rule {@link planRefSweep} enforces.
+ *
+ * A name {@link parseBaselineRefName} cannot read is never selected, same
+ * fail-safe direction as the other namespace.
+ *
+ * @param {{refs?: Array<{name:string, committedAt:string|null}>, now?: Date,
+ *          keep?: number, minAgeHours?: number}} input
+ * @returns {{toDelete: Array<object>, retained: Array<object>}}
+ */
+export function planBaselineSweep({
+  refs,
+  now = new Date(),
+  keep = DEFAULT_DEPTH,
+  minAgeHours = MIN_AGE_HOURS,
+}) {
+  const bySuite = new Map();
+  const retained = [];
+
+  for (const refEntry of refs ?? []) {
+    const parsed = parseBaselineRefName(refEntry.name);
+    if (parsed === null) {
+      retained.push({ ...refEntry, reason: "unparsable" });
+      continue;
+    }
+
+    const age = ageHours(refEntry.committedAt, now);
+    if (age === null) {
+      retained.push({ ...refEntry, ...parsed, reason: "undated" });
+      continue;
+    }
+    if (age < minAgeHours) {
+      retained.push({ ...refEntry, ...parsed, reason: "too-recent" });
+      continue;
+    }
+
+    const group = bySuite.get(parsed.suite) ?? [];
+    group.push({ ref: refEntry, parsed, age });
+    bySuite.set(parsed.suite, group);
+  }
+
+  const toDelete = [];
+  for (const group of bySuite.values()) {
+    group.sort((a, b) => a.age - b.age); // newest (smallest age) first
+    group.forEach(({ ref: refEntry, parsed }, index) => {
+      const verdict = { ...refEntry, ...parsed };
+      if (index < keep) {
+        retained.push({ ...verdict, reason: "newest" });
+      } else {
+        toDelete.push({ ...verdict, reason: "old" });
+      }
+    });
+  }
+
+  return { toDelete, retained };
 }
 
 /** Pure: is ordinal `a` strictly newer than ordinal `b`? Tuple-lexicographic
@@ -294,21 +411,19 @@ export function resolveDryRun(env = process.env) {
   return (env.DRY_RUN ?? "true") !== "false";
 }
 
-/** Every ref under our prefix, as `{ name, sha }`. */
-function listRemoteRefs() {
-  const raw = execFileSync(
-    "git",
-    ["ls-remote", "--heads", "origin", `${REF_ROOT}/${REF_PREFIX}/*`],
-    { encoding: "utf8" }
-  );
-  const prefix = `${REF_ROOT}/`;
+/** Every ref under `prefix`, as `{ name, sha }`. */
+function listRemoteRefs(prefix) {
+  const raw = execFileSync("git", ["ls-remote", "--heads", "origin", `${REF_ROOT}/${prefix}/*`], {
+    encoding: "utf8",
+  });
+  const rootPrefix = `${REF_ROOT}/`;
   return raw
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean)
     .map((line) => {
       const [sha, ref] = line.split(/\s+/);
-      return { sha, name: ref.startsWith(prefix) ? ref.slice(prefix.length) : ref };
+      return { sha, name: ref.startsWith(rootPrefix) ? ref.slice(rootPrefix.length) : ref };
     });
 }
 
@@ -332,6 +447,11 @@ function commitDate(repo, sha) {
   } catch {
     return null;
   }
+}
+
+/** Every ref under `prefix`, dated for a sweep plan to judge. */
+function datedRefs(prefix, repo) {
+  return listRemoteRefs(prefix).map((ref) => ({ ...ref, committedAt: commitDate(repo, ref.sha) }));
 }
 
 /** Numbers of every currently-open pull request. */
@@ -380,14 +500,16 @@ function deleteRef(name) {
  * @param {{toDelete: Array<object>, retained: Array<object>}} plan
  * @param {boolean} dryRun
  * @param {Array<{name:string, outcome:string, error?:string}>} [outcomes]
+ * @param {string} [title] Lets the caller report the visual-baselines/ sweep
+ *   under its own heading, separate from the visual-diffs/ one.
  * @returns {string}
  */
-export function formatSweepSummary(plan, dryRun, outcomes = []) {
+export function formatSweepSummary(plan, dryRun, outcomes = [], title = "Visual diff ref sweep") {
   const byName = new Map(outcomes.map((result) => [result.name, result]));
   const failures = outcomes.filter((result) => result.outcome === "failed");
 
   const lines = [
-    "=== Visual diff ref sweep ===",
+    `=== ${title} ===`,
     `Mode: ${dryRun ? "DRY RUN" : "LIVE"}`,
     `Refs seen: ${plan.toDelete.length + plan.retained.length}`,
     `Eligible for deletion: ${plan.toDelete.length}`,
@@ -436,23 +558,36 @@ export function sweepExitCode(outcomes) {
 function main() {
   const dryRun = resolveDryRun();
   const repo = process.env.GITHUB_REPOSITORY;
+  const now = new Date();
 
-  const refs = listRemoteRefs().map((ref) => ({ ...ref, committedAt: commitDate(repo, ref.sha) }));
-  const plan = planRefSweep({ refs, openPrNumbers: listOpenPrNumbers(), now: new Date() });
+  const diffPlan = planRefSweep({
+    refs: datedRefs(REF_PREFIX, repo),
+    openPrNumbers: listOpenPrNumbers(),
+    now,
+  });
+  const baselinePlan = planBaselineSweep({ refs: datedRefs(BASELINE_PREFIX, repo), now });
 
   // Delete FIRST, then report — the summary is a record of what happened, and
   // the two must not be able to disagree.
-  const outcomes = dryRun ? [] : plan.toDelete.map((ref) => deleteRef(ref.name));
+  const diffOutcomes = dryRun ? [] : diffPlan.toDelete.map((ref) => deleteRef(ref.name));
+  const baselineOutcomes = dryRun ? [] : baselinePlan.toDelete.map((ref) => deleteRef(ref.name));
 
-  const verdict = formatSweepSummary(plan, dryRun, outcomes);
-  console.log(verdict);
+  const diffVerdict = formatSweepSummary(diffPlan, dryRun, diffOutcomes);
+  const baselineVerdict = formatSweepSummary(
+    baselinePlan,
+    dryRun,
+    baselineOutcomes,
+    "Visual baseline ref sweep"
+  );
+  console.log(`${diffVerdict}\n\n${baselineVerdict}`);
 
   const summaryPath = process.env.GITHUB_STEP_SUMMARY;
   if (summaryPath) {
-    appendFileSync(summaryPath, `\n\`\`\`\n${verdict}\n\`\`\`\n`);
+    appendFileSync(summaryPath, `\n\`\`\`\n${diffVerdict}\n\`\`\`\n`);
+    appendFileSync(summaryPath, `\n\`\`\`\n${baselineVerdict}\n\`\`\`\n`);
   }
 
-  return sweepExitCode(outcomes);
+  return sweepExitCode([...diffOutcomes, ...baselineOutcomes]);
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

@@ -68,7 +68,9 @@
    Applied via :focus-visible pseudo-class.
    ──────────────────────────────────────────────── */
 .focusRing:focus-visible {
-  outline: none;
+  /* Transparent, not `none`: forced-colors mode strips box-shadow, and the UA
+     repaints a transparent outline in a system colour so focus stays visible. */
+  outline: var(--rialto-focus-ring-width) solid transparent;
   box-shadow: var(--rialto-shadow-focus);
 }
 

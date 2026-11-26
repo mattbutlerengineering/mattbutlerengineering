@@ -114,6 +114,7 @@ import { TimeSlots } from "../../components/TimeSlots/TimeSlots";
 import { ToastProvider } from "../../components/Toast/Toast";
 import { Toggle } from "../../components/Toggle/Toggle";
 import { Toolbar } from "../../components/Toolbar/Toolbar";
+import { VisuallyHidden } from "../../components/VisuallyHidden/VisuallyHidden";
 import { Tooltip } from "../../components/Tooltip/Tooltip";
 import { Tree } from "../../components/Tree/Tree";
 import { WatchLoader } from "../../components/WatchLoader/WatchLoader";
@@ -228,6 +229,7 @@ export type BarrelExportName =
   | "Toolbar"
   | "Tooltip"
   | "Tree"
+  | "VisuallyHidden"
   | "WatchLoader";
 
 // ── Helpers ──────────────────────────────────────────────────────────────
@@ -942,6 +944,14 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
 
   Tree: {
     element: <Tree data={[{ id: "1", label: "Root", children: [{ id: "2", label: "Child" }] }]} />,
+  },
+
+  VisuallyHidden: {
+    element: (
+      <button type="button">
+        <VisuallyHidden>Close</VisuallyHidden>
+      </button>
+    ),
   },
 
   WatchLoader: {

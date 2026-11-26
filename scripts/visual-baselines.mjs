@@ -14,9 +14,15 @@
  * so no "regenerate visual baselines" PR is needed.
  *
  * Same storage rules as `visual-diff-refs.mjs`: one ref per writer, nothing
- * ever overwrites a ref, `--force` is never used. Retention for this
- * namespace is not wired yet; refs accumulate one per main push that runs a
- * suite.
+ * ever overwrites a ref, `--force` is never used. Retention is `planBaselineSweep`
+ * (#9703) — `visual-diff-refs.mjs`'s `main()` lists this namespace alongside
+ * `visual-diffs/**` and applies it, keeping the newest `DEFAULT_DEPTH` refs
+ * per suite by commit date. `planBaselineSweep` and this namespace's ref-name
+ * helpers are defined in `visual-diff-refs.mjs`, not here, and re-exported
+ * below under their original names — this file's own `buildOrphanCommit`
+ * import (via `publish-visual-diffs.mjs`) reaches `visual-diff-refs.mjs`
+ * transitively, so defining them here instead would close an import cycle
+ * back to this file (`no-circular`, dependency-cruiser).
  *
  * Runs with bare `node` and no `node_modules`. Every shell-out is
  * `execFileSync` with an argv array.
@@ -34,31 +40,22 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 
 import { buildOrphanCommit } from "./publish-visual-diffs.mjs";
-import { REF_ROOT } from "./visual-diff-refs.mjs";
+import {
+  BASELINE_PREFIX,
+  DEFAULT_DEPTH,
+  REF_ROOT,
+  buildBaselineRefName,
+  parseBaselineRefName,
+  planBaselineSweep,
+} from "./visual-diff-refs.mjs";
 
-/** Branch-name prefix. Must never match a workflow `push:` filter
- * (`visual-diff-ref-trigger-safety.test.mjs` checks this namespace too). */
-export const BASELINE_PREFIX = "visual-baselines";
-
-/** How many first-parent ancestors of the base a PR searches. */
-export const DEFAULT_DEPTH = 50;
-
-const SUITE_PATTERN = /^[a-z][a-z0-9-]*$/;
-const SHA_PATTERN = /^[0-9a-f]{40}$/;
-const REF_NAME_PATTERN = new RegExp(`^${BASELINE_PREFIX}/([a-z][a-z0-9-]*)/([0-9a-f]{40})$`);
-
-/** @returns {string} `visual-baselines/<suite>/<sha>` */
-export function buildBaselineRefName({ suite, sha }) {
-  if (!SUITE_PATTERN.test(suite ?? "")) throw new Error(`invalid suite: ${suite}`);
-  if (!SHA_PATTERN.test(sha ?? "")) throw new Error(`invalid sha (need 40 hex chars): ${sha}`);
-  return `${BASELINE_PREFIX}/${suite}/${sha}`;
-}
-
-/** @returns {{suite: string, sha: string} | null} */
-export function parseBaselineRefName(name) {
-  const match = REF_NAME_PATTERN.exec(name ?? "");
-  return match ? { suite: match[1], sha: match[2] } : null;
-}
+export {
+  BASELINE_PREFIX,
+  DEFAULT_DEPTH,
+  buildBaselineRefName,
+  parseBaselineRefName,
+  planBaselineSweep,
+};
 
 /** Baseline ref names from `git ls-remote` output, without the ref root. */
 export function parseLsRemote(output) {
