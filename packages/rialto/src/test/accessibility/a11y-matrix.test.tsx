@@ -74,6 +74,7 @@ const BARREL_COMPONENT_NAMES: readonly BarrelExportName[] = [
   "GlobalNav",
   "GuestCards",
   "Handshake",
+  "FileUpload",
   "Heading",
   "Hero",
   "HoverCard",

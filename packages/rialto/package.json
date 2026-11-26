@@ -194,6 +194,10 @@
       "types": "./dist/lib/components/FeedbackDialog/index.d.ts",
       "import": "./dist/lib/components/FeedbackDialog/index.js"
     },
+    "./FileUpload": {
+      "types": "./dist/lib/components/FileUpload/index.d.ts",
+      "import": "./dist/lib/components/FileUpload/index.js"
+    },
     "./Fireflies": {
       "types": "./dist/lib/components/Fireflies/index.d.ts",
       "import": "./dist/lib/components/Fireflies/index.js"
@@ -536,7 +540,7 @@
     {
       "name": "Locale es-MX (subpath)",
       "path": "dist/lib/i18n/locales/es-MX.js",
-      "limit": "2.2 kB"
+      "limit": "2.4 kB"
     },
     {
       "name": "Locale fr-CA (subpath)",

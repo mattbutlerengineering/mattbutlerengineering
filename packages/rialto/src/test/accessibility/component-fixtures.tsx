@@ -71,6 +71,7 @@ import { Heading } from "../../components/Heading/Heading";
 import { Hero } from "../../components/Hero/Hero";
 import { HoverCard } from "../../components/HoverCard/HoverCard";
 import { IconButton } from "../../components/IconButton/IconButton";
+import { FileUpload } from "../../components/FileUpload/FileUpload";
 import { ImageUpload } from "../../components/ImageUpload/ImageUpload";
 import { Input } from "../../components/Input/Input";
 import { InputGroup } from "../../components/InputGroup/InputGroup";
@@ -183,6 +184,7 @@ export type BarrelExportName =
   | "Hero"
   | "HoverCard"
   | "IconButton"
+  | "FileUpload"
   | "ImageUpload"
   | "Input"
   | "InputGroup"
@@ -614,6 +616,10 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
         }
       />
     ),
+  },
+
+  FileUpload: {
+    element: <FileUpload label="Menus" accept=".pdf" hint="PDF only" multiple />,
   },
 
   ImageUpload: {
