@@ -206,6 +206,12 @@ export const catalogMeta: Record<string, CatalogMeta> = {
       "Safety wrapper that catches a rendering error in the content inside it and shows a calm fallback instead of a blank page. Wrap any section that loads data or renders something that could fail. It has no text of its own to write.",
     slots: ["default"],
   },
+  FileUpload: {
+    name: "FileUpload",
+    description:
+      "File picker with a drop zone and a removable file list. Use to collect documents or several files at once, such as a menu PDF or a CSV guest import. Give a label, and set accept (for example .pdf), maxSize and multiple to constrain the files.",
+    charLimits: { label: 40, hint: 120, error: 120 },
+  },
   Footer: {
     name: "Footer",
     description:

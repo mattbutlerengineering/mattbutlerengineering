@@ -194,6 +194,10 @@
       "types": "./dist/lib/components/FeedbackDialog/index.d.ts",
       "import": "./dist/lib/components/FeedbackDialog/index.js"
     },
+    "./FileUpload": {
+      "types": "./dist/lib/components/FileUpload/index.d.ts",
+      "import": "./dist/lib/components/FileUpload/index.js"
+    },
     "./Fireflies": {
       "types": "./dist/lib/components/Fireflies/index.d.ts",
       "import": "./dist/lib/components/Fireflies/index.js"

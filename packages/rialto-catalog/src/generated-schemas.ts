@@ -225,6 +225,16 @@ export const generatedSchemas = {
     fallback: z.string().optional(),
     headingLevel: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6)]).optional(),
   }),
+  FileUpload: z.object({
+    label: z.string().max(40),
+    accept: z.string().optional(),
+    maxSize: z.number().optional(),
+    multiple: z.boolean().optional(),
+    maxFiles: z.number().optional(),
+    disabled: z.boolean().optional(),
+    error: z.string().max(120).optional(),
+    hint: z.string().max(120).optional(),
+  }),
   Footer: z.object({
     variant: z.enum(["minimal", "rich"]).optional(),
     logo: z.string().optional(),
