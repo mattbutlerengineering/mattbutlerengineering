@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import type { Plugin } from "vite";
 import { derivePath } from "../../scripts/ui-quality/derive-path.mjs";
 import {
+  DEMOS_TITLE,
   prerenderHeads,
   type CatalogEntry,
   type PrerenderHead,
@@ -25,7 +26,7 @@ import {
  * client-only.
  */
 
-export const DEMOS_TITLE = "Demos — Rialto Design System";
+export { DEMOS_TITLE };
 const DEMOS_URL = "https://mattbutlerengineering.com/rialto/demos/";
 
 interface ParsedEntry {
@@ -154,7 +155,10 @@ export function catalogFromRegistrySource(source: string): CatalogEntry[] {
 }
 
 /** The built shell with one route's title, social titles and URLs substituted. */
-export function renderRouteHtml(shell: string, head: Pick<PrerenderHead, "title" | "url">): string {
+export function renderRouteHtml(
+  shell: string,
+  head: Pick<PrerenderHead, "title" | "url" | "robots">
+): string {
   const title = escapeHtml(head.title);
   const url = escapeHtml(head.url);
   let html = replaceOnce(shell, /<title>[^<]*<\/title>/, `<title>${title}</title>`, "title");
@@ -176,11 +180,18 @@ export function renderRouteHtml(shell: string, head: Pick<PrerenderHead, "title"
     `<link rel="canonical" href="${url}" />`,
     "canonical"
   );
-  return replaceOnce(
+  html = replaceOnce(
     html,
     /<meta\s+property="og:url"\s+content="[^"]*"\s*\/>/,
     `<meta property="og:url" content="${url}" />`,
     "og:url"
+  );
+  if (head.robots === undefined) return html;
+  return replaceOnce(
+    html,
+    /<meta\s+name="robots"\s+content="[^"]*"\s*\/>/,
+    `<meta name="robots" content="${head.robots}" />`,
+    "robots"
   );
 }
 
