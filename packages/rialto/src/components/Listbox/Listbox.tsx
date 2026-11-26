@@ -178,7 +178,9 @@ export const Listbox = forwardRef<HTMLDivElement, ListboxProps>(
         onFocus={handleFocus}
       >
         {options.length === 0 ? (
-          <div className={styles.empty}>{messages.noOptions}</div>
+          <div role="option" aria-disabled="true" aria-selected="false" className={styles.empty}>
+            {messages.noOptions}
+          </div>
         ) : (
           options.map((opt, i) => {
             const isSelected = selected.includes(opt.value);
