@@ -44,7 +44,7 @@ export interface Pair extends PairSpec {
 type ScopeFile = Record<string, Record<string, Record<string, { $value: string }>>>;
 
 /** Semantic token values a column's content reads: the theme, then the band's scope. */
-export function columnTokens(column: BoardColumn): Readonly<Record<string, string>> {
+function columnTokens(column: BoardColumn): Readonly<Record<string, string>> {
   const c = (column.theme === "dark" ? darkColors : colors).color;
   const base: Record<string, string> = {
     surface: c.surface.default.$value,
