@@ -7,7 +7,7 @@
  * Every other route is the sitemap form: no trailing slash.
  */
 
-export const SITE_ORIGIN = "https://mattbutlerengineering.com";
+const SITE_ORIGIN = "https://mattbutlerengineering.com";
 
 /** `<title>` on `/rialto/`. */
 export const HOME_TITLE = "Rialto — Design System";
@@ -38,18 +38,18 @@ export interface PrerenderHead {
   readonly fileName: string;
 }
 
-export const HOME_HEAD: Head = {
+const HOME_HEAD: Head = {
   title: HOME_TITLE,
   url: HOME_CANONICAL,
   socialTitle: HOME_SOCIAL_TITLE,
 };
 
-export function documentTitle(stem: string): string {
+function documentTitle(stem: string): string {
   return `${stem}${TITLE_SUFFIX}`;
 }
 
 /** App pathname with a leading slash and no trailing slash (`/` stays `/`). */
-export function normalizePath(pathname: string): string {
+function normalizePath(pathname: string): string {
   const withLead = pathname.startsWith("/") ? pathname : `/${pathname}`;
   if (withLead === "/") return "/";
   return withLead.replace(/\/+$/, "");

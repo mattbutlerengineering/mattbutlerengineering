@@ -116,7 +116,7 @@ function stringProp(object: string, name: string): string | undefined {
  * The registry module itself pulls `import.meta.glob`, which the Vite config
  * bundle cannot evaluate, so the build reads the literals instead.
  */
-export function parseRegistryEntries(source: string): ParsedEntry[] {
+function parseRegistryEntries(source: string): ParsedEntry[] {
   const marker = source.indexOf("const RAW_PAGE_ENTRIES");
   if (marker < 0) {
     throw new Error("route-html: RAW_PAGE_ENTRIES not found in page-registry.ts");
