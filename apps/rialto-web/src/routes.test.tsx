@@ -93,10 +93,19 @@ function leafFor(appPath: string): string | undefined {
   return matches?.at(-1)?.route.path;
 }
 
+function flattenRoutes(routes: RouteObject[]): RouteObject[] {
+  return routes.flatMap((route) => [route, ...flattenRoutes(route.children ?? [])]);
+}
+
 describe("standalone routes", () => {
   it("visual-test is wrapped in a main landmark (it has no layout supplying one; axe region, #7188)", () => {
-    const route = routeTree.find((r) => r.path === "visual-test");
-    expect((route?.element as { type: unknown }).type).toBe("main");
+    const route = flattenRoutes(routeTree).find(
+      (candidate) =>
+        candidate.path === "visual-test" &&
+        isValidElement(candidate.element) &&
+        candidate.element.type === "main"
+    );
+    expect(route).toBeTruthy();
   });
 });
 
@@ -183,13 +192,20 @@ describe("demo pages emit in-demos cross-links", () => {
 describe("demos index route (#8535)", () => {
   it("/rialto/demos/ renders inside the showcase shell (sidebar + footer, #8641)", () => {
     const matches = matchRoutes(routeTree, `${BASENAME}/demos/`, BASENAME);
-    const shell = matches?.[0]?.route.element as { type?: { name?: string } } | undefined;
-    expect(shell?.type?.name).toBe("ShowcaseLayout");
+    const shell = matches?.find((match) => {
+      const element = match.route.element as { type?: { name?: string } } | undefined;
+      return element?.type?.name === "ShowcaseLayout";
+    });
+    expect(shell).toBeTruthy();
     expect(matches?.at(-1)?.route.path).toBe("demos");
   });
 
   it("the demos index renders a non-empty list linking to every demo page", () => {
-    const shell = routeTree.find((r) => !r.path && r.children);
+    const shell = flattenRoutes(routeTree).find(
+      (route) =>
+        !route.path &&
+        (route.children ?? []).some((child) => child.path === "demos" && !child.children)
+    );
     const indexRoute = shell?.children?.find((r) => r.path === "demos");
     expect(indexRoute, "showcase shell must own the demos index").toBeTruthy();
 
@@ -223,11 +239,16 @@ describe("post-deploy smoke coverage (#8892)", () => {
 
   /** Paths relative to /rialto/demos; "" is the index page. */
   function walkedDemoPaths(): string[] {
-    // The showcase shell owns the index; the top-level `demos` route owns the children.
-    const shell = routeTree.find((r) => !r.path && r.children);
+    // The showcase shell owns the index; the `demos` layout route owns the children.
+    const all = flattenRoutes(routeTree);
+    const shell = all.find(
+      (route) =>
+        !route.path &&
+        (route.children ?? []).some((child) => child.path === "demos" && !child.children)
+    );
     const hasIndex = (shell?.children ?? []).some((r) => r.path === "demos");
-    const children = routeTree
-      .filter((r) => r.path === "demos")
+    const children = all
+      .filter((r) => r.path === "demos" && r.children)
       .flatMap((r) => demoPaths(r.children ?? []));
     return [...(hasIndex ? [""] : []), ...children];
   }

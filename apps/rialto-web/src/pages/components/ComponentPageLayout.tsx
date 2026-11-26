@@ -1,6 +1,6 @@
-import { useEffect, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Text, Divider, Stack } from "@mattbutlerengineering/rialto";
-import { BASE_TITLE } from "../../document-title";
+import { useDocumentTitle } from "../../use-document-title";
 import styles from "./ComponentPageLayout.module.css";
 
 export interface ComponentPageLayoutProps {
@@ -22,12 +22,7 @@ export interface ComponentPageLayoutProps {
  * - Children (page-specific sections)
  */
 export function ComponentPageLayout({ name, description, children }: ComponentPageLayoutProps) {
-  useEffect(() => {
-    document.title = `${name} — Rialto`;
-    return () => {
-      document.title = BASE_TITLE;
-    };
-  }, [name]);
+  useDocumentTitle(name);
 
   return (
     <div className={styles.page}>

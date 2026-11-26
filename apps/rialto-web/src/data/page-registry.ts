@@ -25,6 +25,11 @@ export interface PageEntry {
   category: string;
   path: string;
   comingSoon?: boolean;
+  /**
+   * Document-title stem when the page heading differs from `label`.
+   * The sidebar keeps `label`; `<title>` uses this, matching the layout `name`.
+   */
+  heading?: string;
   load: () => Promise<unknown>;
 }
 
@@ -34,6 +39,8 @@ export interface RawPageEntry {
   label: string;
   category: string;
   comingSoon?: boolean;
+  /** Page heading / document-title stem when it differs from `label`. */
+  heading?: string;
   /** Escape hatch for pages whose module doesn't follow the `{label}Page` convention. */
   load?: () => Promise<unknown>;
 }
@@ -121,6 +128,7 @@ export function buildPageRegistry(rawEntries: RawPageEntry[]): PageEntry[] {
     label: entry.label,
     category: entry.category,
     path: derivePath(entry),
+    ...(entry.heading ? { heading: entry.heading } : {}),
     ...(entry.comingSoon ? { comingSoon: true } : {}),
     load: resolveLoad(entry),
   }));
@@ -149,7 +157,7 @@ const RAW_PAGE_ENTRIES: RawPageEntry[] = [
   { id: "segmented-control", label: "Segmented Control", category: "Forms" },
   { id: "autocomplete", label: "Autocomplete", category: "Forms" },
   { id: "combobox", label: "Combobox", category: "Forms" },
-  { id: "input-group", label: "Input Group", category: "Forms" },
+  { id: "input-group", label: "Input Group", heading: "InputGroup", category: "Forms" },
   { id: "form", label: "Form", category: "Forms" },
   { id: "date-picker", label: "Date Picker", category: "Forms" },
   { id: "date-range", label: "Date Range", category: "Forms" },
@@ -170,11 +178,11 @@ const RAW_PAGE_ENTRIES: RawPageEntry[] = [
   { id: "departure-board", label: "Departure Board", category: "Data Display" },
   { id: "chalkboard", label: "Chalkboard", category: "Data Display" },
   { id: "letterboard", label: "Letterboard", category: "Data Display" },
-  { id: "silk-flow", label: "Silk Flow", category: "Data Display" },
+  { id: "silk-flow", label: "Silk Flow", heading: "SilkFlow", category: "Data Display" },
   { id: "contour", label: "Contour", category: "Data Display" },
   { id: "ember", label: "Ember", category: "Data Display" },
   { id: "champagne", label: "Champagne", category: "Data Display" },
-  { id: "dust-motes", label: "Dust Motes", category: "Data Display" },
+  { id: "dust-motes", label: "Dust Motes", heading: "DustMotes", category: "Data Display" },
   { id: "fireflies", label: "Fireflies", category: "Data Display" },
   { id: "steam", label: "Steam", category: "Data Display" },
   { id: "constellation", label: "Constellation", category: "Data Display" },
@@ -209,7 +217,12 @@ const RAW_PAGE_ENTRIES: RawPageEntry[] = [
   { id: "hover-card", label: "Hover Card", category: "Overlays" },
   { id: "dropdown-menu", label: "Dropdown Menu", category: "Overlays" },
   { id: "context-menu", label: "Context Menu", category: "Overlays" },
-  { id: "disabled-tooltip", label: "Disabled Tooltip", category: "Overlays" },
+  {
+    id: "disabled-tooltip",
+    label: "Disabled Tooltip",
+    heading: "DisabledTooltip",
+    category: "Overlays",
+  },
   // ── Layout ──────────────────────────────────────────────────────────────
   { id: "divider", label: "Divider", category: "Layout" },
   { id: "text", label: "Text", category: "Layout" },
@@ -222,7 +235,7 @@ const RAW_PAGE_ENTRIES: RawPageEntry[] = [
   { id: "timeline", label: "Timeline", category: "Layout" },
   { id: "hero", label: "Hero", category: "Layout" },
   { id: "footer", label: "Footer", category: "Layout" },
-  { id: "page-header", label: "Page Header", category: "Layout" },
+  { id: "page-header", label: "Page Header", heading: "PageHeader", category: "Layout" },
   { id: "visually-hidden", label: "Visually Hidden", category: "Layout" },
   // ── Tokens ──────────────────────────────────────────────────────────────
   { id: "motion", label: "Motion", category: "Tokens" },
@@ -237,7 +250,12 @@ const RAW_PAGE_ENTRIES: RawPageEntry[] = [
   { id: "example-dashboard", label: "Dashboard", category: "Examples" },
   { id: "example-settings", label: "Settings", category: "Examples" },
   { id: "example-form", label: "Form States", category: "Examples" },
-  { id: "example-reservations", label: "Reservations List", category: "Examples" },
+  {
+    id: "example-reservations",
+    label: "Reservations List",
+    heading: "Reservations",
+    category: "Examples",
+  },
   { id: "example-reservation-timeline", label: "Reservation Timeline", category: "Examples" },
   { id: "example-reservation-kanban", label: "Reservation Kanban", category: "Examples" },
   // Module predates the "Guest Profile" label (originally "guest detail").
@@ -286,6 +304,7 @@ const RAW_PAGE_ENTRIES: RawPageEntry[] = [
   {
     id: "example-command-palette",
     label: "Command Palette Demo",
+    heading: "Command Palette",
     category: "Examples",
     load: () =>
       import("../pages/examples/CommandPaletteExamplePage").then((m) => ({
