@@ -240,17 +240,6 @@ Radio.displayName = "Radio";
 
 /* ── Radio Group ─────────────────────────────── */
 
-/**
- * Groups `Radio` children into a single controlled selection. Renders a `<fieldset>` with
- * `role="radiogroup"` and injects `name`, `checked`, and change handling into each child.
- *
- * @example
- * <RadioGroup label="Size" name="size" value={size} onChange={setSize}>
- *   <Radio label="Small" value="sm" />
- *   <Radio label="Medium" value="md" />
- *   <Radio label="Large" value="lg" />
- * </RadioGroup>
- */
 /** Bundlers replace `process.env.NODE_ENV`; declared locally because rialto does not load Node types. */
 declare const process: { env: { NODE_ENV?: string } } | undefined;
 
@@ -262,6 +251,17 @@ export interface RadioGroupOption {
   disabledReason?: string;
 }
 
+/**
+ * Groups `Radio` children into a single controlled selection. Renders a `<fieldset>` with
+ * `role="radiogroup"` and injects `name`, `checked`, and change handling into each child.
+ *
+ * @example
+ * <RadioGroup label="Size" name="size" value={size} onChange={setSize}>
+ *   <Radio label="Small" value="sm" />
+ *   <Radio label="Medium" value="md" />
+ *   <Radio label="Large" value="lg" />
+ * </RadioGroup>
+ */
 export interface RadioGroupProps {
   label?: string;
   /** Shared HTML `name` attribute for all child radios */
