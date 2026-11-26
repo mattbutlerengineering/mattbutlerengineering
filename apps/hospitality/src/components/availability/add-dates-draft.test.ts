@@ -3,7 +3,6 @@ import { validateConfig } from "@mbe/availability";
 import type { ClosureImpact } from "@mbe/types";
 import {
   combineImpacts,
-  decisionsFor,
   emptyRow,
   ruleItems,
   saveLabelParts,
@@ -130,31 +129,6 @@ describe("the combined Step 2", () => {
     const joined = combineImpacts([impact("2026-12-25", 3, 1), impact("2026-12-24", 2)]);
     expect(joined.groups.map((g) => g.date)).toEqual(["2026-12-24", "2026-12-25"]);
     expect([joined.reservations, joined.covers, joined.depositsHeld]).toEqual([5, 10, 1]);
-  });
-
-  it("splits one choice map back into each row's decisions", () => {
-    const impacts = [impact("2026-12-24", 2), impact("2026-12-25", 3)];
-    const choices = {
-      "2026-12-24:closed": { action: "cancel" as const, acknowledged: false },
-      "2026-12-25:closed": { action: "keep_silent" as const, acknowledged: true },
-    };
-    expect(decisionsFor(impacts, choices)).toEqual([
-      [
-        {
-          groupKey: "2026-12-24:closed",
-          action: "cancel",
-          reservationIds: ["2026-12-24-0", "2026-12-24-1"],
-        },
-      ],
-      [
-        {
-          groupKey: "2026-12-25:closed",
-          action: "keep_silent",
-          acknowledged: true,
-          reservationIds: ["2026-12-25-0", "2026-12-25-1", "2026-12-25-2"],
-        },
-      ],
-    ]);
   });
 
   it("names the outcome: dates saved, then what happens to bookings", () => {
