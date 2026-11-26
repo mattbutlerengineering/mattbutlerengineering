@@ -1124,6 +1124,47 @@ describe("Table Routes — venue authorization pins (ADR-020)", () => {
     expect(response.statusCode).toBe(201);
   });
 
+  // #9713: create writes `floorPlanId` as a raw foreign key, which Postgres
+  // checks without RLS, so a member of venue-1 could hang a table off another
+  // venue's floor plan. Under RLS that foreign plan reads back as null.
+  it.each([
+    ["belongs to another venue", { ...mockFloorPlan, id: "fp-other", venueId: "venue-2" }],
+    ["is invisible from this venue (RLS) or missing", null],
+  ])("POST: 403 when the body's floorPlanId %s, create untouched", async (_case, plan) => {
+    await buildAs(["staff"], memberOf("venue-1"));
+    vi.mocked(floorPlanService.getById).mockResolvedValue(plan);
+    vi.mocked(tableService.create).mockResolvedValue(mockTable);
+
+    const response = await app.inject({
+      method: "POST",
+      url: TABLES_URL,
+      headers: { authorization: "Bearer t" },
+      payload: { name: "T9", capacity: 2, venueId: "venue-1", floorPlanId: "fp-other" },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(tableService.create).not.toHaveBeenCalled();
+  });
+
+  it("POST: 201 with a floorPlanId of the body's own venue", async () => {
+    await buildAs(["staff"], memberOf("venue-1"));
+    vi.mocked(floorPlanService.getById).mockResolvedValue({
+      ...mockFloorPlan,
+      id: "fp-own",
+      venueId: "venue-1",
+    });
+    vi.mocked(tableService.create).mockResolvedValue(mockTable);
+
+    const response = await app.inject({
+      method: "POST",
+      url: TABLES_URL,
+      headers: { authorization: "Bearer t" },
+      payload: { name: "T9", capacity: 2, venueId: "venue-1", floorPlanId: "fp-own" },
+    });
+
+    expect(response.statusCode).toBe(201);
+  });
+
   it("POST: 403 for a non-admin who names no venue", async () => {
     await buildAs(["staff"], memberOf("venue-1"));
 
