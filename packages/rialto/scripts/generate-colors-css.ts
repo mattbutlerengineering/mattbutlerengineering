@@ -6,6 +6,8 @@
  *   - src/tokens/colors.json       → `:root` (light theme) and a nested
  *     `[data-theme="light"]` island inside `[data-theme="dark"]`
  *   - src/tokens/colors.dark.json  → `[data-theme="dark"]`
+ *   - src/tokens/colors.surfaces.json → the `data-surface` scopes (ADR-035):
+ *     per scope a light, a dark and a nested-light-island block
  *
  * Custom property names derive deterministically from token paths
  * (see cssVarName in lib/color-tokens.ts); token/group $description
@@ -18,9 +20,11 @@
 import * as fs from "fs";
 import * as path from "path";
 import {
+  assertSurfaceScopeParity,
   assertTokenParity,
   cssVarName,
   isToken,
+  SURFACE_SCOPE_THEMES,
   walkTokens,
   type TokenGroup,
 } from "./lib/color-tokens.js";
@@ -113,6 +117,46 @@ function renderBlock(selector: string, fileRoot: TokenGroup, trailer?: string): 
   return `${selector} {\n${body}\n}`;
 }
 
+/** A scope key names the custom property it re-declares: `border` → `--rialto-border`. */
+function renderScopeBlock(selector: string, group: TokenGroup): string {
+  const lines = walkTokens(group).map(({ path: keyPath, token }) => {
+    const comment =
+      token.$description === undefined ? [] : [`  /* ${assertCommentSafe(token.$description)} */`];
+    return [...comment, `  --rialto-${keyPath.join("-")}: ${token.$value};`].join("\n");
+  });
+  return `${selector} {\n${lines.join("\n")}\n}`;
+}
+
+const SCOPE_SELECTORS: Record<(typeof SURFACE_SCOPE_THEMES)[number], (scope: string) => string[]> =
+  {
+    light: (scope) => [
+      `[data-surface="${scope}"]`,
+      `[data-theme="dark"] [data-theme="light"] [data-surface="${scope}"]`,
+    ],
+    dark: (scope) => [`[data-theme="dark"] [data-surface="${scope}"]`],
+  };
+
+/** Every scope's blocks: light, dark, then light inside a nested light island. */
+function renderSurfaceScopes(file: TokenGroup): string[] {
+  assertSurfaceScopeParity(file);
+  const scopes = file["surface-scope"] as TokenGroup;
+  return Object.entries(scopes)
+    .filter(([scope]) => !scope.startsWith("$"))
+    .flatMap(([scope, themes]) => {
+      const byTheme = themes as TokenGroup;
+      const [light, nestedLight] = SCOPE_SELECTORS.light(scope);
+      const [dark] = SCOPE_SELECTORS.dark(scope);
+      return [
+        renderScopeBlock(light as string, byTheme["light"] as TokenGroup),
+        "",
+        renderScopeBlock(dark as string, byTheme["dark"] as TokenGroup),
+        "",
+        renderScopeBlock(nestedLight as string, byTheme["light"] as TokenGroup),
+        "",
+      ];
+    });
+}
+
 function main(): void {
   const tokensDir = path.join(process.cwd(), "src/tokens");
   const light = JSON.parse(
@@ -120,6 +164,10 @@ function main(): void {
   ) as TokenGroup;
   const dark = JSON.parse(
     fs.readFileSync(path.join(tokensDir, "colors.dark.json"), "utf-8")
+  ) as TokenGroup;
+
+  const surfaces = JSON.parse(
+    fs.readFileSync(path.join(tokensDir, "colors.surfaces.json"), "utf-8")
   ) as TokenGroup;
 
   assertTokenParity(light, dark);
@@ -133,7 +181,8 @@ function main(): void {
   const parts = [
     "/*",
     " * GENERATED FILE — DO NOT EDIT.",
-    " * Authoring sources: src/tokens/colors.json (light), src/tokens/colors.dark.json (dark).",
+    " * Authoring sources: src/tokens/colors.json (light), src/tokens/colors.dark.json (dark),",
+    " * src/tokens/colors.surfaces.json (data-surface scopes).",
     " * Regenerate: pnpm --filter @mattbutlerengineering/rialto generate:tokens",
     " * Drift-checked by `pnpm regen:check` (rialto-color-tokens family).",
     " */",
@@ -150,6 +199,11 @@ function main(): void {
     ),
     renderBlock('[data-theme="dark"] [data-theme="light"]', light, "color-scheme: light;"),
     "",
+    "/* ── Surface scopes ────────────────────────────── */",
+    ...wrapComment(
+      "Mid-tone bands (ADR-035). Content on a data-surface element reads these re-declared tokens. The element does not paint its own background: the consumer sets background: var(--rialto-surface-tinted) or -velvet. These rules follow the theme blocks so a scope beats the theme it sits in."
+    ),
+    ...renderSurfaceScopes(surfaces),
   ];
 
   const outPath = path.join(tokensDir, "colors.css");
@@ -157,7 +211,7 @@ function main(): void {
 
   const tokenCount = walkTokens(light).length;
   console.info(
-    `Generated ${path.relative(process.cwd(), outPath)}: ${tokenCount} tokens, dark override plus nested light scope`
+    `Generated ${path.relative(process.cwd(), outPath)}: ${tokenCount} tokens, dark override, nested light scope and surface scopes`
   );
 }
 

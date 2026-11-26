@@ -295,6 +295,24 @@ function readShadowTokens(tokensDir: string): {
     darkShadows = setNestedValue(darkShadows, shadowKey, token);
   }
 
+  // The focus shadow is declared once, on a shared rule that both themes and
+  // every surface scope match (ADR-035), so it sits outside the two blocks
+  // parsed above. Its value is var-based by design; emit it in both modes.
+  const sharedRule = css.match(/:root,\s*\[data-theme="dark"\][^{]*\{/);
+  if (sharedRule?.index !== undefined) {
+    const sharedProps = parseCssProperties(extractCssBlock(css.slice(sharedRule.index), "{"));
+    for (const prop of sharedProps) {
+      const key = cssNameToPath(prop.name).slice(1);
+      if (key.length === 0) continue;
+      const token: DtcgToken = { $value: prop.value, $type: "shadow" };
+      lightShadows = setNestedValue(lightShadows, key, {
+        ...token,
+        $description: "Focus-visible state for all interactive elements",
+      });
+      darkShadows = setNestedValue(darkShadows, key, token);
+    }
+  }
+
   return {
     light: { shadow: lightShadows },
     dark: { shadow: darkShadows },
