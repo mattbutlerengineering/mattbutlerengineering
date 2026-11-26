@@ -1,5 +1,13 @@
 # @mattbutlerengineering/rialto
 
+## 3.1.6
+
+### Patch Changes
+
+- [#9744](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9744) [`6b0d31f`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/6b0d31fe4226983ce7dd77b1ab070bd2a07efa73) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Keep keyboard focus visible in forced-colors mode (Windows High Contrast). Focus rings drawn with `box-shadow` now also declare a transparent `outline` (`--rialto-focus-ring-width`) instead of `outline: none`, so the browser repaints it in a system colour when it strips shadows. No change outside forced-colors mode.
+
+- [#9743](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9743) [`362de1c`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/362de1c7ed7f17c29e9734d70a97c3c06618a15c) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add `VisuallyHidden` primitive for content that stays in the accessibility tree but is removed visually, with an optional `focusable` mode for skip links.
+
 ## 3.1.5
 
 ### Patch Changes
