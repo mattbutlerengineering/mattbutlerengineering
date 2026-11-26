@@ -170,6 +170,59 @@ describe("personal access token bearer (#9664)", () => {
     });
   });
 
+  describe("GET /api/v1/me/access-token (#9781)", () => {
+    const URL = "/api/v1/me/access-token";
+
+    it("tells a read-only token it is not write-scoped, without any secret", async () => {
+      const res = await app.inject({ method: "GET", url: URL, headers: PAT });
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toEqual({ data: { write: false } });
+      expect(res.body).not.toContain("mbe_pat_");
+    });
+
+    it("tells a write-scoped token it is write-scoped", async () => {
+      const res = await app.inject({
+        method: "GET",
+        url: URL,
+        headers: { authorization: "Bearer mbe_pat_writer" },
+      });
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toEqual({ data: { write: true } });
+      expect(tokens.list).not.toHaveBeenCalled();
+    });
+
+    it("answers 404 to a session (JWT) caller", async () => {
+      vi.mocked(jwtVerify).mockResolvedValue({
+        payload: {
+          sub: "auth0|me",
+          iss: "https://test.auth0.com/",
+          aud: "https://api.example.com",
+        },
+        protectedHeader: { alg: "RS256" },
+      } as never);
+      const res = await app.inject({
+        method: "GET",
+        url: URL,
+        headers: { authorization: "Bearer a.jwt.token" },
+      });
+      expect(res.statusCode).toBe(404);
+    });
+
+    it("answers 401 without a bearer", async () => {
+      const res = await app.inject({ method: "GET", url: URL });
+      expect(res.statusCode).toBe(401);
+    });
+
+    it("keeps every other token endpoint blocked for the same token", async () => {
+      const res = await app.inject({
+        method: "GET",
+        url: "/api/v1/me/tokens",
+        headers: { authorization: "Bearer mbe_pat_writer" },
+      });
+      expect(res.statusCode).toBe(403);
+    });
+  });
+
   it("leaves the JWT path unchanged, including writes", async () => {
     vi.mocked(jwtVerify).mockResolvedValue({
       payload: { sub: "auth0|me", iss: "https://test.auth0.com/", aud: "https://api.example.com" },

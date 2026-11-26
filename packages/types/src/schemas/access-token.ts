@@ -3,6 +3,9 @@ import { z } from "zod";
 /** Mounted at this prefix by the reservations service (ADR-007 /api/v1 versioning). */
 export const ACCESS_TOKENS_PREFIX = "/api/v1/me/tokens";
 
+/** `GET` here tells a personal access token caller its own scope (#9781); outside the blocked prefix above. */
+export const CURRENT_ACCESS_TOKEN_PATH = ACCESS_TOKENS_PREFIX.replace(/tokens$/, "access-token");
+
 /** Longest a personal access token may live: one year (#9663). */
 export const ACCESS_TOKEN_MAX_EXPIRY_DAYS = 365;
 
@@ -34,6 +37,10 @@ export const AccessTokenSchema = z.object({
 /** The mint response: the only time the plaintext token is ever returned. */
 export const MintedAccessTokenSchema = AccessTokenSchema.extend({ token: z.string() });
 
+/** `GET /api/v1/me/access-token`: only the scope, never the secret or an id. */
+export const CurrentAccessTokenSchema = z.object({ write: z.boolean() });
+
 export type CreateAccessTokenRequest = z.infer<typeof CreateAccessTokenRequestSchema>;
 export type AccessToken = z.infer<typeof AccessTokenSchema>;
 export type MintedAccessToken = z.infer<typeof MintedAccessTokenSchema>;
+export type CurrentAccessToken = z.infer<typeof CurrentAccessTokenSchema>;

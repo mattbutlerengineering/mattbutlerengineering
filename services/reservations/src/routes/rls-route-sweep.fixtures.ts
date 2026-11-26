@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import type { FastifyInstance, InjectOptions, LightMyRequestResponse } from "fastify";
 import {
   ACCESS_TOKENS_PREFIX,
+  CURRENT_ACCESS_TOKEN_PATH,
   AVAILABILITY_CONFIG_PREFIX,
   ClosureSummariesSchema,
   autopilotProposalsEndpoints,
@@ -2423,6 +2424,11 @@ const accessTokenFixtures: Record<string, RouteFixture> = {
   }),
   "GET /api/v1/me/tokens": notRls(async (ctx) => {
     expectOk(await asMember(ctx, { method: "GET", url: ACCESS_TOKENS_PREFIX }), "list tokens");
+  }),
+  // A session caller (what the sweep is) gets 404: the route answers only for a token.
+  "GET /api/v1/me/access-token": notRls(async (ctx) => {
+    const res = await asMember(ctx, { method: "GET", url: CURRENT_ACCESS_TOKEN_PATH });
+    expect(res.statusCode, `current token: ${res.body}`).toBe(404);
   }),
   "DELETE /api/v1/me/tokens/:id": notRls(async (ctx) => {
     const res = await asMember(ctx, {

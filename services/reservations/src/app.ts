@@ -6,13 +6,18 @@ import { tableRoutes } from "./routes/tables.js";
 import { reservationRoutes } from "./routes/reservations.js";
 import { venueRoutes } from "./routes/venues.js";
 import { venueTeamRoutes } from "./routes/venue-team.js";
-import { accessTokenRoutes } from "./routes/access-tokens.js";
+import { accessTokenRoutes, currentAccessTokenRoutes } from "./routes/access-tokens.js";
 import { availabilityConfigRoutes } from "./routes/availability-config.js";
 import { availabilityChangesRoutes } from "./routes/availability-changes.js";
 import { holidayDecisionRoutes } from "./routes/holiday-decisions.js";
 import { closureRoutes } from "./routes/closures.js";
 import { tonightRoutes } from "./routes/tonight.js";
-import { ACCESS_TOKENS_PREFIX, AVAILABILITY_CONFIG_PREFIX, GUESTS_PREFIX } from "@mbe/types";
+import {
+  ACCESS_TOKENS_PREFIX,
+  AVAILABILITY_CONFIG_PREFIX,
+  CURRENT_ACCESS_TOKEN_PATH,
+  GUESTS_PREFIX,
+} from "@mbe/types";
 import { availabilityRoutes } from "./routes/availability.js";
 import { holdRoutes } from "./routes/holds.js";
 import { eventRoutes } from "./routes/events.js";
@@ -334,6 +339,7 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   await fastify.register(venueRoutes, { prefix: venuesPrefix });
   await fastify.register(venueTeamRoutes, { prefix: venuesPrefix });
   await fastify.register(accessTokenRoutes, { prefix: ACCESS_TOKENS_PREFIX });
+  await fastify.register(currentAccessTokenRoutes, { prefix: CURRENT_ACCESS_TOKEN_PATH });
   await fastify.register(availabilityConfigRoutes, { prefix: AVAILABILITY_CONFIG_PREFIX });
   await fastify.register(availabilityChangesRoutes, { prefix: AVAILABILITY_CONFIG_PREFIX });
   await fastify.register(holidayDecisionRoutes, { prefix: AVAILABILITY_CONFIG_PREFIX });
