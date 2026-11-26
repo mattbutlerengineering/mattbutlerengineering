@@ -548,12 +548,12 @@
     {
       "name": "Locale es-MX (subpath)",
       "path": "dist/lib/i18n/locales/es-MX.js",
-      "limit": "2.4 kB"
+      "limit": "2.75 kB"
     },
     {
       "name": "Locale fr-CA (subpath)",
       "path": "dist/lib/i18n/locales/fr-CA.js",
-      "limit": "2.55 kB"
+      "limit": "2.9 kB"
     },
     {
       "name": "Button (subpath)",

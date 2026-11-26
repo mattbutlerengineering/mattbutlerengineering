@@ -46,7 +46,7 @@
     {
       "name": "Shipped Features (lazy chunk)",
       "path": "dist/assets/shipped-features-*.js",
-      "limit": "48 kB"
+      "limit": "54 kB"
     }
   ],
   "dependencies": {

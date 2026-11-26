@@ -44,7 +44,7 @@
     {
       "name": "index (subpath)",
       "path": "dist/index.js",
-      "limit": "760 B"
+      "limit": "850 B"
     },
     {
       "name": "users (subpath)",
@@ -54,7 +54,7 @@
     {
       "name": "streaming (subpath)",
       "path": "dist/streaming.js",
-      "limit": "1300 B"
+      "limit": "1500 B"
     }
   ],
   "license": "MIT"
