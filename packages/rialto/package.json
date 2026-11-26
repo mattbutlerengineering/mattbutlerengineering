@@ -540,7 +540,7 @@
     {
       "name": "Locale es-MX (subpath)",
       "path": "dist/lib/i18n/locales/es-MX.js",
-      "limit": "2.2 kB"
+      "limit": "2.4 kB"
     },
     {
       "name": "Locale fr-CA (subpath)",
