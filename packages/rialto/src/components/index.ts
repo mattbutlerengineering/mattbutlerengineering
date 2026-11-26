@@ -41,6 +41,7 @@ export * from "./TimeSlots";
 export * from "./Toast";
 export * from "./ThemeToggle";
 export * from "./Toggle";
+export * from "./Toolbar";
 export * from "./Tooltip";
 export * from "./Tree";
 
