@@ -14,9 +14,10 @@
  * so no "regenerate visual baselines" PR is needed.
  *
  * Same storage rules as `visual-diff-refs.mjs`: one ref per writer, nothing
- * ever overwrites a ref, `--force` is never used. Retention for this
- * namespace is not wired yet; refs accumulate one per main push that runs a
- * suite.
+ * ever overwrites a ref, `--force` is never used. Retention is `planBaselineSweep`
+ * below (#9703) — `visual-diff-refs.mjs`'s `main()` lists this namespace
+ * alongside `visual-diffs/**` and applies it, keeping the newest `DEFAULT_DEPTH`
+ * refs per suite by commit date.
  *
  * Runs with bare `node` and no `node_modules`. Every shell-out is
  * `execFileSync` with an argv array.
@@ -34,7 +35,7 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 
 import { buildOrphanCommit } from "./publish-visual-diffs.mjs";
-import { REF_ROOT } from "./visual-diff-refs.mjs";
+import { MIN_AGE_HOURS, REF_ROOT, ageHours } from "./visual-diff-refs.mjs";
 
 /** Branch-name prefix. Must never match a workflow `push:` filter
  * (`visual-diff-ref-trigger-safety.test.mjs` checks this namespace too). */
@@ -88,6 +89,77 @@ export function pickBaseline({ suite, ancestors, refNames }) {
   if (distance === -1) return null;
   const sha = ancestors[distance];
   return { sha, refName: buildBaselineRefName({ suite, sha }), distance };
+}
+
+/**
+ * Pure: the keep/delete verdict for the visual-baselines/ namespace — the
+ * retention #9696 left unwired (see the module docstring).
+ *
+ * Mirrors {@link planRefSweep}'s shape ({toDelete, retained}, one verdict per
+ * ref, every entry carrying a `reason`), but groups per SUITE rather than per
+ * PR: a baseline ref carries no PR, only a suite and the main commit it was
+ * published for. A PR only ever READS this namespace (`fetchBaseline` /
+ * `pickBaseline`, searching `depth` first-parent ancestors), so a ref beyond
+ * rank `keep` can never be picked by one and is safe to retire.
+ *
+ * Both overrides are decided BEFORE ranking, so neither one occupies a `keep`
+ * slot or displaces an older, dated ref out of them:
+ *   - a ref younger than `minAgeHours` — its publish may still be in flight;
+ *   - a ref whose date is unreadable — failing to date it must never be read
+ *     as a reason to delete it, the same rule {@link planRefSweep} enforces.
+ *
+ * A name {@link parseBaselineRefName} cannot read is never selected, same
+ * fail-safe direction as the other namespace.
+ *
+ * @param {{refs?: Array<{name:string, committedAt:string|null}>, now?: Date,
+ *          keep?: number, minAgeHours?: number}} input
+ * @returns {{toDelete: Array<object>, retained: Array<object>}}
+ */
+export function planBaselineSweep({
+  refs,
+  now = new Date(),
+  keep = DEFAULT_DEPTH,
+  minAgeHours = MIN_AGE_HOURS,
+}) {
+  const bySuite = new Map();
+  const retained = [];
+
+  for (const refEntry of refs ?? []) {
+    const parsed = parseBaselineRefName(refEntry.name);
+    if (parsed === null) {
+      retained.push({ ...refEntry, reason: "unparsable" });
+      continue;
+    }
+
+    const age = ageHours(refEntry.committedAt, now);
+    if (age === null) {
+      retained.push({ ...refEntry, ...parsed, reason: "undated" });
+      continue;
+    }
+    if (age < minAgeHours) {
+      retained.push({ ...refEntry, ...parsed, reason: "too-recent" });
+      continue;
+    }
+
+    const group = bySuite.get(parsed.suite) ?? [];
+    group.push({ ref: refEntry, parsed, age });
+    bySuite.set(parsed.suite, group);
+  }
+
+  const toDelete = [];
+  for (const group of bySuite.values()) {
+    group.sort((a, b) => a.age - b.age); // newest (smallest age) first
+    group.forEach(({ ref: refEntry, parsed }, index) => {
+      const verdict = { ...refEntry, ...parsed };
+      if (index < keep) {
+        retained.push({ ...verdict, reason: "newest" });
+      } else {
+        toDelete.push({ ...verdict, reason: "old" });
+      }
+    });
+  }
+
+  return { toDelete, retained };
 }
 
 function git(args, cwd) {

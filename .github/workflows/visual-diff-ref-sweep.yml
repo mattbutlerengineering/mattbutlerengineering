@@ -1,10 +1,15 @@
 name: Visual Diff Ref Sweep
 
-# Bounds the growth of refs/heads/visual-diffs/**, the namespace
-# rialto-web-e2e.yml's publish-visual-diffs job pushes diff images to.
-# Reachability is what keeps a standing PR comment's images alive, so the
-# retention rule IS the storage design; it lives in scripts/visual-diff-refs.mjs
-# (planRefSweep, unit-tested) and this file is a thin caller.
+# Bounds the growth of two ref namespaces, both plain branch refs under
+# refs/heads/ with retention rules in scripts/visual-diff-refs.mjs (unit-
+# tested) — this file is a thin caller over both:
+#   - visual-diffs/**     rialto-web-e2e.yml's publish-visual-diffs job pushes
+#     diff images here. Reachability is what keeps a standing PR comment's
+#     images alive, so the retention rule (planRefSweep) IS the storage design.
+#   - visual-baselines/** every main push that runs a visual suite publishes
+#     one baseline ref here (scripts/visual-baselines.mjs, #9696); nothing else
+#     retired them until #9703 wired planBaselineSweep, which keeps the newest
+#     DEFAULT_DEPTH refs per suite by commit date.
 #
 # Deliberately NOT folded into branch-cleanup.yml. That workflow hard-wires
 # DRY_RUN to 'true' for every event except workflow_dispatch, so its scheduled
