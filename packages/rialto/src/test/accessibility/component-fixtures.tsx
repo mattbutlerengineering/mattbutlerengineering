@@ -71,6 +71,7 @@ import { Heading } from "../../components/Heading/Heading";
 import { Hero } from "../../components/Hero/Hero";
 import { HoverCard } from "../../components/HoverCard/HoverCard";
 import { IconButton } from "../../components/IconButton/IconButton";
+import { FileUpload } from "../../components/FileUpload/FileUpload";
 import { ImageUpload } from "../../components/ImageUpload/ImageUpload";
 import { Input } from "../../components/Input/Input";
 import { InputGroup } from "../../components/InputGroup/InputGroup";
@@ -114,6 +115,7 @@ import { Timeline } from "../../components/Timeline/Timeline";
 import { TimeSlots } from "../../components/TimeSlots/TimeSlots";
 import { ToastProvider } from "../../components/Toast/Toast";
 import { Toggle } from "../../components/Toggle/Toggle";
+import { Toolbar } from "../../components/Toolbar/Toolbar";
 import { VisuallyHidden } from "../../components/VisuallyHidden/VisuallyHidden";
 import { Tooltip } from "../../components/Tooltip/Tooltip";
 import { Tree } from "../../components/Tree/Tree";
@@ -183,6 +185,7 @@ export type BarrelExportName =
   | "Hero"
   | "HoverCard"
   | "IconButton"
+  | "FileUpload"
   | "ImageUpload"
   | "Input"
   | "InputGroup"
@@ -227,6 +230,7 @@ export type BarrelExportName =
   | "TimeSlots"
   | "Toast"
   | "Toggle"
+  | "Toolbar"
   | "Tooltip"
   | "Tree"
   | "VisuallyHidden"
@@ -616,6 +620,10 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
     ),
   },
 
+  FileUpload: {
+    element: <FileUpload label="Menus" accept=".pdf" hint="PDF only" multiple />,
+  },
+
   ImageUpload: {
     element: <ImageUpload label="Logo" />,
   },
@@ -927,6 +935,15 @@ export const COMPONENT_FIXTURES: Record<string, ComponentFixture> = {
 
   Toggle: {
     element: <Toggle label="Notifications" />,
+  },
+
+  Toolbar: {
+    element: (
+      <Toolbar aria-label="Formatting">
+        <button type="button">Bold</button>
+        <button type="button">Italic</button>
+      </Toolbar>
+    ),
   },
 
   Tooltip: {

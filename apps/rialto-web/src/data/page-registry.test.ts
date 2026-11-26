@@ -26,6 +26,7 @@ vi.mock("../pages/forms/TextAreaPage.js", () => ({ TextAreaPage: () => null }));
 vi.mock("../pages/forms/NumberInputPage.js", () => ({ NumberInputPage: () => null }));
 vi.mock("../pages/forms/CheckboxRadioPage.js", () => ({ CheckboxRadioPage: () => null }));
 vi.mock("../pages/forms/TogglePage.js", () => ({ TogglePage: () => null }));
+vi.mock("../pages/forms/FileUploadPage.js", () => ({ FileUploadPage: () => null }));
 vi.mock("../pages/forms/MasterOverridePage.js", () => ({ MasterOverridePage: () => null }));
 vi.mock("../pages/forms/SliderPage.js", () => ({ SliderPage: () => null }));
 vi.mock("../pages/forms/SelectPage.js", () => ({ SelectPage: () => null }));
@@ -73,6 +74,7 @@ vi.mock("../pages/navigation/PaginationPage.js", () => ({ PaginationPage: () => 
 vi.mock("../pages/navigation/NavigationMenuPage.js", () => ({
   NavigationMenuPage: () => null,
 }));
+vi.mock("../pages/navigation/ToolbarPage.js", () => ({ ToolbarPage: () => null }));
 vi.mock("../pages/navigation/SidebarPage.js", () => ({ SidebarPage: () => null }));
 vi.mock("../pages/navigation/NavbarPage.js", () => ({ NavbarPage: () => null }));
 vi.mock("../pages/feedback/ToastPage.js", () => ({ ToastPage: () => null }));

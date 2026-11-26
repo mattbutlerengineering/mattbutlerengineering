@@ -53,6 +53,16 @@ export const esMX: RialtoMessages = {
   fileTooLarge: (max, actual) =>
     `El archivo supera el tamaño máximo de ${max}: este archivo pesa ${actual}`,
   fileTypeNotAccepted: (accept) => `Tipo de archivo no aceptado. Se aceptan: ${accept}`,
+  chooseFiles: "Elegir archivos",
+  dropFilesHint: "o suelta los archivos aquí",
+  tooManyFiles: (max) =>
+    `Solo se permite${max === 1 ? "" : "n"} ${max} archivo${max === 1 ? "" : "s"}`,
+  fileRejected: (name, reason) => `${name}: ${reason}`,
+  filesAdded: (count) =>
+    `${count} archivo${count === 1 ? "" : "s"} agregado${count === 1 ? "" : "s"}`,
+  filesRejected: (count) =>
+    `${count} archivo${count === 1 ? "" : "s"} rechazado${count === 1 ? "" : "s"}`,
+  fileRemoved: (name) => `${name} quitado`,
   removeItem: (label) => `Quitar ${label}`,
   tagAdded: (label) => `${label} agregado`,
   tagRemoved: (label) => `${label} quitado`,

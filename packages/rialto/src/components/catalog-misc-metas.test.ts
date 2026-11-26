@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CatalogMeta } from "./catalog-meta";
 import { chatPanelCatalogMeta } from "./ChatPanel/ChatPanel.catalog";
+import { fileUploadCatalogMeta } from "./FileUpload/FileUpload.catalog";
 import { imageUploadCatalogMeta } from "./ImageUpload/ImageUpload.catalog";
 import { masterOverrideCatalogMeta } from "./MasterOverride/MasterOverride.catalog";
 import { tagsInputCatalogMeta } from "./TagsInput/TagsInput.catalog";
@@ -10,6 +11,7 @@ import { treeCatalogMeta } from "./Tree/Tree.catalog";
 const metas: readonly (readonly [string, CatalogMeta])[] = [
   ["MasterOverride", masterOverrideCatalogMeta],
   ["ChatPanel", chatPanelCatalogMeta],
+  ["FileUpload", fileUploadCatalogMeta],
   ["ImageUpload", imageUploadCatalogMeta],
   ["Tree", treeCatalogMeta],
   ["TagsInput", tagsInputCatalogMeta],

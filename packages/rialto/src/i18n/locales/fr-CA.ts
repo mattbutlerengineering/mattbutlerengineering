@@ -53,6 +53,13 @@ export const frCA: RialtoMessages = {
   fileTooLarge: (max, actual) =>
     `Le fichier dépasse la taille maximale de ${max} : ce fichier fait ${actual}`,
   fileTypeNotAccepted: (accept) => `Type de fichier non accepté. Types acceptés : ${accept}`,
+  chooseFiles: "Choisir des fichiers",
+  dropFilesHint: "ou déposez les fichiers ici",
+  tooManyFiles: (max) => `${max} fichier${max === 1 ? "" : "s"} maximum`,
+  fileRejected: (name, reason) => `${name} : ${reason}`,
+  filesAdded: (count) => `${count} fichier${count > 1 ? "s" : ""} ajouté${count > 1 ? "s" : ""}`,
+  filesRejected: (count) => `${count} fichier${count > 1 ? "s" : ""} refusé${count > 1 ? "s" : ""}`,
+  fileRemoved: (name) => `${name} retiré`,
   removeItem: (label) => `Retirer ${label}`,
   tagAdded: (label) => `${label} ajouté`,
   tagRemoved: (label) => `${label} retiré`,

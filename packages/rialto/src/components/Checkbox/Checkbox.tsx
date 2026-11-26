@@ -1,7 +1,7 @@
-import { forwardRef, useId, useState, type ReactNode } from "react";
+import { Children, forwardRef, isValidElement, useId, useState, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import { useMotionPreset } from "../../providers/useMotionPreset";
-import { Lock } from "lucide-react";
+import { CircleAlert, Lock } from "lucide-react";
 import { cn } from "../../utils/class-composer";
 import { DisabledTooltip } from "../DisabledTooltip/DisabledTooltip";
 import styles from "./Checkbox.module.css";
@@ -164,6 +164,8 @@ export interface RadioProps {
   disabledReason?: string;
   /** Secondary text rendered below the label */
   description?: string;
+  /** Provided automatically by RadioGroup `required` */
+  required?: boolean;
   className?: string;
 }
 
@@ -178,6 +180,7 @@ export const Radio = forwardRef<HTMLDivElement, RadioProps>(
       disabled = false,
       disabledReason,
       description,
+      required,
       className = "",
     },
     ref
@@ -202,6 +205,7 @@ export const Radio = forwardRef<HTMLDivElement, RadioProps>(
               className={styles.input}
               checked={checked}
               disabled={disabled}
+              required={required}
               aria-describedby={description ? descId : undefined}
               onChange={() => onCheckedChange?.(value)}
             />
@@ -236,6 +240,17 @@ Radio.displayName = "Radio";
 
 /* ── Radio Group ─────────────────────────────── */
 
+/** Bundlers replace `process.env.NODE_ENV`; declared locally because rialto does not load Node types. */
+declare const process: { env: { NODE_ENV?: string } } | undefined;
+
+interface RadioGroupOption {
+  value: string;
+  label: string;
+  description?: string;
+  disabled?: boolean;
+  disabledReason?: string;
+}
+
 /**
  * Groups `Radio` children into a single controlled selection. Renders a `<fieldset>` with
  * `role="radiogroup"` and injects `name`, `checked`, and change handling into each child.
@@ -254,32 +269,102 @@ export interface RadioGroupProps {
   /** Currently selected radio value */
   value: string;
   onChange: (value: string) => void;
-  children: ReactNode;
+  /** `Radio` children. Wins over `options` when both are passed. */
+  children?: ReactNode;
+  /** Options-array form, rendered when `children` is absent */
+  options?: RadioGroupOption[];
+  /** Layout direction; also exposed as `aria-orientation` */
+  orientation?: "vertical" | "horizontal";
+  /** Helper text below the legend */
+  description?: string;
+  /** Error message below the legend; sets `aria-invalid` on the group */
+  error?: string;
+  required?: boolean;
   className?: string;
 }
 
 export const RadioGroup = forwardRef<HTMLFieldSetElement, RadioGroupProps>(
-  ({ label, name, value, onChange, children, className = "" }, ref) => {
+  (
+    {
+      label,
+      name,
+      value,
+      onChange,
+      children,
+      options,
+      orientation = "vertical",
+      description,
+      error,
+      required,
+      className = "",
+    },
+    ref
+  ) => {
+    const descId = useId();
+    const errorId = useId();
+    const hasChildren = Children.count(children) > 0;
+    if (
+      hasChildren &&
+      options &&
+      typeof process !== "undefined" &&
+      process.env.NODE_ENV !== "production"
+    ) {
+      console.warn("RadioGroup: pass either `children` or `options`, not both. `children` wins.");
+    }
+    const describedBy =
+      [description ? descId : null, error ? errorId : null].filter(Boolean).join(" ") || undefined;
+
     return (
-      <fieldset ref={ref} className={cn(styles.radioGroup, className)} role="radiogroup">
+      <fieldset
+        ref={ref}
+        className={cn(
+          styles.radioGroup,
+          orientation === "horizontal" && styles.radioGroupHorizontal,
+          className
+        )}
+        role="radiogroup"
+        aria-orientation={orientation}
+        aria-describedby={describedBy}
+        aria-invalid={error ? true : undefined}
+        aria-required={required || undefined}
+      >
         {label && <legend className={styles.radioGroupLabel}>{label}</legend>}
+        {description && (
+          <span id={descId} className={styles.radioGroupDescription}>
+            {description}
+          </span>
+        )}
+        {error && (
+          <span id={errorId} className={styles.radioGroupError}>
+            <CircleAlert size={14} aria-hidden />
+            {error}
+          </span>
+        )}
         {/* Clone children to inject name/value/onChange */}
-        {Array.isArray(children)
-          ? children.map((child, i) => {
-              if (child && typeof child === "object" && "props" in child) {
-                return (
-                  <Radio
-                    key={child.props.value ?? i}
-                    {...child.props}
-                    name={name}
-                    checked={child.props.value === value}
-                    onCheckedChange={onChange}
-                  />
-                );
-              }
-              return child;
-            })
-          : children}
+        {hasChildren
+          ? Children.map(children, (child) =>
+              isValidElement<RadioProps>(child) ? (
+                <Radio
+                  {...child.props}
+                  name={name}
+                  required={required ?? child.props.required}
+                  checked={child.props.value === value}
+                  onCheckedChange={onChange}
+                />
+              ) : (
+                child
+              )
+            )
+          : options?.map((opt) => (
+              <Radio
+                key={opt.value}
+                {...opt}
+                name={name}
+                required={required}
+                checked={opt.value === value}
+                onCheckedChange={onChange}
+              />
+            ))}
       </fieldset>
     );
   }

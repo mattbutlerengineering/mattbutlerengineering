@@ -20,16 +20,51 @@ const toastSpy = vi.hoisted(() => vi.fn());
 
 vi.mock("@mattbutlerengineering/rialto", () => {
   const Pass = ({ children }: { children?: ReactNode }) => <>{children}</>;
+  // Renders `data` in the order the page passed it. Sort clicks only report the
+  // next asc/desc state (same cycle as Table's manualSort); they do not reorder
+  // rows. A page that slices before sorting fails the cross-page assertions.
   const Table = ({
     columns,
     data,
     rowKey,
+    sort = null,
+    onSortChange,
   }: {
-    columns: { key: string; render?: (row: Record<string, unknown>) => ReactNode }[];
+    columns: {
+      key: string;
+      header: string;
+      sortable?: boolean;
+      render?: (row: Record<string, unknown>) => ReactNode;
+    }[];
     data: Record<string, unknown>[];
     rowKey: (row: Record<string, unknown>) => string;
+    sort?: { key: string; direction: "asc" | "desc" } | null;
+    onSortChange?: (next: { key: string; direction: "asc" | "desc" }) => void;
   }) => (
     <table>
+      <thead>
+        <tr>
+          {columns.map((col) => (
+            <th key={col.key}>
+              {col.sortable ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    onSortChange?.({
+                      key: col.key,
+                      direction: sort?.key === col.key && sort.direction === "asc" ? "desc" : "asc",
+                    })
+                  }
+                >
+                  {col.header}
+                </button>
+              ) : (
+                col.header
+              )}
+            </th>
+          ))}
+        </tr>
+      </thead>
       <tbody>
         {data.map((row) => (
           <tr key={rowKey(row)}>
@@ -97,6 +132,7 @@ vi.mock("@mattbutlerengineering/rialto", () => {
     onChange: (page: number) => void;
   }) => (
     <div>
+      <span role="status">{`Page ${page} of ${totalPages}`}</span>
       {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
         <button
           key={p}
@@ -200,5 +236,80 @@ describe("DriverList — delete + undo", () => {
     // lands on the last page rather than back on page 1.
     await user.click(screen.getByRole("button", { name: "Page 2" }));
     expect(screen.getByText("Charles Leclerc")).toBeInTheDocument();
+  });
+});
+
+const SEED_PAGE_1 = [
+  "Charles Leclerc",
+  "Lewis Hamilton",
+  "Max Verstappen",
+  "Lando Norris",
+  "Carlos Sainz",
+];
+
+function visibleDriverNames(): string[] {
+  return screen
+    .getAllByRole("row")
+    .slice(1)
+    .map((row) => within(row).getByRole("link").textContent ?? "");
+}
+
+describe("DriverList — sort across pages", () => {
+  it("sorts all 8 drivers by points, then paginates", async () => {
+    const user = userEvent.setup();
+    renderDriverList();
+
+    expect(visibleDriverNames()).toEqual(SEED_PAGE_1);
+    expect(screen.getByRole("status")).toHaveTextContent("Page 1 of 2");
+    expect(screen.getByText("8 drivers")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Points" }));
+
+    expect(visibleDriverNames()).toEqual([
+      "Oscar Piastri",
+      "Charles Leclerc",
+      "Lando Norris",
+      "George Russell",
+      "Carlos Sainz",
+    ]);
+    expect(screen.getByRole("status")).toHaveTextContent("Page 1 of 2");
+
+    await user.click(screen.getByRole("button", { name: "Page 2" }));
+
+    expect(visibleDriverNames()).toEqual(["Max Verstappen", "Sebastian Vettel", "Lewis Hamilton"]);
+    expect(screen.getByRole("status")).toHaveTextContent("Page 2 of 2");
+    expect(screen.getByText("8 drivers")).toBeInTheDocument();
+  });
+
+  it("sorts all 8 drivers by name, then paginates", async () => {
+    const user = userEvent.setup();
+    renderDriverList();
+
+    await user.click(screen.getByRole("button", { name: "Driver" }));
+
+    expect(visibleDriverNames()).toEqual([
+      "Carlos Sainz",
+      "Charles Leclerc",
+      "George Russell",
+      "Lando Norris",
+      "Lewis Hamilton",
+    ]);
+
+    await user.click(screen.getByRole("button", { name: "Page 2" }));
+
+    expect(visibleDriverNames()).toEqual(["Max Verstappen", "Oscar Piastri", "Sebastian Vettel"]);
+  });
+
+  it("applies a points sort to the full list when the click happens on page 2", async () => {
+    const user = userEvent.setup();
+    renderDriverList();
+
+    await user.click(screen.getByRole("button", { name: "Page 2" }));
+    await user.click(screen.getByRole("button", { name: "Points" }));
+
+    // Page 2 of a global ascending sort is the three highest totals.
+    // Sorting only the rows already on page 2 would leave Piastri (292) here.
+    expect(visibleDriverNames()).toEqual(["Max Verstappen", "Sebastian Vettel", "Lewis Hamilton"]);
+    expect(screen.getByRole("status")).toHaveTextContent("Page 2 of 2");
   });
 });

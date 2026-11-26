@@ -1,6 +1,6 @@
 {
   "name": "@mattbutlerengineering/rialto",
-  "version": "3.1.6",
+  "version": "3.1.9",
   "type": "module",
   "main": "./dist/lib/rialto.js",
   "module": "./dist/lib/rialto.js",
@@ -193,6 +193,10 @@
     "./FeedbackDialog": {
       "types": "./dist/lib/components/FeedbackDialog/index.d.ts",
       "import": "./dist/lib/components/FeedbackDialog/index.js"
+    },
+    "./FileUpload": {
+      "types": "./dist/lib/components/FileUpload/index.d.ts",
+      "import": "./dist/lib/components/FileUpload/index.js"
     },
     "./Fireflies": {
       "types": "./dist/lib/components/Fireflies/index.d.ts",
@@ -418,6 +422,10 @@
       "types": "./dist/lib/components/Toggle/index.d.ts",
       "import": "./dist/lib/components/Toggle/index.js"
     },
+    "./Toolbar": {
+      "types": "./dist/lib/components/Toolbar/index.d.ts",
+      "import": "./dist/lib/components/Toolbar/index.js"
+    },
     "./Tooltip": {
       "types": "./dist/lib/components/Tooltip/index.d.ts",
       "import": "./dist/lib/components/Tooltip/index.js"
@@ -536,7 +544,7 @@
     {
       "name": "Locale es-MX (subpath)",
       "path": "dist/lib/i18n/locales/es-MX.js",
-      "limit": "2.3 kB"
+      "limit": "2.4 kB"
     },
     {
       "name": "Locale fr-CA (subpath)",

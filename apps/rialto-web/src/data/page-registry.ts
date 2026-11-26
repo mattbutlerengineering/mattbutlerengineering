@@ -139,6 +139,7 @@ const RAW_PAGE_ENTRIES: RawPageEntry[] = [
   { id: "number-input", label: "Number Input", category: "Forms" },
   { id: "checkbox-radio", label: "Checkbox & Radio", category: "Forms" },
   { id: "toggle", label: "Toggle", category: "Forms" },
+  { id: "file-upload", label: "File Upload", category: "Forms" },
   { id: "master-override", label: "Master Override", category: "Forms" },
   { id: "slider", label: "Slider", category: "Forms" },
   { id: "select", label: "Select", category: "Forms" },
@@ -186,6 +187,7 @@ const RAW_PAGE_ENTRIES: RawPageEntry[] = [
   { id: "pagination", label: "Pagination", category: "Navigation" },
   { id: "navigation-menu", label: "Navigation Menu", category: "Navigation" },
   { id: "tree", label: "Tree", category: "Navigation" },
+  { id: "toolbar", label: "Toolbar", category: "Navigation" },
   { id: "sidebar", label: "Sidebar", category: "Navigation" },
   { id: "navbar", label: "Navbar", category: "Navigation" },
   // ── Feedback ────────────────────────────────────────────────────────────

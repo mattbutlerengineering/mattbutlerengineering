@@ -61,6 +61,7 @@ import {
   Handshake,
   Heading,
   Hero,
+  FileUpload,
   HoverCard,
   IconButton,
   ImageUpload,
@@ -1128,6 +1129,14 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
       TagsInput: typed(
         ({ props, emit }: AdapterArgs<Omit<ComponentProps<typeof TagsInput>, "onValueChange">>) => (
           <TagsInput {...props} onValueChange={() => emit("change")} />
+        )
+      ),
+      FileUpload: typed(
+        ({
+          props,
+          emit,
+        }: AdapterArgs<Omit<ComponentProps<typeof FileUpload>, "onFilesChange">>) => (
+          <FileUpload {...props} onFilesChange={() => emit("change")} />
         )
       ),
       ImageUpload: typed(({ props, emit }: AdapterArgs<ImageUploadSpecProps>) => (

@@ -41,6 +41,7 @@ export * from "./TimeSlots";
 export * from "./Toast";
 export * from "./ThemeToggle";
 export * from "./Toggle";
+export * from "./Toolbar";
 export * from "./Tooltip";
 export * from "./Tree";
 
@@ -87,6 +88,7 @@ export * from "./Text";
 export * from "./ChatPanel";
 
 // ── Media ──────────────────────────────────────
+export * from "./FileUpload";
 export * from "./ImageUpload";
 export * from "./TagsInput";
 
