@@ -17,6 +17,7 @@
 import { describe, it, expect } from "vitest";
 import colors from "../tokens/colors.json";
 import darkColors from "../tokens/colors.dark.json";
+import surfaces from "../tokens/colors.surfaces.json";
 
 // ── Pure utility functions ────────────────────────────────────────────────────
 
@@ -289,5 +290,107 @@ describe("Dark theme — semantic text on dark surface (4.5:1 minimum)", () => {
     expect(
       contrastRatio(resolveOn(dark.success, dark.surface), dark.surface)
     ).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+// ── Signature palette (rialto-signature-pass, ADR-035) ─────────────────────────
+//
+// Every pair in docs/features/rialto-signature-pass/ux.md § Contrast checks,
+// in both themes, read from the same JSON sources as the rest of this file.
+
+const THEMES = [
+  { name: "light", tokens: colors, mutedAlpha: 0.12 },
+  { name: "dark", tokens: darkColors, mutedAlpha: 0.15 },
+] as const;
+
+const ACCENT_FAMILIES = ["plum", "verdigris"] as const;
+
+describe.each(THEMES)("Signature accents — $name theme", ({ name, tokens, mutedAlpha }) => {
+  const c = tokens.color;
+  const grounds = {
+    canvas: c.surface.default.$value,
+    elevated: c.surface.elevated.$value,
+    recessed: c.surface.recessed.$value,
+    tinted: c.surface.tinted.$value,
+  };
+
+  describe.each(ACCENT_FAMILIES)("%s", (family) => {
+    const accentHex = c[family].default.$value;
+    const muted = c[family].muted.$value;
+    const textOn = c[family]["text-on"].$value;
+
+    it.each(Object.entries(grounds))(`${family} as text on %s (4.5:1)`, (_ground, bg) => {
+      expect(contrastRatio(accentHex, bg)).toBeGreaterThanOrEqual(4.5);
+    });
+
+    it(`${family}-muted follows the accent-muted recipe (${mutedAlpha * 100}% of the accent)`, () => {
+      const { hex, alpha } = parseColor(muted);
+      expect(hex).toBe(accentHex);
+      expect(alpha).toBe(mutedAlpha);
+    });
+
+    it(`${family} as text on its muted tint over canvas (4.5:1)`, () => {
+      const tint = resolveOn(muted, grounds.canvas);
+      expect(contrastRatio(accentHex, tint)).toBeGreaterThanOrEqual(4.5);
+    });
+
+    it(`${family}-text-on on a ${family} fill (4.5:1)`, () => {
+      expect(contrastRatio(textOn, accentHex)).toBeGreaterThanOrEqual(4.5);
+    });
+
+    it.each([
+      ["canvas", grounds.canvas],
+      ["tinted", grounds.tinted],
+    ])(`${family} as an emphasis ring on %s (3:1)`, (_ground, bg) => {
+      expect(contrastRatio(accentHex, bg)).toBeGreaterThanOrEqual(3);
+    });
+  });
+
+  it(`${name}: the default focus ring clears 3:1 against the default focus gap`, () => {
+    expect(contrastRatio(c.focus.ring.$value, c.focus.gap.$value)).toBeGreaterThanOrEqual(3);
+  });
+});
+
+type ScopeTokens = Record<string, { $value: string }>;
+const surfaceScopes = surfaces["surface-scope"] as Record<
+  string,
+  Record<"light" | "dark", ScopeTokens>
+>;
+
+describe.each(Object.keys(surfaceScopes))("Surface scope %s", (scope) => {
+  describe.each(["light", "dark"] as const)("%s", (theme) => {
+    const t = surfaceScopes[scope]![theme];
+    const value = (key: string): string => {
+      const token = t[key];
+      if (token === undefined) throw new Error(`${scope}.${theme} has no "${key}"`);
+      return token.$value;
+    };
+    const band = value("surface");
+
+    it.each(["text-primary", "text-secondary", "text-tertiary"])(
+      "%s on the band (4.5:1)",
+      (key) => {
+        expect(contrastRatio(resolveOn(value(key), band), band)).toBeGreaterThanOrEqual(4.5);
+      }
+    );
+
+    it.each(["border", "border-strong"])("%s on the band (3:1)", (key) => {
+      expect(contrastRatio(resolveOn(value(key), band), band)).toBeGreaterThanOrEqual(3);
+    });
+
+    it("focus ring against the focus gap (3:1)", () => {
+      const gap = value("focus-gap");
+      expect(contrastRatio(resolveOn(value("focus-ring"), gap), gap)).toBeGreaterThanOrEqual(3);
+    });
+
+    it("focus ring against the band (3:1)", () => {
+      expect(contrastRatio(resolveOn(value("focus-ring"), band), band)).toBeGreaterThanOrEqual(3);
+    });
+
+    it("the band is the palette's surface token for this scope and theme", () => {
+      const palette = theme === "light" ? colors : darkColors;
+      const surfaceGroup = palette.color.surface as Record<string, { $value: string }>;
+      expect(band).toBe(surfaceGroup[scope]?.$value);
+    });
   });
 });
