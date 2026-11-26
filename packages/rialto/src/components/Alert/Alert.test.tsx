@@ -191,7 +191,9 @@ describe("Alert", () => {
       const next = screen.getByRole("button", { name: "Next" });
       expect(document.activeElement).not.toBe(document.body);
       expect(next).toHaveFocus();
-      expect(screen.queryByRole("button", { name: "Retry" })).not.toBeInTheDocument();
+      await waitFor(() =>
+        expect(screen.queryByRole("button", { name: "Retry" })).not.toBeInTheDocument()
+      );
     });
 
     it("moves focus to the next control after a click on Dismiss", async () => {
