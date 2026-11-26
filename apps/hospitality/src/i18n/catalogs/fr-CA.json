@@ -4488,7 +4488,7 @@
       },
       "regularsClub": {
         "label": "Club des habitués",
-        "detail": "Vendez votre propre accès prioritaire du vendredi soir au lieu de louer vos habitués à d'autres."
+        "detail": "Invitez vos habitués et ils obtiennent une fenêtre de réservation anticipée par un lien signé, avec un plafond de tables par membre."
       }
     },
     "prep": {
@@ -4551,8 +4551,7 @@
       "board": {
         "guestPassport": "Passeport",
         "kitchenAwareBooking": "Rythme cuisine",
-        "headlessVenue": "Sans ecran",
-        "regularsClub": "Club habitues"
+        "headlessVenue": "Sans ecran"
       }
     },
     "morning": {

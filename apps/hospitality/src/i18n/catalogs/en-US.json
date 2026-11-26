@@ -4371,7 +4371,7 @@
       },
       "regularsClub": {
         "label": "Regulars Club",
-        "detail": "Sell your own priority access for Friday night instead of renting your regulars out."
+        "detail": "Invite your regulars, and they get an early booking window through a signed link, with a cap on how many tables each can take."
       }
     },
     "prep": {
@@ -4434,8 +4434,7 @@
       "board": {
         "guestPassport": "Guest Passport",
         "kitchenAwareBooking": "Kitchen Aware",
-        "headlessVenue": "Headless Venue",
-        "regularsClub": "Regulars Club"
+        "headlessVenue": "Headless Venue"
       }
     },
     "morning": {
