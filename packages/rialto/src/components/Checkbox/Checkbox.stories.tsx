@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { within, expect } from "@storybook/test";
-import { Checkbox } from "./Checkbox";
+import { Checkbox, RadioGroup } from "./Checkbox";
 
 const meta: Meta<typeof Checkbox> = {
   title: "Forms/Checkbox",
@@ -76,4 +76,55 @@ export const DisabledChecked: Story = {
     checked: true,
     disabled: true,
   },
+};
+
+const sizeOptions = [
+  { value: "sm", label: "Small", description: "Compact" },
+  { value: "md", label: "Medium" },
+  { value: "lg", label: "Large", disabled: true, disabledReason: "Sold out" },
+];
+
+export const RadioGroupOptions: StoryObj<typeof RadioGroup> = {
+  render: () => (
+    <RadioGroup
+      label="Size"
+      name="story-size"
+      value="md"
+      onChange={() => {}}
+      options={sizeOptions}
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getAllByRole("radio")).toHaveLength(3);
+    await expect(canvas.getByLabelText("Medium")).toBeChecked();
+  },
+};
+
+export const RadioGroupHorizontal: StoryObj<typeof RadioGroup> = {
+  render: () => (
+    <RadioGroup
+      label="Size"
+      name="story-size-h"
+      value="sm"
+      orientation="horizontal"
+      onChange={() => {}}
+      options={sizeOptions}
+    />
+  ),
+};
+
+export const RadioGroupError: StoryObj<typeof RadioGroup> = {
+  render: () => (
+    <RadioGroup
+      label="Size"
+      name="story-size-e"
+      value=""
+      required
+      description="Pick one"
+      error="Choose a size to continue"
+      onChange={() => {}}
+      options={sizeOptions}
+    />
+  ),
 };
