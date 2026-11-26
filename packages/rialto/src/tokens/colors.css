@@ -1,6 +1,7 @@
 /*
  * GENERATED FILE — DO NOT EDIT.
- * Authoring sources: src/tokens/colors.json (light), src/tokens/colors.dark.json (dark).
+ * Authoring sources: src/tokens/colors.json (light), src/tokens/colors.dark.json (dark),
+ * src/tokens/colors.surfaces.json (data-surface scopes).
  * Regenerate: pnpm --filter @mattbutlerengineering/rialto generate:tokens
  * Drift-checked by `pnpm regen:check` (rialto-color-tokens family).
  */
@@ -17,6 +18,10 @@
   --rialto-surface-matte: #d8d4cd;
   /* Heavy separators, decorative dark accents */
   --rialto-surface-deep: #a8a49d;
+  /* Parchment band (smoked brass in dark): page bands, Tabs track, grouped regions. Pair with data-surface="tinted" */
+  --rialto-surface-tinted: #e9dfcf;
+  /* Plum velvet band: signature bands with ivory text. Pair with data-surface="velvet" */
+  --rialto-surface-velvet: #4a3a5c;
 
   /* ── Text ─────────────────────────────────────── */
   /* Headings, body text, primary labels (16.28:1 on surface — WCAG AAA) */
@@ -43,6 +48,28 @@
   --rialto-accent-muted: rgb(176 132 30 / 0.12);
   /* Focus ring outer glow (used in --rialto-shadow-focus) */
   --rialto-accent-glow: rgb(176 132 30 / 0.35);
+
+  /* ── Plum (Plum: the voice. Highlighted, never selected; never the only signal) ─ */
+  /* Highlighted (not selected) states, hover tints of secondary and ghost controls, caret, selection */
+  --rialto-plum: #7a2e6a;
+  /* Highlight and hover tint backgrounds */
+  --rialto-plum-muted: rgb(122 46 106 / 0.12);
+  /* Text on a plum fill */
+  --rialto-plum-text-on: #fdfcfa;
+
+  /* ── Verdigris (Verdigris: live. Never the only signal) ─ */
+  /* Live service state: live dot, now-line, real-time counts */
+  --rialto-verdigris: #1f6b62;
+  /* Live-state tint backgrounds */
+  --rialto-verdigris-muted: rgb(31 107 98 / 0.12);
+  /* Text on a verdigris fill */
+  --rialto-verdigris-text-on: #fdfcfa;
+
+  /* ── Focus (Focus ring, separate from the gold fill so a band can deepen it (ADR-035)) ─ */
+  /* Focus ring colour (defaults to the accent) */
+  --rialto-focus-ring: #b0841e;
+  /* Gap drawn between a control and its focus ring (defaults to the surface) */
+  --rialto-focus-gap: #f8f6f3;
 
   /* ── Semantic ─────────────────────────────────── */
   /* Error text, destructive button fills, invalid borders */
@@ -88,6 +115,8 @@
   --rialto-surface-recessed: #141312;
   --rialto-surface-matte: #3a3633;
   --rialto-surface-deep: #4a4643;
+  --rialto-surface-tinted: #3b3022;
+  --rialto-surface-velvet: #3b2f4a;
 
   /* ── Text ─────────────────────────────────────── */
   --rialto-text-primary: rgb(253 252 250 / 0.92);
@@ -104,6 +133,20 @@
   --rialto-accent-hover: #e0b04a;
   --rialto-accent-muted: rgb(212 162 58 / 0.15);
   --rialto-accent-glow: rgb(212 162 58 / 0.4);
+
+  /* ── Plum ─────────────────────────────────────── */
+  --rialto-plum: #d58ac4;
+  --rialto-plum-muted: rgb(213 138 196 / 0.15);
+  --rialto-plum-text-on: #1a1918;
+
+  /* ── Verdigris ────────────────────────────────── */
+  --rialto-verdigris: #5cc4b4;
+  --rialto-verdigris-muted: rgb(92 196 180 / 0.15);
+  --rialto-verdigris-text-on: #1a1918;
+
+  /* ── Focus ────────────────────────────────────── */
+  --rialto-focus-ring: #d4a23a;
+  --rialto-focus-gap: #1e1c1a;
 
   /* ── Semantic ─────────────────────────────────── */
   --rialto-error: #e06050;
@@ -145,6 +188,10 @@
   --rialto-surface-matte: #d8d4cd;
   /* Heavy separators, decorative dark accents */
   --rialto-surface-deep: #a8a49d;
+  /* Parchment band (smoked brass in dark): page bands, Tabs track, grouped regions. Pair with data-surface="tinted" */
+  --rialto-surface-tinted: #e9dfcf;
+  /* Plum velvet band: signature bands with ivory text. Pair with data-surface="velvet" */
+  --rialto-surface-velvet: #4a3a5c;
 
   /* ── Text ─────────────────────────────────────── */
   /* Headings, body text, primary labels (16.28:1 on surface — WCAG AAA) */
@@ -171,6 +218,28 @@
   --rialto-accent-muted: rgb(176 132 30 / 0.12);
   /* Focus ring outer glow (used in --rialto-shadow-focus) */
   --rialto-accent-glow: rgb(176 132 30 / 0.35);
+
+  /* ── Plum (Plum: the voice. Highlighted, never selected; never the only signal) ─ */
+  /* Highlighted (not selected) states, hover tints of secondary and ghost controls, caret, selection */
+  --rialto-plum: #7a2e6a;
+  /* Highlight and hover tint backgrounds */
+  --rialto-plum-muted: rgb(122 46 106 / 0.12);
+  /* Text on a plum fill */
+  --rialto-plum-text-on: #fdfcfa;
+
+  /* ── Verdigris (Verdigris: live. Never the only signal) ─ */
+  /* Live service state: live dot, now-line, real-time counts */
+  --rialto-verdigris: #1f6b62;
+  /* Live-state tint backgrounds */
+  --rialto-verdigris-muted: rgb(31 107 98 / 0.12);
+  /* Text on a verdigris fill */
+  --rialto-verdigris-text-on: #fdfcfa;
+
+  /* ── Focus (Focus ring, separate from the gold fill so a band can deepen it (ADR-035)) ─ */
+  /* Focus ring colour (defaults to the accent) */
+  --rialto-focus-ring: #b0841e;
+  /* Gap drawn between a control and its focus ring (defaults to the surface) */
+  --rialto-focus-gap: #f8f6f3;
 
   /* ── Semantic ─────────────────────────────────── */
   /* Error text, destructive button fills, invalid borders */
@@ -205,4 +274,81 @@
   --rialto-overlay: rgb(26 25 24 / 0.4);
 
   color-scheme: light;
+}
+
+/* ── Surface scopes ────────────────────────────── */
+/* Mid-tone bands (ADR-035). Content on a data-surface element
+   reads these re-declared tokens. The element does not paint its
+   own background: the consumer sets background:
+   var(--rialto-surface-tinted) or -velvet. These rules follow the
+   theme blocks so a scope beats the theme it sits in. */
+[data-surface="tinted"] {
+  --rialto-surface: #e9dfcf;
+  --rialto-focus-gap: #e9dfcf;
+  --rialto-text-primary: #1a1918;
+  --rialto-text-secondary: #5f5a54;
+  --rialto-text-tertiary: #625d57;
+  --rialto-border: #7a746c;
+  --rialto-border-strong: #6e6861;
+  /* Deeper gold: the base #b0841e ring is 2.58:1 on tinted */
+  --rialto-focus-ring: #8f6a14;
+}
+
+[data-theme="dark"] [data-surface="tinted"] {
+  --rialto-surface: #3b3022;
+  --rialto-focus-gap: #3b3022;
+  --rialto-text-primary: rgb(253 252 250 / 0.92);
+  --rialto-text-secondary: rgb(253 252 250 / 0.6);
+  /* 55%, not the base 50%, which fails on the band */
+  --rialto-text-tertiary: rgb(253 252 250 / 0.55);
+  --rialto-border: rgb(255 255 255 / 0.4);
+  --rialto-border-strong: rgb(255 255 255 / 0.6);
+  --rialto-focus-ring: #d4a23a;
+}
+
+[data-theme="dark"] [data-theme="light"] [data-surface="tinted"] {
+  --rialto-surface: #e9dfcf;
+  --rialto-focus-gap: #e9dfcf;
+  --rialto-text-primary: #1a1918;
+  --rialto-text-secondary: #5f5a54;
+  --rialto-text-tertiary: #625d57;
+  --rialto-border: #7a746c;
+  --rialto-border-strong: #6e6861;
+  /* Deeper gold: the base #b0841e ring is 2.58:1 on tinted */
+  --rialto-focus-ring: #8f6a14;
+}
+
+[data-surface="velvet"] {
+  --rialto-surface: #4a3a5c;
+  --rialto-focus-gap: #4a3a5c;
+  --rialto-text-primary: #f6efe2;
+  --rialto-text-secondary: rgb(246 239 226 / 0.72);
+  /* Same as secondary: a fainter ivory fails on velvet */
+  --rialto-text-tertiary: rgb(246 239 226 / 0.72);
+  --rialto-border: rgb(246 239 226 / 0.45);
+  --rialto-border-strong: rgb(246 239 226 / 0.6);
+  --rialto-focus-ring: #d4a23a;
+}
+
+[data-theme="dark"] [data-surface="velvet"] {
+  --rialto-surface: #3b2f4a;
+  --rialto-focus-gap: #3b2f4a;
+  --rialto-text-primary: rgb(253 252 250 / 0.92);
+  --rialto-text-secondary: rgb(253 252 250 / 0.6);
+  --rialto-text-tertiary: rgb(253 252 250 / 0.55);
+  --rialto-border: rgb(255 255 255 / 0.4);
+  --rialto-border-strong: rgb(255 255 255 / 0.6);
+  --rialto-focus-ring: #d4a23a;
+}
+
+[data-theme="dark"] [data-theme="light"] [data-surface="velvet"] {
+  --rialto-surface: #4a3a5c;
+  --rialto-focus-gap: #4a3a5c;
+  --rialto-text-primary: #f6efe2;
+  --rialto-text-secondary: rgb(246 239 226 / 0.72);
+  /* Same as secondary: a fainter ivory fails on velvet */
+  --rialto-text-tertiary: rgb(246 239 226 / 0.72);
+  --rialto-border: rgb(246 239 226 / 0.45);
+  --rialto-border-strong: rgb(246 239 226 / 0.6);
+  --rialto-focus-ring: #d4a23a;
 }

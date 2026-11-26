@@ -91,3 +91,51 @@ export function assertTokenParity(light: TokenGroup, dark: TokenGroup): void {
     );
   }
 }
+
+/** Themes every surface scope declares, in emission order. */
+export const SURFACE_SCOPE_THEMES = ["light", "dark"] as const;
+
+/**
+ * The `surface-scope` group of colors.surfaces.json (ADR-035), checked: one
+ * entry per scope, each with a light and a dark token group. Throws when a
+ * scope lacks a theme, when a scope's light and dark keys differ, or when two
+ * scopes declare different keys — any of which would leave a band reading
+ * its parent's value for one token in one theme.
+ */
+export function assertSurfaceScopeParity(file: TokenGroup): void {
+  const scopes = file["surface-scope"];
+  if (scopes === undefined || typeof scopes === "string" || isToken(scopes)) {
+    throw new Error(`colors.surfaces.json has no "surface-scope" group`);
+  }
+  let reference: { scope: string; keys: string } | undefined;
+  for (const [scope, themes] of Object.entries(scopes)) {
+    if (scope.startsWith("$")) continue;
+    if (themes === undefined || typeof themes === "string" || isToken(themes)) {
+      throw new Error(`Surface scope "${scope}" is not a group of themes`);
+    }
+    const [lightKeys, darkKeys] = SURFACE_SCOPE_THEMES.map((theme) => {
+      const group = themes[theme];
+      if (group === undefined || typeof group === "string" || isToken(group)) {
+        throw new Error(`Surface scope "${scope}" has no "${theme}" group`);
+      }
+      return new Set(walkTokens(group).map((entry) => entry.path.join(".")));
+    }) as [Set<string>, Set<string>];
+    const missing = [...lightKeys].filter((key) => !darkKeys.has(key));
+    const extra = [...darkKeys].filter((key) => !lightKeys.has(key));
+    if (missing.length > 0 || extra.length > 0) {
+      throw new Error(
+        `Surface scope "${scope}" light and dark keys diverge.` +
+          (missing.length > 0 ? ` Missing in dark: ${missing.join(", ")}.` : "") +
+          (extra.length > 0 ? ` Extra in dark: ${extra.join(", ")}.` : "")
+      );
+    }
+    const keys = [...lightKeys].sort().join(",");
+    if (reference === undefined) {
+      reference = { scope, keys };
+    } else if (reference.keys !== keys) {
+      throw new Error(
+        `Surface scope "${scope}" declares different keys from "${reference.scope}": ${keys} vs ${reference.keys}`
+      );
+    }
+  }
+}
