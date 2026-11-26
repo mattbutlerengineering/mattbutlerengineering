@@ -422,6 +422,10 @@
       "types": "./dist/lib/components/Tree/index.d.ts",
       "import": "./dist/lib/components/Tree/index.js"
     },
+    "./VisuallyHidden": {
+      "types": "./dist/lib/components/VisuallyHidden/index.d.ts",
+      "import": "./dist/lib/components/VisuallyHidden/index.js"
+    },
     "./WatchLoader": {
       "types": "./dist/lib/components/WatchLoader/index.d.ts",
       "import": "./dist/lib/components/WatchLoader/index.js"

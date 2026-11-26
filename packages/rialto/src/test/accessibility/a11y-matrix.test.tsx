@@ -123,6 +123,7 @@ const BARREL_COMPONENT_NAMES: readonly BarrelExportName[] = [
   "Toggle",
   "Tooltip",
   "Tree",
+  "VisuallyHidden",
   "WatchLoader",
 ] as const;
 

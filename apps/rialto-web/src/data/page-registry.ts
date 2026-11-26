@@ -219,6 +219,7 @@ const RAW_PAGE_ENTRIES: RawPageEntry[] = [
   { id: "hero", label: "Hero", category: "Layout" },
   { id: "footer", label: "Footer", category: "Layout" },
   { id: "page-header", label: "Page Header", category: "Layout" },
+  { id: "visually-hidden", label: "Visually Hidden", category: "Layout" },
   // ── Tokens ──────────────────────────────────────────────────────────────
   { id: "motion", label: "Motion", category: "Tokens" },
   { id: "typography", label: "Typography", category: "Tokens" },
