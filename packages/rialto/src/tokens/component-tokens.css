@@ -9,9 +9,17 @@
  * - Tier 1 (Primitive): src/tokens/colors.css - Raw values like #fdfcfa
  * - Tier 2 (Semantic): src/tokens/colors.css - Context like --rialto-surface-elevated
  * - Tier 3 (Component): This file - Component-specific like --rialto-button-primary-bg
+ *
+ * Scopes (ADR-035): a token defined from another is substituted where it is
+ * declared, and descendants inherit the substituted value. So these tokens are
+ * declared again on every element that re-declares the semantic tokens they
+ * read: data-surface bands and the data-palette kill-test scope. [data-theme]
+ * joins this list with the palette promotion.
  */
 
-:root {
+:root,
+[data-surface],
+[data-palette] {
   /* ═══════════════════════════════════════════════════════════════════════════
    * BUTTON
    * ═══════════════════════════════════════════════════════════════════════════ */
