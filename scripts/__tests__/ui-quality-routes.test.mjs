@@ -201,9 +201,9 @@ describe("rialto-web adapter", () => {
   const byRoute = Object.fromEntries(rows.map((r) => [r.route, r]));
   const registryRows = rows.filter((r) => /^(components|examples)\/|^dashboard$/.test(r.route));
 
-  it("yields every PAGE_REGISTRY path plus the 18 routeTree leaves (129 today)", () => {
-    expect(registryRows).toHaveLength(111);
-    expect(rows).toHaveLength(111 + 18);
+  it("yields every PAGE_REGISTRY path plus the 18 routeTree leaves (130 today)", () => {
+    expect(registryRows).toHaveLength(112);
+    expect(rows).toHaveLength(112 + 18);
     expect(new Set(rows.map((r) => r.route)).size).toBe(rows.length);
   });
 
@@ -261,7 +261,7 @@ describe("routes.mjs all", () => {
       .trimEnd()
       .split("\n")
       .map((l) => JSON.parse(l));
-    expect(rows).toHaveLength(35 + 12 + 129);
+    expect(rows).toHaveLength(35 + 12 + 130);
     const keys = rows.map((r) => `${r.app}\u0000${r.route}`);
     expect(keys).toEqual([...keys].sort());
     expect([...new Set(rows.map((r) => r.app))]).toEqual([
