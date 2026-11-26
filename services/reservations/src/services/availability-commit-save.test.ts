@@ -74,18 +74,54 @@ describe("commitSave", () => {
       expect((tx.venue as { updateMany: unknown }).updateMany).not.toHaveBeenCalled();
     });
 
-    it("{ expected } refuses a stale draft with the winner and rolls nothing forward", async () => {
+    it("{ expected } compare-and-sets on the venue's version and answers the version it reached", async () => {
       const s = store();
       const { tx } = availabilityStore(s);
+
+      const saved = await commitSave(
+        tx as never,
+        { ...WHO, version: { expected: 9 } },
+        async (state) => ({
+          next: withRule(state.effective, rule("r1", { from: 0, to: 60 })),
+          kind: "tonight",
+        })
+      );
+
+      expect(saved).toMatchObject({ kind: "saved", version: 10 });
+      expect(s.version).toBe(10);
+      expect((tx.venue as { updateMany: unknown }).updateMany).toHaveBeenCalledWith({
+        where: { id: "v", availabilityVersion: 9 },
+        data: { availabilityVersion: { increment: 1 } },
+      });
+    });
+
+    it("{ expected } refuses a stale draft with the winner and rolls nothing forward", async () => {
+      const winner = {
+        id: "chg-9",
+        actorId: "auth0|ana",
+        at: NOW,
+        kind: "config",
+        summary: "Availability updated",
+        version: 9,
+      };
+      const s = store({ changes: [winner] });
+      const { tx, create } = availabilityStore(s);
 
       await expect(
         commitSave(tx as never, { ...WHO, version: { expected: 4 } }, async (state) => ({
           next: state.effective,
           kind: "tonight",
         }))
-      ).rejects.toMatchObject({ outcome: { kind: "version_conflict" } });
+      ).rejects.toMatchObject({
+        outcome: {
+          kind: "version_conflict",
+          currentVersion: 9,
+          winningChange: expect.objectContaining({ id: "chg-9" }),
+        },
+      });
       expect(s.version).toBe(9);
-      expect(s.changes).toEqual([]);
+      expect(s.changes).toEqual([winner]);
+      expect(create).not.toHaveBeenCalled();
     });
 
     it("hands resolve the version this save commits at", async () => {
@@ -137,7 +173,28 @@ describe("commitSave", () => {
       });
     });
 
-    it("runs prepare after the rows are written, and lets it set notifiedGuests and the range", async () => {
+    it("records who made the change and when, with the name snapshotted at the time", async () => {
+      const { tx, create } = availabilityStore(store());
+
+      await commitSave(
+        tx as never,
+        { ...WHO, actorName: "Ana Ruiz", version: { expected: 9 } },
+        async (state) => ({
+          next: withRule(state.effective, rule("r1", { from: 0, to: 60 })),
+          kind: "tonight",
+        })
+      );
+
+      expect(create.mock.calls[0]![0].data).toMatchObject({
+        venueId: "v",
+        actorId: "mgr-1",
+        actorName: "Ana Ruiz",
+        at: NOW,
+        kind: "tonight",
+      });
+    });
+
+    it("runs prepare after the rows are written,and lets it set notifiedGuests and the range", async () => {
       const s = store();
       const { tx, create } = availabilityStore(s);
       let rowsWhenPrepared: unknown[] = [];
