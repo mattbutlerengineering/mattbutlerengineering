@@ -14,6 +14,7 @@ import { ConfigRowConflict, writeConfigDiff } from "./availability-config-rows.j
 import { civilDateIn } from "./availability-migration.js";
 import { validateConfig } from "@mbe/availability";
 import { prisma } from "./database.js";
+import { loadDateRuleIds } from "./date-rule-ids.js";
 import { loadSectionIndex } from "./section-index.js";
 import {
   conflictIssue,
@@ -142,9 +143,10 @@ async function planRequest(
   input: { venueId: string; now: Date }
 ): Promise<SavePlan> {
   const { venueId, now } = input;
-  const [tables, sections] = await Promise.all([
+  const [tables, sections, ruleIds] = await Promise.all([
     tx.table.findMany({ where: { venueId }, select: { id: true } }),
     loadSectionIndex(tx, venueId),
+    loadDateRuleIds(tx, venueId),
   ]);
   const tableIds = new Set(tables.map((t) => t.id));
   const bookings =
@@ -158,6 +160,7 @@ async function planRequest(
       bookings,
       tableIds,
       sections,
+      ruleIds,
       now,
       ...(request.allowNoHours ? { allowNoHours: true } : {}),
       ...(request.exact ? { exact: true } : {}),
@@ -166,7 +169,7 @@ async function planRequest(
   const plan = writePlan(state, request.next, now);
   const found = [
     ...validateConfig(request.next),
-    ...referenceIssues(request.next, tableIds, sections.ids),
+    ...referenceIssues(request.next, tableIds, sections.ids, ruleIds),
   ];
   const issues =
     request.validate === "touched" ? touchedIssues(found, request.next, plan.diff) : found;
