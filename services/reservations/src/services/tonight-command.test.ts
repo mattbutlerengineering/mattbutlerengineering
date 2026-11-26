@@ -391,6 +391,13 @@ describe("setTonight", () => {
     expect(outcome).toMatchObject({ kind: "invalid" });
   });
 
+  it("refuses a stale version without writing", async () => {
+    const w = world();
+    const outcome = await run(w, body({ type: "pause_online" }, { expectedVersion: 3 }));
+    expect(outcome.kind).toBe("version_conflict");
+    expect(w.dateRules).toEqual([]);
+  });
+
   it("answers a retry of the same ruleId with the first result and writes nothing more", async () => {
     const w = world();
     const first = await run(w, body({ type: "pause_online" }));
