@@ -17,19 +17,40 @@ const READ_METHODS = new Set(["GET", "HEAD"]);
 const routeKey = (method: string, url: string): string => `${method} ${url}`;
 
 /**
+ * A token may only move a booking: date, time, table, party size. Status
+ * (a cancel or a no-show fee), `override` (skips pacing limits), notes and the
+ * other fields stay with signed-in staff.
+ */
+const MOVE_BOOKING_FIELDS: ReadonlySet<string> = new Set([
+  "date",
+  "startTime",
+  "endTime",
+  "tableId",
+  "partySize",
+]);
+
+/**
  * The only writes a write-scoped token may make (#9778), keyed on method plus
  * the route's own pattern: what the first MCP write tools need to move a
- * booking and to pause or resume tables (#9489). Each new write tool adds its
- * routes here deliberately; anything absent stays read-only.
+ * booking and to pause or resume tables (#9489). The value is the body fields
+ * the token may send, or `null` when the route's body is not narrowed. Each new
+ * write tool adds its routes here deliberately; anything absent stays read-only.
  */
-const PAT_WRITE_ROUTES: ReadonlySet<string> = new Set(
-  [
-    { method: "PATCH", path: "/api/v1/reservations/:id" },
+const PAT_WRITE_ROUTES: ReadonlyMap<string, ReadonlySet<string> | null> = new Map([
+  [routeKey("PATCH", "/api/v1/reservations/:id"), MOVE_BOOKING_FIELDS],
+  ...[
     availabilityConfigEndpoints.closureImpact,
     availabilityConfigEndpoints.createClosure,
     availabilityConfigEndpoints.reopenClosure,
-  ].map(({ method, path }) => routeKey(method, path))
-);
+  ].map(({ method, path }) => [routeKey(method, path), null] as const),
+]);
+
+/** True when `body` sends only fields in `allowed` (an absent body sends none). */
+const bodyWithin = (body: unknown, allowed: ReadonlySet<string>): boolean => {
+  if (body === undefined || body === null) return true;
+  if (typeof body !== "object" || Array.isArray(body)) return false;
+  return Object.keys(body).every((field) => allowed.has(field));
+};
 
 type Authenticate = (token: string) => Promise<AuthenticatedAccessToken | null>;
 
@@ -59,9 +80,10 @@ export function createPatAwareVerifier(
  */
 export function registerPatReadOnlyGuard(fastify: FastifyInstance): void {
   const isPat = (request: FastifyRequest): boolean => request.user?.raw[PAT_CLAIM] === true;
+  const writeRouteOf = (request: FastifyRequest) =>
+    PAT_WRITE_ROUTES.get(routeKey(request.method, request.routeOptions.url ?? ""));
   const mayWrite = (request: FastifyRequest): boolean =>
-    request.user?.raw[PAT_WRITE_CLAIM] === true &&
-    PAT_WRITE_ROUTES.has(routeKey(request.method, request.routeOptions.url ?? ""));
+    request.user?.raw[PAT_WRITE_CLAIM] === true && writeRouteOf(request) !== undefined;
   const forbid = (reply: FastifyReply) =>
     reply
       .code(403)
@@ -82,9 +104,13 @@ export function registerPatReadOnlyGuard(fastify: FastifyInstance): void {
     }
   });
 
+  // preHandler, not onRequest: the body is parsed by now. A write that got past
+  // onRequest is on PAT_WRITE_ROUTES; a narrowed route accepts only its fields.
   fastify.addHook("preHandler", async (request, reply) => {
-    if (isPat(request) && request.routeOptions.url?.startsWith(ACCESS_TOKENS_PREFIX)) {
-      return forbid(reply);
-    }
+    if (!isPat(request)) return;
+    if (request.routeOptions.url?.startsWith(ACCESS_TOKENS_PREFIX)) return forbid(reply);
+    if (READ_METHODS.has(request.method)) return;
+    const fields = writeRouteOf(request);
+    if (fields && !bodyWithin(request.body, fields)) return forbid(reply);
   });
 }

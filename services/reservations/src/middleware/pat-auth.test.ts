@@ -134,6 +134,33 @@ describe("personal access token bearer (#9664)", () => {
       expect(res.json().type).toBe(READ_ONLY_TYPE);
     });
 
+    it.each([
+      { status: "CANCELLED" },
+      { status: "NO_SHOW" },
+      { override: { reason: "x" } },
+      { notes: "x" },
+      { startTime: "2026-12-01T19:00:00.000Z", cancellationReason: "x" },
+    ])("refuses a write-scoped token a booking change beyond a move: %j", async (payload) => {
+      const res = await app.inject({
+        method: "PATCH",
+        url: "/api/v1/reservations/r1",
+        headers: WRITER,
+        payload,
+      });
+      expect(res.statusCode).toBe(403);
+      expect(res.json().type).toBe(READ_ONLY_TYPE);
+    });
+
+    it("lets a write-scoped token move a booking (time and table)", async () => {
+      const res = await app.inject({
+        method: "PATCH",
+        url: "/api/v1/reservations/r1",
+        headers: WRITER,
+        payload: { startTime: "2026-12-01T19:00:00.000Z", tableId: "t2" },
+      });
+      expect(res.body).not.toContain(READ_ONLY_TYPE);
+    });
+
     it("refuses a write-scoped token on the token endpoints, even a GET", async () => {
       for (const url of ["/api/v1/me/tokens", "/api/v1/me/%74okens"]) {
         const res = await app.inject({ method: "GET", url, headers: WRITER });
@@ -155,5 +182,19 @@ describe("personal access token bearer (#9664)", () => {
     });
     expect(res.statusCode).toBe(200);
     expect(jwtVerify).toHaveBeenCalled();
+  });
+
+  it("leaves a session caller's booking change unrestricted by the move-only rule", async () => {
+    vi.mocked(jwtVerify).mockResolvedValue({
+      payload: { sub: "auth0|me", iss: "https://test.auth0.com/", aud: "https://api.example.com" },
+      protectedHeader: { alg: "RS256" },
+    } as never);
+    const res = await app.inject({
+      method: "PATCH",
+      url: "/api/v1/reservations/r1",
+      headers: { authorization: "Bearer a.jwt.token" },
+      payload: { status: "CANCELLED", notes: "x" },
+    });
+    expect(res.body).not.toContain(READ_ONLY_TYPE);
   });
 });
