@@ -1224,3 +1224,24 @@ Phase 4: worktree reaper ran live (0 eligible — the one remaining worktree is 
 **queueEfficiency:** composite 0.914 (baseline n/a) — healthy
 **Difficulty distribution:** size:s:52, size:m:29, size:xs:31, size:l:11, size:xl:9
 **Issues filed:** 0
+
+## 2026-11-26 — mbe-ui-quality
+
+**State:** `source: branch` (`ui-quality/ledger` @ 2e49377, merged `origin/main` 0f9a5df; `state.mjs` resolved `metrics/ui-quality-ledger.jsonl` by rule).
+
+**Routes:** 40 due / 40 captured / 40 audited (rialto-web 37, hospitality 3, marketing 0 due). 27 rows `unreachable:auth`, 0 `unreachable:build` — all three app builds were green.
+
+**Judging:** rubric v1. 0 unjudged, 0 dropped tells. Every captured route judged clean against the judged tells; the only finding this fire is mechanical.
+
+**Calibration:** stamp `stale`. `calibration-status` returned exit 3, and the one permitted calibration attempt failed at `rate.mjs pairs --calibration` with exit 2 — `docs/ui-quality/calibration.json` still has no labelled pairs (Owner-only, Verify-stage task), so the key cannot clear. Not retried. Agent-built findings stay suppressed by the plan, as intended. Ratings still ran: 12 pairs over 2 apps recorded (hospitality 0, rialto-web 3.75).
+
+**Filing:** 1 issue created — #9794 `ui-quality: rialto-web demos/dashboard — accessibility/axe-moderate (rubric v1)` (heading-order, 1 node). Labels verified on the created issue: `ui-quality`, `ui-quality:p2`, `ready`. 0 reopened, 0 commented, 0 adopted, 0 seeds appended to `docs/backlog.md`. No rubric migration (every ledger key is already `r1`). Issue drift: 0 open-with-closed-issue, 0 unknown-state.
+
+**Fix PR:** none — the plan carried no `fix_pr_candidate`.
+
+**P1 SLA:** 0 open `ui-quality:p1` issues; 0 breaches, 0 escalated.
+
+**Coverage before this fire:** 96.5% (141/146), `coverage.mjs` exit 1 — a breach on five never-audited rialto-web component routes (`file-upload`, `listbox`, `tags-input`, `toolbar`, `visually-hidden`). All five were captured and judged this fire; coverage after is 100% (146/146).
+
+**Blockers / pipeline bugs:** none. Browser resolved (`chrome-headless-shell`), all three capture runs passed first try.
+
