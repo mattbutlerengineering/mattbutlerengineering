@@ -317,6 +317,10 @@ export const generatedSchemas = {
   Kbd: z.object({
     children: z.string().max(12),
   }),
+  Listbox: z.object({
+    options: z.array(z.object({ value: z.string(), label: z.string(), disabled: z.boolean().optional() })),
+    multiple: z.boolean().optional(),
+  }),
   MasterOverride: z.object({
     on: z.boolean(),
     label: z.string().max(40),
