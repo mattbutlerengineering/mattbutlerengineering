@@ -1,5 +1,17 @@
 # @mattbutlerengineering/rialto
 
+## 3.1.9
+
+### Patch Changes
+
+- [#9766](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9766) [`ad49e94`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/ad49e944973401b27957ef446f6fba223a9fddb3) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Component tokens and `--rialto-shadow-focus` now re-resolve on `data-surface` and `data-palette` scope elements, and the focus shadow is composed from `--rialto-focus-gap` and `--rialto-focus-ring` (ADR-035). Computed values outside those scopes are unchanged.
+
+- [#9768](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9768) [`dacbd00`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/dacbd00c7e51ed746b17e29bf0b1a97199bcdcb5) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Extend `RadioGroup` (backward compatible): an `options` array form, `orientation`, `description`, `error` (with `aria-invalid`, icon and `aria-describedby`) and `required`. A single `Radio` child is now wired like many.
+
+- [#9766](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9766) [`ad49e94`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/ad49e944973401b27957ef446f6fba223a9fddb3) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add the signature palette tokens: `--rialto-surface-tinted` and `--rialto-surface-velvet`, the `--rialto-plum*` and `--rialto-verdigris*` families, and `--rialto-focus-ring` / `--rialto-focus-gap` (defaulting to today's accent and surface). Add `data-surface="tinted" | "velvet"` scopes that re-declare the surface, text, border and focus tokens for content on a mid-tone band (ADR-035). No existing token value changes.
+
+- [#9766](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9766) [`ad49e94`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/ad49e944973401b27957ef446f6fba223a9fddb3) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add the internal kill-test signature remap: under `data-palette="signature"` (not public API), Button, Input, Select, Card and Tabs repaint through Tier-3 tokens (plum secondary and hover tints, plum caret and selection, a tinted Tabs track). New Tier-3 tokens default to today's values and every new component rule is scoped to that attribute, so nothing renders differently outside it.
+
 ## 3.1.8
 
 ### Patch Changes
