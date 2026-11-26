@@ -1,5 +1,13 @@
 # @mattbutlerengineering/rialto
 
+## 3.1.11
+
+### Patch Changes
+
+- [#9755](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9755) [`0f9a5df`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/0f9a5df45f67ff9431223ea65b55e7bb93883edb) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add `Listbox`: an always-visible, single- or multi-select listbox with `aria-activedescendant` keyboard navigation and type-ahead.
+
+- [#9790](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9790) [`da993f0`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/da993f057cfed9aefd79a2a9e493f06c80fae26d) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - TagsInput: re-announce repeated identical status messages, give the error and hint text distinct keys so `role="alert"` lands on a fresh node, and keep later chips mounted when an earlier one is removed.
+
 ## 3.1.10
 
 ### Patch Changes
