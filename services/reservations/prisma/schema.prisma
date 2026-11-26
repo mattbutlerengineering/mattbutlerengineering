@@ -558,7 +558,8 @@ model PersonalAccessToken {
 /// token, not venue: like `personal_access_tokens` it carries no RLS policy, and
 /// `venueId` is informational (null when the request names no venue). `input`
 /// can hold guest notes, so it is never logged. `confirmNonce` is unique so a
-/// replayed confirm is refused.
+/// replayed confirm is refused. No FK to `personal_access_tokens` on purpose, so
+/// audit rows outlive their token.
 model AccessTokenWriteAudit {
   id           String   @id @default(cuid())
   tokenId      String   @map("token_id")
