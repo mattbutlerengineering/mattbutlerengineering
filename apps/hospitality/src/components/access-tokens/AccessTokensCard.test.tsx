@@ -32,6 +32,7 @@ const claudeToken: AccessToken = {
   createdAt: "2026-11-01T10:00:00.000Z",
   lastUsedAt: "2026-11-20T10:00:00.000Z",
   expiresAt: "2027-02-01T10:00:00.000Z",
+  write: false,
 };
 const idleToken: AccessToken = {
   id: "tok-2",
@@ -40,6 +41,7 @@ const idleToken: AccessToken = {
   createdAt: "2026-11-02T10:00:00.000Z",
   lastUsedAt: null,
   expiresAt: null,
+  write: false,
 };
 
 const minted: MintedAccessToken = {

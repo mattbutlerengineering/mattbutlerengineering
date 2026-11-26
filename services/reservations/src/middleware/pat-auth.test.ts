@@ -35,9 +35,11 @@ describe("personal access token bearer (#9664)", () => {
       AUTH_AUDIENCE: "https://api.example.com",
     };
     delete process.env.AUTH_BYPASS_IN_TESTS;
-    tokens.authenticate.mockImplementation(async (t: string) =>
-      t === "mbe_pat_valid" ? { id: "tok-1", userSub: "auth0|me" } : null
-    );
+    tokens.authenticate.mockImplementation(async (t: string) => {
+      if (t === "mbe_pat_valid") return { id: "tok-1", userSub: "auth0|me", write: false };
+      if (t === "mbe_pat_writer") return { id: "tok-2", userSub: "auth0|me", write: true };
+      return null;
+    });
     app = await buildApp({ logger: false, services: { accessTokenService: tokens as never } });
     await app.ready();
   });
@@ -92,6 +94,82 @@ describe("personal access token bearer (#9664)", () => {
     expect(tokens.list).not.toHaveBeenCalled();
   });
 
+  describe("write scope (#9778)", () => {
+    const WRITER = { authorization: "Bearer mbe_pat_writer" };
+    const ALLOWED = [
+      ["PATCH", "/api/v1/reservations/r1"],
+      ["POST", "/api/v1/venues/v1/closures/impact"],
+      ["POST", "/api/v1/venues/v1/closures"],
+      ["DELETE", "/api/v1/venues/v1/closures/rule-1"],
+    ] as const;
+    const send = (method: string, url: string, headers: Record<string, string>) =>
+      app.inject({
+        method: method as "POST",
+        url,
+        headers,
+        payload: method === "DELETE" ? undefined : {},
+      });
+
+    it.each(ALLOWED)("lets a write-scoped token past the guard on %s %s", async (method, url) => {
+      const res = await send(method, url, WRITER);
+      expect(res.body).not.toContain(READ_ONLY_TYPE);
+    });
+
+    it.each(ALLOWED)("still refuses a read-only token on %s %s", async (method, url) => {
+      const res = await send(method, url, PAT);
+      expect(res.statusCode).toBe(403);
+      expect(res.json().type).toBe(READ_ONLY_TYPE);
+    });
+
+    it.each([
+      ["POST", "/api/v1/reservations"],
+      ["DELETE", "/api/v1/reservations/r1"],
+      ["POST", "/api/v1/venues/v1/tables"],
+      ["POST", "/api/v1/venues/v1/closures/batch"],
+      ["POST", "/api/v1/me/tokens"],
+      ["DELETE", "/api/v1/me/tokens/tok-1"],
+    ] as const)("refuses a write-scoped token on %s %s", async (method, url) => {
+      const res = await send(method, url, WRITER);
+      expect(res.statusCode).toBe(403);
+      expect(res.json().type).toBe(READ_ONLY_TYPE);
+    });
+
+    it.each([
+      { status: "CANCELLED" },
+      { status: "NO_SHOW" },
+      { override: { reason: "x" } },
+      { notes: "x" },
+      { startTime: "2026-12-01T19:00:00.000Z", cancellationReason: "x" },
+    ])("refuses a write-scoped token a booking change beyond a move: %j", async (payload) => {
+      const res = await app.inject({
+        method: "PATCH",
+        url: "/api/v1/reservations/r1",
+        headers: WRITER,
+        payload,
+      });
+      expect(res.statusCode).toBe(403);
+      expect(res.json().type).toBe(READ_ONLY_TYPE);
+    });
+
+    it("lets a write-scoped token move a booking (time and table)", async () => {
+      const res = await app.inject({
+        method: "PATCH",
+        url: "/api/v1/reservations/r1",
+        headers: WRITER,
+        payload: { startTime: "2026-12-01T19:00:00.000Z", tableId: "t2" },
+      });
+      expect(res.body).not.toContain(READ_ONLY_TYPE);
+    });
+
+    it("refuses a write-scoped token on the token endpoints, even a GET", async () => {
+      for (const url of ["/api/v1/me/tokens", "/api/v1/me/%74okens"]) {
+        const res = await app.inject({ method: "GET", url, headers: WRITER });
+        expect(res.statusCode).toBe(403);
+      }
+      expect(tokens.list).not.toHaveBeenCalled();
+    });
+  });
+
   it("leaves the JWT path unchanged, including writes", async () => {
     vi.mocked(jwtVerify).mockResolvedValue({
       payload: { sub: "auth0|me", iss: "https://test.auth0.com/", aud: "https://api.example.com" },
@@ -104,5 +182,19 @@ describe("personal access token bearer (#9664)", () => {
     });
     expect(res.statusCode).toBe(200);
     expect(jwtVerify).toHaveBeenCalled();
+  });
+
+  it("leaves a session caller's booking change unrestricted by the move-only rule", async () => {
+    vi.mocked(jwtVerify).mockResolvedValue({
+      payload: { sub: "auth0|me", iss: "https://test.auth0.com/", aud: "https://api.example.com" },
+      protectedHeader: { alg: "RS256" },
+    } as never);
+    const res = await app.inject({
+      method: "PATCH",
+      url: "/api/v1/reservations/r1",
+      headers: { authorization: "Bearer a.jwt.token" },
+      payload: { status: "CANCELLED", notes: "x" },
+    });
+    expect(res.body).not.toContain(READ_ONLY_TYPE);
   });
 });

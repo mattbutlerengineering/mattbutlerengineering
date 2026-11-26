@@ -13,6 +13,7 @@ type Row = {
   lastUsedAt: Date | null;
   expiresAt: Date | null;
   revokedAt: Date | null;
+  canWrite: boolean;
 };
 
 const NOW = new Date("2026-11-25T12:00:00.000Z");
@@ -33,8 +34,12 @@ function fakeClient(rows: Row[] = []) {
       async ({
         data,
       }: {
-        data: Omit<Row, "id" | "createdAt" | "lastUsedAt" | "revokedAt" | "expiresAt"> & {
+        data: Omit<
+          Row,
+          "id" | "createdAt" | "lastUsedAt" | "revokedAt" | "expiresAt" | "canWrite"
+        > & {
           expiresAt?: Date | null;
+          canWrite?: boolean;
         };
       }) => {
         const row: Row = {
@@ -43,6 +48,7 @@ function fakeClient(rows: Row[] = []) {
           lastUsedAt: null,
           revokedAt: null,
           expiresAt: null,
+          canWrite: false,
           ...data,
         };
         state.rows.push(row);
@@ -103,6 +109,7 @@ const row = (over: Partial<Row>): Row => ({
   lastUsedAt: null,
   expiresAt: null,
   revokedAt: null,
+  canWrite: false,
   ...over,
 });
 
@@ -129,6 +136,17 @@ describe("accessTokenService.mint", () => {
       expiresInDays: 30,
     });
     expect(minted.expiresAt).toBe("2026-12-25T12:00:00.000Z");
+  });
+
+  it("mints a read-only token unless write is asked for (#9778)", async () => {
+    const { client, state } = fakeClient();
+    const svc = createAccessTokenService(client, () => NOW);
+    const readOnly = await svc.mint("auth0|a", { name: "r" });
+    const writer = await svc.mint("auth0|a", { name: "w", write: true });
+
+    expect(state.rows.map((r) => r.canWrite)).toEqual([false, true]);
+    expect(readOnly.write).toBe(false);
+    expect(writer.write).toBe(true);
   });
 
   it("mints a different token each time", async () => {
@@ -179,6 +197,7 @@ describe("accessTokenService.list", () => {
     const list = await createAccessTokenService(client, () => NOW).list("auth0|a");
 
     expect(list.map((t) => t.id)).toEqual(["mine"]);
+    expect(list[0]?.write).toBe(false);
     expect(JSON.stringify(list)).not.toContain("secret-hash");
     expect(list[0]).not.toHaveProperty("tokenHash");
     expect(list[0]).not.toHaveProperty("token");
@@ -218,7 +237,14 @@ describe("accessTokenService.authenticate", () => {
     const { client } = fakeClient();
     const { token } = await mintOne(client, NOW);
     const found = await createAccessTokenService(client, () => NOW).authenticate(token);
-    expect(found).toEqual({ id: "tok-1", userSub: "auth0|a" });
+    expect(found).toEqual({ id: "tok-1", userSub: "auth0|a", write: false });
+  });
+
+  it("resolves a write-scoped token with its write flag (#9778)", async () => {
+    const { client } = fakeClient();
+    const { token } = await mintOne(client, NOW, { name: "w", write: true } as never);
+    const found = await createAccessTokenService(client, () => NOW).authenticate(token);
+    expect(found).toEqual({ id: "tok-1", userSub: "auth0|a", write: true });
   });
 
   it("rejects unknown, revoked and expired tokens", async () => {

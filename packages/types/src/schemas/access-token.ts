@@ -14,6 +14,8 @@ export const CreateAccessTokenRequestSchema = z.object({
   name: z.string().trim().min(1).max(80),
   /** Days until the token stops working; omit for a token that does not expire. */
   expiresInDays: z.number().int().min(1).max(ACCESS_TOKEN_MAX_EXPIRY_DAYS).optional(),
+  /** Opt in to the write scope (#9778); omitted or false mints a read-only token. */
+  write: z.boolean().optional(),
 });
 
 /** One token as listed. The hash and the plaintext are never part of it. */
@@ -25,6 +27,8 @@ export const AccessTokenSchema = z.object({
   createdAt: z.string(),
   lastUsedAt: z.string().nullable(),
   expiresAt: z.string().nullable(),
+  /** True when the token may make the allowlisted changes; defaults for a pre-#9778 server. */
+  write: z.boolean().default(false),
 });
 
 /** The mint response: the only time the plaintext token is ever returned. */

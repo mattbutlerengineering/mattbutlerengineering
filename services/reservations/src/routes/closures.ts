@@ -7,6 +7,7 @@ import {
 import { requireAuth } from "@mbe/auth/fastify";
 import { registerEndpoint } from "@mbe/service-bootstrap";
 import { createHostBrandResolver } from "../config/host-brand.js";
+import { forbidTokenChange, isPatRequest } from "../middleware/pat-auth.js";
 import { previewClosureNotice } from "../notifications/closure-preview.js";
 import { ClosureRefundEnqueueError } from "../services/closure-refund.js";
 import { CLOSURE_REFUSAL_COPY, sendAvailabilityRefusal } from "./availability-refusal.js";
@@ -216,6 +217,13 @@ export const closureRoutes: FastifyPluginAsync = async (fastify) => {
     },
     preHandler: requireAuth,
     handler: venueScoped(VENUE_FROM_ID, async (request, reply, { venueId, isAdmin }) => {
+      // A token may only resume a table pause (#9778); the guard checked its body, this the rule.
+      if (
+        isPatRequest(request) &&
+        !(await closureCommandService.isTablePause(venueId, request.params.ruleId))
+      ) {
+        return forbidTokenChange(reply);
+      }
       const caller = await closureCaller(request, venueId, isAdmin);
       const outcome = await closureCommandService.reopen({
         venueId,

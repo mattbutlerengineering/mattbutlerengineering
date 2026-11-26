@@ -55,6 +55,7 @@ import {
   type RefusalIssue,
 } from "./availability-refusal.js";
 import { prisma } from "./database.js";
+import { isTablePause } from "./closure-table-pause.js";
 
 /**
  * The closure command (docs/features/venue-availability/architecture.md
@@ -978,4 +979,5 @@ export const closureCommandService = {
   createMany: createClosures,
   reopen: reopenClosure,
   mayClose,
+  isTablePause,
 };
