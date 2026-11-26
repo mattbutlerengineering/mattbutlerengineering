@@ -76,6 +76,7 @@
 }
 
 .error .textarea:focus-visible {
+  outline: var(--rialto-focus-ring-width) solid transparent;
   box-shadow:
     0 0 0 2px var(--rialto-surface),
     0 0 0 4px var(--rialto-error),

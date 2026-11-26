@@ -22,6 +22,7 @@
 }
 
 .control:focus-within {
+  outline: var(--rialto-focus-ring-width) solid transparent;
   box-shadow:
     0 0 0 2px var(--rialto-surface),
     0 0 0 4px var(--rialto-accent),
@@ -108,7 +109,7 @@
   text-align: center;
   border-inline-start: 1px solid var(--rialto-border);
   border-inline-end: 1px solid var(--rialto-border);
-  outline: none;
+  outline: var(--rialto-focus-ring-width) solid transparent;
 
   /* Hide spinners */
   -moz-appearance: textfield;
@@ -156,6 +157,7 @@
 }
 
 .error .control:focus-within {
+  outline: var(--rialto-focus-ring-width) solid transparent;
   box-shadow:
     0 0 0 2px var(--rialto-surface),
     0 0 0 4px var(--rialto-error),

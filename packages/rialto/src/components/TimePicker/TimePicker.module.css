@@ -18,7 +18,7 @@
   max-block-size: 240px;
   overflow-y: auto;
   scroll-padding: var(--rialto-space-sm);
-  outline: none;
+  outline: var(--rialto-focus-ring-width) solid transparent;
 }
 
 /* ── Option ──────────────────────────────────── */
@@ -47,7 +47,7 @@
 }
 
 .option:focus-visible {
-  outline: none;
+  outline: var(--rialto-focus-ring-width) solid transparent;
   box-shadow: var(--rialto-shadow-focus);
 }
 
