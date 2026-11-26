@@ -37,27 +37,27 @@ open at a time, across all lanes.
 Demonstrable: the kill-test board in Storybook, before and after, light and
 dark, on canvas, tinted and velvet, with Matt's written go or no-go.
 
-- [ ] **Palette tokens and surface scopes** — add the mid-tone surfaces, plum and verdigris families and focus tokens, and generate the `data-surface` blocks
+- [x] **Palette tokens and surface scopes** — add the mid-tone surfaces, plum and verdigris families and focus tokens, and generate the `data-surface` blocks
   - Accept: `colors.json` and `colors.dark.json` gain `color.surface.tinted`, `color.surface.velvet`, `color.plum.{default,muted,text-on}`, `color.verdigris.{default,muted,text-on}`, `color.focus.ring` and `color.focus.gap`, each with light and dark values (PRD 2). New `colors.surfaces.json` holds the tinted and velvet scopes with the keys in architecture.md § Token scope data. `generate-colors-css.ts` emits the four blocks per scope (`[data-surface]`, dark, and nested light island). `--rialto-focus-ring` and `--rialto-focus-gap` default to today's accent and surface values, so the generated `:root` and `[data-theme="dark"]` values of every existing token are unchanged. `assertTokenParity` fails when a scope's light and dark keys differ.
   - Test first: `packages/rialto/src/tokens/colors-theme-scope.test.ts` (new cases: the scope blocks exist and re-declare `--rialto-surface`, focus-gap, text, border and focus-ring) and `packages/rialto/scripts/lib/color-tokens.test.ts` (parity rejects a scope missing a dark key)
   - Files: `packages/rialto/src/tokens/colors.json`, `colors.dark.json`, `colors.surfaces.json` (new), `colors.css` (generated), `packages/rialto/scripts/generate-colors-css.ts`, `packages/rialto/scripts/lib/color-tokens.ts`, `packages/rialto/scripts/generate-figma-tokens.ts` if it enumerates families, `.changeset/*.md`
   - Blocked by: —
-- [ ] **Contrast coverage for every new pair** — extend the contrast test over the new tokens and every surface scope
+- [x] **Contrast coverage for every new pair** — extend the contrast test over the new tokens and every surface scope
   - Accept: `token-contrast.test.ts` checks, in light and dark: plum and verdigris as text on canvas, elevated, recessed and tinted, against their muted tints, and their text-on tokens on them; a data-driven loop over `colors.surfaces.json` checking text-primary, -secondary and -tertiary at 4.5:1 and border at 3:1 against the band; the focus ring at 3:1 against both the focus gap and the band. The dark muted tints are computed and asserted here. The test passes (PRD 3).
   - Test first: `packages/rialto/src/test/token-contrast.test.ts` (new cases written before any candidate value is adjusted to pass them)
   - Files: `packages/rialto/src/test/token-contrast.test.ts`, token JSON values if a candidate fails
   - Blocked by: Palette tokens and surface scopes
-- [ ] **Derived tokens re-resolve on scope elements** — Tier-3 tokens and the focus shadow follow `[data-surface]` and `[data-palette]` scopes (ADR-035)
+- [x] **Derived tokens re-resolve on scope elements** — Tier-3 tokens and the focus shadow follow `[data-surface]` and `[data-palette]` scopes (ADR-035)
   - Accept: the selector of `component-tokens.css` becomes `:root, [data-surface], [data-palette]` (not yet `[data-theme]`, which lands in Milestone 2). `shadows.css` gains one rule on the same selector declaring `--rialto-shadow-focus` from `--rialto-focus-gap` and `--rialto-focus-ring`, replacing the two copies under `:root` and `[data-theme="dark"]`. Outside a scope every computed value is unchanged, so no existing visual baseline moves.
   - Test first: `packages/rialto/src/tokens/derived-token-scope.test.ts` (new; parses both sheets and asserts the selector list and that the focus shadow is declared once from the two focus tokens)
   - Files: `packages/rialto/src/tokens/component-tokens.css`, `packages/rialto/src/tokens/shadows.css`, `.changeset/*.md`
   - Blocked by: Palette tokens and surface scopes
-- [ ] **Scoped signature remap** — the ux.md kill-test mapping as Tier-3 re-points under `[data-palette="signature"]`
+- [x] **Scoped signature remap** — the ux.md kill-test mapping as Tier-3 re-points under `[data-palette="signature"]`
   - Accept: a block selected by `[data-palette="signature"]` (commented `@internal`, not documented as public API) re-points the Button secondary and ghost, Input caret, selection and hover border, Select highlighted option, and Tabs track and hover tokens per ux.md § Kill-test mapping and architecture.md § Signature remap. Where Card and Tabs read a semantic token directly, a Tier-3 token is added with today's value and the component points at it, value-identical. Primary, focus and selected stay gold. Outside the scope no computed value changes.
   - Test first: `packages/rialto/src/tokens/signature-remap.test.ts` (new; asserts each remapped Tier-3 token resolves to the plum, plum-muted or tinted token inside the scope and to today's value outside it, and that no gold-rule token is remapped)
   - Files: `packages/rialto/src/tokens/component-tokens.css`, `packages/rialto/src/components/Card/*.module.css`, `packages/rialto/src/components/Tabs/*.module.css`, `.changeset/*.md`
   - Blocked by: Derived tokens re-resolve on scope elements
-- [ ] **Kill-test board story and screenshots** — the before/after board Matt judges
+- [x] **Kill-test board story and screenshots** — the before/after board Matt judges
   - Accept: `SignaturePalette.stories.tsx` renders rows Button, Input, Select, Card and Tabs, before and after, across light canvas, light tinted, velvet, dark canvas and dark tinted (ux.md § Kill-test board). Each row's caption lists its contrast-critical pairs read from the same JSON the contrast test reads. The story is not in `src/test/visual/visual.spec.ts`'s list and no PNG is committed. Light and dark screenshots are taken with a one-off Playwright run against the branch's Storybook and kept outside the repo for the gate issue (PRD 1).
   - Test first: `packages/rialto/src/stories/SignaturePalette.test.tsx` (new; renders the story, asserts five rows by five columns, after cells inside `data-palette="signature"`, band cells carrying `data-surface`, and caption ratios equal to the values computed from the token JSON)
   - Files: `packages/rialto/src/stories/SignaturePalette.stories.tsx` (new), `packages/rialto/src/stories/SignaturePalette.test.tsx` (new)
@@ -255,3 +255,41 @@ assumptions.
 - 2026-11-25: Uniqueness verdict (PRD 12) is collected by Ship's
   `ready-for-human` issue and judged at Operate; this breakdown only prepares
   its Rialto scenes (Milestone 5).
+- 2026-11-25 (Implement, Milestone 1): no ux.md candidate colour failed its
+  contrast test, so no palette value changed. Values the docs left open were
+  chosen and pass: tinted-light `border-strong` `#6e6861`; velvet-light
+  `border-strong` ivory 60%; muted tints follow the gold recipe
+  (`rgb(<plum|verdigris> / 0.12)` light, `/ 0.15` dark).
+- 2026-11-25: Deviation, scoped signature remap. Button, Input, Select, Card
+  and Tabs read semantic tokens directly, not Tier-3 ones, so a Tier-3
+  re-point alone repaints nothing. Pointing their unscoped rules at Tier-3
+  tokens would change values under local overrides (`.darkSurface`, nested
+  light islands), because Tier-3 resolves at `:root` until `[data-theme]`
+  joins the selector. So each component gained rules scoped to
+  `:global([data-palette="signature"])` that read the Tier-3 tokens
+  (Button, Input and Select module CSS too, beyond the listed files). On a
+  go, Milestone 2 drops the prefix once `[data-theme]` lands. Velvet and
+  tinted sub-blocks were needed: plum is unreadable as text on velvet, and
+  light sheets would put ivory text on white, so on velvet the Card and
+  wells take the band and the Tabs track goes clear.
+- 2026-11-25: Deviation, focus shadow selector. The one `--rialto-shadow-focus`
+  rule is `:root, [data-theme="dark"], [data-surface], [data-palette]`. Keeping
+  `[data-theme="dark"]` reproduces the old dark copy exactly for a dark
+  element under a light root. It becomes `[data-theme]` in Milestone 2.
+- 2026-11-25: Tabs on a tinted track read `text-primary` for inactive tabs
+  inside the signature scope: base `text-tertiary` is 3.7:1 (light) and
+  4.39:1 (dark) on tinted. Weight and the gold indicator still mark the
+  selected tab. Not built: verdigris count badges (Tabs has no count slot)
+  and a destructive Button (no such variant). Invalid Input is not shown on
+  velvet: `--rialto-error` is not re-declared there and would fail. That is
+  an open question for the gate.
+- 2026-11-25: Pre-existing, outside this run's scope: light `text-tertiary`
+  `#747070` on the recessed Input well is about 4.1:1, under AA for
+  placeholder text. For the Milestone 3 audit.
+- 2026-11-25: `scripts/regen-manifest.mjs`'s `rialto-color-tokens` changedBy
+  regex does not list `colors.surfaces.json`, so the PostToolUse hook will not
+  auto-regenerate on an edit to it. `pnpm regen --check` still catches drift.
+  Follow-up, not fixed here.
+- 2026-11-25: Kill-test screenshots (light and dark board, Button hover, Input
+  focus, open Select) were captured from the branch's Storybook and kept
+  outside the repo for the gate issue.
