@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { Text, Button, Stack, Divider } from "@mattbutlerengineering/rialto";
+import { useDocumentTitle } from "../../use-document-title";
 import styles from "./ExamplePageLayout.module.css";
 
 /* ── ExamplePageLayout ───────────────────────── */
@@ -19,6 +20,7 @@ export function ExamplePageLayout({
   compositionNotes,
   children,
 }: ExamplePageLayoutProps) {
+  useDocumentTitle(name);
   const [copyLabel, setCopyLabel] = useState<"Copy JSX" | "Copied!">("Copy JSX");
 
   const handleCopy = async () => {

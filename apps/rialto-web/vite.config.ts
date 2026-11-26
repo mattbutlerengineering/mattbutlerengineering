@@ -1,7 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { sentryVitePlugin } from "@sentry/vite-plugin";
-import { demosRouteHtmlPlugin } from "./route-html";
+import { routeHtmlPlugin } from "./route-html";
 import { resolveRialtoTokenCount } from "./token-count.config";
 import { resolveRialtoComponentCount } from "./component-count.config";
 
@@ -13,7 +13,7 @@ export default defineConfig({
   },
   plugins: [
     react(),
-    demosRouteHtmlPlugin(),
+    routeHtmlPlugin(),
     sentryVitePlugin({
       org: process.env.SENTRY_ORG,
       project: process.env.SENTRY_PROJECT,
