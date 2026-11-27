@@ -96,8 +96,10 @@ describe("resolveHead", () => {
     expect(resolveHead("/privacy", PAGE_REGISTRY).title).toBe("Privacy Policy — Rialto");
   });
 
-  it("canonicalizes an unknown path to home, matching the redirect", () => {
-    expect(resolveHead("/no-such-page", PAGE_REGISTRY).url).toBe(HOME_CANONICAL);
+  it("gives an unknown path the not-found title and the home canonical", () => {
+    const head = resolveHead("/no-such-page", PAGE_REGISTRY);
+    expect(head.url).toBe(HOME_CANONICAL);
+    expect(head.title).toBe("Page not found — Rialto");
   });
 
   it("builds canonical urls without a trailing slash except home and the demos index", () => {
