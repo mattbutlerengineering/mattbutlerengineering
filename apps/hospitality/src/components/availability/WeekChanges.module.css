@@ -55,6 +55,16 @@
   align-items: center;
 }
 
+/*
+ * Open as usual while it saves: aria-disabled, not native disabled (which would blur the focused
+ * button), so rialto's :disabled look is matched here. The focus ring stays.
+ */
+.pending[aria-disabled="true"] {
+  filter: saturate(0.6) brightness(0.95);
+  cursor: not-allowed;
+  transform: none;
+}
+
 .more {
   align-self: flex-start;
 }

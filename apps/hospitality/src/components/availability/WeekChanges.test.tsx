@@ -328,6 +328,8 @@ describe("WeekChanges", () => {
       expect(pending).toHaveAttribute("aria-disabled", "true");
       expect(pending).not.toBeDisabled();
       expect(pending).toHaveFocus();
+      // Rialto styles only native :disabled, so a local class shows sighted users it is pending.
+      expect(pending).toHaveClass("pending");
       fireEvent.click(pending);
       expect(setDecision).toHaveBeenCalledTimes(1);
 
@@ -335,9 +337,9 @@ describe("WeekChanges", () => {
       expect(screen.queryByText(/isn't planned yet/)).toBeNull();
       // Undo brings it back undecided: pressable again, not stuck pending.
       refetched([]);
-      expect(
-        within(holidayRow()).getByRole("button", { name: "Open as usual" })
-      ).not.toHaveAttribute("aria-disabled", "true");
+      const ready = within(holidayRow()).getByRole("button", { name: "Open as usual" });
+      expect(ready).not.toHaveAttribute("aria-disabled", "true");
+      expect(ready).not.toHaveClass("pending");
     });
 
     it("ends pending when the decisions fail to load again after the save, keeping focus on the button", async () => {
