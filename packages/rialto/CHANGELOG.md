@@ -1,5 +1,11 @@
 # @mattbutlerengineering/rialto
 
+## 3.1.15
+
+### Patch Changes
+
+- [#9919](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9919) [`2c63f21`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/2c63f21bb81b2e5c00682b287060c3ce9d558bc4) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - GlobalNav: Escape closes the open mobile menu from any link and returns focus to the toggle; tabbing out of the menu closes it so focused content is never covered.
+
 ## 3.1.14
 
 ### Patch Changes
