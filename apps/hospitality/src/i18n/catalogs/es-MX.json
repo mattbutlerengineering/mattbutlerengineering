@@ -1513,6 +1513,7 @@
       "emailPlaceholder": "juan@ejemplo.com",
       "phone": "Teléfono",
       "contactHint": "Proporciona un correo electrónico o un teléfono para la confirmación.",
+      "nameRequired": "Escribe tu nombre para que el restaurante sepa a quién esperar.",
       "requestsPlaceholder": "Alergias, celebraciones, preferencias de mesa...",
       "confirming": "Confirmando...",
       "complete": "Completar reserva"

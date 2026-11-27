@@ -1478,6 +1478,7 @@
       "emailPlaceholder": "john@example.com",
       "phone": "Phone",
       "contactHint": "Please provide either email or phone for confirmation.",
+      "nameRequired": "Enter your name so the venue knows who to expect.",
       "requestsPlaceholder": "Allergies, celebrations, seating preferences...",
       "confirming": "Confirming...",
       "complete": "Complete Reservation"

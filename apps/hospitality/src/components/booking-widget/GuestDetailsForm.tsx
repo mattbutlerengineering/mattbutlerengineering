@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useReducer } from "react";
+import { useState, useEffect, useCallback, useReducer, useRef } from "react";
 import { useForm } from "react-hook-form";
 import type { TimeSlot, ReservationHold } from "@mbe/types";
 import { Input, TextArea, Button, Alert, Text, Banner, Badge } from "@mattbutlerengineering/rialto";
@@ -72,6 +72,9 @@ export function GuestDetailsForm({
   const [phoneInput, setPhoneInput] = useState(initialDetails?.phone ?? "");
   const [notes, setNotes] = useState(initialDetails?.notes ?? "");
   const [nameEdited, setNameEdited] = useState(Boolean(initialDetails?.name));
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+  const nameRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
   // Force re-render every second so the hold countdown stays current
   const [, forceRender] = useReducer((c: number) => c + 1, 0);
 
@@ -114,9 +117,22 @@ export function GuestDetailsForm({
   const formattedDate = format.formatLongDate(date);
   const formattedTime = format.formatTime(slot.time);
 
+  // Errors show only after a submit attempt, then track the fields live.
+  const nameError = submitAttempted && name.trim().length === 0;
+  const contactError = submitAttempted && email.trim().length === 0 && phone.trim().length === 0;
+
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault();
+      setSubmitAttempted(true);
+      if (name.trim().length === 0) {
+        nameRef.current?.focus();
+        return;
+      }
+      if (email.trim().length === 0 && phone.trim().length === 0) {
+        emailRef.current?.focus();
+        return;
+      }
       onSubmit({ name, email, phone, notes });
     },
     [name, email, phone, notes, onSubmit]
@@ -128,8 +144,6 @@ export function GuestDetailsForm({
     },
     [recognize]
   );
-
-  const isValid = name.trim().length > 0 && (email.trim().length > 0 || phone.trim().length > 0);
 
   return (
     <div className={styles.container}>
@@ -173,7 +187,11 @@ export function GuestDetailsForm({
 
       <form noValidate onSubmit={handleSubmit} className={styles.form}>
         <Input
+          ref={nameRef}
           label={t("bookingWidget.details.name")}
+          required
+          error={nameError}
+          hint={nameError ? t("bookingWidget.details.nameRequired") : undefined}
           value={name}
           onChange={(e) => {
             setNameInput(e.target.value);
@@ -183,8 +201,13 @@ export function GuestDetailsForm({
           placeholder={t("bookingWidget.details.namePlaceholder")}
         />
 
+        {/* The either-email-or-phone guidance is stated once: on Email while it
+            is the error, otherwise on Phone. */}
         <Input
+          ref={emailRef}
           label={t("bookingWidget.details.email")}
+          error={contactError}
+          hint={contactError ? t("bookingWidget.details.contactHint") : undefined}
           type="email"
           value={email}
           onChange={(e) => {
@@ -197,6 +220,8 @@ export function GuestDetailsForm({
 
         <Input
           label={t("bookingWidget.details.phone")}
+          error={contactError}
+          hint={contactError ? undefined : t("bookingWidget.details.contactHint")}
           type="tel"
           value={phone}
           onChange={(e) => {
@@ -205,8 +230,6 @@ export function GuestDetailsForm({
           }}
           placeholder="(555) 123-4567"
         />
-
-        <Text className={styles.hint}>{t("bookingWidget.details.contactHint")}</Text>
 
         <TextArea
           label={t("bookingWidget.specialRequests.label")}
@@ -219,7 +242,7 @@ export function GuestDetailsForm({
           placeholder={t("bookingWidget.details.requestsPlaceholder")}
         />
 
-        <Button variant="primary" type="submit" disabled={!isValid || isLoading}>
+        <Button variant="primary" type="submit" disabled={isLoading}>
           {isLoading ? t("bookingWidget.details.confirming") : t("bookingWidget.details.complete")}
         </Button>
       </form>
