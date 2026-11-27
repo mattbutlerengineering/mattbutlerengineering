@@ -19,6 +19,8 @@ export interface WeekChangesProps {
   readonly onPlanHolidays: () => void;
   /** Section names by id, so a section closure reads "Bar closed". */
   readonly sectionNames?: ReadonlyMap<string, string>;
+  /** The viewer's settled role, from the page: only a Manager is offered holiday rows. */
+  readonly isManager: boolean;
 }
 
 interface HolidayRowProps {
@@ -145,7 +147,7 @@ function useFocusAfterLeave(
  * line says so and holds focus. On a phone it starts as one count line with Show.
  */
 export function WeekChanges(props: WeekChangesProps) {
-  const { venueId, config, onOpenDay, onPlanHolidays, sectionNames } = props;
+  const { venueId, config, onOpenDay, onPlanHolidays, sectionNames, isManager } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
   const headingId = useId();
@@ -156,7 +158,7 @@ export function WeekChanges(props: WeekChangesProps) {
   const headingRef = useRef<HTMLElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const emptyRef = useRef<HTMLElement>(null);
-  const { rows, first, more, decisions } = useWeekRows(venueId, config);
+  const { rows, first, more, decisions } = useWeekRows(venueId, config, isManager);
   const { statusOf, openAsUsual } = useOpenAsUsual(venueId, decisions);
   const visible = showAll ? rows : first;
   const leavingRef = useFocusAfterLeave(visible, {

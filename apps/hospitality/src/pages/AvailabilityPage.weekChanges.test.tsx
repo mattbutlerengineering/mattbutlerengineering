@@ -10,7 +10,9 @@ const read = vi.hoisted(() => ({ config: null as unknown }));
 const team = vi.hoisted(() => ({
   value: undefined as Partial<VenueTeam> | undefined,
   isLoading: false,
+  error: null as Error | null,
 }));
+const viewport = vi.hoisted(() => ({ value: "desktop" as "phone" | "tablet" | "desktop" }));
 const venue = vi.hoisted(() => ({
   selectedVenueId: "venue-1" as string | null,
   selectedVenue: { id: "venue-1", ianaTimezone: "America/Los_Angeles", currencyCode: "USD" },
@@ -62,10 +64,11 @@ vi.mock("../hooks/useVenueTeam.js", () => ({
   useVenueTeam: () => ({
     data: team.value,
     isLoading: team.isLoading,
-    error: null,
+    error: team.error,
     refetch: vi.fn(),
   }),
 }));
+vi.mock("../hooks/useViewport.js", () => ({ useViewport: () => viewport.value }));
 vi.mock("../hooks/useAvailabilityPreview.js", () => ({
   useAvailabilityPreview: () => ({ result: null, isFetching: false, error: null, retry: vi.fn() }),
 }));
@@ -145,6 +148,41 @@ describe("AvailabilityPage: Next 7 days", () => {
     read.config = withRules(closure("sat", "2026-11-07"));
     team.value = { viewerRole: "manager" };
     team.isLoading = false;
+    team.error = null;
+    viewport.value = "desktop";
+  });
+
+  /** True when `a` comes before `b` in the document. */
+  const precedes = (a: Element, b: Element) =>
+    (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+
+  it("sits above the layer control on a desktop", () => {
+    renderPage("/availability?tab=calendar");
+    expect(precedes(week(), screen.getByRole("radiogroup", { name: "Availability view" }))).toBe(
+      true
+    );
+  });
+
+  it("keeps a phone's first screen for days: its count line comes after the calendar", () => {
+    // #10008: above the calendar the line cost a phone one whole day of its first screen.
+    viewport.value = "phone";
+    renderPage("/availability?tab=calendar");
+    expect(within(week()).getByRole("button", { name: "Show" })).toBeInTheDocument();
+    const calendar = screen.getByRole("list", { name: /^Availability calendar/ });
+    expect(precedes(calendar, week())).toBe(true);
+  });
+
+  it("leaves the failed-read banner standing when the team read fails", () => {
+    team.value = undefined;
+    team.error = new Error("boom");
+    renderPage("/availability?tab=calendar");
+    const banner = screen
+      .getAllByRole("alert")
+      .find((el) => within(el).queryByText("Couldn't load availability"));
+    expect(banner).toBeDefined();
+    expect(within(banner!).getByRole("button", { name: "Retry" })).toBeInTheDocument();
+    // A failed read settles as a non-manager: the rule rows still show.
+    expect(within(week()).getByText("Sat, Nov 7 · Closed")).toBeInTheDocument();
   });
 
   it("shows a Manager, on the Schedules tab they land on, a closure 3 days out", () => {

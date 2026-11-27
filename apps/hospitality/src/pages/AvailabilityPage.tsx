@@ -765,6 +765,18 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
       calendarLayer
     );
 
+  // A phone's first screen is for days: its count line goes after the layer, not above it (#10008).
+  const weekChanges = config.data && tab !== "pending" && (
+    <WeekChanges
+      venueId={selectedVenueId}
+      config={config.data.config}
+      onOpenDay={(date) => changeTab({ tab: "calendar", then: { openDay: date } })}
+      onPlanHolidays={() => changeTab({ tab: "special" })}
+      sectionNames={sectionNames}
+      isManager={isManager}
+    />
+  );
+
   return (
     <Stack gap="md">
       {pageHeader(
@@ -780,15 +792,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         />
       )}
       {loadFailureBanner}
-      {config.data && tab !== "pending" && (
-        <WeekChanges
-          venueId={selectedVenueId}
-          config={config.data.config}
-          onOpenDay={(date) => changeTab({ tab: "calendar", then: { openDay: date } })}
-          onPlanHolidays={() => changeTab({ tab: "special" })}
-          sectionNames={sectionNames}
-        />
-      )}
+      {!onPhone && weekChanges}
       {tab !== "pending" && (
         <AvailabilityScheduleControls
           isManager={isManager}
@@ -797,6 +801,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         />
       )}
       {layer}
+      {onPhone && weekChanges}
       <GoToDateDialog
         open={goToOpen}
         initial={anchor}

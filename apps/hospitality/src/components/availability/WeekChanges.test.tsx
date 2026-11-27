@@ -14,7 +14,7 @@ const read = vi.hoisted(() => ({
   error: null as Error | null,
   params: undefined as unknown,
 }));
-const access = vi.hoisted(() => ({ isManager: true, isPending: false }));
+const access = { isManager: true };
 const viewport = vi.hoisted(() => ({ value: "desktop" as "phone" | "tablet" | "desktop" }));
 const setDecision = vi.hoisted(() => vi.fn());
 const clearDecision = vi.hoisted(() => vi.fn());
@@ -32,7 +32,15 @@ vi.mock("../../hooks/useHolidayDecisions.js", () => ({
   useSetHolidayDecision: () => ({ mutateAsync: setDecision, isPending: false }),
   useClearHolidayDecision: () => ({ mutateAsync: clearDecision, isPending: false }),
 }));
-vi.mock("../../hooks/useIsManager.js", () => ({ useManagerAccess: () => access }));
+// The role comes from the page as a prop. Reading the team here mounted a second observer on a
+// failed read, which refetched it, held the page in its role skeleton and hid the banner (#10008).
+const teamReads = vi.hoisted(() => ({ count: 0 }));
+vi.mock("../../hooks/useVenueTeam.js", () => ({
+  useVenueTeam: () => {
+    teamReads.count += 1;
+    return { data: undefined, isLoading: false, error: null, refetch: vi.fn() };
+  },
+}));
 vi.mock("../../hooks/useViewport.js", () => ({ useViewport: () => viewport.value }));
 // Noon on Mon Nov 23 in Los Angeles: the service date is Nov 23, so the window is Nov 24 to 30.
 vi.mock("../../hooks/useNow.js", () => ({ useNow: () => new Date("2026-11-23T20:00:00Z") }));
@@ -116,6 +124,7 @@ function renderWeek(cfg: AvailabilityConfig = config()) {
             config={cfg}
             onOpenDay={onOpenDay}
             onPlanHolidays={onPlanHolidays}
+            isManager={access.isManager}
           />
         </main>
       </ToastProvider>
@@ -143,7 +152,6 @@ describe("WeekChanges", () => {
     read.decisions = [decided("2026-11-26")];
     read.error = null;
     access.isManager = true;
-    access.isPending = false;
     viewport.value = "desktop";
     setDecision.mockReset().mockResolvedValue(decided("2026-11-26"));
     clearDecision.mockReset().mockResolvedValue(undefined);
@@ -407,11 +415,11 @@ describe("WeekChanges", () => {
       expect(onOpenDay).toHaveBeenCalledWith("2026-11-24");
     });
 
-    it("shows a Manager whose access is still pending no holiday rows", () => {
-      access.isPending = true;
-      renderWeek();
-      expect(screen.queryByText(/isn't planned yet/)).toBeNull();
-      expect(screen.queryByRole("region", { name: "Next 7 days" })).toBeNull();
+    it("never reads the team itself: the page's role is the only one it uses", () => {
+      teamReads.count = 0;
+      renderWeek(config({ dateRules: [closure("c1", "2026-11-24")] }));
+      expect(within(section()).getByText("Tue, Nov 24 · Closed")).toBeTruthy();
+      expect(teamReads.count).toBe(0);
     });
 
     it("leaves holiday rows out while the decisions load or failed, and still shows rule rows", () => {
