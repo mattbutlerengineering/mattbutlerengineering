@@ -1,0 +1,57 @@
+name: E2E After CI
+
+# Starts the advisory E2E suites (e2e.yml) only after a push's CI run, and so
+# its `CI Gate`, has passed (#10025, parent #10009: PR CI p90 under 15 min).
+# Before this, e2e.yml started shards on every push and took runner slots the
+# required ci.yml jobs were queued for.
+#
+# Security: `workflow_run` workflows run from the DEFAULT branch with secrets
+# and a write token, so this one must never check out, build or run PR code.
+# It has no checkout and does one thing: `gh workflow run e2e.yml --ref <branch>`.
+# e2e.yml then runs as a plain `workflow_dispatch` on that branch, the same
+# secrets context as a push to a branch in this repo. Fork PRs are skipped
+# (`head_repository` must be this repo): e2e.yml has no `pull_request` trigger,
+# so a fork PR gets no advisory E2E. Dependabot PRs are skipped too: the
+# Dependabot secret scope is empty here (#5623).
+#
+# No job here waits for CI: the trigger fires when CI has already completed.
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+permissions: {}
+
+jobs:
+  dispatch:
+    name: Dispatch advisory E2E
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      github.event.workflow_run.actor.login != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    steps:
+      # The branch name and PR fields are attacker-influenced strings: they reach
+      # the shell through env vars only, never interpolated into the script.
+      - name: Dispatch e2e.yml on the PR branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+        run: |
+          if gh workflow run e2e.yml --repo "$REPO" --ref "$HEAD_BRANCH" \
+            -f pr_number="$PR_NUMBER" -f head_sha="$HEAD_SHA"; then
+            echo "Dispatched e2e.yml on $HEAD_BRANCH @ $HEAD_SHA"
+          else
+            # A branch cut before e2e.yml took these inputs has no `pr_number` /
+            # `head_sha` to receive (HTTP 422), and still runs the old
+            # pull_request path. Warn rather than add a red check; rebasing fixes it.
+            echo "::warning::Could not dispatch e2e.yml on $HEAD_BRANCH. Its e2e.yml may predate the dispatch inputs; rebase onto main."
+          fi

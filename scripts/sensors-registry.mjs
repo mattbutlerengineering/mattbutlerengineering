@@ -1198,6 +1198,11 @@ export const SENSORS = [
         // missing from a scheduled checkout, which made every run
         // unresolvable; changed paths now fall back to the GitHub API.
         //
+        // #10025: e2e.yml now runs by `workflow_dispatch` (from
+        // e2e-after-ci.yml, after CI Gate passes), not `pull_request`. The
+        // query is by workflow with no `--event`, so it counts those runs
+        // unchanged; headBranch/headSha are the PR branch tip it ran on.
+        //
         // #9845: no-op runs (every suite job skipped) now dominate the list,
         // so fetch up to E2E_RAW_RUN_CAP and keep the newest E2E_WINDOW_RUNS
         // that actually ran a suite, judged by job conclusions.
