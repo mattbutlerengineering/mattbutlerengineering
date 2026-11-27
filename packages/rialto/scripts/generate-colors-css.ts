@@ -146,11 +146,14 @@ function renderSurfaceScopes(file: TokenGroup): string[] {
       const byTheme = themes as TokenGroup;
       const [light, nestedLight] = SCOPE_SELECTORS.light(scope);
       const [dark] = SCOPE_SELECTORS.dark(scope);
+      const darkGroup = byTheme["dark"] as TokenGroup;
+      // An empty dark group keeps the dark theme's values: no dark block.
+      const darkBlock =
+        walkTokens(darkGroup).length === 0 ? [] : [renderScopeBlock(dark as string, darkGroup), ""];
       return [
         renderScopeBlock(light as string, byTheme["light"] as TokenGroup),
         "",
-        renderScopeBlock(dark as string, byTheme["dark"] as TokenGroup),
-        "",
+        ...darkBlock,
         renderScopeBlock(nestedLight as string, byTheme["light"] as TokenGroup),
         "",
       ];

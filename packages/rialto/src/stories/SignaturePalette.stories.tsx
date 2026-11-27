@@ -1,4 +1,4 @@
-import { useEffect, type CSSProperties, type ReactNode } from "react";
+import type { CSSProperties } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Button } from "../components/Button";
 import { Card } from "../components/Card";
@@ -14,14 +14,12 @@ import {
 } from "./signature-pairs";
 
 /**
- * Kill-test board (rialto-signature-pass Milestone 1). Matt answers one
- * question from it: does "after" read as more Rialto and less generic?
- *
- * Not in src/test/visual/visual.spec.ts: the screenshots are for the go/no-go
- * issue, never a committed baseline. `data-palette="signature"` is @internal.
+ * Signature palette board (rialto-signature-pass). The signature palette is
+ * the default, so every cell renders without a scope attribute. Not in
+ * src/test/visual/visual.spec.ts.
  */
 const meta: Meta = {
-  title: "Palette/Signature kill test",
+  title: "Palette/Signature",
   parameters: { layout: "fullscreen" },
 };
 
@@ -53,11 +51,7 @@ function RowContent({ row, column }: { row: BoardRow; column: BoardColumn }) {
         <div style={column_}>
           <Input label="Guest" placeholder="Name" />
           <Input label="Party" defaultValue="4 guests" />
-          {column.surface === "velvet" ? (
-            <p style={note}>Invalid: n/a (error red is not re-declared on velvet)</p>
-          ) : (
-            <Input label="Phone" defaultValue="555" error hint="Too short" />
-          )}
+          <Input label="Phone" defaultValue="555" error hint="Too short" />
         </div>
       );
     case "Select":
@@ -88,31 +82,12 @@ function RowContent({ row, column }: { row: BoardRow; column: BoardColumn }) {
   }
 }
 
-function Cell({
-  row,
-  variant,
-  column,
-}: {
-  row: BoardRow;
-  variant: "before" | "after";
-  column: BoardColumn;
-}) {
-  const testId = `cell-${variant}-${column.id}`;
-  if (variant === "before" && column.surface !== null) {
-    return (
-      <div data-testid={testId} data-column={column.id} data-theme={column.theme} style={paint}>
-        <p style={note}>n/a: new surface</p>
-      </div>
-    );
-  }
-  const painted = (
-    <div data-surface={column.surface ?? undefined} style={paint}>
-      <RowContent row={row} column={column} />
-    </div>
-  );
+function Cell({ row, column }: { row: BoardRow; column: BoardColumn }) {
   return (
-    <div data-testid={testId} data-column={column.id} data-theme={column.theme}>
-      {variant === "after" ? <div data-palette="signature">{painted}</div> : painted}
+    <div data-testid={`cell-${column.id}`} data-column={column.id} data-theme={column.theme}>
+      <div data-surface={column.surface ?? undefined} style={paint}>
+        <RowContent row={row} column={column} />
+      </div>
     </div>
   );
 }
@@ -155,16 +130,12 @@ export function SignatureBoard() {
       </div>
       {BOARD_ROWS.map((row) => (
         <section key={row} data-testid={`row-${row}`} data-row={row} style={section}>
-          {(["before", "after"] as const).map((variant) => (
-            <div key={variant} style={grid}>
-              <strong style={head}>
-                {row} {variant}
-              </strong>
-              {BOARD_COLUMNS.map((column) => (
-                <Cell key={column.id} row={row} variant={variant} column={column} />
-              ))}
-            </div>
-          ))}
+          <div style={grid}>
+            <strong style={head}>{row}</strong>
+            {BOARD_COLUMNS.map((column) => (
+              <Cell key={column.id} row={row} column={column} />
+            ))}
+          </div>
           <Caption row={row} />
         </section>
       ))}
@@ -176,27 +147,12 @@ export const Board: Story = {
   render: () => <SignatureBoard />,
 };
 
-/**
- * Select's list portals to <body>, outside any cell's scope, so the open
- * list's highlighted (plum-muted) and selected (gold check) options are shown
- * here with the scope set on <body> for this story only.
- */
-function BodyPalette({ children }: { children: ReactNode }) {
-  useEffect(() => {
-    document.body.setAttribute("data-palette", "signature");
-    return () => document.body.removeAttribute("data-palette");
-  }, []);
-  return <>{children}</>;
-}
-
-export const SelectOpenAfter: Story = {
-  name: "Select open (after)",
+export const SelectOpen: Story = {
+  name: "Select open",
   render: () => (
-    <BodyPalette>
-      <div style={{ ...paint, minHeight: 320 }}>
-        <Select label="Table" options={TABLES} value="t7" onChange={noop} />
-      </div>
-    </BodyPalette>
+    <div style={{ ...paint, minHeight: 320 }}>
+      <Select label="Table" options={TABLES} value="t7" onChange={noop} />
+    </div>
   ),
 };
 
@@ -212,7 +168,7 @@ const board: CSSProperties = {
 };
 const grid: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "120px repeat(5, minmax(260px, 1fr))",
+  gridTemplateColumns: "120px repeat(4, minmax(260px, 1fr))",
   gap: "var(--rialto-space-sm)",
   alignItems: "stretch",
 };

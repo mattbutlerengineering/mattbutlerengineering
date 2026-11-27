@@ -115,32 +115,31 @@
   font-weight: var(--rialto-weight-regular);
 }
 
-/* ── Signature palette (@internal kill test) ──
-   Reads the Tier-3 tokens that component-tokens.css re-points under
-   data-palette="signature". Scoped to that attribute, so nothing outside the
-   kill-test board changes. Promoted or deleted after the go/no-go. */
-:global([data-palette="signature"]) .input {
+/* ── Signature palette ──
+   Reads the Tier-3 tokens that component-tokens.css re-points for the
+   signature palette. */
+.input {
   background: var(--rialto-input-bg);
   color: var(--rialto-input-text);
   caret-color: var(--rialto-input-caret);
 }
 
-:global([data-palette="signature"]) .input::selection {
+.input::selection {
   background: var(--rialto-input-selection-bg);
   color: var(--rialto-input-selection-text);
 }
 
-:global([data-palette="signature"]) .input:hover {
+.input:hover {
   border-color: var(--rialto-input-border-hover);
 }
 
 /* Focus and error borders stay as they are: the scoped hover rule above
    would otherwise outrank them. */
-:global([data-palette="signature"]) .input:focus-visible {
+.input:focus-visible {
   border-color: var(--rialto-accent);
 }
 
-:global([data-palette="signature"]) .error .input,
-:global([data-palette="signature"]) .error .input:hover {
+.error .input,
+.error .input:hover {
   border-color: var(--rialto-error);
 }

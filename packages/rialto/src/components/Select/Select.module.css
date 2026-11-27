@@ -195,33 +195,32 @@
   font-weight: var(--rialto-weight-regular);
 }
 
-/* ── Signature palette (@internal kill test) ──
-   Reads the Tier-3 tokens that component-tokens.css re-points under
-   data-palette="signature". Scoped to that attribute, so nothing outside the
-   kill-test board changes. Promoted or deleted after the go/no-go. */
+/* ── Signature palette ──
+   Reads the Tier-3 tokens that component-tokens.css re-points for the
+   signature palette. */
 /* The trigger reads as an Input: the well, its text, a plum hover border. */
-:global([data-palette="signature"]) .trigger {
+.trigger {
   background: var(--rialto-input-bg);
   color: var(--rialto-input-text);
 }
 
-:global([data-palette="signature"]) .trigger:hover {
+.trigger:hover {
   border-color: var(--rialto-input-border-hover);
 }
 
-:global([data-palette="signature"]) .trigger[data-open="true"] {
+.trigger[data-open="true"] {
   border-color: var(--rialto-accent);
 }
 
-:global([data-palette="signature"]) .error .trigger,
-:global([data-palette="signature"]) .error .trigger:hover {
+.error .trigger,
+.error .trigger:hover {
   border-color: var(--rialto-error);
 }
 
 /* The list portals to <body>, so this matches only when the scope is on an
    ancestor of body (the board's open-Select story sets it there). Selected
    keeps the gold check. */
-:global([data-palette="signature"]) .option:hover,
-:global([data-palette="signature"]) .option[data-focused="true"] {
+.option:hover,
+.option[data-focused="true"] {
   background: var(--rialto-select-option-highlight-bg);
 }

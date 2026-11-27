@@ -30,7 +30,7 @@
         "tinted": {
           "$value": "#e9dfcf",
           "$type": "color",
-          "$description": "Parchment band (smoked brass in dark): page bands, Tabs track, grouped regions. Pair with data-surface=\"tinted\""
+          "$description": "Parchment band (the recessed surface in dark: dark tinted is not a signature surface): page bands, Tabs track, grouped regions. Pair with data-surface=\"tinted\""
         },
         "velvet": {
           "$value": "#4a3a5c",
@@ -294,7 +294,7 @@
           "$type": "color"
         },
         "tinted": {
-          "$value": "#3b3022",
+          "$value": "#141312",
           "$type": "color"
         },
         "velvet": {
