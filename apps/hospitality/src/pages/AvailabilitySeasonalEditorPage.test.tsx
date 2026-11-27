@@ -128,6 +128,16 @@ describe("AvailabilitySeasonalEditorPage", () => {
     );
   });
 
+  it("takes typed dates: the fields are not read-only, and Enter reads the date", () => {
+    renderPage("/availability/seasonal/new");
+    const starting = screen.getByRole("combobox", { name: "Starting" });
+    expect(starting).not.toHaveAttribute("readonly");
+    fireEvent.change(starting, { target: { value: "2026-12-01" } });
+    fireEvent.keyDown(starting, { key: "Enter" });
+    expect(starting).toHaveValue("Dec 1, 2026");
+    expect(screen.queryByText(/not a date/i)).not.toBeInTheDocument();
+  });
+
   it("starts as a copy of the set ?copy= names, with no days of its own", () => {
     renderPage("/availability/seasonal/new?copy=wk");
     expect(

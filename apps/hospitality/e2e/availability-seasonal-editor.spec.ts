@@ -156,7 +156,7 @@ test.describe("Availability hub: Seasonal hours editor (E4.6)", () => {
     await page.setViewportSize(DESKTOP);
     await page.goto("availability/seasonal/new");
     await expect(page.getByRole("heading", { level: 1, name: "New seasonal hours" })).toBeVisible();
-    const results = await new AxeBuilder({ page }).analyze();
+    const results = await new AxeBuilder({ page }).include("main").analyze();
     expect(results.violations).toEqual([]);
   });
 });

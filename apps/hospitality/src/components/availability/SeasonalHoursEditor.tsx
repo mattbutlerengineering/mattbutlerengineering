@@ -134,6 +134,7 @@ export function SeasonalHoursEditor(props: SeasonalHoursEditorProps) {
                   value={e.startsOn}
                   max={e.endsOn ?? undefined}
                   locale={format.locale}
+                  editable
                   onChange={e.setStartsOn}
                 />
                 <DatePicker
@@ -142,6 +143,9 @@ export function SeasonalHoursEditor(props: SeasonalHoursEditorProps) {
                   value={e.endsOn}
                   min={e.startsOn ?? undefined}
                   locale={format.locale}
+                  editable
+                  // Opens on the start date's month, where the season's end is most likely.
+                  defaultMonth={e.startsOn ?? undefined}
                   onChange={e.setEndsOn}
                 />
                 {e.endsOn !== null && (
