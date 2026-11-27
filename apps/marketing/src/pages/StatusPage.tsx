@@ -144,12 +144,12 @@ export function StatusPage() {
             {overall === "loading" ? "Checking..." : statusLabel(overall)}
           </Badge>
         </div>
-        {lastRefresh && (
-          <Text className={styles.lastChecked}>
-            Last checked: {new Date(lastRefresh).toLocaleTimeString()}
-            {" · "}Refreshes every 30s
-          </Text>
-        )}
+        {/* Always rendered so the line's height is reserved before the first probe round. */}
+        <Text className={styles.lastChecked}>
+          {lastRefresh
+            ? `Last checked: ${new Date(lastRefresh).toLocaleTimeString()} · Refreshes every 30s`
+            : "Checking services…"}
+        </Text>
       </header>
 
       <section className={styles.section}>
