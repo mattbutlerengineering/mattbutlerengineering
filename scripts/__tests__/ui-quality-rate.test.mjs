@@ -670,13 +670,22 @@ describe("record stamps calibration status from the latest record with the fire'
   });
 });
 
-describe("committed calibration.json placeholder", () => {
-  const placeholder = JSON.parse(
-    readFileSync(join(REPO, "docs/ui-quality/calibration.json"), "utf8")
-  );
+const PLACEHOLDER = { labelled_at: null, labelled_by: null, pairs: [] };
 
-  it("ships labelled_at: null and pairs: [] and validates against the schema", () => {
-    expect(placeholder).toEqual({ labelled_at: null, labelled_by: null, pairs: [] });
+describe("committed calibration.json", () => {
+  it("is the Owner's labelled set and validates in full against the committed images (#9700)", () => {
+    const committed = JSON.parse(
+      readFileSync(join(REPO, "docs/ui-quality/calibration.json"), "utf8")
+    );
+    expect(committed.labelled_by).toBe("Matt");
+    expect(validateCalibrationSet(committed, { root: REPO, rubric: RUBRIC })).toEqual([]);
+  });
+});
+
+describe("unlabelled calibration.json placeholder", () => {
+  const placeholder = PLACEHOLDER;
+
+  it("validates against the schema with allowEmpty", () => {
     expect(
       validateCalibrationSet(placeholder, { root: REPO, rubric: RUBRIC, allowEmpty: true })
     ).toEqual([]);
@@ -799,8 +808,7 @@ describe("rate.mjs calibration-status --model-id <id>", () => {
   });
 
   it("the unlabelled placeholder (pairs: []) reads stale (exit 3), never bad input", () => {
-    const placeholder = readFileSync(join(REPO, "docs/ui-quality/calibration.json"));
-    writeFileSync(join(root, "docs/ui-quality/calibration.json"), placeholder);
+    writeFileSync(join(root, "docs/ui-quality/calibration.json"), JSON.stringify(PLACEHOLDER));
     expect(status().code).toBe(3);
   });
 

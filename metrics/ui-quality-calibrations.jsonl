@@ -1,0 +1,1 @@
+{"ts":"2026-11-27T03:38:16Z","model_id":"claude-opus-5-5","rubric_version":1,"set_sha256":"35e55869770d8b7faad298cf1fedf9be97ee6f8a5f6e1be4fe7348852c06924c","labelled_at":"2026-11-27","pairs":10,"agreement":0.4,"inversions":1,"pass":false,"pass_mark":{"agreement":0.8,"inversions":0}}

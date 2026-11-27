@@ -1,5 +1,66 @@
 {
-  "labelled_at": null,
-  "labelled_by": null,
-  "pairs": []
+  "labelled_at": "2026-11-27",
+  "labelled_by": "Matt",
+  "pairs": [
+    {
+      "ours": "docs/ui-quality/calibration/hospitality-dashboard.png",
+      "ours_sha256": "a5e83afa7626092ae6a054f006bf653951eb7ed927f3804e7c8f83291ed19067",
+      "reference": "shadcn-dashboard-01",
+      "human_prefers": "ours"
+    },
+    {
+      "ours": "docs/ui-quality/calibration/hospitality-dashboard.png",
+      "ours_sha256": "a5e83afa7626092ae6a054f006bf653951eb7ed927f3804e7c8f83291ed19067",
+      "reference": "tremor-overview",
+      "human_prefers": "ours"
+    },
+    {
+      "ours": "docs/ui-quality/calibration/hospitality-night.png",
+      "ours_sha256": "2a3a6942a30d3da0a7579eeb3d6adff803451bc0e5b6847b4d0751a99e796128",
+      "reference": "tremor-overview",
+      "human_prefers": "reference"
+    },
+    {
+      "ours": "docs/ui-quality/calibration/hospitality-night.png",
+      "ours_sha256": "2a3a6942a30d3da0a7579eeb3d6adff803451bc0e5b6847b4d0751a99e796128",
+      "reference": "shadcn-dashboard-01",
+      "human_prefers": "reference"
+    },
+    {
+      "ours": "docs/ui-quality/calibration/hospitality-booking-widget.png",
+      "ours_sha256": "78e1c7c76bd179fe9144c9931b63f0d12f3dfc054b7e4f2f10cea4a584e50b7a",
+      "reference": "medusa-checkout",
+      "human_prefers": "reference"
+    },
+    {
+      "ours": "docs/ui-quality/calibration/hospitality-booking-widget.png",
+      "ours_sha256": "78e1c7c76bd179fe9144c9931b63f0d12f3dfc054b7e4f2f10cea4a584e50b7a",
+      "reference": "medusa-product",
+      "human_prefers": "ours"
+    },
+    {
+      "ours": "docs/ui-quality/calibration/marketing-home.png",
+      "ours_sha256": "c7f1ae789c9b63654ce7b87124af160e32edebe7c537d7805c0b8b258f9f6567",
+      "reference": "shadcn-home",
+      "human_prefers": "ours"
+    },
+    {
+      "ours": "docs/ui-quality/calibration/marketing-home.png",
+      "ours_sha256": "c7f1ae789c9b63654ce7b87124af160e32edebe7c537d7805c0b8b258f9f6567",
+      "reference": "mantine-home",
+      "human_prefers": "reference"
+    },
+    {
+      "ours": "docs/ui-quality/calibration/rialto-button-docs.png",
+      "ours_sha256": "df0be97de9c761690e2989bf70ac35d4447b80df1a782653471d1cd55d8391a8",
+      "reference": "mantine-button-docs",
+      "human_prefers": "reference"
+    },
+    {
+      "ours": "docs/ui-quality/calibration/rialto-button-docs.png",
+      "ours_sha256": "df0be97de9c761690e2989bf70ac35d4447b80df1a782653471d1cd55d8391a8",
+      "reference": "chakra-button-docs",
+      "human_prefers": "reference"
+    }
+  ]
 }
