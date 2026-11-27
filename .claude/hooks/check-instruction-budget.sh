@@ -41,10 +41,17 @@ if [[ -z "$root" || ! -d "$root" ]]; then
 fi
 [[ -z "$root" ]] && exit 0
 
+# git prints a physical root (/private/var/... on macOS), while the edited
+# path may run through a symlink (/var/...). Compare physical paths, or the
+# strip below misses and the budget check is skipped (#9850).
+root=$(cd "$root" 2>/dev/null && pwd -P) || exit 0
+file_dir=$(cd "$(dirname "$file_path")" 2>/dev/null && pwd -P) || exit 0
+physical_path="$file_dir/$(basename "$file_path")"
+
 # Exact repo-relative match, not a basename match: a nested CLAUDE.md
 # (packages/rialto/CLAUDE.md, services/agent/CLAUDE.md, ...) is not budgeted
 # and must not reach node either.
-relative="${file_path#"$root"/}"
+relative="${physical_path#"$root"/}"
 case "$relative" in
   CLAUDE.md | .claude/rules/gotchas.md) ;;
   *) exit 0 ;;
