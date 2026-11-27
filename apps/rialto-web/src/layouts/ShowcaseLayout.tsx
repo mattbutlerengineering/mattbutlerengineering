@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router";
 import { Footer, GlobalNav } from "@mattbutlerengineering/rialto";
+import { globalNavProps } from "@mbe/site-nav";
 import { ShowcaseSidebar } from "../components/ShowcaseSidebar";
 import { NAV_SECTIONS, DEMO_PAGES } from "../data/nav-sections";
 import { useScrollToTop } from "../hooks/use-scroll-to-top.js";
@@ -67,6 +68,7 @@ export function ShowcaseLayout() {
         currentApp="rialto"
         theme={theme}
         onThemeToggle={toggleTheme}
+        {...globalNavProps("/rialto/")}
         mobileMenuOpen={navMenuOpen}
         onMobileMenuOpenChange={handleNavMenuOpenChange}
       />

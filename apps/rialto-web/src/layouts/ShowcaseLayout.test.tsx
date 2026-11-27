@@ -10,12 +10,19 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     onThemeToggle,
     mobileMenuOpen,
     onMobileMenuOpenChange,
+    menu,
   }: {
     onThemeToggle?: () => void;
     mobileMenuOpen?: boolean;
     onMobileMenuOpenChange?: (open: boolean) => void;
+    menu?: { label: string; items: readonly { label: string }[] };
   }) => (
     <nav data-testid="global-nav">
+      {menu && (
+        <span data-testid="engineering-menu">
+          {menu.label}: {menu.items.map((i) => i.label).join(",")}
+        </span>
+      )}
       <button onClick={onThemeToggle} data-testid="theme-toggle">
         toggle
       </button>
@@ -90,6 +97,13 @@ describe("ShowcaseLayout", () => {
     renderLayout();
     expect(screen.getByTestId("global-nav")).toBeInTheDocument();
     expect(screen.getByTestId("sidebar")).toBeInTheDocument();
+  });
+
+  it("renders the Engineering menu in the header", () => {
+    renderLayout();
+    expect(screen.getByTestId("engineering-menu")).toHaveTextContent(
+      "Engineering: Metrics,Shipped"
+    );
   });
 
   it("toggles mobile menu", () => {

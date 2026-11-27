@@ -300,6 +300,11 @@
     },
     {
       "from": "@mbe/rialto-web",
+      "to": "@mbe/site-nav",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/rialto-web",
       "to": "@mbe/config",
       "type": "devDependency"
     },
