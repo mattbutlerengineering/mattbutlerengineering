@@ -57,7 +57,7 @@ Your job is to:
 
    **If the issue touches a Prisma schema or migration**, invoke the `/idea-to-prod:prisma-migrations` skill first for the house migration workflow (dev vs. prod, baselining, destructive-change rules) before writing the migration.
 
-3. **TDD implementation** — Work in vertical slices. For each slice:
+3. **TDD implementation** — Start with the issue's `## Edge cases` section, if it has one: each listed case gets its own failing test before any implementation, and its own line in the PR body naming that test. The Reviewer lists edge cases independently and flags any untested case it can break, so a skipped case costs a rework cycle. Then work in vertical slices. For each slice:
    - Write ONE failing test (RED), run it, confirm it fails
    - Write minimal code to pass (GREEN), run it, confirm it passes
    - Move to the next slice
@@ -144,7 +144,9 @@ Your job is to:
    ```bash
    gh pr create --base main --title "<type>: <description>" --body "Closes #<ISSUE_NUMBER>
 
-   <summary of changes and gate results>"
+   <summary of changes and gate results>
+
+   Edge cases: <one line per case from the issue, naming its test>"
    gh pr view --json baseRefName --jq .baseRefName   # must print: main
    ```
 

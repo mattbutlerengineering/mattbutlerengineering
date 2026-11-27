@@ -64,7 +64,8 @@ Scores ≥ **7** constitute a passing grade. Scores ≤ **6** produce a `"flag"`
 
 - **Start at 10 and deduct** rather than building up from zero.
 - **One major defect** (hallucination, regression, security) → max 4.
-- **One minor defect** (lint violation, missing edge case) → max 8.
+- **One minor defect** (lint violation, style-level gap) → max 8.
+- **One untested escape-class edge case** with a concrete failing input → `incomplete`, max 6. The Reviewer lists edge cases from the task before reading the diff (`.claude/agents/reviewer.md` § List edge cases before reading the diff).
 - **Missing AC** → score based on proportion met (e.g. 3 of 5 AC → max 6).
 - **All tests passing + no lint/type errors** → floor of 5 even with quality nits.
 
