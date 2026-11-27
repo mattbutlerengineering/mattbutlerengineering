@@ -1,6 +1,6 @@
 # Contributing to mattbutlerengineering
 
-Thanks for considering a contribution. This monorepo is hospitality-platform code (Rialto design system + Fastify services + React apps). Most of it is application code, not a library — but the [`@mattbutlerengineering/rialto`](./packages/rialto/) package is published to GitHub Packages and accepts external contributions. (It is not on npmjs.org — `npm view @mattbutlerengineering/rialto` 404s by design; see [README.md](./README.md#using-rialto) for the `.npmrc` line you need.)
+Thanks for considering a contribution. This monorepo is hospitality-platform code (Rialto design system + Fastify services + React apps). Most of it is application code, not a library. The [`@mattbutlerengineering/rialto`](./packages/rialto/) design system is workspace-only: it is not published to any registry (#9838), and the apps consume it via `workspace:*`.
 
 ## Quick start
 
