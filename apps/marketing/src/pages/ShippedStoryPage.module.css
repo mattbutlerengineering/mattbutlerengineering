@@ -2,9 +2,13 @@
   max-width: 800px;
   margin: 0 auto;
   padding: var(--rialto-space-2xl) var(--rialto-space-lg);
-  /* Proposal text, issue and PR titles carry paths, backticked JSON and
-     identifiers with no break opportunity. Inherited by every child, so no
-     story content type can widen the page (#9978). */
+}
+
+/* Proposal text carries paths and backticked JSON with no break opportunity
+   (#9978). Body text only: headings keep normal wrapping so "Decomposition"
+   never splits mid-word; links already wrap via .link. */
+.subtitle,
+.section p {
   overflow-wrap: anywhere;
 }
 
@@ -23,6 +27,8 @@
 
 .heading {
   margin-bottom: var(--rialto-space-sm);
+  /* break-word splits a title token only when it cannot fit a line alone */
+  overflow-wrap: break-word;
 }
 
 @media (max-width: 480px) {

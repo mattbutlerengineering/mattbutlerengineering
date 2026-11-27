@@ -157,13 +157,20 @@ const LONG_TOKEN_STORIES = [
 
 for (const story of LONG_TOKEN_STORIES) {
   test(`${story} wraps long tokens inside a 375px viewport`, async ({ page }) => {
-    await page.setViewportSize({ width: 375, height: 812 });
-    await page.goto(story);
-    await expect(page.getByRole("heading", { name: "Decomposition", level: 2 })).toBeVisible();
-    const { scrollWidth, clientWidth } = await page.evaluate(() => ({
-      scrollWidth: document.documentElement.scrollWidth,
-      clientWidth: document.documentElement.clientWidth,
-    }));
+    await openStory(page, story, "light", 375, 812);
+    const { scrollWidth, clientWidth } = await measureStory(page);
     expect(scrollWidth).toBeLessThanOrEqual(clientWidth + EDGE_SLACK_PX);
+    // Long-token wrapping must stay off headings: "Decomposition" is one word
+    // and must render on a single line, never "Decompositio|n".
+    const lines = await page.evaluate(() => {
+      const h2 = [...document.querySelectorAll("h2")].find(
+        (el) => el.textContent?.trim() === "Decomposition"
+      );
+      if (!h2) return 0;
+      const range = document.createRange();
+      range.selectNodeContents(h2);
+      return range.getClientRects().length;
+    });
+    expect(lines, "Decomposition heading must not break mid-word").toBe(1);
   });
 }
