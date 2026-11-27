@@ -288,7 +288,8 @@ describe("AiHealthPage", () => {
     const note = await screen.findByTestId("ai-health-freshness-note");
     expect(note).toHaveTextContent(/weekly count with its own date/);
     expect(note).toHaveTextContent(/no separate Review Coverage or SDLC Speed panel/);
-    expect(note).toHaveTextContent(/Review Burden/);
+    expect(note).toHaveTextContent(/does not show a review coverage figure/);
+    expect(note).not.toHaveTextContent(/Review Burden/);
     expect(note).toHaveTextContent(/Eval Pass Rate is on the metrics page/);
     expect(within(note).getByRole("link", { name: "metrics page" })).toHaveAttribute(
       "href",
