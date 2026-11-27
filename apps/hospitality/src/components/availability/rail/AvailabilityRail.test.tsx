@@ -86,4 +86,23 @@ describe("AvailabilityRail", () => {
     fireEvent.click(screen.getByRole("link", { name: "Dinner" }));
     expect(onPick).toHaveBeenCalledTimes(1);
   });
+
+  it("scrolls the sidebar to the current node, so the tree shows where the page sits", () => {
+    const scroll = vi.fn();
+    const original = HTMLElement.prototype.scrollIntoView;
+    HTMLElement.prototype.scrollIntoView = scroll;
+    try {
+      const { rerender } = renderRail("hours");
+      expect(scroll.mock.contexts.at(-1)).toBe(screen.getByRole("link", { name: "Regular hours" }));
+      rerender(
+        <MemoryRouter>
+          <AvailabilityRail groups={GROUPS} selectedId="service:d" onPick={onPick} />
+        </MemoryRouter>
+      );
+      expect(scroll.mock.contexts.at(-1)).toBe(screen.getByRole("link", { name: "Dinner" }));
+      expect(scroll).toHaveBeenLastCalledWith({ block: "nearest" });
+    } finally {
+      HTMLElement.prototype.scrollIntoView = original;
+    }
+  });
 });

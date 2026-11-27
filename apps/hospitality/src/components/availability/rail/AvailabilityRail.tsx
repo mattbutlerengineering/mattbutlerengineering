@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Text } from "@mattbutlerengineering/rialto";
@@ -58,8 +59,16 @@ function RailList({
 export function AvailabilityRail({ groups, selectedId, onPick }: AvailabilityRailProps) {
   const { t } = useTranslation();
   const labelOf = useLabel();
+  // The sidebar scrolls: keep the open page's node in view, so the tree shows where it sits.
+  const navRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    navRef.current
+      ?.querySelector<HTMLElement>('[aria-current="page"]')
+      // Optional: jsdom has no scrollIntoView.
+      ?.scrollIntoView?.({ block: "nearest" });
+  }, [selectedId]);
   return (
-    <nav className={styles.rail} aria-label={t("availabilityHub.rail.label")}>
+    <nav ref={navRef} className={styles.rail} aria-label={t("availabilityHub.rail.label")}>
       {groups
         .filter((g) => g.nodes.length > 0)
         .map((g) => (
