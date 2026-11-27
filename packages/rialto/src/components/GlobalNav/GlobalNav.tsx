@@ -114,9 +114,29 @@ export const GlobalNav = forwardRef<HTMLElement, GlobalNavProps>(
       setMenuOpen(!menuOpen);
     }, [menuOpen, setMenuOpen]);
 
+    const hamburgerRef = useRef<HTMLButtonElement>(null);
+
+    // Escape from anywhere in the open menu closes it and hands focus back to the toggle.
+    const tabbedRef = useRef(false);
+
     const handleKeyDown = useCallback(
       (e: React.KeyboardEvent) => {
+        if (e.key === "Tab") tabbedRef.current = true;
         if (e.key === "Escape" && menuOpen) {
+          setMenuOpen(false);
+          hamburgerRef.current?.focus();
+        }
+      },
+      [menuOpen, setMenuOpen]
+    );
+
+    // Keyboard focus that leaves the nav must not land under the still-open sticky header.
+    // Pointer taps are left alone: closing on mousedown shifts the layout and the tap misses.
+    const handleNavBlur = useCallback(
+      (e: FocusEvent<HTMLElement>) => {
+        const viaTab = tabbedRef.current;
+        tabbedRef.current = false;
+        if (menuOpen && viaTab && e.relatedTarget && !e.currentTarget.contains(e.relatedTarget)) {
           setMenuOpen(false);
         }
       },
@@ -194,7 +214,16 @@ export const GlobalNav = forwardRef<HTMLElement, GlobalNavProps>(
       currentApp === app && (app !== "marketing" || homeIsCurrent);
 
     return (
-      <nav ref={ref} className={classes} aria-label={messages.globalNavigation} {...props}>
+      // Handlers only observe Escape and focus leaving events bubbling from the links inside.
+      // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
+      <nav
+        ref={ref}
+        className={classes}
+        aria-label={messages.globalNavigation}
+        onKeyDown={handleKeyDown}
+        onBlur={handleNavBlur}
+        {...props}
+      >
         <div className={styles.inner}>
           {/* ── Brand ──────────────────────────────── */}
           <a href="/" className={styles.brand}>
@@ -260,10 +289,10 @@ export const GlobalNav = forwardRef<HTMLElement, GlobalNavProps>(
 
             {/* ── Mobile hamburger ──────────────────── */}
             <button
+              ref={hamburgerRef}
               type="button"
               className={styles.hamburger}
               onClick={handleToggle}
-              onKeyDown={handleKeyDown}
               aria-expanded={menuOpen}
               aria-controls={mobileMenuId}
               aria-label={menuOpen ? messages.closeMenu : messages.openMenu}
