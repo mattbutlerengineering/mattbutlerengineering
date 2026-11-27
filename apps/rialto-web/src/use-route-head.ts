@@ -1,18 +1,8 @@
 import { useEffect } from "react";
 import { useLocation } from "react-router";
+import { setMeta } from "./head-meta.js";
 import { PAGE_REGISTRY } from "./data/page-registry.js";
 import { resolveHead, type Head } from "./data/route-head-data.js";
-
-function setMeta(attribute: "name" | "property", key: string, content: string): void {
-  const selector = `meta[${attribute}="${key}"]`;
-  let tag = document.head.querySelector<HTMLMetaElement>(selector);
-  if (!tag) {
-    tag = document.createElement("meta");
-    tag.setAttribute(attribute, key);
-    document.head.appendChild(tag);
-  }
-  tag.setAttribute("content", content);
-}
 
 function setCanonical(href: string): void {
   let link = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]');

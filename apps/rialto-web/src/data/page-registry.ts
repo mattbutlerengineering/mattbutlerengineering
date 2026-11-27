@@ -304,7 +304,7 @@ const RAW_PAGE_ENTRIES: RawPageEntry[] = [
   {
     id: "example-command-palette",
     label: "Command Palette Demo",
-    heading: "Command Palette",
+    heading: "Command Palette example",
     category: "Examples",
     load: () =>
       import("../pages/examples/CommandPaletteExamplePage").then((m) => ({
