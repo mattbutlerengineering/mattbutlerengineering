@@ -164,7 +164,7 @@ CI's Build job regenerates `infrastructure/worker/dep-graph.json`; it fails the 
 
 ## Pairs with
 
-- The `pre-push` Bash hook in `.claude/settings.json` — that hook auto-fires this on `git push`, but you can run `/local-ci-precheck` manually anytime mid-iteration without committing.
+- The `pre-push-typecheck.sh` Bash hook in `.claude/settings.json` — it auto-fires on `git push`, but only the typecheck lane (changed packages only); it doesn't run lint, architecture-audit, drift, or bundle-size. Run `/local-ci-precheck` manually for the full set anytime mid-iteration without committing.
 - `/site-audit` — covers the runtime/UX dimension; this covers the build-time/types dimension.
 - `/ci-monitor` — for after the push, when you need to check what CI is doing on the remote.
 
