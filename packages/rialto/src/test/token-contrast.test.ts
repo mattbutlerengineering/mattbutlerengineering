@@ -96,6 +96,31 @@ describe("Light theme — text on surface (4.5:1 minimum)", () => {
   });
 });
 
+describe("Light theme — text on the recessed and tinted surfaces (#9979, 4.5:1 minimum)", () => {
+  const recessed = colors.color.surface.recessed.$value;
+  const tinted = colors.color.surface.tinted.$value;
+
+  it("text-tertiary on surface-elevated", () => {
+    expect(contrastRatio(textTertiary, surfaceElevated)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("text-tertiary on surface-recessed", () => {
+    expect(contrastRatio(textTertiary, recessed)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("error on surface-elevated", () => {
+    expect(contrastRatio(error, surfaceElevated)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("error on surface-recessed", () => {
+    expect(contrastRatio(error, recessed)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("error on surface-tinted", () => {
+    expect(contrastRatio(error, tinted)).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
 describe("Light theme — semantic text on surface (4.5:1 minimum)", () => {
   it("error on surface", () => {
     expect(contrastRatio(error, surface)).toBeGreaterThanOrEqual(4.5);

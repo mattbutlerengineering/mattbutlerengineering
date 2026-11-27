@@ -50,9 +50,9 @@
           "$description": "Descriptions, helper text, secondary labels (5.27:1 on surface — WCAG AA)"
         },
         "tertiary": {
-          "$value": "#747070",
+          "$value": "#6c6868",
           "$type": "color",
-          "$description": "Placeholders, disabled text, timestamps (4.53:1 on surface — WCAG AA minimum)"
+          "$description": "Placeholders, disabled text, timestamps (5.10:1 on surface, 4.58:1 on recessed — WCAG AA)"
         },
         "on-accent": {
           "$value": "#1a1918",
@@ -147,7 +147,7 @@
       "semantic": {
         "error": {
           "default": {
-            "$value": "#b84a3c",
+            "$value": "#a94134",
             "$type": "color",
             "$description": "Error text, destructive button fills, invalid borders"
           },
