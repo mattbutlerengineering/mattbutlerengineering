@@ -3810,10 +3810,11 @@
         "overlap": "Cuando dos horarios cubren la misma fecha, gana el de mayor prioridad. Si empatan, gana el que aparece primero en la lista."
       },
       "special": {
-        "what": "Una fecha especial es una fecha que difiere del horario que la cubre. Una fecha puede configurarse para usar otro horario, o puede tener su propio horario especial.",
+        "what": "Una fecha especial es una fecha que difiere del horario que la cubre. Una fecha puede tener su propio horario especial.",
         "replaces": "El horario especial sustituye por completo los servicios de esa fecha. Solo funcionan los servicios que aparecen en el horario especial, con las horas que se indican ahí, sin importar lo que digan el horario habitual o los horarios de temporada.",
         "repeat": "Una fecha especial puede repetirse en los días de la semana elegidos. Quitar una fecha de la repetición, o editar una sola fecha, sustituye la repetición solo en esa fecha. Una fecha quitada vuelve al horario que tiene debajo.",
-        "overlap": "Si dos horarios especiales cubren la misma fecha, solo se usa uno (el posterior en el orden almacenado). Lo mismo pasa con dos fechas configuradas para usar otro horario. Evita fechas que se traslapen."
+        "overlap": "Si dos horarios especiales cubren la misma fecha, solo se usa uno (el posterior en el orden almacenado). Lo mismo pasa con dos fechas configuradas para usar otro horario. Evita fechas que se traslapen.",
+        "otherHours": "En cambio, una fecha puede configurarse para usar otro horario. Ese horario sustituye al que cubriría la fecha de otro modo, a menos que la fecha también tenga horario especial, que gana sobre él."
       },
       "closures": {
         "what": "Un cierre deja sin clientes. Una pausa detiene las reservas en un canal, como el de en línea, mientras los horarios siguen igual.",
@@ -3892,7 +3893,7 @@
         },
         "pacing": {
           "title": "El ritmo de reservas limita una hora llena",
-          "scenario": "El viernes 26 de noviembre la cena tiene un límite de ritmo de cuatro cubiertos por hora, y ya hay un grupo de cuatro reservado a las 6 p. m.",
+          "scenario": "La cena tiene un límite de ritmo de cuatro cubiertos por hora, y el viernes 26 de noviembre ya hay un grupo de cuatro reservado a las 6 p. m.",
           "checks": {
             "partyOfTwo": "Viernes 26 de noviembre de 2027, un cliente en línea, grupo de 2"
           },
@@ -3907,10 +3908,10 @@
       },
       "troubleshooting": {
         "heading": "¿Por qué un cliente no puede reservar ese horario?",
-        "lead": "Digamos que un cliente no puede reservar a las 7 p. m. del viernes. Recorre esta lista en orden, como se apilan las capas.",
+        "lead": "Digamos que un cliente no puede reservar a las 7 p. m. del viernes. Recorre esta lista en orden. Cada paso nombra la capa o la regla que debes revisar.",
         "steps": {
           "checkDate": "Consultar una fecha: abre ese viernes en el área de Disponibilidad. Muestra las capas que aplican y cuál ganó.",
-          "special": "Fecha especial: ¿ese viernes es una fecha especial? Su horario especial sustituye todo lo de abajo, así que solo funcionan los servicios que aparecen ahí, con las horas que se indican ahí.",
+          "special": "Horario especial: ¿ese viernes tiene su propio horario especial? Sustituye todo lo de abajo, así que solo funcionan los servicios que aparecen ahí, con las horas que se indican ahí.",
           "seasonal": "Horarios de temporada: ¿cubren ese viernes, y los viernes en particular? Si es así, aplican sus horas en lugar del horario habitual.",
           "regular": "Horario habitual: si nada de lo anterior aplica, ¿el viernes tiene un servicio abierto a las 7 p. m., con las 7 p. m. en o antes de su última asignación de mesa?",
           "seatEvery": "Asignar mesas cada: ¿las 7 p. m. son uno de los horarios que el servicio asigna? Asignar mesas cada 45 minutos desde las 5 p. m. ofrece 5:00, 5:45, 6:30 y 7:15 p. m., no las 7:00.",
@@ -3920,7 +3921,8 @@
           "tonight": "Esta noche: si la fecha es hoy, ¿se fijó Cerrar antes o menos ritmo de reservas para esta noche?",
           "tables": "Mesas y tamaño del grupo: ¿alguna mesa da lugar al grupo? ¿Está cerrada la sección de esa mesa? ¿Está ocupada durante toda la estancia cada mesa que cabe?",
           "pacing": "Ritmo de reservas: ¿las 7 p. m. aparecen en la lista pero llenas porque se alcanzó un límite de ritmo?",
-          "window": "Ventana de reservas: ¿la fecha está más adelante de lo que los clientes pueden reservar? Ese límite no forma parte de las capas de arriba."
+          "window": "Ventana de reservas: ¿la fecha está más adelante de lo que los clientes pueden reservar? Ese límite no forma parte de las capas de arriba.",
+          "otherHours": "Otro horario: ¿esa fecha está configurada para usar otro horario? Si es así, ese horario aplica en lugar de los horarios de temporada o del horario habitual, a menos que la fecha también tenga horario especial."
         }
       }
     }

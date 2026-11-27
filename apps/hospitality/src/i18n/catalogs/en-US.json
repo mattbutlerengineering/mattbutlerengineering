@@ -3704,10 +3704,11 @@
         "overlap": "When two sets of hours cover the same date, the one with the higher priority wins. If they tie, the one listed first wins."
       },
       "special": {
-        "what": "A special date is a date that differs from the hours that cover it. A date can be set to use a different set of hours, or can run its own Special hours.",
+        "what": "A special date is a date that differs from the hours that cover it. A date can run its own Special hours.",
         "replaces": "Special hours replace the services for that date completely. Only the services listed in the Special hours run, at the hours listed there, whatever Regular hours or Seasonal hours say.",
         "repeat": "A special date can repeat on chosen days of the week. Taking one date out of a repeat, or editing one date, replaces the repeat on that date only. A date taken out goes back to the hours underneath it.",
-        "overlap": "If two Special hours cover the same date, only one is used (the later one in the stored order). The same goes for two dates set to use other hours. Avoid overlapping dates."
+        "overlap": "If two Special hours cover the same date, only one is used (the later one in the stored order). The same goes for two dates set to use other hours. Avoid overlapping dates.",
+        "otherHours": "A date can instead be set to use a different set of hours. Those hours replace the hours that would otherwise cover the date, unless the date also has Special hours, which win over them."
       },
       "closures": {
         "what": "A closure takes guests away. A pause stops booking on a channel, such as online, while the hours stay as they are.",
@@ -3786,7 +3787,7 @@
         },
         "pacing": {
           "title": "Pacing caps a busy hour",
-          "scenario": "On Friday, November 26 dinner has a pacing cap of four covers per hour, and a party of four is already booked at 6 PM.",
+          "scenario": "Dinner has a pacing cap of four covers per hour, and on Friday, November 26 a party of four is already booked at 6 PM.",
           "checks": {
             "partyOfTwo": "Friday, November 26, 2027, an online guest, party of 2"
           },
@@ -3801,10 +3802,10 @@
       },
       "troubleshooting": {
         "heading": "Why can’t a guest book that time?",
-        "lead": "Say a guest cannot book 7 PM on Friday. Work down this list in order, the way the layers stack.",
+        "lead": "Say a guest cannot book 7 PM on Friday. Work down this list in order. Each step names the layer or rule to check.",
         "steps": {
           "checkDate": "Check a date: open that Friday in the Availability area. It lists the layers that apply and which one won.",
-          "special": "Special date: is that Friday a special date? Its Special hours replace everything below, so only the services listed there run, at the hours listed there.",
+          "special": "Special hours: does that Friday run its own Special hours? They replace everything below, so only the services listed there run, at the hours listed there.",
           "seasonal": "Seasonal hours: do they cover that Friday, and Fridays in particular? If so, their hours apply instead of Regular hours.",
           "regular": "Regular hours: if nothing above applies, does Friday have a service that is open at 7 PM, with 7 PM at or before its last seating?",
           "seatEvery": "Seat every: is 7 PM one of the times the service seats? Seating every 45 minutes from 5 PM offers 5:00, 5:45, 6:30 and 7:15 PM, not 7:00.",
@@ -3814,7 +3815,8 @@
           "tonight": "Tonight: if the date is today, was Close early or lower pacing set for tonight?",
           "tables": "Tables and party size: does a table seat the party? Is that table’s section closed? Is each table that fits busy for the whole stay?",
           "pacing": "Pacing: is 7 PM listed but full because a pacing cap is reached?",
-          "window": "Booking window: is the date further ahead than guests may book? That limit is not part of the layers above."
+          "window": "Booking window: is the date further ahead than guests may book? That limit is not part of the layers above.",
+          "otherHours": "Other hours: is that date set to use a different set of hours? If so, those hours apply instead of Seasonal hours or Regular hours, unless the date also has Special hours."
         }
       }
     }

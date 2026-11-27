@@ -56,6 +56,7 @@ const BOOKING_RULES = [
 const TROUBLESHOOTING = [
   "availabilityHub.guide.troubleshooting.steps.checkDate",
   "availabilityHub.guide.troubleshooting.steps.special",
+  "availabilityHub.guide.troubleshooting.steps.otherHours",
   "availabilityHub.guide.troubleshooting.steps.seasonal",
   "availabilityHub.guide.troubleshooting.steps.regular",
   "availabilityHub.guide.troubleshooting.steps.seatEvery",
@@ -187,6 +188,7 @@ function WhenOpen() {
           keys={[
             "availabilityHub.guide.special.what",
             "availabilityHub.guide.special.replaces",
+            "availabilityHub.guide.special.otherHours",
             "availabilityHub.guide.special.repeat",
             "availabilityHub.guide.special.overlap",
           ]}
