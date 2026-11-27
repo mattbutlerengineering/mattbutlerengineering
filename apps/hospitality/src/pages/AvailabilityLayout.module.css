@@ -18,8 +18,10 @@
   border-inline-end: 1px solid var(--rialto-border);
 }
 
+/* A gutter off the rail's rule, so a page's heading does not sit on it. */
 .content {
   min-width: 0;
+  padding-inline-start: var(--rialto-space-lg);
 }
 
 /* A phone stacks the rail, folded behind "Jump to", above the screen. */
@@ -31,5 +33,9 @@
   .rail {
     padding: var(--rialto-space-md) var(--rialto-space-md) 0;
     border-inline-end: none;
+  }
+
+  .content {
+    padding-inline-start: 0;
   }
 }
