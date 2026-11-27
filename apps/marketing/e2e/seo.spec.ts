@@ -146,10 +146,16 @@ test.describe("SEO metadata", () => {
     expect(href).toMatch(/^\/shipped\/[^/]+$/);
     await story.click();
     await expect(page).toHaveURL(new RegExp(`${href}$`));
-    const heading = page.getByRole("heading", { level: 1 });
-    await expect(heading).toBeVisible();
-    const storyTitle = `${(await heading.textContent())?.trim()} — Shipped — Matt Butler Engineering`;
-    await expect(page).toHaveTitle(storyTitle);
+    // The URL changes on click, but the story page is a lazy chunk: until it
+    // renders, the /shipped index <h1> is still on screen. Wait for the
+    // story-specific title (the index title has no " — Shipped — " segment),
+    // then check the rendered <h1> matches it, instead of reading the <h1> first.
+    const suffix = " — Shipped — Matt Butler Engineering";
+    await expect(page).toHaveTitle(new RegExp(`.+${suffix}$`));
+    const storyTitle = await page.title();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+      storyTitle.slice(0, -suffix.length)
+    );
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", `${ORIGIN}${href}`);
     await expect(page.locator('meta[property="og:url"]')).toHaveAttribute(
       "content",
