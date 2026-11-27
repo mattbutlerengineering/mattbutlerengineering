@@ -121,15 +121,15 @@ describe("AvailabilitySeasonalListPage", () => {
     const weeknight = within(rowOf("Weeknight"));
     expect(weeknight.getByRole("link", { name: "Edit Weeknight" })).toHaveAttribute(
       "href",
-      "/availability/calendar?tab=schedules"
+      "/availability/seasonal/wk"
     );
     expect(weeknight.getByRole("link", { name: "Duplicate Weeknight" })).toHaveAttribute(
       "href",
-      "/availability/calendar?tab=schedules&action=addSchedule&copy=wk"
+      "/availability/seasonal/new?copy=wk"
     );
     expect(screen.getByRole("link", { name: "Add seasonal hours" })).toHaveAttribute(
       "href",
-      "/availability/calendar?tab=schedules&action=addSchedule"
+      "/availability/seasonal/new"
     );
   });
 

@@ -101,6 +101,11 @@ const AvailabilitySeasonalListPage = lazy(() =>
     default: m.AvailabilitySeasonalListPage,
   }))
 );
+const AvailabilitySeasonalEditorPage = lazy(() =>
+  import("./pages/AvailabilitySeasonalEditorPage.js").then((m) => ({
+    default: m.AvailabilitySeasonalEditorPage,
+  }))
+);
 const AvailabilityHoursPage = lazy(() =>
   import("./pages/AvailabilityHoursPage.js").then((m) => ({ default: m.AvailabilityHoursPage }))
 );
@@ -427,6 +432,27 @@ const router = createBrowserRouter(
                     <RequireManager redirectTo={availabilityPath({ view: "hub" })}>
                       <Suspense fallback={<LoadingPage />}>
                         <AvailabilitySeasonalListPage />
+                      </Suspense>
+                    </RequireManager>
+                  ),
+                },
+                {
+                  // The editor: `new` (with `?copy=`) and `:scheduleId`. A Host lands on the hub.
+                  path: "seasonal/new",
+                  element: (
+                    <RequireManager redirectTo={availabilityPath({ view: "hub" })}>
+                      <Suspense fallback={<LoadingPage />}>
+                        <AvailabilitySeasonalEditorPage />
+                      </Suspense>
+                    </RequireManager>
+                  ),
+                },
+                {
+                  path: "seasonal/:scheduleId",
+                  element: (
+                    <RequireManager redirectTo={availabilityPath({ view: "hub" })}>
+                      <Suspense fallback={<LoadingPage />}>
+                        <AvailabilitySeasonalEditorPage />
                       </Suspense>
                     </RequireManager>
                   ),

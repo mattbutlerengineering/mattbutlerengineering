@@ -3753,6 +3753,13 @@
       "cantDelete": "No se puede eliminar: se usa {{where}}. Primero cambia esos días.",
       "cantDeleteRules": "No se puede eliminar. {{where}}. Primero cambia esas fechas."
     },
+    "seasonalEditor": {
+      "newTitle": "Nuevo horario de temporada",
+      "duplicateTitle": "Duplicar horario de temporada",
+      "back": "Volver a los horarios de temporada",
+      "loading": "Cargando horarios de temporada",
+      "notFound": "Este horario de temporada ya no existe. Vuelve a la lista para ver lo que queda."
+    },
     "closuresPage": {
       "title": "Cierres y pausas",
       "loading": "Cargando cierres y pausas",

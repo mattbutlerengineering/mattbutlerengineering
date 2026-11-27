@@ -3648,6 +3648,13 @@
       "cantDelete": "Can’t delete: used {{where}}. Change those days first.",
       "cantDeleteRules": "Can’t delete. {{where}}. Change those dates first."
     },
+    "seasonalEditor": {
+      "newTitle": "New seasonal hours",
+      "duplicateTitle": "Duplicate seasonal hours",
+      "back": "Back to seasonal hours",
+      "loading": "Loading seasonal hours",
+      "notFound": "These seasonal hours are no longer there. Go back to the list to see what is left."
+    },
     "closuresPage": {
       "title": "Closures and pauses",
       "loading": "Loading closures and pauses",

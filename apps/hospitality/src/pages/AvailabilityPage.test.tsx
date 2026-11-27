@@ -1880,6 +1880,7 @@ describe("the Availability route table", () => {
           children: [
             { index: true, element: <AvailabilityHubPage /> },
             { path: "calendar", element: <AvailabilityPage /> },
+            { path: "seasonal/new", element: <div>New seasonal hours page</div> },
           ],
         },
       ],
@@ -1935,11 +1936,9 @@ describe("the Availability route table", () => {
     expect(address(router)).toBe("/setup");
   });
 
-  it("opens the seeded editor from the old ?action=addSchedule", async () => {
+  it("sends the old ?action=addSchedule to the new seasonal hours editor, keeping from=setup", async () => {
     const router = renderRoutes("/availability?action=addSchedule&from=setup");
-    expect(await screen.findByRole("dialog", { name: "New schedule" })).toBeInTheDocument();
-    await waitFor(() =>
-      expect(address(router)).toBe("/availability/calendar?tab=schedules&from=setup")
-    );
+    expect(await screen.findByText("New seasonal hours page")).toBeInTheDocument();
+    expect(address(router)).toBe("/availability/seasonal/new?from=setup");
   });
 });

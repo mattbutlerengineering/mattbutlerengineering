@@ -3753,6 +3753,13 @@
       "cantDelete": "Suppression impossible : utilisé {{where}}. Changez d’abord ces jours.",
       "cantDeleteRules": "Suppression impossible. {{where}}. Changez d’abord ces dates."
     },
+    "seasonalEditor": {
+      "newTitle": "Nouveaux horaires saisonniers",
+      "duplicateTitle": "Dupliquer les horaires saisonniers",
+      "back": "Retour aux horaires saisonniers",
+      "loading": "Chargement des horaires saisonniers",
+      "notFound": "Ces horaires saisonniers n’existent plus. Retournez à la liste pour voir ce qu’il reste."
+    },
     "closuresPage": {
       "title": "Fermetures et pauses",
       "loading": "Chargement des fermetures et des pauses",
