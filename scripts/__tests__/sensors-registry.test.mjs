@@ -1516,7 +1516,7 @@ describe("sensors-registry", () => {
       // End-to-end: one unresolvable SHA is dropped, the report is computed from
       // the resolvable commit only — no throw, valid available result.
       const { runs } = buildE2eRuns(ghRuns, (sha) =>
-        sha === ghRuns[1].headSha ? null : ["services/agent/src/index.ts"]
+        sha === ghRuns[1].headSha ? null : ["services/reservations/src/index.ts"]
       );
       const result = computeE2eStability(runs);
       expect(result.available).toBe(true);

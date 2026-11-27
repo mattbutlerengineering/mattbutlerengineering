@@ -23,10 +23,12 @@ describe("e2e.yml gen job", () => {
     expect(run).toMatch(/pnpm --dir apps\/gen test:e2e/);
   });
 
-  it("is triggered by gen and its shared dependencies", () => {
-    const paths = WORKFLOW.on.pull_request.paths;
+  // The workflow starts on every PR (#9834); the `changes` job's gen filter decides.
+  it("runs for gen and its shared dependencies", () => {
+    const filter = getJob(WORKFLOW, "changes").steps.find((s) => s.id === "filter");
+    const gen = filter.with.filters.split(/^\s*gen:\s*$/m)[1].split(/^\s*\w+:\s*$/m)[0];
     for (const p of ["apps/gen/**", "packages/rialto/**", "packages/rialto-catalog/**"]) {
-      expect(paths).toContain(p);
+      expect(gen).toContain(`'${p}'`);
     }
   });
 
