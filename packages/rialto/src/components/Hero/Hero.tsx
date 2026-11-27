@@ -8,9 +8,9 @@ import styles from "./Hero.module.css";
 
 /**
  * Marketing splash section with centered content, atmospheric
- * decorative touches, and a staggered entrance. The title (Hero's LCP
- * candidate) settles into place without fading — it stays opaque and
- * only its position animates; eyebrow, subtitle, divider, and actions
+ * decorative touches, and a staggered entrance. The title and subtitle
+ * (Hero's LCP candidates) settle into place without fading — they stay
+ * opaque and only their position animates; eyebrow, divider, and actions
  * still fade up.
  *
  * Wrap text in `<span className="accent">` inside `title`
@@ -46,9 +46,10 @@ const fadeUp = {
   visible: { opacity: 1, y: 0 },
 };
 
-// The title is Hero's largest-contentful-paint candidate. Fading it in from
-// opacity:0 keeps it unpainted until the entrance settles, which directly
-// delays LCP (#4847). It stays fully opaque and only settles into place.
+// The title and subtitle are Hero's largest-contentful-paint candidates (the
+// subtitle is the mobile one, #9915). Fading them in from opacity:0 keeps
+// them unpainted until the entrance settles, which directly delays LCP
+// (#4847). They stay fully opaque and only settle into place.
 const settleUp = {
   hidden: { opacity: 1, y: 24 },
   visible: { opacity: 1, y: 0 },
@@ -104,7 +105,7 @@ export const Hero = forwardRef<HTMLElement, HeroProps>(
           </motion.h1>
 
           {subtitle && (
-            <motion.p className={styles.subtitle} variants={fadeUp} transition={transition}>
+            <motion.p className={styles.subtitle} variants={settleUp} transition={transition}>
               {subtitle}
             </motion.p>
           )}
