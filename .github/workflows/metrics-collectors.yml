@@ -93,6 +93,12 @@ jobs:
           set -o pipefail
           node scripts/reconcile-queue-telemetry.mjs | tee -a "$GITHUB_STEP_SUMMARY"
 
+      # One row per (issue, PR) in queue-telemetry.jsonl. Formerly a repo-audit
+      # check in ci.yml; that job has no .metrics-data/ checkout, so it runs
+      # here, against the real data, before anything is pushed (#9815).
+      - name: Check queue telemetry for duplicate rows
+        run: node scripts/check-queue-telemetry-dupes.mjs
+
       # #6466: these two collectors used to run only inside Claude Code cloud
       # routines, whose session token api.github.com refuses
       # (`credential_rejected`) and which cannot use GraphQL — so their files
