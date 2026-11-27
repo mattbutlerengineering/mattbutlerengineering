@@ -1,6 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
-import { computeE2eStability, E2E_SUITE_PATHS } from "../collect-e2e-stability.mjs";
+import {
+  computeE2eStability,
+  E2E_SUITE_JOB_NAME,
+  E2E_SUITE_PATHS,
+  suiteRanFromJobs,
+} from "../collect-e2e-stability.mjs";
 
 /**
  * Fixture helpers — build run objects with explicit timestamps so tests are
@@ -291,6 +296,49 @@ describe("computeE2eStability ignores runs where no suite ran", () => {
     const result = computeE2eStability(runs);
     expect(result.consecutive_failures).toBe(2);
     expect(result.total_non_frontend_runs).toBe(2);
+  });
+
+  it("counts a docs-only head commit when the run's suite job actually ran (multi-commit PR)", () => {
+    const result = computeE2eStability([
+      {
+        ...makeRun({ conclusion: "failure", changedPaths: ["docs/notes.md"] }),
+        suiteRan: true,
+      },
+    ]);
+    expect(result).toMatchObject({ available: true, consecutive_failures: 1 });
+  });
+
+  it("excludes a run whose suite jobs were all skipped even if head paths look like a suite", () => {
+    const result = computeE2eStability([
+      {
+        ...makeRun({ conclusion: "success", changedPaths: ["services/users/src/index.ts"] }),
+        suiteRan: false,
+      },
+    ]);
+    expect(result).toEqual({ available: false, reason: "no_non_frontend_runs" });
+  });
+
+  it("suiteRanFromJobs reads job-level conclusions (shape captured from gh api actions/runs/<id>/jobs)", () => {
+    // Real skipped-run shape: matrix job keeps its unexpanded name.
+    const skipped = [
+      { name: "Detect changed apps", conclusion: "success" },
+      { name: "Hospitality E2E (shard ${{ matrix.shard }})", conclusion: "skipped" },
+      { name: "Hospitality E2E", conclusion: "skipped" },
+      { name: "Marketing E2E", conclusion: "skipped" },
+      { name: "Gen E2E", conclusion: "skipped" },
+    ];
+    expect(suiteRanFromJobs(skipped)).toBe(false);
+    expect(suiteRanFromJobs([...skipped, { name: "Gen E2E", conclusion: "failure" }])).toBe(true);
+    expect(suiteRanFromJobs([{ name: "Marketing E2E", conclusion: "success" }])).toBe(true);
+    expect(suiteRanFromJobs([])).toBe(false);
+  });
+
+  it("E2E_SUITE_JOB_NAME matches every suite job name declared in e2e.yml", () => {
+    const yml = readFileSync(new URL("../../.github/workflows/e2e.yml", import.meta.url), "utf8");
+    const names = [...yml.matchAll(/^ {4}name: (.+)$/gm)].map((m) => m[1]);
+    const suiteNames = names.filter((n) => n !== "Detect changed apps");
+    expect(suiteNames.length).toBeGreaterThanOrEqual(3);
+    for (const n of suiteNames) expect(E2E_SUITE_JOB_NAME.test(n)).toBe(true);
   });
 
   it("matches the union of e2e.yml's changes-job filters", () => {
