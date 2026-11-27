@@ -26,6 +26,7 @@ Run on pull requests to enforce standards before merge.
 | `ai-attribution.yml`         | Check accessibility + AI attribution       |
 | `auto-review.yml`            | Automated code review                      |
 | `e2e.yml`                    | End-to-end tests via Playwright            |
+| `e2e-after-ci.yml`           | Dispatches `e2e.yml` after CI Gate passes  |
 | `instruction-regression.yml` | Detect regressions in AI instruction files |
 | `preview-deploy.yml`         | Deploy PR preview environments             |
 | `secret-scan.yml`            | Scan for leaked secrets                    |

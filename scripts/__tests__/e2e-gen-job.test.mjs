@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { E2E_SUITE_FILTERS } from "../e2e-changed-suites.mjs";
 import { getJob, jobRunText, loadWorkflow } from "../lib/workflow.mjs";
 
 const WORKFLOW = loadWorkflow("e2e.yml");
@@ -23,17 +24,16 @@ describe("e2e.yml gen job", () => {
     expect(run).toMatch(/pnpm --dir apps\/gen test:e2e/);
   });
 
-  // The workflow starts on every PR (#9834); the `changes` job's gen filter decides.
+  // The workflow runs for every PR after CI Gate (#9834, #10025); the `changes`
+  // job's gen filter (scripts/e2e-changed-suites.mjs) decides.
   it("runs for gen and its shared dependencies", () => {
-    const filter = getJob(WORKFLOW, "changes").steps.find((s) => s.id === "filter");
-    const gen = filter.with.filters.split(/^\s*gen:\s*$/m)[1].split(/^\s*\w+:\s*$/m)[0];
-    for (const p of ["apps/gen/**", "packages/rialto/**", "packages/rialto-catalog/**"]) {
-      expect(gen).toContain(`'${p}'`);
+    for (const p of ["apps/gen/", "packages/rialto/", "packages/rialto-catalog/"]) {
+      expect(E2E_SUITE_FILTERS.gen).toContain(p);
     }
   });
 
-  it("forces the gen job on workflow_dispatch", () => {
-    const set = getJob(WORKFLOW, "changes").steps.find((s) => s.name === "Set outputs");
-    expect(set.run).toMatch(/gen=true/);
+  it("forces every suite, gen included, on a manual dispatch with no head_sha", () => {
+    const set = getJob(WORKFLOW, "changes").steps.find((s) => s.name === "Detect changed suites");
+    expect(set.run).toContain("e2e-changed-suites.mjs all");
   });
 });

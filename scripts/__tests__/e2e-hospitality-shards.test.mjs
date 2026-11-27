@@ -27,10 +27,14 @@ const LOCALE_SWEEP = new URL("../../apps/hospitality/e2e/locale-sweep.spec.ts", 
  * decides instead: a skipped job still reports, and a skipped check passes.
  */
 describe("e2e.yml always reports Hospitality E2E", () => {
-  it("starts on every pull request, with no workflow-level paths filter", () => {
-    const pr = WORKFLOW.on.pull_request;
-    expect(pr.paths).toBeUndefined();
-    expect(pr["paths-ignore"]).toBeUndefined();
+  // Dispatched after CI Gate by e2e-after-ci.yml (#10025), so no `pull_request`
+  // trigger and no `paths:` filter exist. The `changes` job still publishes
+  // `skipped` as a success status for a suite outside the diff.
+  it("is dispatched, with no workflow-level paths filter", () => {
+    expect(WORKFLOW.on.pull_request).toBeUndefined();
+    const dispatch = WORKFLOW.on.workflow_dispatch;
+    expect(dispatch.paths).toBeUndefined();
+    expect(dispatch["paths-ignore"]).toBeUndefined();
   });
 
   it("skips the result job, rather than leaving it out, when the shards skip", () => {
@@ -162,7 +166,8 @@ describe("e2e.yml hospitality shards", () => {
   it("reports one combined result under the original check name", () => {
     expect(result.name).toBe("Hospitality E2E");
     expect(result.needs).toEqual(["hospitality-e2e"]);
-    expect(result.if).toContain("!cancelled()");
+    // always(), so a cancelled run still publishes an `error` status (#10025).
+    expect(result.if).toContain("always()");
     expect(result.if).toContain("needs.hospitality-e2e.result != 'skipped'");
     const step = getStep(result, "All shards passed");
     expect(step.env.SHARDS_RESULT).toBe("${{ needs.hospitality-e2e.result }}");

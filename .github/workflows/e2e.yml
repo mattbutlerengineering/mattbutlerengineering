@@ -1,79 +1,95 @@
 name: E2E Tests
 
+# Advisory E2E starts only after the push's `CI Gate` passes (#10025): there is
+# no `pull_request` trigger. `e2e-after-ci.yml` (a `workflow_run` on CI, with no
+# checkout of PR code) dispatches this workflow on the PR branch. E2E needs PR
+# code AND Auth0 secrets, and a dispatch on a same-repo branch is the same
+# secrets context as a push to it. Fork PRs get no advisory E2E (they could not
+# read the secrets anyway). Results arrive after CI, as commit statuses on the
+# PR head SHA (check runs from a dispatched run are invisible to
+# `statusCheckRollup`, #4023; same fix as `CI Gate`, #4025).
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
-    # No workflow-level `paths:` filter (#9834): a PR outside it would get no
-    # `Hospitality E2E` check at all, and a required check that never reports
-    # blocks the PR forever. The `changes` job below skips the suites instead;
-    # a skipped job still reports. Pinned by e2e-hospitality-shards.test.mjs.
   workflow_dispatch:
+    inputs:
+      pr_number:
+        description: PR number (set by e2e-after-ci.yml; groups concurrency per PR)
+        required: false
+        type: string
+        default: ""
+      head_sha:
+        description: PR head SHA the commit statuses are published on (set by e2e-after-ci.yml; empty = manual run, every suite, no statuses)
+        required: false
+        type: string
+        default: ""
 
 concurrency:
-  group: e2e-${{ github.event.pull_request.number || github.ref }}
+  group: e2e-${{ inputs.pr_number || github.ref }}
   cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
-  # Gates hospitality-e2e / marketing-e2e so a change scoped to one app
-  # doesn't burn CI minutes running the other app's suite (issue #3886).
-  # Both jobs still run on workflow_dispatch (manual trigger has no base
-  # ref to diff against, so "Set outputs" below forces both true).
+  # Gates the suites so a change scoped to one app doesn't burn CI minutes
+  # running the others (issue #3886). Computes the diff itself, against main,
+  # because a dispatched run has no PR event. Like #9834's skipped-job reasoning,
+  # a suite that does not run still reports: this job publishes `skipped` as a
+  # success status, so no `... E2E` status is ever missing on a PR.
+  # A manual run (no head_sha) runs every suite and publishes no statuses.
   changes:
     name: Detect changed apps
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
+      statuses: write
     outputs:
       hospitality: ${{ steps.result.outputs.hospitality }}
       marketing: ${{ steps.result.outputs.marketing }}
       gen: ${{ steps.result.outputs.gen }}
     steps:
+      # Full history so `origin/main...HEAD` finds the merge base.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4
-        id: filter
-        if: github.event_name == 'pull_request'
         with:
-          filters: |
-            hospitality:
-              - 'apps/hospitality/**'
-              - 'packages/rialto/**'
-              - 'services/reservations/**'
-              - 'services/users/**'
-              - 'packages/database/**'
-              - '.github/workflows/e2e.yml'
-              # The helper scripts run inside the hospitality job, so a change
-              # to them must un-skip this suite.
-              - 'scripts/e2e-auth-preflight.mjs'
-              - 'scripts/e2e-failure-rate.mjs'
-              - 'scripts/e2e-cross-branch-red.mjs'
-              - 'scripts/check-endpoint.mjs'
-            marketing:
-              - 'apps/marketing/**'
-              - 'packages/rialto/**'
-              - '.github/workflows/e2e.yml'
-            gen:
-              - 'apps/gen/**'
-              - 'packages/rialto/**'
-              - 'packages/rialto-catalog/**'
-              - 'packages/api-client/**'
-              - 'packages/auth/**'
-              - '.github/workflows/e2e.yml'
+          fetch-depth: 0
 
-      - name: Set outputs
+      # A newer push moves the branch tip past the SHA CI passed on. That push
+      # gets its own dispatch after its own CI Gate, so this run runs nothing.
+      - name: Detect changed suites
         id: result
+        env:
+          HEAD_SHA: ${{ inputs.head_sha }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "hospitality=true" >> "$GITHUB_OUTPUT"
-            echo "marketing=true" >> "$GITHUB_OUTPUT"
-            echo "gen=true" >> "$GITHUB_OUTPUT"
+          if [ -z "$HEAD_SHA" ]; then
+            node scripts/e2e-changed-suites.mjs all >> "$GITHUB_OUTPUT"
+          elif [ "$(git rev-parse HEAD)" != "$HEAD_SHA" ]; then
+            echo "::notice::Branch moved past $HEAD_SHA; a newer push dispatches its own E2E."
+            printf 'hospitality=false\nmarketing=false\ngen=false\n' >> "$GITHUB_OUTPUT"
           else
-            echo "hospitality=${{ steps.filter.outputs.hospitality }}" >> "$GITHUB_OUTPUT"
-            echo "marketing=${{ steps.filter.outputs.marketing }}" >> "$GITHUB_OUTPUT"
-            echo "gen=${{ steps.filter.outputs.gen }}" >> "$GITHUB_OUTPUT"
+            node scripts/e2e-changed-suites.mjs diff >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Publish pending and skipped suite statuses
+        if: inputs.head_sha != '' && github.sha == inputs.head_sha
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ inputs.head_sha }}
+          HOSPITALITY: ${{ steps.result.outputs.hospitality }}
+          MARKETING: ${{ steps.result.outputs.marketing }}
+          GEN: ${{ steps.result.outputs.gen }}
+        run: |
+          publish() {
+            suite="$1"; needed="$2"
+            if [ "$needed" = "true" ]; then result=pending; else result=skipped; fi
+            gh api -X POST "/repos/${{ github.repository }}/statuses/$SHA" \
+              -f state="$(node scripts/e2e-commit-status.mjs state --result "$result")" \
+              -f context="$suite E2E" \
+              -f description="$(node scripts/e2e-commit-status.mjs description --suite "$suite" --result "$result")" \
+              -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          }
+          publish Hospitality "$HOSPITALITY"
+          publish Marketing "$MARKETING"
+          publish Gen "$GEN"
 
   # Shards because a runner sat at the 20-minute limit and got cancelled with its
   # last tests unrun (#8038), and two reached it again (#8137). Each shard has its own dev server,
@@ -353,8 +369,8 @@ jobs:
       - name: Write failed-tests record
         if: failure()
         env:
-          BRANCH: ${{ github.head_ref || github.ref_name }}
-          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          BRANCH: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
           RUN_ID: ${{ github.run_id }}
         run: |
           set -o pipefail
@@ -463,10 +479,30 @@ jobs:
   hospitality-e2e-result:
     name: Hospitality E2E
     needs: hospitality-e2e
-    if: ${{ !cancelled() && needs.hospitality-e2e.result != 'skipped' }}
+    # `always()`, not `!cancelled()`: a cancelled run must still publish `error`
+    # (cancelled maps to error), or `Hospitality E2E` stays pending forever.
+    if: ${{ always() && needs.hospitality-e2e.result != 'skipped' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
+      statuses: write
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Publish Hospitality E2E commit status
+        if: inputs.head_sha != '' && github.sha == inputs.head_sha
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ inputs.head_sha }}
+          RESULT: ${{ needs.hospitality-e2e.result }}
+        run: |
+          gh api -X POST "/repos/${{ github.repository }}/statuses/$SHA" \
+            -f state="$(node scripts/e2e-commit-status.mjs state --result "$RESULT")" \
+            -f context="Hospitality E2E" \
+            -f description="$(node scripts/e2e-commit-status.mjs description --suite Hospitality --result "$RESULT")" \
+            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
       - name: All shards passed
         env:
           SHARDS_RESULT: ${{ needs.hospitality-e2e.result }}
@@ -497,6 +533,9 @@ jobs:
     if: needs.changes.outputs.marketing == 'true' && github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
+      statuses: write
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -534,6 +573,19 @@ jobs:
             apps/marketing/playwright-report/
           retention-days: 7
 
+      - name: Publish Marketing E2E commit status
+        if: always() && inputs.head_sha != '' && github.sha == inputs.head_sha
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ inputs.head_sha }}
+          RESULT: ${{ job.status }}
+        run: |
+          gh api -X POST "/repos/${{ github.repository }}/statuses/$SHA" \
+            -f state="$(node scripts/e2e-commit-status.mjs state --result "$RESULT")" \
+            -f context="Marketing E2E" \
+            -f description="$(node scripts/e2e-commit-status.mjs description --suite Marketing --result "$RESULT")" \
+            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
   # apps/gen mocks its generation/history APIs with Playwright route
   # interception (e2e/gen-api-mocks.ts), so no backend, Postgres or Redis is
   # needed. Only the authPage-based specs (playground, point-and-refine) reach
@@ -547,6 +599,9 @@ jobs:
     if: needs.changes.outputs.gen == 'true' && github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
+      statuses: write
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -604,3 +659,16 @@ jobs:
             apps/gen/e2e/test-results/
             apps/gen/playwright-report/
           retention-days: 7
+
+      - name: Publish Gen E2E commit status
+        if: always() && inputs.head_sha != '' && github.sha == inputs.head_sha
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ inputs.head_sha }}
+          RESULT: ${{ job.status }}
+        run: |
+          gh api -X POST "/repos/${{ github.repository }}/statuses/$SHA" \
+            -f state="$(node scripts/e2e-commit-status.mjs state --result "$RESULT")" \
+            -f context="Gen E2E" \
+            -f description="$(node scripts/e2e-commit-status.mjs description --suite Gen --result "$RESULT")" \
+            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
