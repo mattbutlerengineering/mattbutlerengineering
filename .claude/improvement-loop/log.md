@@ -1177,3 +1177,27 @@ Phase 4: no worktrees to reap. Telemetry push (`node scripts/metrics-data.mjs pu
 **queueEfficiency:** composite 0.889 (baseline n/a) — healthy
 **Difficulty distribution:** size:xs:37, size:s:53, size:xl:10, size:l:19, size:m:32
 **Issues filed:** 0
+
+## 2026-11-27 — mbe-ui-quality
+
+**State:** `source: branch` (`ui-quality/ledger` @ b4fd235, merged `origin/main` 3bb8fe9; nothing resolved).
+
+**Routes:** 40 due / 40 captured / 40 audited (rialto-web 36, marketing 2, hospitality 2). 27 rows `unreachable:auth`, 0 `unreachable:build` — all three app builds green.
+
+**Judging:** first fire at rubric v2. 0 unjudged, 0 dropped tells. 1 judged tell: rialto-web `demos/drivers/:id` — `agent-built/gray-card-border` (stat tiles nested box-in-box). Dropped by the plan because calibration is `failed` (intended). Mechanical: 0 findings.
+
+**Calibration:** stamp `failed` — `calibration-status` exit 1 on the first query (key claude-opus-5-5 / r2: agreement 0.30, 3 inversions vs pass mark 0.80 / 0). No calibrate, no `rate.mjs pairs`/`record` this fire. The key reopens only with a new model, a rubric bump or a relabelled set.
+
+**Rubric migration:** `findings.mjs migrate --from 1 --to 2` — 1 key rekeyed (`rialto-web|demos/dashboard` axe-moderate, #9794), 0 retired, so no closes.
+
+**Filing:** 0 created, 0 reopened, 0 commented, 0 adopted/declined. 1 `close` action (demos/dashboard axe-moderate re-audited clean; #9794 already closed). 0 seeds. Issue drift: 1 open-with-closed-issue (that same key, now closed by `record`), 0 unknown-state. Labelled-issue read: 41 issues, all closed `completed`.
+
+**Fix PR:** none — the plan carried no `fix_pr_candidate`.
+
+**P1 SLA:** 0 open `ui-quality:p1` issues; 0 breaches, 0 escalated.
+
+**Coverage before this fire:** 100% (146/146), `coverage.mjs` exit 0.
+
+**Observations outside the rubric (not filed — no tell covers them):** on rialto-web `demos/*` at 375x812 the cookie consent banner lays its message out one word per line, overlapping the "Reject All" button and the form beneath; rialto-web `components/navbar` at 375x812 shows the "contained" navbar escaping its frame onto the page top; `components/letterboard` and `components/master-override` full-page captures stop painting below the first fold (possible capture artifact).
+
+**Blockers / pipeline bugs:** none. Browser resolved (`chrome-headless-shell`), all three capture runs passed first try.

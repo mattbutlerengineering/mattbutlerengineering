@@ -780,10 +780,12 @@
     "last_seen": "2026-11-12",
     "escalated_at": null
   },
-  "rialto-web|demos/dashboard|r1|accessibility/axe-moderate": {
+  "rialto-web|demos/dashboard|r2|accessibility/axe-moderate": {
     "issue": 9794,
     "carrier": "issue",
-    "state": "open",
+    "state": "closed",
+    "closed_at": "2026-11-27",
+    "state_reason": "issue_closed",
     "severity": "P2",
     "first_seen": "2026-11-26",
     "last_seen": "2026-11-26",

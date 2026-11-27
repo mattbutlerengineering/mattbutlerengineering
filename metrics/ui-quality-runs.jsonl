@@ -45,3 +45,4 @@
 {"ts":"2026-11-24T08:38:38Z","due":40,"audited":40,"unreachable":{"auth":26,"build":0},"unjudged":0,"dropped_tells":0,"git_depth":"full","rubric_version":1,"issue_drift":{"open_with_closed_issue":0,"unknown_state":0}}
 {"ts":"2026-11-25T08:39:28Z","due":40,"audited":40,"unreachable":{"auth":27,"build":0},"unjudged":0,"dropped_tells":0,"git_depth":"full","rubric_version":1,"issue_drift":{"open_with_closed_issue":0,"unknown_state":0}}
 {"ts":"2026-11-26T08:37:43Z","due":40,"audited":40,"unreachable":{"auth":27,"build":0},"unjudged":0,"dropped_tells":0,"git_depth":"full","rubric_version":1,"issue_drift":{"open_with_closed_issue":0,"unknown_state":0}}
+{"ts":"2026-11-27T08:32:20Z","due":40,"audited":40,"unreachable":{"auth":27,"build":0},"unjudged":0,"dropped_tells":0,"git_depth":"full","rubric_version":2,"issue_drift":{"open_with_closed_issue":1,"unknown_state":0}}
