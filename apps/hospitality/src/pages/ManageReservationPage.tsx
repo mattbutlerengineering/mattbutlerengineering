@@ -11,6 +11,7 @@ import { ApiClientError, type ManageReservationData } from "@mbe/api-client";
 import { usePublicApiClient } from "../hooks/usePublicApiClient.js";
 import { useDocumentTitle } from "../hooks/useDocumentTitle.js";
 import { useFocusAfter } from "../hooks/useFocusAfter.js";
+import { PageHeader } from "../components/PageHeader.js";
 import { ChangeBookingDialog } from "../components/manage-reservation/ChangeBookingDialog.js";
 import { NightOfCard } from "../components/manage-reservation/NightOfCard.js";
 import { PartyInviteCard } from "../components/manage-reservation/PartyInviteCard.js";
@@ -169,9 +170,7 @@ function ManageReservationPageContent() {
     return (
       <main>
         <Stack align="center" justify="center" style={{ minHeight: "100vh", padding: "2rem" }}>
-          <Text as="h1" variant="body" color="secondary">
-            {t("manageReservation.loading")}
-          </Text>
+          <PageHeader title={t("manageReservation.loading")} />
         </Stack>
       </main>
     );
@@ -224,9 +223,7 @@ function ManageReservationPageContent() {
       <Stack align="center" style={{ minHeight: "100vh", padding: "2rem" }}>
         <Stack gap="lg" style={{ maxWidth: 600, width: "100%" }}>
           <WidgetLocalePicker />
-          <Text as="h1" variant="display" tabIndex={-1}>
-            {venue ? venue.name : t("manageReservation.fallbackTitle")}
-          </Text>
+          <PageHeader title={venue ? venue.name : t("manageReservation.fallbackTitle")} />
 
           {venue && data.venueCancellation && (
             <VenueCancelledCard
