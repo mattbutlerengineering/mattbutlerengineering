@@ -41,9 +41,9 @@ jobs:
         # Version-only changesets flow (#3322, #9698). On a push to main with
         # pending changesets, this opens/updates a `changeset-release/main`
         # PR running `version-script:`. Nothing is published: rialto is
-        # private and workspace-only (#9698), so there is no `publish-script`
-        # and no registry auth. When no changesets remain the action does
-        # nothing.
+        # versioned with changesets but published to no registry (#9698), so
+        # there is no `publish-script` and no registry auth. When no
+        # changesets remain the action does nothing.
         #
         # Input/output names are v2 (verified against the pinned SHA's real
         # action.yml, not assumed from v1 memory -- #5721 review, round 3):
