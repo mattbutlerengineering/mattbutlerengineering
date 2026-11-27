@@ -233,6 +233,83 @@ describe("BookingWidget", () => {
     );
   });
 
+  describe("closed-dates window follows the booking window (#9950)", () => {
+    const configWith = (settings: Record<string, number>) => ({
+      name: "The Oak Table",
+      slug: "the-oak-table",
+      ianaTimezone: "America/New_York",
+      currencyCode: "USD",
+      operatingHours: null,
+      settings,
+      deposit: {
+        enabled: false,
+        depositType: null,
+        amountCents: null,
+        freeCancellationHours: null,
+        lateCancellationFeePercent: null,
+        noShowFeePercent: null,
+      },
+    });
+    const today = () => venueDate(new Date());
+    const lastClosedDatesTo = () =>
+      (mockApi.availability.getClosedDates.mock.calls.at(-1)?.[1] as { to: string } | undefined)
+        ?.to;
+
+    it("asks for closed dates only through the venue's maxAdvanceBooking", async () => {
+      mockApi.venues.getPublicConfig.mockResolvedValue(configWith({ maxAdvanceBooking: 14 }));
+      renderWidget();
+
+      const calendarMax = addDays(venueDate(new Date(), "America/New_York"), 14);
+      await waitFor(() => expect(mockApi.availability.getClosedDates).toHaveBeenCalled());
+      expect(mockApi.availability.getClosedDates).toHaveBeenCalledTimes(1);
+      expect(mockApi.availability.getClosedDates).toHaveBeenCalledWith("the-oak-table", {
+        from: today(),
+        to: calendarMax,
+      });
+    });
+
+    it("never stops short of a member's wider window", async () => {
+      mockApi.venues.getPublicConfig.mockResolvedValue(configWith({ maxAdvanceBooking: 14 }));
+      mockApi.publicVenue.memberStatus.mockResolvedValue({ member: true, leadDays: 7 });
+      render(<BookingWidget venueId="v1" venueSlug="the-oak-table" memberToken="tok" />);
+
+      const calendarMax = addDays(venueDate(new Date(), "America/New_York"), 21);
+      await waitFor(() => expect(lastClosedDatesTo()).toBe(calendarMax));
+    });
+
+    it("falls back to the 60-day lookahead when the venue sets no maxAdvanceBooking", async () => {
+      mockApi.venues.getPublicConfig.mockResolvedValue(configWith({}));
+      renderWidget();
+
+      await waitFor(() => expect(mockApi.availability.getClosedDates).toHaveBeenCalled());
+      expect(lastClosedDatesTo()).toBe(addDays(today(), 60));
+    });
+
+    it("falls back to the 60-day lookahead when the venue config fails", async () => {
+      mockApi.venues.getPublicConfig.mockRejectedValue(new Error("down"));
+      renderWidget();
+
+      await waitFor(() => expect(mockApi.availability.getClosedDates).toHaveBeenCalled());
+      expect(lastClosedDatesTo()).toBe(addDays(today(), 60));
+    });
+
+    it("caps the request at the 60-day lookahead for a longer window", async () => {
+      mockApi.venues.getPublicConfig.mockResolvedValue(configWith({ maxAdvanceBooking: 90 }));
+      renderWidget();
+
+      await waitFor(() => expect(mockApi.availability.getClosedDates).toHaveBeenCalled());
+      expect(lastClosedDatesTo()).toBe(addDays(today(), 60));
+    });
+
+    it("uses an explicit maxDate without waiting for the venue config", async () => {
+      mockApi.venues.getPublicConfig.mockReturnValue(new Promise(() => undefined));
+      const maxDate = addDays(today(), 10);
+      render(<BookingWidget venueId="v1" venueSlug="the-oak-table" maxDate={maxDate} />);
+
+      await waitFor(() => expect(lastClosedDatesTo()).toBe(maxDate));
+    });
+  });
+
   describe("weekly closed days while the closed-dates feed is unavailable (#9949)", () => {
     // FUTURE_DATE (2026-05-31) is a Sunday; the venue's weekly hours close Sundays.
     const closedSundayConfig = {

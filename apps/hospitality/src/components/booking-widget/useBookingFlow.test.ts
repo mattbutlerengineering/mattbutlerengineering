@@ -526,6 +526,30 @@ describe("useBookingFlow", () => {
       });
     });
 
+    it("waits for the venue config before asking for closed dates, so the window is known (#9950)", async () => {
+      const fakeApi = makeFakeApi();
+      let resolveConfig: (config: PublicVenueConfig) => void = () => undefined;
+      fakeApi.venues.getPublicConfig.mockReturnValue(
+        new Promise<PublicVenueConfig>((resolve) => {
+          resolveConfig = resolve;
+        })
+      );
+      renderBookingFlow(fakeApi, { venueTimezone: "America/New_York" });
+
+      await waitFor(() => expect(fakeApi.venues.getPublicConfig).toHaveBeenCalled());
+      expect(fakeApi.availability.getClosedDates).not.toHaveBeenCalled();
+
+      act(() => resolveConfig(makePublicVenueConfig({ settings: { maxAdvanceBooking: 30 } })));
+      const today = venueDate(new Date(), "America/New_York");
+      await waitFor(() =>
+        expect(fakeApi.availability.getClosedDates).toHaveBeenCalledWith(DEFAULT_SLUG, {
+          from: today,
+          to: addDays(today, 30),
+        })
+      );
+      expect(fakeApi.availability.getClosedDates).toHaveBeenCalledTimes(1);
+    });
+
     it("keeps working from the lazy path when the closed-dates listing fails", async () => {
       const fakeApi = makeFakeApi();
       fakeApi.availability.getClosedDates.mockRejectedValue(new Error("down"));
