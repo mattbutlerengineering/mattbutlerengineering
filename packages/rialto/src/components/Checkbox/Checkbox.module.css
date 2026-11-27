@@ -270,3 +270,13 @@
 .radioItem:has(input:checked) .radioDescription {
   color: var(--rialto-text-secondary);
 }
+
+/* Forced colors flatten backgrounds: checked boxes and radios fill with Highlight. */
+@media (forced-colors: active) {
+  .input:checked + .box,
+  .input:checked + .circle {
+    background: Highlight;
+    border-color: Highlight;
+    forced-color-adjust: none;
+  }
+}

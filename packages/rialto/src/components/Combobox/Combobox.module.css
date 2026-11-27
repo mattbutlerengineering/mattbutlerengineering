@@ -239,3 +239,13 @@
   font-size: var(--rialto-text-xs);
   font-weight: var(--rialto-weight-regular);
 }
+
+/* Forced colors flatten backgrounds: highlighted and selected options read by system colours. */
+@media (forced-colors: active) {
+  .option[data-selected="true"],
+  .optionActive {
+    background: Highlight;
+    color: HighlightText;
+    forced-color-adjust: none;
+  }
+}

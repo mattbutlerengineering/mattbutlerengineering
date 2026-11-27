@@ -88,3 +88,14 @@
     transition: none;
   }
 }
+
+/* Forced colors strip shadow and tint: the selected segment keeps a Highlight edge. */
+@media (forced-colors: active) {
+  .indicator {
+    border: 2px solid Highlight;
+  }
+
+  .segmentActive {
+    color: Highlight;
+  }
+}

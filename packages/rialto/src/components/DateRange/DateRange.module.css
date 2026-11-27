@@ -195,3 +195,21 @@
     transition: none;
   }
 }
+
+/* Forced colors flatten backgrounds: range ends and span read by system colours. */
+@media (forced-colors: active) {
+  .rangeStart,
+  .rangeStart:hover,
+  .rangeEnd,
+  .rangeEnd:hover {
+    background: Highlight;
+    border-color: Highlight;
+    color: HighlightText;
+    forced-color-adjust: none;
+  }
+
+  .inRange,
+  .inRange:hover {
+    border-color: Highlight;
+  }
+}

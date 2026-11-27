@@ -79,3 +79,12 @@
   outline: var(--rialto-focus-ring-width) solid transparent;
   box-shadow: var(--rialto-shadow-focus);
 }
+
+/* Forced colors flatten backgrounds: a checked track fills with Highlight. */
+@media (forced-colors: active) {
+  .track[data-checked="true"] {
+    background: Highlight;
+    border-color: Highlight;
+    forced-color-adjust: none;
+  }
+}
