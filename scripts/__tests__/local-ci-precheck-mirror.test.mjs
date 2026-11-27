@@ -2,7 +2,7 @@
  * #8882: /local-ci-precheck is mandated before every push but listed only
  * `pnpm lint` for CI's lint job and never ran knip (`pnpm check:knip`), so a
  * knip failure cost a full CI round. Pin the mirror: every `pnpm` command in
- * the `run:` steps of the lint, typecheck and architecture-audit jobs must
+ * the `run:` steps of the static-checks job (lint, knip, typecheck, architecture audit) must
  * appear in the skill, and those jobs must still gate merges.
  *
  * The skill spells CI's commands verbatim (no normalisation), so a CI command
@@ -20,7 +20,7 @@ const SKILL = readFileSync(
   join(REPO_ROOT, ".claude", "skills", "local-ci-precheck", "SKILL.md"),
   "utf8"
 );
-const MIRRORED_JOBS = ["lint", "typecheck", "architecture-audit"];
+const MIRRORED_JOBS = ["static-checks"];
 const CI = loadWorkflow("ci.yml");
 
 function pnpmCommands(jobId) {

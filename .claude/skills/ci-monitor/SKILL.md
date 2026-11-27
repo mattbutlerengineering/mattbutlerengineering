@@ -294,20 +294,20 @@ If everything is green: "CI is healthy. All recent runs passing, no PR check fai
 
 The CI pipeline (`.github/workflows/ci.yml`) has these jobs:
 
-| Job                  | What It Checks                                               | Failure Type    |
-| -------------------- | ------------------------------------------------------------ | --------------- |
-| `lint`               | ESLint across all packages                                   | `lint`          |
-| `typecheck`          | TypeScript compilation, Prisma client generation             | `typecheck`     |
-| `architecture-audit` | ADR compliance and dependency checks via `@mbe/cli`          | escalate        |
-| `build`              | Full monorepo build, registry.json validation, catalog drift | `build`/`drift` |
-| `test`               | Vitest test suite with coverage                              | `test`          |
-| `migrations`         | Prisma migrations against test PostgreSQL database           | `migration`     |
+| Job             | What It Checks                                                                                         | Failure Type                |
+| --------------- | ------------------------------------------------------------------------------------------------------ | --------------------------- |
+| `static-checks` | Steps: Lint, knip, Typecheck, Architecture Audit (`@mbe/cli`)                                          | `lint`/`typecheck`/escalate |
+| `repo-checks`   | Steps: Dependency Sync, instruction rot, doc freshness, antipattern ratchet, visual tolerance          | escalate                    |
+| `containers`    | Dockerfile lint and Trivy scans; runs only when a Dockerfile, lockfile or image build manifest changed | escalate                    |
+| `build`         | Full monorepo build, registry.json validation, catalog drift                                           | `build`/`drift`             |
+| `test`          | Vitest test suite with coverage                                                                        | `test`                      |
+| `migrations`    | Prisma migrations against test PostgreSQL database; PR-only dry-run steps                              | `migration`                 |
 
 Common failure patterns:
 
 - **lint**: Usually a missing `import type`, unused variable, or formatting issue
 - **typecheck**: Type errors, missing imports, wrong types
-- **architecture-audit**: ADR violations or forbidden dependency patterns — **always escalate**
+- **static-checks / Architecture Audit step**: ADR violations or forbidden dependency patterns — **always escalate**
 - **build**: Often a missing export, broken dependency chain, or stale generated file
 - **test**: Snapshot mismatches, assertion failures from behavior changes, mock drift
 - **migrations**: Schema drift, migration ordering issues, SQL syntax errors

@@ -42,6 +42,7 @@ jobs:
     outputs:
       has_code: ${{ steps.filter.outputs.has_code }}
       has_rialto: ${{ steps.filter.outputs.has_rialto }}
+      has_container_changes: ${{ steps.filter.outputs.has_container_changes }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
         with:
@@ -59,7 +60,18 @@ jobs:
           if [ "$EVENT_NAME" != "pull_request" ]; then
             echo "has_code=true" >> "$GITHUB_OUTPUT"
             echo "has_rialto=true" >> "$GITHUB_OUTPUT"
+            echo "has_container_changes=true" >> "$GITHUB_OUTPUT"
             exit 0
+          fi
+          # Container Checks job (#10010): the Trivy and hadolint scans read
+          # only the Dockerfiles. Also run when what the images copy at the
+          # root (lockfile, workspace manifests, patches), .dockerignore or this
+          # workflow changed.
+          CONTAINER_CHANGES=$(git diff --name-only "origin/$BASE_REF"...HEAD -- ':(glob)**/Dockerfile*' ':(glob)**/.dockerignore' pnpm-lock.yaml pnpm-workspace.yaml package.json patches/ .github/workflows/ci.yml | wc -l | tr -d ' ')
+          if [ "$CONTAINER_CHANGES" -gt 0 ]; then
+            echo "has_container_changes=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_container_changes=false" >> "$GITHUB_OUTPUT"
           fi
           # Files that define the rialto Storybook browser-test suite
           # (storybook-tests job, #8117). Only the storybook-tests job reads this.
@@ -127,20 +139,6 @@ jobs:
         # no pipe: a pipe here would mask a failed build (no pipefail default).
         run: pnpm turbo run build --filter='./packages/*' --filter='./services/*' --filter=@mbe/edge-worker
 
-  dependency-audit:
-    name: Dependency Sync
-    needs: [prepare]
-    runs-on: ubuntu-latest
-    # Measured 3m39s on main (run 33219164956) — 28 sequential npx spawns.
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
-
-      - uses: ./.github/actions/setup-workspace
-
-      - name: Run Dependency Audit
-        run: node scripts/check-dep-sync.mjs
-
   # Docs-only PRs skip the entire Build chain (which is where `pnpm repo-audit`
   # runs `prettier --check .`) because it is gated on `has_code == 'true'`, and
   # the push trigger's `paths-ignore` lists `docs/**` / `**.md` so a docs-only
@@ -187,110 +185,25 @@ jobs:
       - name: Check instruction byte budget
         run: node scripts/check-instruction-budget.mjs
 
-  hadolint:
-    name: Dockerfile Lint
-    needs: [detect-changes]
-    if: needs.detect-changes.outputs.has_code == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
-
-      - uses: hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387 # v3.5.0
-        with:
-          dockerfile: "services/users/Dockerfile"
-
-      - uses: hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387 # v3.5.0
-        with:
-          dockerfile: "services/reservations/Dockerfile"
-
-      - uses: hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387 # v3.5.0
-        with:
-          dockerfile: "services/agent/Dockerfile"
-
-      - uses: hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387 # v3.5.0
-        with:
-          dockerfile: "infrastructure/migrate/Dockerfile"
-
-  trivy:
-    name: Container Security Scan
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-
-    # upload-sarif calls the code-scanning API, which requires
-    # security-events: write. The workflow default is contents: read only,
-    # so without this override the upload step fails with
-    # "Resource not accessible by integration" and takes CI Gate red.
-    permissions:
-      contents: read
-      security-events: write
-
-    strategy:
-      matrix:
-        dockerfile:
-          - { path: "services/users/Dockerfile", name: "users" }
-          - { path: "services/reservations/Dockerfile", name: "reservations" }
-          - { path: "services/agent/Dockerfile", name: "agent" }
-          - { path: "infrastructure/migrate/Dockerfile", name: "migrate" }
-
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
-
-      - name: Run Trivy filesystem scan
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # 0.36.0
-        with:
-          scan-type: "fs"
-          scan-ref: ${{ matrix.dockerfile.path }}
-          scanners: "vuln,secret,misconfig"
-          severity: "CRITICAL,HIGH"
-          exit-code: "1"
-          format: "sarif"
-          # Without this, trivy-action drops the `severity` filter for SARIF
-          # output (it wants complete data for the Security tab), so `exit-code`
-          # would trip on LOW/MEDIUM misconfig findings too (e.g. missing
-          # HEALTHCHECK) instead of only CRITICAL/HIGH.
-          limit-severities-for-sarif: "true"
-          output: ${{ matrix.dockerfile.name }}-trivy-results.sarif
-
-      - name: Upload Trivy SARIF to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4.39.4
-        if: always()
-        # Best-effort: the Trivy scan above is the actual gate (exit-code 1 on
-        # CRITICAL/HIGH). The Security-tab upload is a convenience; if it fails
-        # (code-scanning disabled, API hiccup) it must never hold main red.
-        continue-on-error: true
-        with:
-          sarif_file: ${{ matrix.dockerfile.name }}-trivy-results.sarif
-          category: trivy-${{ matrix.dockerfile.name }}
-
-  lint:
-    name: Lint
+  # #10010: the sub-minute static checks each took a full runner slot, its own
+  # queue wait and 30-60 s of boot. They now share three jobs, each check its
+  # own named step so a failure stays attributable by step. Later steps run
+  # `if: !cancelled()` so one red step does not hide the others. CI Gate needs
+  # every job here, and ci-gate-required-results.mjs fails closed on any
+  # non-success/skipped result, so a failing merged step still fails the gate.
+  #
+  # Old job -> new step:
+  #   Lint, Typecheck, Architecture Audit            -> static-checks
+  #   Dependency Sync, Integrity, AI Antipattern Ratchet,
+  #   Visual Tolerance Change Check                  -> repo-checks
+  #   Dockerfile Lint, Container Security Scan x4    -> containers
+  #   Migration Dry-Run                              -> migrations
+  #   Test Coverage Gate                             -> ci-gate
+  static-checks:
+    name: Static Checks
     runs-on: ubuntu-latest
     needs: [prepare]
-
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
-
-      - uses: ./.github/actions/setup-workspace
-
-      - name: Cache for Turbo
-        # #3388: see the Typecheck job's identical step for rationale.
-        uses: rharkor/caching-for-turbo@760158c05c47e7a764f78e9a22ca3b5a6ed8c52e # v2.5.2
-
-      - run: pnpm lint
-
-      # #6887: dead code / unused deps fail the gate. knip needs no build
-      # output (knip.jsonc lists rialto-web's entries explicitly instead of
-      # loading its manifest-reading vite config). A bare command, so a
-      # non-zero exit fails the step.
-      - name: Dead code and unused dependencies (knip)
-        run: pnpm check:knip
-
-  typecheck:
-    name: Typecheck
-    runs-on: ubuntu-latest
-    needs: [prepare]
+    timeout-minutes: 20
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
@@ -306,11 +219,11 @@ jobs:
         # and a `localhost` API URL, see rharkor/caching-for-turbo's own
         # src/lib/server/utils.ts) for every later step in this job that
         # runs `turbo` (via `pnpm typecheck`/`lint`/`build`/`turbo
-        # test:coverage`). Wired into the four jobs that actually invoke
-        # turbo tasks (lint, typecheck, test, build) rather than the shared
-        # setup-workspace action, so jobs with no turbo task (integrity,
-        # docs-format, migrations, etc.) don't pay for a cache server they'd
-        # never use. Pinned by commit SHA per repo convention.
+        # test:coverage`). Wired into the jobs that actually invoke turbo
+        # tasks (static-checks, test, build, rls-integration) rather than the
+        # shared setup-workspace action, so jobs with no turbo task don't pay
+        # for a cache server they'd never use. Pinned by commit SHA per repo
+        # convention.
         uses: rharkor/caching-for-turbo@760158c05c47e7a764f78e9a22ca3b5a6ed8c52e # v2.5.2
 
       - name: Restore Prisma clients
@@ -336,51 +249,216 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-turbo-${{ hashFiles('pnpm-lock.yaml') }}-
 
+      - name: Lint
+        run: pnpm lint
+
+      # #6887: dead code / unused deps fail the gate. knip needs no build
+      # output (knip.jsonc lists rialto-web's entries explicitly instead of
+      # loading its manifest-reading vite config). A bare command, so a
+      # non-zero exit fails the step.
+      - name: Dead code and unused dependencies (knip)
+        if: ${{ !cancelled() }}
+        run: pnpm check:knip
+
       - name: Typecheck
+        if: ${{ !cancelled() }}
         run: pnpm typecheck
 
-  architecture-audit:
-    name: Architecture Audit
-    runs-on: ubuntu-latest
-    needs: [prepare]
-
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
-
-      - uses: ./.github/actions/setup-workspace
-
-      - name: Build CLI and its dependencies
+      - name: Architecture Audit - build CLI and its dependencies
+        if: ${{ !cancelled() }}
         run: pnpm build --filter @mbe/cli...
 
-      - name: Run ADR and Dependency Checks
+      - name: Architecture Audit - ADR and dependency checks
+        if: ${{ !cancelled() }}
         run: |
           pnpm --filter @mbe/cli start check-adr
           pnpm --filter @mbe/cli start check-deps
 
-  integrity:
-    name: Integrity
-    # Not `build`: both checks below read committed files on this runner and
+  repo-checks:
+    name: Repo Checks
+    # Not `build`: every check below reads committed files on this runner and
     # Build hands it no artifact (scripts/__tests__/ci-lint-critical-path.test.mjs).
     needs: [prepare]
     runs-on: ubuntu-latest
+    # Dependency Sync alone measured 3m39s on main (run 33219164956).
+    timeout-minutes: 20
     env:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
+        with:
+          # Full history for the visual-tolerance check, which diffs against
+          # the base branch (same requirement as the old standalone job).
+          fetch-depth: 0
 
       - uses: ./.github/actions/setup-workspace
 
       # Generated-artifact staleness (registry.json, dep-graph.json,
-      # generated-schemas.ts, dependency-graph.md) is now verified in one
+      # generated-schemas.ts, dependency-graph.md) is verified in one
       # manifest-driven step in the `build` job ("Verify generated artifacts are
       # in sync"). This job keeps the non-regenerated doc validators below.
 
+      - name: Dependency Sync
+        run: node scripts/check-dep-sync.mjs
+
       - name: Check for instruction rot
+        if: ${{ !cancelled() }}
         run: node scripts/detect-instruction-rot.mjs
 
       - name: Check doc freshness
+        if: ${{ !cancelled() }}
         run: node scripts/check-doc-freshness.mjs
+
+      - name: Check AI antipattern counts against baseline
+        if: ${{ !cancelled() }}
+        run: node scripts/check-ai-antipatterns.mjs
+
+      # #4711: #4496 tightened apps/rialto-web/playwright.config.ts's visual
+      # tolerance without updating any baseline and merged with `Visual
+      # Regression (rialto-web)` (advisory, not part of CI Gate's needs) red
+      # on its own head SHA — main stayed red for three days. This narrow,
+      # pure-node check fails only when a PR touches a visual-tolerance
+      # surface without also touching the baselines it measures against; it
+      # does not promote the visual suite itself to required.
+      - name: Check for a visual-tolerance change without baseline updates
+        if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+        run: node scripts/check-visual-tolerance-change.mjs
+
+  # Container scans and Dockerfile lint read only the Dockerfiles, so they run
+  # only when a Dockerfile, .dockerignore, the lockfile/workspace manifests or
+  # the patches the images copy changed (has_container_changes, #10010). Always
+  # true off pull_request. A skipped run is a pass for CI Gate.
+  containers:
+    name: Container Checks
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.has_container_changes == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    # upload-sarif calls the code-scanning API, which requires
+    # security-events: write. The workflow default is contents: read only,
+    # so without this override the upload step fails with
+    # "Resource not accessible by integration" and takes CI Gate red.
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
+
+      - name: Lint services/users/Dockerfile
+        uses: hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387 # v3.5.0
+        with:
+          dockerfile: "services/users/Dockerfile"
+
+      - name: Lint services/reservations/Dockerfile
+        if: ${{ !cancelled() }}
+        uses: hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387 # v3.5.0
+        with:
+          dockerfile: "services/reservations/Dockerfile"
+
+      - name: Lint services/agent/Dockerfile
+        if: ${{ !cancelled() }}
+        uses: hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387 # v3.5.0
+        with:
+          dockerfile: "services/agent/Dockerfile"
+
+      - name: Lint infrastructure/migrate/Dockerfile
+        if: ${{ !cancelled() }}
+        uses: hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387 # v3.5.0
+        with:
+          dockerfile: "infrastructure/migrate/Dockerfile"
+
+      # Without `limit-severities-for-sarif`, trivy-action drops the `severity`
+      # filter for SARIF output (it wants complete data for the Security tab),
+      # so `exit-code` would trip on LOW/MEDIUM misconfig findings too (e.g.
+      # missing HEALTHCHECK) instead of only CRITICAL/HIGH. The SARIF upload is
+      # best-effort: the scan is the actual gate, and a failed Security-tab
+      # upload (code-scanning disabled, API hiccup) must never hold main red.
+      - name: Trivy scan (users)
+        if: ${{ !cancelled() }}
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # 0.36.0
+        with:
+          scan-type: "fs"
+          scan-ref: "services/users/Dockerfile"
+          scanners: "vuln,secret,misconfig"
+          severity: "CRITICAL,HIGH"
+          exit-code: "1"
+          format: "sarif"
+          limit-severities-for-sarif: "true"
+          output: users-trivy-results.sarif
+
+      - name: Upload Trivy SARIF (users)
+        if: always()
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4.39.4
+        with:
+          sarif_file: users-trivy-results.sarif
+          category: trivy-users
+
+      - name: Trivy scan (reservations)
+        if: ${{ !cancelled() }}
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # 0.36.0
+        with:
+          scan-type: "fs"
+          scan-ref: "services/reservations/Dockerfile"
+          scanners: "vuln,secret,misconfig"
+          severity: "CRITICAL,HIGH"
+          exit-code: "1"
+          format: "sarif"
+          limit-severities-for-sarif: "true"
+          output: reservations-trivy-results.sarif
+
+      - name: Upload Trivy SARIF (reservations)
+        if: always()
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4.39.4
+        with:
+          sarif_file: reservations-trivy-results.sarif
+          category: trivy-reservations
+
+      - name: Trivy scan (agent)
+        if: ${{ !cancelled() }}
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # 0.36.0
+        with:
+          scan-type: "fs"
+          scan-ref: "services/agent/Dockerfile"
+          scanners: "vuln,secret,misconfig"
+          severity: "CRITICAL,HIGH"
+          exit-code: "1"
+          format: "sarif"
+          limit-severities-for-sarif: "true"
+          output: agent-trivy-results.sarif
+
+      - name: Upload Trivy SARIF (agent)
+        if: always()
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4.39.4
+        with:
+          sarif_file: agent-trivy-results.sarif
+          category: trivy-agent
+
+      - name: Trivy scan (migrate)
+        if: ${{ !cancelled() }}
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # 0.36.0
+        with:
+          scan-type: "fs"
+          scan-ref: "infrastructure/migrate/Dockerfile"
+          scanners: "vuln,secret,misconfig"
+          severity: "CRITICAL,HIGH"
+          exit-code: "1"
+          format: "sarif"
+          limit-severities-for-sarif: "true"
+          output: migrate-trivy-results.sarif
+
+      - name: Upload Trivy SARIF (migrate)
+        if: always()
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4.39.4
+        with:
+          sarif_file: migrate-trivy-results.sarif
+          category: trivy-migrate
 
   build:
     name: Build
@@ -671,106 +749,10 @@ jobs:
           retention-days: 14
           if-no-files-found: error
 
-  test-coverage-gate:
-    name: Test Coverage Gate
-    # Plain `needs: [test]` — deliberately NO `if: always()`. A red or missing
-    # leg must mean no gate verdict at all, never a plausible-but-partial
-    # repo-wide percentage. On a docs-only run `test` is skipped, so this is
-    # skipped too (CI Gate treats skipped as pass).
-    needs: [test]
-    runs-on: ubuntu-latest
-
-    # Single source of truth for the repo-wide coverage threshold. The stricter
-    # agent-core package gate (80%) is a deliberately separate, package-specific
-    # rule — not a competing repo number.
-    env:
-      COVERAGE_THRESHOLD: 60
-
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
-
-      - name: Download coverage artifacts
-        # upload-artifact keeps paths relative to the workspace, so merging all
-        # legs into `.` reconstructs <pkg>/coverage/coverage-final.json exactly
-        # where the scan and the codecov file list below expect it.
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          pattern: coverage-*
-          merge-multiple: true
-          path: .
-
-      - name: Upload coverage reports
-        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./packages/auth/coverage/coverage-final.json,./packages/config/coverage/coverage-final.json,./packages/agent-core/coverage/coverage-final.json,./packages/rialto/coverage/coverage-final.json,./packages/rialto-catalog/coverage/coverage-final.json,./packages/api-client/coverage/coverage-final.json,./services/users/coverage/coverage-final.json,./services/reservations/coverage/coverage-final.json,./services/agent/coverage/coverage-final.json,./apps/hospitality/coverage/coverage-final.json,./tools/cli/coverage/coverage-final.json,./tools/route-contract/coverage/coverage-final.json,./infrastructure/pulumi/coverage/coverage-final.json,./infrastructure/worker/coverage/coverage-final.json,./scripts/coverage/coverage-final.json
-          fail_ci_if_error: false
-          verbose: true
-
-      - name: Enforce repo-wide coverage threshold
-        run: |
-          # Repo-wide statement coverage across every package's coverage-final.json,
-          # folded in from the retired coverage-gate.yml so the suite runs at most
-          # once per required Node version. Threshold source: COVERAGE_THRESHOLD env.
-          TOTAL_LINES=0
-          COVERED_LINES=0
-          for REPORT in $(find . -path '*/coverage/coverage-final.json' -not -path '*/node_modules/*' | sort); do
-            PKG_TOTAL=$(node -e "
-              const c = require('./$REPORT');
-              let t=0, cov=0;
-              for (const f of Object.values(c)) {
-                for (const v of Object.values(f.s)) { t++; if (v>0) cov++; }
-              }
-              console.log(t + ',' + cov);
-            ")
-            PKG_T=$(echo "$PKG_TOTAL" | cut -d',' -f1)
-            PKG_C=$(echo "$PKG_TOTAL" | cut -d',' -f2)
-            TOTAL_LINES=$((TOTAL_LINES + PKG_T))
-            COVERED_LINES=$((COVERED_LINES + PKG_C))
-          done
-          if [ "$TOTAL_LINES" -eq 0 ]; then
-            echo "::error::No coverage statements found across the repo"
-            exit 1
-          fi
-          PERCENT=$((COVERED_LINES * 100 / TOTAL_LINES))
-          echo "Repo-wide coverage: ${PERCENT}% (${COVERED_LINES}/${TOTAL_LINES} statements, threshold: ${COVERAGE_THRESHOLD}%)"
-          if [ "$PERCENT" -lt "$COVERAGE_THRESHOLD" ]; then
-            echo "::error::Coverage ${PERCENT}% is below threshold of ${COVERAGE_THRESHOLD}%"
-            exit 1
-          fi
-          echo "Repo-wide coverage threshold met"
-
-      - name: Enforce agent-core coverage threshold
-        run: |
-          COVERAGE_FILE="./packages/agent-core/coverage/coverage-final.json"
-          if [ ! -f "$COVERAGE_FILE" ]; then
-            echo "ERROR: agent-core coverage report not found at $COVERAGE_FILE"
-            exit 1
-          fi
-          TOTAL_STMTS=0
-          COVERED_STMTS=0
-          while IFS= read -r line; do
-            file_total=$(echo "$line" | jq -r ".s | to_entries | length")
-            file_covered=$(echo "$line" | jq -r "[.s | to_entries[] | select(.value > 0)] | length")
-            TOTAL_STMTS=$((TOTAL_STMTS + file_total))
-            COVERED_STMTS=$((COVERED_STMTS + file_covered))
-          done < <(jq -c ".[]" "$COVERAGE_FILE")
-          if [ "$TOTAL_STMTS" -eq 0 ]; then
-            echo "ERROR: No statements found in coverage report"
-            exit 1
-          fi
-          PCT=$((COVERED_STMTS * 100 / TOTAL_STMTS))
-          echo "agent-core statement coverage: ${PCT}% (${COVERED_STMTS}/${TOTAL_STMTS})"
-          if [ "$PCT" -lt 80 ]; then
-            echo "ERROR: agent-core coverage ${PCT}% is below the 80% threshold"
-            exit 1
-          fi
-          echo "agent-core coverage threshold met"
-
   migrations:
     name: Validate Migrations
     runs-on: ubuntu-latest
-    needs: [typecheck] # not lint, see the Build job
+    needs: [prepare] # not lint/typecheck: nothing here consumes their output (#10010)
 
     services:
       postgres:
@@ -789,6 +771,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
+        with:
+          # Full history: the PR-only dry-run steps below diff against
+          # origin/main (the old Migration Dry-Run job did the same).
+          fetch-depth: 0
 
       - uses: ./.github/actions/setup-workspace
 
@@ -821,6 +807,108 @@ jobs:
             PKG=$(node -e "const p=require('./services/$SERVICE/package.json'); process.stdout.write(p.name)")
             pnpm --filter "$PKG" db:migrate:status
           done
+
+      # Migration Dry-Run (folded in from its own job, #10010): PR-only. Test
+      # Prisma migrations against a fresh postgres:16 container on PRs that
+      # change a migration. Needs full history to diff against origin/main, hence
+      # the fetch-depth: 0 checkout above.
+      - name: Dry-run - check for migration changes
+        id: dry-run-changes
+        if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+        run: |
+          CHANGED=$(git diff --name-only origin/main...HEAD -- 'services/*/prisma/migrations/' | head -20)
+          if [ -z "$CHANGED" ]; then
+            echo "has_migrations=false" >> "$GITHUB_OUTPUT"
+            echo "No migration changes detected"
+          else
+            echo "has_migrations=true" >> "$GITHUB_OUTPUT"
+            echo "Migration files changed:"
+            echo "$CHANGED"
+          fi
+
+      - name: Dry-run - start postgres
+        if: ${{ !cancelled() && steps.dry-run-changes.outputs.has_migrations == 'true' }}
+        run: |
+          for i in 1 2 3; do
+            docker pull postgres:16-alpine && break || (echo "Pull attempt $i failed, retrying in 10s..." && sleep 10)
+          done
+          docker run -d --name dryrun-postgres \
+            -p 5433:5432 \
+            -e POSTGRES_USER=dryrun \
+            -e POSTGRES_PASSWORD=dryrun_test \
+            -e POSTGRES_DB=dryrun \
+            postgres:16-alpine
+          for i in $(seq 1 20); do
+            docker exec dryrun-postgres pg_isready -U dryrun && break || sleep 3
+          done
+
+      - name: Dry-run - install Prisma CLI
+        if: ${{ !cancelled() && steps.dry-run-changes.outputs.has_migrations == 'true' }}
+        run: npm install -g prisma@6
+
+      - name: Dry-run - apply existing migrations
+        if: ${{ !cancelled() && steps.dry-run-changes.outputs.has_migrations == 'true' }}
+        env:
+          DATABASE_URL: "postgresql://dryrun:dryrun_test@localhost:5433/dryrun"
+        run: |
+          for SERVICE in users reservations agent; do
+            SCHEMA="services/$SERVICE/prisma/schema.prisma"
+            if [ -f "$SCHEMA" ]; then
+              echo "=== Deploying $SERVICE migrations ==="
+              prisma migrate deploy --schema "$SCHEMA" 2>&1 || {
+                echo "::error::Migration deploy failed for $SERVICE"
+                exit 1
+              }
+              echo "✓ $SERVICE migrations applied"
+            fi
+          done
+
+      - name: Dry-run - validate schema consistency
+        if: ${{ !cancelled() && steps.dry-run-changes.outputs.has_migrations == 'true' }}
+        env:
+          DATABASE_URL: "postgresql://dryrun:dryrun_test@localhost:5433/dryrun"
+        run: |
+          for SERVICE in users reservations agent; do
+            SCHEMA="services/$SERVICE/prisma/schema.prisma"
+            if [ -f "$SCHEMA" ]; then
+              echo "=== Checking $SERVICE schema drift ==="
+              DIFF=$(prisma migrate diff \
+                --from-migrations "services/$SERVICE/prisma/migrations" \
+                --to-schema-datamodel "$SCHEMA" \
+                --shadow-database-url "postgresql://dryrun:dryrun_test@localhost:5433/dryrun_shadow" 2>&1 || true)
+
+              if echo "$DIFF" | grep -q "No difference"; then
+                echo "✓ $SERVICE schema matches migrations"
+              else
+                echo "::warning::$SERVICE may have schema drift"
+                echo "$DIFF"
+              fi
+            fi
+          done
+
+      - name: Dry-run - basic query tests
+        if: ${{ !cancelled() && steps.dry-run-changes.outputs.has_migrations == 'true' }}
+        env:
+          PGHOST: localhost
+          PGPORT: "5433"
+          PGUSER: dryrun
+          PGPASSWORD: dryrun_test
+          PGDATABASE: dryrun
+        run: |
+          TABLE_COUNT=$(psql -t -c "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public'" | tr -d ' ')
+          echo "Tables after migration: $TABLE_COUNT"
+
+          MIGRATION_COUNT=$(psql -t -c "SELECT count(*) FROM _prisma_migrations WHERE finished_at IS NOT NULL" | tr -d ' ')
+          echo "Migrations applied: $MIGRATION_COUNT"
+
+          FAILED=$(psql -t -c "SELECT count(*) FROM _prisma_migrations WHERE rolled_back_at IS NOT NULL" | tr -d ' ')
+          if [ "$FAILED" != "0" ]; then
+            echo "::error::$FAILED migration(s) were rolled back"
+            psql -c "SELECT migration_name, started_at, rolled_back_at FROM _prisma_migrations WHERE rolled_back_at IS NOT NULL"
+            exit 1
+          fi
+
+          echo "✓ All migrations applied successfully"
 
   # ──────────────────────────────────────────────────────────────────────────
   # RLS Integration (#5369) — the real-Postgres proof that ADR-026's RLS
@@ -985,46 +1073,12 @@ jobs:
       - name: Prove the suites actually ran, not skipped
         run: node scripts/assert-vitest-ran.mjs services/reservations/rls-integration-results.json
 
-  ai-antipattern-ratchet:
-    name: AI Antipattern Ratchet
-    needs: [prepare]
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
-
-      - uses: ./.github/actions/setup-workspace
-
-      - name: Check AI antipattern counts against baseline
-        run: node scripts/check-ai-antipatterns.mjs
-
-  visual-tolerance-check:
-    name: Visual Tolerance Change Check
-    # #4711: #4496 tightened apps/rialto-web/playwright.config.ts's visual
-    # tolerance without updating any baseline and merged with `Visual
-    # Regression (rialto-web)` (advisory, not part of this needs: list) red
-    # on its own head SHA — main stayed red for three days. This narrow,
-    # pure-node check fails only when a PR touches a visual-tolerance
-    # surface without also touching the baselines it measures against; it
-    # does not promote the visual suite itself to required.
-    needs: [detect-changes]
-    if: github.event_name == 'pull_request' && needs.detect-changes.outputs.has_code == 'true'
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
-        with:
-          fetch-depth: 0
-
-      - name: Check for a visual-tolerance change without baseline updates
-        run: node scripts/check-visual-tolerance-change.mjs
-
   report-health:
     name: Report CI Health
-    needs: [detect-changes, lint, typecheck, build, test, migrations]
+    needs: [detect-changes, static-checks, build, test, migrations]
     # has_code is load-bearing, not decoration. The loop below treats anything
     # that is not `failure`/`cancelled` as success, and `skipped` is neither —
-    # so on a docs-only push (where lint/typecheck/build/test/migrations all
+    # so on a docs-only push (where static-checks/build/test/migrations all
     # skip) this would write conclusion=success to ci/latest and mask a red
     # code run that preceded it. Only report health for runs that tested code.
     if: always() && github.ref == 'refs/heads/main' && needs.detect-changes.outputs.has_code == 'true'
@@ -1039,15 +1093,14 @@ jobs:
           GH_RUN_ID: ${{ github.run_id }}
           GH_REF_NAME: ${{ github.ref_name }}
           GH_SHA: ${{ github.sha }}
-          LINT_RESULT: ${{ needs.lint.result }}
-          TYPECHECK_RESULT: ${{ needs.typecheck.result }}
+          STATIC_RESULT: ${{ needs.static-checks.result }}
           BUILD_RESULT: ${{ needs.build.result }}
           TEST_RESULT: ${{ needs.test.result }}
           MIGRATIONS_RESULT: ${{ needs.migrations.result }}
         run: |
           set -o pipefail
           CONCLUSION="success"
-          for RESULT in "$LINT_RESULT" "$TYPECHECK_RESULT" "$BUILD_RESULT" "$TEST_RESULT" "$MIGRATIONS_RESULT"; do
+          for RESULT in "$STATIC_RESULT" "$BUILD_RESULT" "$TEST_RESULT" "$MIGRATIONS_RESULT"; do
             if [ "$RESULT" = "failure" ]; then
               CONCLUSION="failure"
               break
@@ -1106,118 +1159,6 @@ jobs:
               ;;
           esac
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # Migration Dry-Run — test Prisma migrations against a fresh DB on PRs
-  # ──────────────────────────────────────────────────────────────────────────
-  migration-dry-run:
-    name: Migration Dry-Run
-    needs: [detect-changes]
-    if: github.event_name == 'pull_request' && needs.detect-changes.outputs.has_code == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
-        with:
-          fetch-depth: 0
-
-      - name: Check for migration changes
-        id: changes
-        run: |
-          CHANGED=$(git diff --name-only origin/main...HEAD -- 'services/*/prisma/migrations/' | head -20)
-          if [ -z "$CHANGED" ]; then
-            echo "has_migrations=false" >> "$GITHUB_OUTPUT"
-            echo "No migration changes detected"
-          else
-            echo "has_migrations=true" >> "$GITHUB_OUTPUT"
-            echo "Migration files changed:"
-            echo "$CHANGED"
-          fi
-
-      - name: Start postgres
-        if: steps.changes.outputs.has_migrations == 'true'
-        run: |
-          for i in 1 2 3; do
-            docker pull postgres:16-alpine && break || (echo "Pull attempt $i failed, retrying in 10s..." && sleep 10)
-          done
-          docker run -d --name postgres \
-            -p 5432:5432 \
-            -e POSTGRES_USER=dryrun \
-            -e POSTGRES_PASSWORD=dryrun_test \
-            -e POSTGRES_DB=dryrun \
-            postgres:16-alpine
-          for i in $(seq 1 20); do
-            docker exec postgres pg_isready -U dryrun && break || sleep 3
-          done
-
-      - name: Install Prisma CLI
-        if: steps.changes.outputs.has_migrations == 'true'
-        run: npm install -g prisma@6
-
-      - name: Apply existing migrations
-        if: steps.changes.outputs.has_migrations == 'true'
-        env:
-          DATABASE_URL: "postgresql://dryrun:dryrun_test@localhost:5432/dryrun"
-        run: |
-          for SERVICE in users reservations agent; do
-            SCHEMA="services/$SERVICE/prisma/schema.prisma"
-            if [ -f "$SCHEMA" ]; then
-              echo "=== Deploying $SERVICE migrations ==="
-              prisma migrate deploy --schema "$SCHEMA" 2>&1 || {
-                echo "::error::Migration deploy failed for $SERVICE"
-                exit 1
-              }
-              echo "✓ $SERVICE migrations applied"
-            fi
-          done
-
-      - name: Validate schema consistency
-        if: steps.changes.outputs.has_migrations == 'true'
-        env:
-          DATABASE_URL: "postgresql://dryrun:dryrun_test@localhost:5432/dryrun"
-        run: |
-          for SERVICE in users reservations agent; do
-            SCHEMA="services/$SERVICE/prisma/schema.prisma"
-            if [ -f "$SCHEMA" ]; then
-              echo "=== Checking $SERVICE schema drift ==="
-              DIFF=$(prisma migrate diff \
-                --from-migrations "services/$SERVICE/prisma/migrations" \
-                --to-schema-datamodel "$SCHEMA" \
-                --shadow-database-url "postgresql://dryrun:dryrun_test@localhost:5432/dryrun_shadow" 2>&1 || true)
-
-              if echo "$DIFF" | grep -q "No difference"; then
-                echo "✓ $SERVICE schema matches migrations"
-              else
-                echo "::warning::$SERVICE may have schema drift"
-                echo "$DIFF"
-              fi
-            fi
-          done
-
-      - name: Run basic query tests
-        if: steps.changes.outputs.has_migrations == 'true'
-        env:
-          PGHOST: localhost
-          PGPORT: "5432"
-          PGUSER: dryrun
-          PGPASSWORD: dryrun_test
-          PGDATABASE: dryrun
-        run: |
-          TABLE_COUNT=$(psql -t -c "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public'" | tr -d ' ')
-          echo "Tables after migration: $TABLE_COUNT"
-
-          MIGRATION_COUNT=$(psql -t -c "SELECT count(*) FROM _prisma_migrations WHERE finished_at IS NOT NULL" | tr -d ' ')
-          echo "Migrations applied: $MIGRATION_COUNT"
-
-          FAILED=$(psql -t -c "SELECT count(*) FROM _prisma_migrations WHERE rolled_back_at IS NOT NULL" | tr -d ' ')
-          if [ "$FAILED" != "0" ]; then
-            echo "::error::$FAILED migration(s) were rolled back"
-            psql -c "SELECT migration_name, started_at, rolled_back_at FROM _prisma_migrations WHERE rolled_back_at IS NOT NULL"
-            exit 1
-          fi
-
-          echo "✓ All migrations applied successfully"
-
   # Storybook play functions and axe checks in real Chromium (#8088, promoted to
   # a CI Gate dependency in #8117 after 28 green runs on main). jsdom has no
   # layout, so Dialog.overlays.stories.tsx (an overlay is not clipped inside a
@@ -1271,21 +1212,13 @@ jobs:
       [
         detect-changes,
         prepare,
-        lint,
-        typecheck,
-        architecture-audit,
+        static-checks,
+        repo-checks,
+        containers,
         build,
         test,
-        test-coverage-gate,
-        hadolint,
-        trivy,
         migrations,
-        migration-dry-run,
         rls-integration,
-        dependency-audit,
-        integrity,
-        ai-antipattern-ratchet,
-        visual-tolerance-check,
         a11y-attribution,
         docs-format,
         storybook-tests,
@@ -1296,6 +1229,11 @@ jobs:
       # Needed to publish the commit status below (#4025) — the job-level
       # grant is additive on top of the workflow's default contents:read.
       statuses: write
+    # Single source of truth for the repo-wide coverage threshold. The stricter
+    # agent-core package gate (80%) is a deliberately separate, package-specific
+    # rule — not a competing repo number.
+    env:
+      COVERAGE_THRESHOLD: 60
     steps:
       # Checkout is needed here (unlike a bare status-check job) because the
       # "Publish CI Gate commit status" step below invokes the pure mapping
@@ -1309,6 +1247,96 @@ jobs:
         # github.sha directly.
         id: target-sha
         run: echo "sha=${{ github.event.pull_request.head.sha || github.sha }}" >> "$GITHUB_OUTPUT"
+      # Test Coverage Gate, folded in from its own job (#10010): it only joined
+      # the `test` legs and cost one more queued runner on the required path.
+      # Runs only when every `test` leg passed (a red or missing leg must mean
+      # no coverage verdict, never a partial repo-wide percentage); on a
+      # docs-only run `test` is skipped so these are skipped too. A failing
+      # step here skips "Check required job results", and the publish step
+      # below maps that skipped outcome to an `error` status, so CI Gate can
+      # never go green past it.
+      - name: Download coverage artifacts
+        if: needs.test.result == 'success'
+        # upload-artifact keeps paths relative to the workspace, so merging all
+        # legs into `.` reconstructs <pkg>/coverage/coverage-final.json exactly
+        # where the scan and the codecov file list below expect it.
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: coverage-*
+          merge-multiple: true
+          path: .
+
+      - name: Upload coverage reports
+        if: needs.test.result == 'success'
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./packages/auth/coverage/coverage-final.json,./packages/config/coverage/coverage-final.json,./packages/agent-core/coverage/coverage-final.json,./packages/rialto/coverage/coverage-final.json,./packages/rialto-catalog/coverage/coverage-final.json,./packages/api-client/coverage/coverage-final.json,./services/users/coverage/coverage-final.json,./services/reservations/coverage/coverage-final.json,./services/agent/coverage/coverage-final.json,./apps/hospitality/coverage/coverage-final.json,./tools/cli/coverage/coverage-final.json,./tools/route-contract/coverage/coverage-final.json,./infrastructure/pulumi/coverage/coverage-final.json,./infrastructure/worker/coverage/coverage-final.json,./scripts/coverage/coverage-final.json
+          fail_ci_if_error: false
+          verbose: true
+
+      - name: Enforce repo-wide coverage threshold
+        if: needs.test.result == 'success'
+        run: |
+          # Repo-wide statement coverage across every package's coverage-final.json,
+          # folded in from the retired coverage-gate.yml so the suite runs at most
+          # once per required Node version. Threshold source: COVERAGE_THRESHOLD env.
+          TOTAL_LINES=0
+          COVERED_LINES=0
+          for REPORT in $(find . -path '*/coverage/coverage-final.json' -not -path '*/node_modules/*' | sort); do
+            PKG_TOTAL=$(node -e "
+              const c = require('./$REPORT');
+              let t=0, cov=0;
+              for (const f of Object.values(c)) {
+                for (const v of Object.values(f.s)) { t++; if (v>0) cov++; }
+              }
+              console.log(t + ',' + cov);
+            ")
+            PKG_T=$(echo "$PKG_TOTAL" | cut -d',' -f1)
+            PKG_C=$(echo "$PKG_TOTAL" | cut -d',' -f2)
+            TOTAL_LINES=$((TOTAL_LINES + PKG_T))
+            COVERED_LINES=$((COVERED_LINES + PKG_C))
+          done
+          if [ "$TOTAL_LINES" -eq 0 ]; then
+            echo "::error::No coverage statements found across the repo"
+            exit 1
+          fi
+          PERCENT=$((COVERED_LINES * 100 / TOTAL_LINES))
+          echo "Repo-wide coverage: ${PERCENT}% (${COVERED_LINES}/${TOTAL_LINES} statements, threshold: ${COVERAGE_THRESHOLD}%)"
+          if [ "$PERCENT" -lt "$COVERAGE_THRESHOLD" ]; then
+            echo "::error::Coverage ${PERCENT}% is below threshold of ${COVERAGE_THRESHOLD}%"
+            exit 1
+          fi
+          echo "Repo-wide coverage threshold met"
+
+      - name: Enforce agent-core coverage threshold
+        if: needs.test.result == 'success'
+        run: |
+          COVERAGE_FILE="./packages/agent-core/coverage/coverage-final.json"
+          if [ ! -f "$COVERAGE_FILE" ]; then
+            echo "ERROR: agent-core coverage report not found at $COVERAGE_FILE"
+            exit 1
+          fi
+          TOTAL_STMTS=0
+          COVERED_STMTS=0
+          while IFS= read -r line; do
+            file_total=$(echo "$line" | jq -r ".s | to_entries | length")
+            file_covered=$(echo "$line" | jq -r "[.s | to_entries[] | select(.value > 0)] | length")
+            TOTAL_STMTS=$((TOTAL_STMTS + file_total))
+            COVERED_STMTS=$((COVERED_STMTS + file_covered))
+          done < <(jq -c ".[]" "$COVERAGE_FILE")
+          if [ "$TOTAL_STMTS" -eq 0 ]; then
+            echo "ERROR: No statements found in coverage report"
+            exit 1
+          fi
+          PCT=$((COVERED_STMTS * 100 / TOTAL_STMTS))
+          echo "agent-core statement coverage: ${PCT}% (${COVERED_STMTS}/${TOTAL_STMTS})"
+          if [ "$PCT" -lt 80 ]; then
+            echo "ERROR: agent-core coverage ${PCT}% is below the 80% threshold"
+            exit 1
+          fi
+          echo "agent-core coverage threshold met"
+
       - name: Check required job results
         id: gate-check
         # Fail-CLOSED decision (scripts/ci-gate-required-results.mjs): only

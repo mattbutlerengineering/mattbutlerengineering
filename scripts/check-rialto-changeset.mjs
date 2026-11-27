@@ -35,7 +35,7 @@
  * (with the fix) rather than silently passing — a diff-based gate that
  * no-ops in a shallow clone is exactly the shipped-but-never-exercised
  * class this repo keeps rediscovering. CI's Build job checkout therefore
- * needs `fetch-depth: 0` (same as migration-dry-run). The failure is
+ * needs `fetch-depth: 0` (same as the migrations job's dry-run steps). The failure is
  * attributed, not softened (#9203): a shallow clone, a missing origin/main
  * and an unreadable diff each print a distinct `BLOCKED:` message and exit
  * with a distinct non-zero code (`BLOCKED_EXIT_CODES`), so `pnpm repo-audit`

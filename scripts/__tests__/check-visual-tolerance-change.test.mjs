@@ -131,24 +131,24 @@ describe("classifyVisualToleranceChange", () => {
   });
 });
 
-describe("ci.yml wiring — visual-tolerance-check job (#4711)", () => {
-  it("defines a job that runs check-visual-tolerance-change.mjs", () => {
+describe("ci.yml wiring — visual-tolerance step of repo-checks (#4711, #10010)", () => {
+  it("defines a step that runs check-visual-tolerance-change.mjs", () => {
     expect(CI_WORKFLOW).toContain("scripts/check-visual-tolerance-change.mjs");
   });
 
-  it("CI Gate's needs: list depends on the visual-tolerance-check job", () => {
+  it("CI Gate's needs: list depends on the repo-checks job, which runs the visual-tolerance step", () => {
     const ciGateIndex = CI_WORKFLOW.indexOf("ci-gate:");
     expect(ciGateIndex).toBeGreaterThan(-1);
     const needsBlock = CI_WORKFLOW.slice(ciGateIndex, ciGateIndex + 700);
-    expect(needsBlock).toMatch(/visual-tolerance-check/);
+    expect(needsBlock).toMatch(/repo-checks/);
   });
 
-  it("CI Gate's gate-check step fails the gate on a visual-tolerance-check failure", () => {
+  it("CI Gate's gate-check step fails the gate on a visual-tolerance step failure", () => {
     const gateCheckIndex = CI_WORKFLOW.indexOf("- name: Check required job results");
     expect(gateCheckIndex).toBeGreaterThan(-1);
     const gateCheckBlock = CI_WORKFLOW.slice(gateCheckIndex, gateCheckIndex + 2500);
     // The step hands the whole `needs` context (which includes
-    // visual-tolerance-check, asserted above) to the fail-closed module.
+    // repo-checks, asserted above) to the fail-closed module.
     expect(gateCheckBlock).toMatch(/NEEDS_JSON:\s*\$\{\{\s*toJSON\(needs\)\s*\}\}/);
     expect(gateCheckBlock).toMatch(/node scripts\/ci-gate-required-results\.mjs/);
   });

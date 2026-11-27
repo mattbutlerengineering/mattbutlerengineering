@@ -20,8 +20,8 @@
  *      empty, missing, anything GitHub invents later — fails.
  *   2. `skipped` stays allowed because it is legitimate: docs-only PRs skip
  *      the whole Build chain (detect-changes sets has_code=false), and jobs
- *      like a11y-attribution / visual-tolerance-check / migration-dry-run
- *      skip by their own `if:` conditions.
+ *      like a11y-attribution and containers (and the PR-only steps of
+ *      repo-checks / migrations) skip by their own `if:` conditions.
  *   3. Because a skipped root cascades `skipped` to every dependent (which
  *      reads identically to a legitimate skip), the root of the chain is
  *      checked explicitly:

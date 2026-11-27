@@ -2,7 +2,7 @@
 
 /**
  * Dependency Sync Audit — the `Dependency Sync` CI gate (ci.yml job
- * `dependency-audit`).
+ * `repo-checks`, step `Dependency Sync`).
  *
  * Fail-closed accounting: the original version only counted gaps found in the
  * success branch, so a run where depcheck failed for every package (registry

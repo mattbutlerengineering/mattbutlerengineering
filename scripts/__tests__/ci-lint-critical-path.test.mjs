@@ -37,18 +37,21 @@ function needsOf(jobName) {
 }
 
 describe("ci.yml lint critical path", () => {
-  it.each(["build", "migrations", "rls-integration"])("%s does not wait for lint", (job) => {
-    expect(needsOf(job)).not.toContain("lint");
-  });
+  it.each(["build", "migrations", "rls-integration"])(
+    "%s does not wait for static-checks (lint, typecheck, architecture audit)",
+    (job) => {
+      expect(needsOf(job)).not.toContain("static-checks");
+    }
+  );
 
-  it("CI Gate still requires lint", () => {
-    expect(needsOf("ci-gate")).toContain("lint");
+  it("CI Gate still requires static-checks", () => {
+    expect(needsOf("ci-gate")).toContain("static-checks");
   });
 });
 
 describe("ci.yml migrations ordering", () => {
-  it("migrations still waits for Typecheck", () => {
-    expect(needsOf("migrations")).toContain("typecheck");
+  it("migrations waits for Prepare only (#10010: nothing consumes Typecheck output)", () => {
+    expect(needsOf("migrations")).toEqual(["prepare"]);
   });
 });
 
@@ -57,13 +60,13 @@ describe("ci.yml prepare/typecheck parallelism", () => {
     "%s uses Prepare outputs and runs alongside Typecheck",
     (job) => {
       expect(needsOf(job)).toContain("prepare");
-      expect(needsOf(job)).not.toContain("typecheck");
+      expect(needsOf(job)).not.toContain("static-checks");
     }
   );
 
-  it("CI Gate still requires Typecheck, Build, and RLS Integration", () => {
+  it("CI Gate still requires static-checks, Build, and RLS Integration", () => {
     expect(needsOf("ci-gate")).toEqual(
-      expect.arrayContaining(["typecheck", "build", "rls-integration"])
+      expect.arrayContaining(["static-checks", "build", "rls-integration"])
     );
   });
 });
@@ -76,12 +79,12 @@ describe("ci.yml prepare/typecheck parallelism", () => {
  * Integrity 14:46:17-14:47:01, CI Gate 14:47:03).
  */
 describe("ci.yml integrity critical path", () => {
-  it("integrity does not wait for build", () => {
-    expect(needsOf("integrity")).not.toContain("build");
+  it("repo-checks (integrity, dependency sync, ratchet) does not wait for build", () => {
+    expect(needsOf("repo-checks")).not.toContain("build");
   });
 
-  it("CI Gate still requires integrity", () => {
-    expect(needsOf("ci-gate")).toContain("integrity");
+  it("CI Gate still requires repo-checks", () => {
+    expect(needsOf("ci-gate")).toContain("repo-checks");
   });
 });
 
@@ -93,12 +96,12 @@ describe("ci.yml integrity critical path", () => {
  * 20:40:04, Build/Test started 20:40:05).
  */
 describe("ci.yml architecture-audit critical path", () => {
-  it.each(["build", "test"])("%s does not wait for architecture-audit", (job) => {
-    expect(needsOf(job)).not.toContain("architecture-audit");
+  it.each(["build", "test"])("%s does not wait for the architecture audit", (job) => {
+    expect(needsOf(job)).not.toContain("static-checks");
   });
 
-  it("CI Gate still requires architecture-audit", () => {
-    expect(needsOf("ci-gate")).toContain("architecture-audit");
+  it("CI Gate still requires the architecture audit (a static-checks step)", () => {
+    expect(needsOf("ci-gate")).toContain("static-checks");
   });
 });
 
@@ -111,12 +114,12 @@ describe("ci.yml architecture-audit critical path", () => {
  */
 describe("ci.yml test/typecheck parallelism", () => {
   it("test does not wait for typecheck", () => {
-    expect(needsOf("test")).not.toContain("typecheck");
+    expect(needsOf("test")).not.toContain("static-checks");
     expect(needsOf("test")).toContain("prepare");
   });
 
-  it("CI Gate still requires typecheck and test", () => {
-    expect(needsOf("ci-gate")).toContain("typecheck");
+  it("CI Gate still requires typecheck (a static-checks step) and test", () => {
+    expect(needsOf("ci-gate")).toContain("static-checks");
     expect(needsOf("ci-gate")).toContain("test");
   });
 
