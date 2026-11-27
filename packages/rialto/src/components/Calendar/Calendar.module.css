@@ -163,4 +163,10 @@
     color: HighlightText;
     forced-color-adjust: none;
   }
+
+  /* forced-color-adjust: none above stops the UA repainting the transparent
+     focus outline; restore it in the system text colour (#9857). */
+  .daySelected:focus-visible {
+    outline-color: CanvasText;
+  }
 }

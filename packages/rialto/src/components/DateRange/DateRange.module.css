@@ -212,4 +212,11 @@
   .inRange:hover {
     border-color: Highlight;
   }
+
+  /* forced-color-adjust: none above stops the UA repainting the transparent
+     focus outline; restore it in the system text colour (#9857). */
+  .rangeStart:focus-visible,
+  .rangeEnd:focus-visible {
+    outline-color: CanvasText;
+  }
 }

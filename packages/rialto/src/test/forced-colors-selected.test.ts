@@ -109,6 +109,40 @@ describe("rialto forced-colors selected states", () => {
   });
 });
 
+// `forced-color-adjust: none` on a selected fill also stops the UA repainting
+// the transparent focus outline (#9727), leaving only a low-alpha glow (#9857).
+const FOCUS_UNDER_NONE: Record<string, string[]> = {
+  "components/Checkbox/Checkbox.module.css": [
+    ".input:focus-visible + .box",
+    ".input:focus-visible + .circle",
+  ],
+  "components/Toggle/Toggle.module.css": [".input:focus-visible + .track"],
+  "components/Calendar/Calendar.module.css": [".daySelected:focus-visible"],
+  "components/DateRange/DateRange.module.css": [
+    ".rangeStart:focus-visible",
+    ".rangeEnd:focus-visible",
+  ],
+};
+
+/** Declarations of the forced-colors rules whose selector list names `selector`. */
+function forcedRuleBodies(rel: string, selector: string): string[] {
+  const rules = forcedColors(rel).matchAll(/([^{}]+)\{([^{}]*)\}/g);
+  return [...rules]
+    .filter(([, sel]) => sel.split(",").some((part) => part.trim() === selector))
+    .map(([, , body]) => body);
+}
+
+describe("rialto forced-colors focus ring on adjusted fills", () => {
+  for (const [file, selectors] of Object.entries(FOCUS_UNDER_NONE)) {
+    for (const selector of selectors) {
+      it(`${file} paints a CanvasText outline on ${selector}`, () => {
+        const bodies = forcedRuleBodies(file, selector);
+        expect(bodies.some((body) => /outline-color:\s*CanvasText/.test(body))).toBe(true);
+      });
+    }
+  }
+});
+
 describe("rialto forced-colors shadow-only boundaries", () => {
   for (const [file, selector] of Object.entries(SHADOW_ONLY)) {
     it(`${file} draws an edge on ${selector}`, () => {

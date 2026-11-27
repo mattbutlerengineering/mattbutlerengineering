@@ -297,4 +297,11 @@
     border-color: Highlight;
     forced-color-adjust: none;
   }
+
+  /* forced-color-adjust: none above stops the UA repainting the transparent
+     focus outline; restore it in the system text colour (#9857). */
+  .input:focus-visible + .box,
+  .input:focus-visible + .circle {
+    outline-color: CanvasText;
+  }
 }
