@@ -197,6 +197,8 @@ describe("Reservation Routes", () => {
         depositService: injectedDeposits,
       },
       logger: false,
+      // Non-admin cases here are owners or strangers, never members (#9866).
+      venueMembershipLookup: vi.fn<VenueMembershipLookup>().mockResolvedValue(false),
       reservationEvents: stubEvents,
       jobs: {
         schedule: vi.fn().mockResolvedValue("job"),
@@ -2941,5 +2943,96 @@ describe("Reservation Routes — venue authorization pins (ADR-020)", () => {
 
     expect(response.statusCode).toBe(201);
     expect(observed).toBe("venue-123");
+  });
+});
+
+// #9866 (Sentry HOSPITALITY-F/G regressed): seat and cancel from the timeline
+// answered 401 "Authentication required" for a signed-in venue member, because
+// `/:id` admitted only the guest owner (verified email match) or a platform
+// admin. Venue staff are neither. Authenticate as a non-admin member with an
+// injected membership lookup, as the #4865 suite above does.
+describe("PATCH /v1/reservations/:id — venue member access (#9866)", () => {
+  let app: FastifyInstance;
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    vi.mocked(jwtVerify).mockReset();
+  });
+
+  afterEach(async () => {
+    await app?.close();
+    vi.clearAllMocks();
+    vi.mocked(resolveVenueId).mockResolvedValue("venue-1");
+    process.env = originalEnv;
+  });
+
+  async function buildAppWithMembership(lookup: VenueMembershipLookup): Promise<FastifyInstance> {
+    process.env = {
+      ...originalEnv,
+      AUTH_AUTHORITY: "https://test.auth0.com",
+      AUTH_AUDIENCE: "https://api.example.com",
+    };
+    const built = await buildApp({
+      services: {
+        reservationService,
+        guestService,
+        venueService,
+        depositService: injectedDeposits,
+      },
+      logger: false,
+      venueMembershipLookup: lookup,
+    });
+    await built.ready();
+    return built;
+  }
+
+  function asStaff(emailVerified = false): void {
+    vi.mocked(jwtVerify).mockResolvedValue({
+      payload: createMockJWTPayload({
+        sub: "auth0|staff-1",
+        permissions: ["staff"],
+        email: "staff@venue.example",
+        email_verified: emailVerified,
+      }),
+      protectedHeader: { alg: "RS256" },
+    } as never);
+  }
+
+  const patch = () =>
+    app.inject({
+      method: "PATCH",
+      url: "/api/v1/reservations/res-123",
+      headers: { authorization: "Bearer valid-token" },
+      payload: { partySize: 6 },
+    });
+
+  it("lets a non-admin member of the reservation's venue update it, though not the guest", async () => {
+    asStaff();
+    vi.mocked(resolveVenueId).mockResolvedValue("venue-1");
+    app = await buildAppWithMembership(
+      vi
+        .fn<VenueMembershipLookup>()
+        .mockImplementation(async (_s, venueId) => venueId === "venue-1")
+    );
+    vi.mocked(reservationService.getById).mockResolvedValueOnce(
+      createMockReservation({ guestEmail: "john@example.com", venueId: "venue-1" })
+    );
+    vi.mocked(reservationService.updateWithConflictCheck).mockResolvedValueOnce({
+      success: true,
+      reservation: createMockReservation({ id: "res-123", partySize: 6 }),
+    });
+
+    expect((await patch()).statusCode).toBe(200);
+  });
+
+  it("still denies a non-member, non-owner with 403", async () => {
+    asStaff(true);
+    vi.mocked(resolveVenueId).mockResolvedValue("venue-1");
+    app = await buildAppWithMembership(vi.fn<VenueMembershipLookup>().mockResolvedValue(false));
+    vi.mocked(reservationService.getById).mockResolvedValueOnce(
+      createMockReservation({ guestEmail: "john@example.com", venueId: "venue-1" })
+    );
+
+    expect((await patch()).statusCode).toBe(403);
   });
 });
