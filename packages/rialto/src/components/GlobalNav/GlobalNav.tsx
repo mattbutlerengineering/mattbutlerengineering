@@ -117,8 +117,11 @@ export const GlobalNav = forwardRef<HTMLElement, GlobalNavProps>(
     const hamburgerRef = useRef<HTMLButtonElement>(null);
 
     // Escape from anywhere in the open menu closes it and hands focus back to the toggle.
+    const tabbedRef = useRef(false);
+
     const handleKeyDown = useCallback(
       (e: React.KeyboardEvent) => {
+        if (e.key === "Tab") tabbedRef.current = true;
         if (e.key === "Escape" && menuOpen) {
           setMenuOpen(false);
           hamburgerRef.current?.focus();
@@ -127,10 +130,13 @@ export const GlobalNav = forwardRef<HTMLElement, GlobalNavProps>(
       [menuOpen, setMenuOpen]
     );
 
-    // Focus that leaves the nav must not land under the still-open sticky header.
+    // Keyboard focus that leaves the nav must not land under the still-open sticky header.
+    // Pointer taps are left alone: closing on mousedown shifts the layout and the tap misses.
     const handleNavBlur = useCallback(
       (e: FocusEvent<HTMLElement>) => {
-        if (menuOpen && e.relatedTarget && !e.currentTarget.contains(e.relatedTarget)) {
+        const viaTab = tabbedRef.current;
+        tabbedRef.current = false;
+        if (menuOpen && viaTab && e.relatedTarget && !e.currentTarget.contains(e.relatedTarget)) {
           setMenuOpen(false);
         }
       },

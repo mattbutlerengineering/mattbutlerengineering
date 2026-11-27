@@ -266,6 +266,21 @@ describe("GlobalNav", () => {
     );
   });
 
+  it("keeps the mobile menu open when a pointer press moves focus outside the nav", async () => {
+    const user = userEvent.setup();
+    render(
+      <>
+        <GlobalNav currentApp="marketing" />
+        <button type="button">Page control</button>
+      </>
+    );
+    await user.click(screen.getByRole("button", { name: "Open menu" }));
+    await user.click(screen.getByRole("button", { name: "Page control" }));
+    expect(screen.getByRole("button", { name: "Close menu" }).getAttribute("aria-expanded")).toBe(
+      "true"
+    );
+  });
+
   describe("back-forward cache", () => {
     const engineering = {
       label: "Engineering",
