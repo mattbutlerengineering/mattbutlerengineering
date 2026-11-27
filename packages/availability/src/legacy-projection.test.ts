@@ -56,6 +56,50 @@ describe("projectLegacyOperatingHours with archived rows", () => {
   });
 });
 
+/**
+ * "Change regular week" saves the new week with a start date and no end date, and gives the old
+ * week an end date (`buildRegularWeekChanges`). The projection read only assignments with neither
+ * date, so after one such save every day read closed: the Launch progress strip stuck on
+ * "Regular week" and the booking widget showed its setup prompt.
+ */
+describe("projectLegacyOperatingHours after a dated regular-week change", () => {
+  const changed: AvailabilityConfig = {
+    schedules: [
+      { id: "sch-was", name: "Regular week", kind: "regular", isRegular: false },
+      { id: "sch-now", name: "Regular week", kind: "regular", isRegular: true },
+      { id: "sch-alt", name: "Holidays", kind: "alternate", isRegular: false },
+    ],
+    venueServices: [{ id: "vs-dinner", name: "Dinner", position: 0 }],
+    scheduleServices: [
+      service("ss-was", "sch-was", "vs-dinner", 960),
+      service("ss-now", "sch-now", "vs-dinner", 1020),
+      service("ss-alt", "sch-alt", "vs-dinner", 600),
+    ],
+    assignments: [
+      { id: "as-was", scheduleId: "sch-was", weekdays: [5], precedence: 1, endsOn: "2026-11-25" },
+      { id: "as-now", scheduleId: "sch-now", weekdays: [5], precedence: 0, startsOn: "2026-11-26" },
+    ],
+    dateRules: [],
+  };
+
+  it("reads the open-ended week that replaced the undated one", () => {
+    expect(projectLegacyOperatingHours(changed).friday).toEqual({ open: "17:00", close: "20:00" });
+  });
+
+  it("does not let a dated period with an end date stand in for the regular week", () => {
+    const alt = {
+      id: "as-alt",
+      scheduleId: "sch-alt",
+      weekdays: [6],
+      precedence: 2,
+      startsOn: "2026-12-20",
+      endsOn: "2027-01-02",
+    };
+    const withAlt = { ...changed, assignments: [...changed.assignments, alt] };
+    expect(projectLegacyOperatingHours(withAlt).saturday).toMatchObject({ closed: true });
+  });
+});
+
 /** The projection as it was before day scope: every row of the covering schedule, base hours. Kept as the oracle. */
 function legacyProjectionBeforeDayScope(config: AvailabilityConfig): LegacyOperatingHours {
   const clock = (minute: number) => {
