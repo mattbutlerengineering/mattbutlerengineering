@@ -2,6 +2,16 @@
   max-width: 800px;
   margin: 0 auto;
   padding: var(--rialto-space-2xl) var(--rialto-space-lg);
+  /* Proposal text, issue and PR titles carry paths, backticked JSON and
+     identifiers with no break opportunity. Inherited by every child, so no
+     story content type can widen the page (#9978). */
+  overflow-wrap: anywhere;
+}
+
+.section,
+.list > li,
+.prCard {
+  min-width: 0;
 }
 
 .back {

@@ -134,3 +134,36 @@ for (const story of STORIES) {
     }
   }
 }
+
+/**
+ * Stories whose proposal text, issue titles or PR titles hold long unbroken
+ * tokens (paths, backticked JSON, identifiers). Measured overhang at 375px
+ * before the fix: 736, 665, 511 (#9978).
+ */
+const LONG_TOKEN_STORIES = [
+  "/shipped/marketing-ai-health-page-pr-category-breakdown-5904",
+  "/shipped/rialto-web-phase-5-domain-example-pages-5210",
+  "/shipped/dress-rehearsal-7377",
+  "/shipped/widen-mutation-pilot-to-services-reservations-9599",
+  "/shipped/guest-change-booking-6928",
+  "/shipped/hospitality-deposit-exposure-dashboard-5837",
+  "/shipped/rialto-catalog-widening-9524",
+  "/shipped/queue-telemetry-freshness-5925",
+  "/shipped/gen-point-and-refine-6935",
+  "/shipped/reservation-event-log-6942",
+  "/shipped/gen-template-gallery-widening-4427",
+  "/shipped/gen-template-batch-6-5843",
+] as const;
+
+for (const story of LONG_TOKEN_STORIES) {
+  test(`${story} wraps long tokens inside a 375px viewport`, async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto(story);
+    await expect(page.getByRole("heading", { name: "Decomposition", level: 2 })).toBeVisible();
+    const { scrollWidth, clientWidth } = await page.evaluate(() => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+    }));
+    expect(scrollWidth).toBeLessThanOrEqual(clientWidth + EDGE_SLACK_PX);
+  });
+}
