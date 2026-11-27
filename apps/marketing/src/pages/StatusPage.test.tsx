@@ -39,6 +39,16 @@ describe("StatusPage", () => {
     expect(screen.getAllByTestId("spinner").length).toBeGreaterThan(0);
   });
 
+  it("reserves the last-checked line before the first probe round completes", async () => {
+    mockFetch.mockResolvedValue({ ok: true, json: async () => ({ status: "ok" }) });
+    render(<StatusPage />);
+    // Present on first paint so the sections below never shift when probes land.
+    expect(screen.getByText("Checking services…")).toBeInTheDocument();
+    expect(screen.queryByText(/Last checked:/)).not.toBeInTheDocument();
+    expect(await screen.findByText(/Last checked:/)).toBeInTheDocument();
+    expect(screen.queryByText("Checking services…")).not.toBeInTheDocument();
+  });
+
   it("renders error status when fetch is rejected", async () => {
     mockFetch.mockRejectedValue(new Error("Network Error"));
     render(<StatusPage />);
