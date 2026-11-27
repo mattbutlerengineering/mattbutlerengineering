@@ -34,6 +34,7 @@ describe("isKnownMarketingPath", () => {
   it("tolerates a trailing slash and a shipped story", () => {
     expect(isKnownMarketingPath("/status/")).toBe(true);
     expect(isKnownMarketingPath("/shipped/some-story")).toBe(true);
+    expect(isKnownMarketingPath("/weekly")).toBe(true);
   });
 
   it("rejects unknown paths", () => {

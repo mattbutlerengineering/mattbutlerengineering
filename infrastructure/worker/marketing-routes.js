@@ -8,7 +8,16 @@
  * marketing entries of public/sitemap.xml; marketing-routes.test.js pins both.
  * `/shipped/<slug>` stories are matched by shape, not by slug list.
  */
-const KNOWN_PATHS = new Set(["/", "/status", "/metrics", "/acmm", "/ai-health", "/shipped"]);
+// "/weekly" is a retired page App.tsx still redirects to "/" (#8949); keep it 200.
+const KNOWN_PATHS = new Set([
+  "/",
+  "/status",
+  "/metrics",
+  "/acmm",
+  "/ai-health",
+  "/shipped",
+  "/weekly",
+]);
 const SHIPPED_STORY = /^\/shipped\/[^/]+$/;
 
 /** @param {string} pathname `url.pathname` of a request routed to the marketing app. */
