@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { manualChunks } from "./vite.manualChunks";
+import { codeSplitting, manualChunks, reactVendorGroup } from "./vite.manualChunks";
 
 // Realistic pnpm-resolved module ids: `.pnpm/<pkg>@<version>/node_modules/<pkg>/...`
 const reactDomId =
@@ -18,6 +18,27 @@ describe("manualChunks", () => {
   it("routes react and react-dom to react-vendor", () => {
     expect(manualChunks(reactId)).toBe("react-vendor");
     expect(manualChunks(reactDomId)).toBe("react-vendor");
+  });
+
+  // react-dom and react-reconciler (konva's) both require `scheduler`. Left
+  // unrouted it lands in canvas-vendor, so react-vendor imports canvas-vendor
+  // and every page, including guest booking, downloads konva (#9891).
+  it("routes scheduler to react-vendor, not canvas-vendor", () => {
+    const schedulerId = "/repo/node_modules/.pnpm/scheduler@0.27.0/node_modules/scheduler/index.js";
+    expect(manualChunks(schedulerId)).toBe("react-vendor");
+  });
+
+  // Rolldown lets the konva group claim react-dom's dependencies unless a
+  // react-vendor group of higher priority claims them first.
+  it("gives react-vendor its own higher-priority group ahead of the catch-all", () => {
+    expect(codeSplitting.groups[0]).toBe(reactVendorGroup);
+    expect(codeSplitting.groups[1]?.name).toBe(manualChunks);
+    expect(reactVendorGroup.priority).toBeGreaterThan(0);
+    const schedulerId = "/repo/node_modules/.pnpm/scheduler@0.27.0/node_modules/scheduler/index.js";
+    expect(reactVendorGroup.test(schedulerId)).toBe(true);
+    expect(
+      reactVendorGroup.test("/repo/node_modules/.pnpm/konva@10.0.0/node_modules/konva/lib/Core.js")
+    ).toBe(false);
   });
 
   it("does not route @sentry/react into react-vendor", () => {
