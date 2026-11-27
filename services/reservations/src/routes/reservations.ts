@@ -86,10 +86,7 @@ const reservationOwnerScope = (reservationService: DomainServices["reservationSe
       load: (id: string) => reservationService.getById(id),
       notFound: "Reservation not found",
     },
-    access: {
-      owner: (reservation: Reservation) => reservation.guestEmail ?? null,
-      orMember: true,
-    },
+    access: { owner: (reservation: Reservation) => reservation.guestEmail ?? null },
   }) as const;
 
 export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
@@ -100,11 +97,10 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
    * Shared cancel adapter for the PATCH (status: CANCELLED) and DELETE
    * routes below. Both routes are scoped by `reservationOwnerScope`, which
    * admits the reservation OWNER (guest email match), not only an
-   * admin or a venue member — so `isAdmin` here MUST come from the verified
-   * `scope.isStaff` flag `venueScoped` derives from the JWT's permissions and
-   * the server-side membership lookup, never from a client-supplied value,
-   * otherwise an owner could get the fee-waived staff refund on their own
-   * cancellation. Admins and venue members get staff semantics
+   * admin — so `isAdmin` here MUST come from the verified
+   * `scope.isAdmin` flag `venueScoped` derives from the JWT's permissions,
+   * never from a client-supplied value, otherwise an owner could get the fee-waived
+   * staff refund on their own cancellation. Admins get staff semantics
    * (waived fee, deposit refunded in full); a non-admin owner gets guest
    * semantics (the venue's cancellation-fee policy applies) — see
    * `cancelReservationWithDeposit`. A manage token is generated (not
@@ -622,7 +618,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    venueScoped(ownerScope, async (request, reply, { entity: reservation, isStaff: isAdmin }) => {
+    venueScoped(ownerScope, async (request, reply, { entity: reservation, isAdmin }) => {
       if (request.body.status === "CANCELLED") {
         try {
           const result = await cancelReservationForRequest(
@@ -816,7 +812,7 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
         },
       },
     },
-    venueScoped(ownerScope, async (request, reply, { entity: reservation, isStaff: isAdmin }) => {
+    venueScoped(ownerScope, async (request, reply, { entity: reservation, isAdmin }) => {
       try {
         const result = await cancelReservationForRequest(
           reservation,
