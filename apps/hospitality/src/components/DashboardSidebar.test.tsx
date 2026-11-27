@@ -105,6 +105,14 @@ describe("DashboardSidebar", () => {
       expect(slot.closest("li")).toHaveTextContent(/^Availability map/);
     });
 
+    it("marks the Availability item as holding the current page, not as the page, so only the rail's node is the page", () => {
+      renderWithSlot(withAvailability);
+      expect(screen.getByRole("button", { name: "Availability" })).toHaveAttribute(
+        "aria-current",
+        "true"
+      );
+    });
+
     it("renders no slot when no item hosts it", () => {
       const setSlot = renderWithSlot([
         {

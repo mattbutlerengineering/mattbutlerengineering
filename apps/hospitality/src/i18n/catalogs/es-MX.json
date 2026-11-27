@@ -3553,7 +3553,6 @@
     },
     "rail": {
       "label": "Secciones de disponibilidad",
-      "jumpTo": "Ir a",
       "overview": "Resumen",
       "groups": {
         "open": "Cuándo abres",

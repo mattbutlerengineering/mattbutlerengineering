@@ -59,8 +59,12 @@ test.describe("Availability rail", () => {
     await expect(rail(page).getByRole("link", { name: "History" })).not.toBeInViewport();
     const toggle = page.getByRole("button", { name: "Open sidebar" });
     await toggle.click();
-    await expect(rail(page).getByRole("link", { name: "History" })).toBeInViewport();
-    await rail(page).getByRole("link", { name: "History" }).click();
+    // The drawer scrolls: the rail's first line shows on opening, its last one once scrolled to.
+    await expect(rail(page).getByRole("link", { name: "Overview" })).toBeInViewport();
+    const history = rail(page).getByRole("link", { name: "History" });
+    await history.scrollIntoViewIfNeeded();
+    await expect(history).toBeInViewport();
+    await history.click();
     await expect(page).toHaveURL(/\/availability\/history$/);
     await expect(page.getByRole("button", { name: "Open sidebar" })).toHaveAttribute(
       "aria-expanded",

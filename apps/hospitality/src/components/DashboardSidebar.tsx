@@ -94,6 +94,9 @@ export function DashboardSidebar({
   const subnav = useSubnavSlot();
   const itemIds = sections.flatMap((section) => section.items.map((item) => item.id));
   const subnavHost = SUBNAV_HOSTS.find((id) => itemIds.includes(id)) ?? null;
+  // Under the host the rail's node is the page, so the host only holds it.
+  const currentFor = (item: NavItem, active: boolean): "page" | "true" | undefined =>
+    !active ? undefined : subnav && item.id === subnavHost ? "true" : "page";
   const sidebarRef = useRef<HTMLElement>(null);
 
   // Persist collapsed state
@@ -227,7 +230,7 @@ export function DashboardSidebar({
                           <button
                             className={`${styles.navLink} ${active ? styles.navLinkActive : ""}`}
                             onClick={() => handleItemClick(item.action)}
-                            aria-current={active ? "page" : undefined}
+                            aria-current={currentFor(item, active)}
                             type="button"
                           >
                             {item.label}
@@ -275,7 +278,7 @@ export function DashboardSidebar({
                           <button
                             className={`${styles.navLink} ${active ? styles.navLinkActive : ""}`}
                             onClick={() => handleItemClick(item.action)}
-                            aria-current={active ? "page" : undefined}
+                            aria-current={currentFor(item, active)}
                             type="button"
                           >
                             {item.label}

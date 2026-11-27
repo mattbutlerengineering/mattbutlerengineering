@@ -3553,7 +3553,6 @@
     },
     "rail": {
       "label": "Sections de disponibilité",
-      "jumpTo": "Aller à",
       "overview": "Aperçu",
       "groups": {
         "open": "Quand vous êtes ouvert",

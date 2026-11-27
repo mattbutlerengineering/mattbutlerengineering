@@ -3454,7 +3454,6 @@
     },
     "rail": {
       "label": "Availability sections",
-      "jumpTo": "Jump to",
       "overview": "Overview",
       "groups": {
         "open": "When you're open",

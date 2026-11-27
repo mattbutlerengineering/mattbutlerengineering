@@ -126,7 +126,7 @@
       "limit": "2.5 kB"
     },
     {
-      "name": "Availability layout (lazy chunk: the scope every Availability route reads, Undo, and since availability-hub C2.4 the Close and Pause host, which loads both dialogs only when an address names one; 2.06 kB (2,063 B) measured; 2.25 kB (2,254 B) once the layout became the one mount of the blocked-undo dialog, after the dialogs it hosts, and the phone's 44 px targets moved into a module both it and today's page compose; +1.39 kB at #9944 S1 for the rail beside every Availability page: its tree model, the nested-link nav with the phone's Jump to, and the floor plans read that lists each plan, 3.64 kB (3,640 B) measured)",
+      "name": "Availability layout (lazy chunk: the scope every Availability route reads, Undo, and since availability-hub C2.4 the Close and Pause host, which loads both dialogs only when an address names one; 2.06 kB (2,063 B) measured; 2.25 kB (2,254 B) once the layout became the one mount of the blocked-undo dialog, after the dialogs it hosts, and the phone's 44 px targets moved into a module both it and today's page compose; +1.29 kB at #9944 S1 for the Availability rail the layout portals into the sidebar: its tree model, the nested-link nav, the floor plans read that lists each plan, and the calendar and regular hours following a new address, 3.54 kB measured)",
       "path": "dist/assets/AvailabilityLayout-*.js",
       "limit": "3.9 kB"
     },
