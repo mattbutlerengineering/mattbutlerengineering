@@ -70,6 +70,19 @@ describe("Hero", () => {
       expect(heading.style.transform).toContain("translateY");
     });
 
+    // On mobile the subtitle is the LCP element (#9915): same rule as the title.
+    it("renders the subtitle at full opacity on mount, not faded from 0", () => {
+      const { container } = render(<Hero title="Ships itself" subtitle="Runs the queue" />);
+      const subtitle = container.querySelector("p") as HTMLElement;
+      expect(subtitle).not.toHaveStyle({ opacity: "0" });
+    });
+
+    it("still animates the subtitle's entrance via transform", () => {
+      const { container } = render(<Hero title="Ships itself" subtitle="Runs the queue" />);
+      const subtitle = container.querySelector("p") as HTMLElement;
+      expect(subtitle.style.transform).toContain("translateY");
+    });
+
     it("keeps the fade-up entrance on non-LCP siblings (eyebrow)", () => {
       const { container } = render(<Hero title="Ships itself" eyebrow="Design System" />);
       const eyebrow = container.querySelector("p") as HTMLElement;
