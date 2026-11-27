@@ -41,6 +41,7 @@ This directory contains Architecture Decision Records (ADRs) documenting signifi
 | [ADR-033](ADR-033-expressive-motion-and-atmosphere-repo-wide.md)                  | Expressive Motion and Atmosphere Are Allowed Repo-Wide                                        | active                  | 2026-11-20 |
 | [ADR-034](ADR-034-service-aware-mode-is-a-scoped-paint-only-override.md)          | Service-Aware Mode Is a Scoped, Paint-Only Override, Not a Vibe Preset                        | provisional             | 2026-11-25 |
 | [ADR-035](ADR-035-mid-tone-surfaces-are-data-surface-token-scopes.md)             | Mid-Tone Surfaces Are data-surface Token Scopes, and Derived Tokens Re-Resolve on Every Scope | provisional             | 2026-11-25 |
+| [ADR-036](ADR-036-pr-ci-finishes-in-under-15-minutes.md)                          | PR CI Reaches CI Gate in Under 15 Minutes at p90, Measured Push to Result                     | active                  | 2026-11-27 |
 
 ## Format
 
