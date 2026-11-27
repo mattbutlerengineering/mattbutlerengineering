@@ -14,8 +14,8 @@
  * frame instead of travelling. Spring physics are dropped outright rather
  * than shortened — a fast spring still overshoots, which is motion.
  *
- * **Contract: this hook must never throw.** Rialto is published to npm and
- * consumers render its components standalone, with no `RialtoProvider` in the
+ * **Contract: this hook must never throw.** Consumers can render Rialto's
+ * components standalone, with no `RialtoProvider` in the
  * tree. It therefore reads the device signal through {@link useDeviceContext}
  * — a provider-free `useSyncExternalStore` hook — and never through
  * {@link useUIEnvironment}, which throws when no provider is present. Adopting

@@ -23,7 +23,7 @@ const sampleItems = [
   {
     id: "item-2",
     title: "How do I install it?",
-    content: "Run npm install @mattbutlerengineering/rialto in your project.",
+    content: "Add @mattbutlerengineering/rialto as a workspace:* dependency.",
   },
   {
     id: "item-3",
