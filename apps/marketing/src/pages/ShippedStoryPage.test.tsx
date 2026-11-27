@@ -29,6 +29,7 @@ vi.mock("../components/ShippedVideo.js", () => ({
 }));
 vi.mock("./NotFoundPage.js", () => ({ NotFoundPage: () => <h1>404</h1> }));
 
+import { useRouteMeta } from "../utils/route-meta.js";
 import { ShippedStoryPage } from "./ShippedStoryPage.js";
 
 function feature(over: Partial<ShippedFeature> = {}): ShippedFeature {
@@ -85,6 +86,53 @@ const renderPage = () =>
       </Routes>
     </MemoryRouter>
   );
+
+function MetaHost({ children }: { readonly children: ReactNode }) {
+  useRouteMeta();
+  return <>{children}</>;
+}
+
+describe("ShippedStoryPage head metadata", () => {
+  beforeEach(() => {
+    mockData.feature = feature();
+    videoData.video = undefined;
+    document.head.innerHTML = "";
+    document.title = "Matt Butler Engineering";
+  });
+
+  it("titles the document with the story's feature title, surviving useRouteMeta", () => {
+    render(
+      <MemoryRouter initialEntries={["/shipped/demo"]}>
+        <MetaHost>
+          <Routes>
+            <Route path="/shipped/:slug" element={<ShippedStoryPage />} />
+          </Routes>
+        </MetaHost>
+      </MemoryRouter>
+    );
+    const expected = "Demo feature — Shipped — Matt Butler Engineering";
+    expect(document.title).toBe(expected);
+    const content = (selector: string) =>
+      document.head.querySelector(selector)?.getAttribute("content");
+    expect(content('meta[property="og:title"]')).toBe(expected);
+    expect(content('meta[name="twitter:title"]')).toBe(expected);
+    expect(content('meta[name="description"]')).toContain("Demo feature");
+  });
+
+  it("keeps the generic story title for an unknown slug", () => {
+    mockData.feature = undefined;
+    render(
+      <MemoryRouter initialEntries={["/shipped/nope"]}>
+        <MetaHost>
+          <Routes>
+            <Route path="/shipped/:slug" element={<ShippedStoryPage />} />
+          </Routes>
+        </MetaHost>
+      </MemoryRouter>
+    );
+    expect(document.title).toBe("Shipped Story — Matt Butler Engineering");
+  });
+});
 
 describe("ShippedStoryPage", () => {
   beforeEach(() => {

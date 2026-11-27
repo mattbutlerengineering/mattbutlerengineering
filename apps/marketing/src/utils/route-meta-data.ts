@@ -12,7 +12,7 @@ export interface RouteMeta {
   readonly indexable?: boolean;
 }
 
-const SITE_NAME = "Matt Butler Engineering";
+export const SITE_NAME = "Matt Butler Engineering";
 export const SITE_ORIGIN = "https://mattbutlerengineering.com";
 
 // First match wins; "*" (404) must stay last. "/" is intentionally absent:

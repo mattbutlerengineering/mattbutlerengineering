@@ -21,13 +21,14 @@ import { RIALTO_WEB_REGISTRY, createRepoIo, extractApp } from "./ui-quality/rout
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 export const SITEMAP_PATH = "apps/marketing/public/sitemap.xml";
+export const SHIPPED_FEATURES_PATH = "apps/marketing/src/data/shipped-features.json";
 const ORIGIN = "https://mattbutlerengineering.com";
 
 const isStaticPage = (row) => row.kind === "page" && !/[:*]/.test(row.route);
 const toPath = (route) => (route === "/" ? "/" : `/${route}`);
 
 /** Absolute site paths (sorted, unique) with their priority. */
-export function collectEntries(marketingRows, rialtoRows) {
+export function collectEntries(marketingRows, rialtoRows, storySlugs = []) {
   const marketing = marketingRows
     .filter(isStaticPage)
     .map((r) => ({ path: toPath(r.route), priority: r.route === "/" ? "1.0" : "0.6" }));
@@ -44,7 +45,9 @@ export function collectEntries(marketingRows, rialtoRows) {
     { path: "/hospitality", priority: "0.8" },
     { path: "/rialto/demos/", priority: "0.6" },
   ];
-  const all = [...marketing, ...rialto, ...fixed];
+  // `/shipped/:slug` is dynamic, so the route inventory skips it: one URL per story.
+  const stories = storySlugs.map((slug) => ({ path: `/shipped/${slug}`, priority: "0.5" }));
+  const all = [...marketing, ...rialto, ...fixed, ...stories];
   return [...new Map(all.map((e) => [e.path, e])).values()].sort((a, b) =>
     a.path < b.path ? -1 : a.path > b.path ? 1 : 0
   );
@@ -64,8 +67,15 @@ export function renderSitemap(entries) {
   ].join("\n");
 }
 
+function readStorySlugs() {
+  const snapshot = JSON.parse(readFileSync(resolve(ROOT, SHIPPED_FEATURES_PATH), "utf8"));
+  return snapshot.features.map((feature) => feature.slug);
+}
+
 export function buildSitemap(io) {
-  return renderSitemap(collectEntries(extractApp("marketing", io), extractApp("rialto-web", io)));
+  return renderSitemap(
+    collectEntries(extractApp("marketing", io), extractApp("rialto-web", io), readStorySlugs())
+  );
 }
 
 function main(argv) {

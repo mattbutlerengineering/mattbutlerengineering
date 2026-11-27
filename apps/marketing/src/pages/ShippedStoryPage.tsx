@@ -5,6 +5,8 @@ import { findShippedVideo } from "../data/shipped-videos.js";
 import { ShippedVideo } from "../components/ShippedVideo.js";
 import type { ShippedPr } from "../data/shipped-features.js";
 import { formatDate, formatWallClock } from "../utils/formatters.js";
+import { useRouteMetaOverride } from "../utils/route-meta.js";
+import { SITE_NAME } from "../utils/route-meta-data.js";
 import { NotFoundPage } from "./NotFoundPage.js";
 import styles from "./ShippedStoryPage.module.css";
 
@@ -31,6 +33,12 @@ function ciVariant(ci: ShippedPr["ciGate"]): "success" | "error" | "neutral" {
 export function ShippedStoryPage() {
   const { slug = "" } = useParams();
   const feature = findShippedFeature(slug);
+  useRouteMetaOverride(
+    feature && {
+      title: `${feature.title} — Shipped — ${SITE_NAME}`,
+      description: `How "${feature.title}" went from proposal to decomposition to merged pull requests in the software factory.`,
+    }
+  );
   if (feature === undefined) return <NotFoundPage />;
 
   const video = findShippedVideo(feature.slug);
