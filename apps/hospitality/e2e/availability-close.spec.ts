@@ -108,25 +108,30 @@ test.describe("Availability close dialog (F5)", () => {
         );
         if (onRadio) break;
       }
-      const m = await dialog.evaluate((panel) => {
-        const rect = (el: Element) => el.getBoundingClientRect();
-        const bodyEl = [...panel.children].find((c) => getComputedStyle(c).overflowY === "auto");
-        const active = document.activeElement;
-        const label = active?.closest("label") ?? active?.parentElement;
-        const p = rect(panel);
-        const primary = rect(panel.querySelector("[data-testid=close-primary]")!);
-        const title = rect(panel.querySelector("h2")!);
-        const b = bodyEl ? rect(bodyEl) : p;
-        const l = label ? rect(label) : null;
-        return {
-          radio: active?.getAttribute("type") === "radio",
-          panelScrolls: panel.scrollHeight > panel.clientHeight || panel.scrollTop !== 0,
-          titleInPanel: title.top >= p.top,
-          primaryInPanel: primary.top >= p.top && primary.bottom <= p.bottom,
-          labelInBody: l ? l.top >= b.top - 1 && l.bottom <= b.bottom + 1 : false,
-        };
-      });
-      expect(m).toEqual({
+      // Polled, not read once: "Show all" grows the list and focus scrolls the body, and at
+      // 320x568 one read sometimes landed mid-layout with the label a few pixels outside the
+      // body (labelInBody false on 3 unrelated branches, 2026-11-26/27). The settled state must
+      // still be all true, so a real escape still fails.
+      const measure = () =>
+        dialog.evaluate((panel) => {
+          const rect = (el: Element) => el.getBoundingClientRect();
+          const bodyEl = [...panel.children].find((c) => getComputedStyle(c).overflowY === "auto");
+          const active = document.activeElement;
+          const label = active?.closest("label") ?? active?.parentElement;
+          const p = rect(panel);
+          const primary = rect(panel.querySelector("[data-testid=close-primary]")!);
+          const title = rect(panel.querySelector("h2")!);
+          const b = bodyEl ? rect(bodyEl) : p;
+          const l = label ? rect(label) : null;
+          return {
+            radio: active?.getAttribute("type") === "radio",
+            panelScrolls: panel.scrollHeight > panel.clientHeight || panel.scrollTop !== 0,
+            titleInPanel: title.top >= p.top,
+            primaryInPanel: primary.top >= p.top && primary.bottom <= p.bottom,
+            labelInBody: l ? l.top >= b.top - 1 && l.bottom <= b.bottom + 1 : false,
+          };
+        });
+      await expect.poll(measure).toEqual({
         radio: true,
         panelScrolls: false,
         titleInPanel: true,
