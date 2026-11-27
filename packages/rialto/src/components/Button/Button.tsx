@@ -61,6 +61,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     );
 
     const isDisabled = disabled || isLoading;
+    const isAriaDisabled = props["aria-disabled"] === true || props["aria-disabled"] === "true";
 
     return (
       <motion.button
@@ -70,7 +71,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         disabled={isDisabled}
         aria-busy={isLoading || undefined}
         onClick={onClick}
-        whileTap={isDisabled || shouldReduceMotion ? undefined : "pressed"}
+        whileTap={isDisabled || isAriaDisabled || shouldReduceMotion ? undefined : "pressed"}
         variants={{
           pressed: {
             scale: 0.975,

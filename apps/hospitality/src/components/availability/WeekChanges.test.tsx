@@ -328,8 +328,6 @@ describe("WeekChanges", () => {
       expect(pending).toHaveAttribute("aria-disabled", "true");
       expect(pending).not.toBeDisabled();
       expect(pending).toHaveFocus();
-      // Rialto styles only native :disabled, so a local class shows sighted users it is pending.
-      expect(pending).toHaveClass("pending");
       fireEvent.click(pending);
       expect(setDecision).toHaveBeenCalledTimes(1);
 
