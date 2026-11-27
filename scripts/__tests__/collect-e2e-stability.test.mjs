@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { computeE2eStability } from "../collect-e2e-stability.mjs";
+import { readFileSync } from "node:fs";
+import { computeE2eStability, E2E_SUITE_PATHS } from "../collect-e2e-stability.mjs";
 
 /**
  * Fixture helpers — build run objects with explicit timestamps so tests are
@@ -260,5 +261,42 @@ describe("computeE2eStability", () => {
     // Must not have any field that signals auto-blocking behavior
     expect(result.blocks_merge).toBeUndefined();
     expect(result.auto_block).toBeUndefined();
+  });
+});
+
+/**
+ * e2e.yml starts on every PR (#9834); its `changes` job skips the suites when no
+ * suite path changed, and the run still concludes `success`. Such a run tested
+ * nothing, so it must neither pass nor break a failure streak.
+ */
+describe("computeE2eStability ignores runs where no suite ran", () => {
+  it("keeps a failure streak across a docs-only run", () => {
+    const runs = [
+      makeRun({
+        conclusion: "success",
+        changedPaths: ["docs/notes.md"],
+        createdAt: "2026-06-01T04:00:00Z",
+      }),
+      makeRun({
+        conclusion: "failure",
+        changedPaths: ["services/users/src/index.ts"],
+        createdAt: "2026-06-01T03:00:00Z",
+      }),
+      makeRun({
+        conclusion: "failure",
+        changedPaths: ["services/users/src/index.ts"],
+        createdAt: "2026-06-01T02:00:00Z",
+      }),
+    ];
+    const result = computeE2eStability(runs);
+    expect(result.consecutive_failures).toBe(2);
+    expect(result.total_non_frontend_runs).toBe(2);
+  });
+
+  it("matches the union of e2e.yml's changes-job filters", () => {
+    const yml = readFileSync(new URL("../../.github/workflows/e2e.yml", import.meta.url), "utf8");
+    const filters = yml.slice(yml.indexOf("filters: |"), yml.indexOf("- name: Set outputs"));
+    const globs = [...filters.matchAll(/^\s+- '([^']+)'/gm)].map((m) => m[1].replace(/\*\*$/, ""));
+    expect([...new Set(globs)].sort()).toEqual([...E2E_SUITE_PATHS].sort());
   });
 });

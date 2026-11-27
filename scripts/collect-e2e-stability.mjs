@@ -43,6 +43,37 @@ function isFrontendRun(changedPaths) {
 }
 
 /**
+ * Path prefixes (or exact files) that un-skip at least one E2E suite: the union
+ * of the `changes` job's filters in .github/workflows/e2e.yml, pinned by
+ * collect-e2e-stability.test.mjs. e2e.yml starts on every PR (#9834), so a run
+ * touching none of these skipped every suite and concluded `success` having
+ * tested nothing.
+ */
+export const E2E_SUITE_PATHS = Object.freeze([
+  "apps/hospitality/",
+  "apps/marketing/",
+  "apps/gen/",
+  "packages/rialto/",
+  "packages/rialto-catalog/",
+  "packages/api-client/",
+  "packages/auth/",
+  "services/reservations/",
+  "services/users/",
+  "packages/database/",
+  ".github/workflows/e2e.yml",
+  "scripts/e2e-auth-preflight.mjs",
+  "scripts/e2e-failure-rate.mjs",
+  "scripts/e2e-cross-branch-red.mjs",
+  "scripts/check-endpoint.mjs",
+]);
+
+function ranASuite(changedPaths) {
+  return changedPaths.some((path) =>
+    E2E_SUITE_PATHS.some((p) => (p.endsWith("/") ? path.startsWith(p) : path === p))
+  );
+}
+
+/**
  * Count consecutive E2E failures in non-frontend runs, from most recent backward.
  * Runs with conclusion "cancelled" or "skipped" (or null) are skipped — they do
  * not reset the streak nor contribute to it.
@@ -61,7 +92,9 @@ export function computeE2eStability(runs) {
   );
 
   // Filter to non-frontend runs.
-  const nonFrontend = sorted.filter((r) => !isFrontendRun(r.changedPaths));
+  const nonFrontend = sorted.filter(
+    (r) => !isFrontendRun(r.changedPaths) && ranASuite(r.changedPaths)
+  );
 
   if (nonFrontend.length === 0) {
     return { available: false, reason: "no_non_frontend_runs" };
