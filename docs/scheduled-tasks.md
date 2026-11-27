@@ -582,6 +582,26 @@ new weekday schedule slot** (see Plan budget below).
 >       manually to confirm `/ideate` batch filing and cloud `/idea-to-prod:implement-queue`
 >       (worktrees + `pnpm install`) both work end-to-end post-recreation
 
+## `mbe-dev-speed`
+
+> **Prompt:** [`routines/mbe-dev-speed.md`](./routines/mbe-dev-speed.md).
+> This section describes intent; the file is the prompt. Manifest:
+> `scripts/routines/mbe-dev-speed.json` (heartbeat signature, `periodDays: 3`).
+
+- **When:** Mon-Fri 5:41am PT (`CRON_TZ=America/Los_Angeles 41 5 * * 1-5`). Model: opus.
+- **What it does:** measures dev speed from live data (push to `CI Gate`
+  p50/p90, per-job queue wait and run time, PR open to merge), checks whether
+  its previous change moved the number, then fixes the single biggest
+  root-caused bottleneck in one PR of about 150 lines titled `… (mbe-dev-speed)`,
+  per [`routines/fix-protocol.md`](./routines/fix-protocol.md). Feeds #10009
+  (ADR-036: p90 under 15 minutes).
+- **Merges:** a fix outside the guardrail paths goes through `reviewed-merge.yml`.
+  A fix under `.github/**` or another guardrail path opens with `needs-review`
+  for the Owner (Owner, 2026-11-27, #10044).
+- **Guardrails:** never weakens a gate for speed (no skipped tests, raised
+  timeouts, lowered thresholds or advisory-made required checks); at most two
+  of its PRs open at once.
+
 ## Plan budget (Max 20x)
 
 The Max 20x plan has far more scheduled-run headroom than Max 5x, shared with
@@ -593,6 +613,7 @@ it does **not** count against the claude.ai plan quota):
 - Fri: + `mbe-weekly-improve` (opus) + `mbe-doc-rot` (sonnet) → 7
 - Sun: + `mbe-weekly-retro` (opus) → 6
 - 1st of month: + `mbe-monthly-meta-audit` (opus) → 6 (or briefly 8 if the 1st is a Fri)
+- Mon-Fri: + `mbe-dev-speed` (opus) → 6 on weekdays, 8 on Fridays
 
 `mbe-feature-drain` (added 2026-10-16) sits on top of that baseline: one hourly
 sonnet trigger (up to 24 fires/day since 2026-11-18, down from 48). A fire with
