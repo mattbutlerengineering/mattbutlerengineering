@@ -328,24 +328,20 @@ describe("GuestDetailsForm", () => {
     expect(screen.getByTestId("phone").getAttribute("aria-invalid")).toBeNull();
   });
 
-  it("should enable submit when name and email are provided", () => {
-    render(<GuestDetailsForm {...defaultProps} />);
-    fireEvent.change(screen.getByTestId("name"), { target: { value: "John" } });
-    fireEvent.change(screen.getByTestId("email"), {
-      target: { value: "john@example.com" },
-    });
-    const submitButton = screen.getByTestId("submit-button");
-    expect(submitButton).not.toBeDisabled();
-  });
-
-  it("should enable submit when name and phone are provided", () => {
+  it("submits with name and phone only", () => {
     render(<GuestDetailsForm {...defaultProps} />);
     fireEvent.change(screen.getByTestId("name"), { target: { value: "John" } });
     fireEvent.change(screen.getByTestId("phone"), {
       target: { value: "555-123-4567" },
     });
-    const submitButton = screen.getByTestId("submit-button");
-    expect(submitButton).not.toBeDisabled();
+    fireEvent.click(screen.getByTestId("submit-button"));
+    expect(defaultProps.onSubmit).toHaveBeenCalledTimes(1);
+    expect(defaultProps.onSubmit).toHaveBeenCalledWith({
+      name: "John",
+      email: "",
+      phone: "555-123-4567",
+      notes: "",
+    });
   });
 
   it("should call onSubmit with form data when submitted", () => {
@@ -533,6 +529,16 @@ describe("GuestDetailsForm", () => {
         target: { value: "555-111-2222" },
       });
       expect((screen.getByTestId("phone") as HTMLInputElement).value).toBe("555-111-2222");
+
+      // The recognized name counts as a valid name on submit
+      fireEvent.click(screen.getByTestId("submit-button"));
+      expect(screen.getByTestId("name").getAttribute("aria-invalid")).toBeNull();
+      expect(propsWithSlug.onSubmit).toHaveBeenCalledWith({
+        name: "Jane",
+        email: "jane@example.com",
+        phone: "555-111-2222",
+        notes: "",
+      });
     });
   });
 });
