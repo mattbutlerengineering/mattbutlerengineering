@@ -19,8 +19,13 @@ const mockPoolInstance = {
   end: vi.fn().mockResolvedValue(undefined),
 };
 
+let capturedPoolOptions: Record<string, unknown> | null = null;
+
 vi.mock("pg", () => {
   class MockPool {
+    constructor(opts: Record<string, unknown>) {
+      capturedPoolOptions = opts;
+    }
     totalCount = mockPoolInstance.totalCount;
     idleCount = mockPoolInstance.idleCount;
     waitingCount = mockPoolInstance.waitingCount;
@@ -51,9 +56,69 @@ describe("createDatabase", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.stubEnv("DATABASE_URL", "postgresql://test:test@localhost:5432/test");
+    // Utilization fixtures below are computed against a 5-connection pool.
+    vi.stubEnv("PRISMA_CONNECTION_LIMIT", "5");
     capturedExtension = null;
+    capturedPoolOptions = null;
     mockPoolInstance.totalCount = 5;
     mockPoolInstance.idleCount = 3;
+    mockPoolInstance.waitingCount = 0;
+  });
+
+  it("defaults the pool to 3 connections when PRISMA_CONNECTION_LIMIT is unset", async () => {
+    vi.stubEnv("PRISMA_CONNECTION_LIMIT", undefined);
+    const { createDatabase } = await import("./index.js");
+    createDatabase(createMockPrismaClient() as never);
+
+    expect(capturedPoolOptions?.max).toBe(3);
+  });
+
+  it("honours PRISMA_CONNECTION_LIMIT when set", async () => {
+    vi.stubEnv("PRISMA_CONNECTION_LIMIT", "7");
+    const { createDatabase } = await import("./index.js");
+    createDatabase(createMockPrismaClient() as never);
+
+    expect(capturedPoolOptions?.max).toBe(7);
+  });
+
+  it("releases idle connections after 10s and bounds connection acquisition to 5s", async () => {
+    const { createDatabase } = await import("./index.js");
+    createDatabase(createMockPrismaClient() as never);
+
+    expect(capturedPoolOptions).toMatchObject({
+      idleTimeoutMillis: 10_000,
+      connectionTimeoutMillis: 5_000,
+    });
+  });
+
+  it("getPoolMetrics and getServiceStatus degrade when callers are waiting for a connection", async () => {
+    const { createDatabase } = await import("./index.js");
+    mockPoolInstance.totalCount = 1;
+    mockPoolInstance.idleCount = 1;
+    mockPoolInstance.waitingCount = 2;
+    const db = createDatabase(createMockPrismaClient() as never);
+
+    expect(db.getPoolMetrics()).toMatchObject({ waiting: 2, isDegraded: true });
+    expect(db.getServiceStatus()).toBe("degraded");
+  });
+
+  it("$allOperations logs a pool_alert when callers are waiting even at low utilization", async () => {
+    const { createDatabase } = await import("./index.js");
+    mockPoolInstance.totalCount = 1;
+    mockPoolInstance.idleCount = 1;
+    mockPoolInstance.waitingCount = 1;
+    createDatabase(createMockPrismaClient() as never);
+    const allOps = (capturedExtension!.query as Record<string, unknown>).$allOperations as (
+      ctx: Record<string, unknown>
+    ) => Promise<unknown>;
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await allOps({ model: "User", operation: "findUnique", args: {}, query: vi.fn() });
+
+    const alerts = warnSpy.mock.calls.filter((c) => (c[0] as string).includes("pool_alert"));
+    expect(alerts).toHaveLength(1);
+    expect(JSON.parse(alerts[0]![0] as string).waiting).toBe(1);
+    warnSpy.mockRestore();
   });
 
   it("returns all expected interface members", async () => {

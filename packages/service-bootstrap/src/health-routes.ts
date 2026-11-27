@@ -126,6 +126,17 @@ const healthSchema = {
  */
 export const HEALTH_RATE_LIMIT = { max: 600, timeWindow: "1 minute" } as const;
 
+/** Any caller queued for a connection means the pool is exhausted, whatever utilization says. */
+function isPoolDegraded(pool: PoolMetrics): boolean {
+  return pool.isDegraded || pool.waiting > 0;
+}
+
+function poolDegradedMessage(pool: PoolMetrics): string {
+  const utilization = `Pool utilization high: ${Math.round(pool.utilization * 100)}% (${pool.busy} busy)`;
+  if (pool.waiting === 0) return utilization;
+  return `Pool exhausted: ${pool.waiting} waiting for a connection (${pool.busy} busy)`;
+}
+
 const healthRoutesPlugin: FastifyPluginAsync<HealthRoutesOptions> = async (
   fastify: FastifyInstance,
   opts: HealthRoutesOptions
@@ -193,15 +204,15 @@ const healthRoutesPlugin: FastifyPluginAsync<HealthRoutesOptions> = async (
 
     // Pool metrics
     const poolMetrics = db.getPoolMetrics();
+    const poolDegraded = isPoolDegraded(poolMetrics);
     checks.pool = {
-      status: poolMetrics.isDegraded ? "degraded" : "ok",
-      ...(poolMetrics.isDegraded && {
-        message: `Pool utilization high: ${Math.round(poolMetrics.utilization * 100)}% (${poolMetrics.busy} busy)`,
-      }),
+      status: poolDegraded ? "degraded" : "ok",
+      ...(poolDegraded && { message: poolDegradedMessage(poolMetrics) }),
       ...{
         total: poolMetrics.total,
         busy: poolMetrics.busy,
         idle: poolMetrics.idle,
+        waiting: poolMetrics.waiting,
         utilization: poolMetrics.utilization,
       },
     };
@@ -214,7 +225,7 @@ const healthRoutesPlugin: FastifyPluginAsync<HealthRoutesOptions> = async (
       slowQueryStatus === "degraded" ||
       auth0Result.status === "degraded" ||
       rateLimitSnapshot.isDegraded ||
-      poolMetrics.isDegraded ||
+      poolDegraded ||
       errorRateCheck.status === "degraded";
 
     return {

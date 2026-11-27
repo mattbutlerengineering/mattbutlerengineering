@@ -33,6 +33,18 @@ const KV_KEYS = {
 // ── Probe helpers ─────────────────────────────────────────────────────
 
 /**
+ * Map a 200 service `/health` body to a probe status. Anything but an explicit
+ * `ok` (e.g. `degraded`) or a failed database check counts as non-ok, so a
+ * database outage behind a 200 is visible here (#9963). The probe schema only
+ * allows ok/error/timeout, so non-ok maps to `error`.
+ */
+function serviceBodyStatus(body) {
+  if (body?.status !== "ok") return "error";
+  if (body.checks?.database?.status === "error") return "error";
+  return "ok";
+}
+
+/**
  * Fetch a service health endpoint with a timeout.
  * Returns { status, latency, version?, checks? }.
  */
@@ -48,7 +60,7 @@ async function checkService(apiOrigin, path) {
     }
     const body = await response.json();
     return {
-      status: body.status === "error" ? "error" : "ok",
+      status: serviceBodyStatus(body),
       latency,
       version: body.version,
       checks: body.checks,

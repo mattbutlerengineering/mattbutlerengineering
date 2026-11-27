@@ -21,7 +21,7 @@ import { PrismaClient } from "@prisma/client";
 const db = createDatabase<PrismaClient>(PrismaClient);
 ```
 
-`createDatabase` accepts a PrismaClient constructor and an optional `DATABASE_URL`. It creates a `pg.Pool` with `PRISMA_CONNECTION_LIMIT` (default 5), wraps the Prisma client with query monitoring, and returns:
+`createDatabase` accepts a PrismaClient constructor and an optional `DATABASE_URL`. It creates a `pg.Pool` with `PRISMA_CONNECTION_LIMIT` (default 3: three services share the pooler's connection limit, so leave headroom for rolling deploys and migration jobs, #9963), `idleTimeoutMillis: 10_000` and `connectionTimeoutMillis: 5_000` (a checkout fails instead of waiting forever), wraps the Prisma client with query monitoring, and returns:
 
 | Export              | Type                   | Purpose                                  |
 | ------------------- | ---------------------- | ---------------------------------------- |
@@ -32,7 +32,7 @@ const db = createDatabase<PrismaClient>(PrismaClient);
 | `getServiceStatus`  | `() => ServiceStatus`  | `"ok"` or `"degraded"`                   |
 | `shutdown`          | `() => Promise<void>`  | Disconnect Prisma + end pool             |
 
-Health status degrades when: slow queries exceed 10 in 5 min, or pool utilization exceeds 80%.
+Health status degrades when: slow queries exceed 10 in 5 min, pool utilization reaches 80%, or any caller is waiting for a connection (`waiting > 0`).
 
 ## list-utils
 
