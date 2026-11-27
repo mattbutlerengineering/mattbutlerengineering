@@ -3525,7 +3525,8 @@
       "seasonalEnds": "Fin des heures saisonnières : {{name}}",
       "regularHours": "Nouvelles heures habituelles en vigueur",
       "holiday": "{{name}} n’est pas encore planifié",
-      "openDay": "{{change}}, ouvrir la journée",
+      "openDay": "{{change}}, voir la journée",
+      "empty": "Rien d’autre ne change dans les 7 prochains jours",
       "saveFailed": "Enregistrement impossible."
     }
   },

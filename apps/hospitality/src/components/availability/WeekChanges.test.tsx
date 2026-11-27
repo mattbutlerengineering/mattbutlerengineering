@@ -107,7 +107,7 @@ const decided = (serviceDate: string): HolidayDecision => ({
 function renderWeek(cfg: AvailabilityConfig = config()) {
   const onOpenDay = vi.fn();
   const onPlanHolidays = vi.fn();
-  const view = render(
+  const element = () => (
     <VenueContext value={VENUE}>
       <ToastProvider>
         <main>
@@ -121,7 +121,13 @@ function renderWeek(cfg: AvailabilityConfig = config()) {
       </ToastProvider>
     </VenueContext>
   );
-  return { onOpenDay, onPlanHolidays, view };
+  const view = render(element());
+  // The decisions query refetched: a new array, as react-query hands back.
+  const refetched = (decisions: HolidayDecision[]) => {
+    read.decisions = decisions;
+    view.rerender(element());
+  };
+  return { onOpenDay, onPlanHolidays, view, refetched };
 }
 
 const section = () => screen.getByRole("region", { name: "Next 7 days" });
@@ -245,21 +251,30 @@ describe("WeekChanges", () => {
   it("collapses more than four rows behind Show N more", () => {
     const dates = ["24", "25", "26", "27", "28", "29"].map((d) => `2026-11-${d}`);
     renderWeek(config({ dateRules: dates.map((d) => closure(`c${d}`, d, "2026-11-29")) }));
-    expect(within(section()).getAllByRole("button", { name: /open the day$/ })).toHaveLength(4);
+    expect(within(section()).getAllByRole("button", { name: /show the day$/ })).toHaveLength(4);
     fireEvent.click(within(section()).getByRole("button", { name: /^Show \d+ more$/ }));
-    expect(
-      within(section()).getAllByRole("button", { name: /open the day$/ }).length
-    ).toBeGreaterThan(4);
+    const rows = within(section()).getAllByRole("button", { name: /show the day$/ });
+    expect(rows.length).toBeGreaterThan(4);
     expect(within(section()).queryByRole("button", { name: /^Show \d+ more$/ })).toBeNull();
+    // The pressed button is gone: focus goes to the first row it revealed.
+    expect(rows[4]).toHaveFocus();
   });
 
-  it("on a phone, collapses to one count line with Show", () => {
+  it("names a day row as showing the day, never as opening (which reads as reopening)", () => {
+    renderWeek(config({ dateRules: [closure("c1", "2026-11-25")] }));
+    expect(
+      within(section()).getByRole("button", { name: "Wed, Nov 25 · Closed, show the day" })
+    ).toBeTruthy();
+  });
+
+  it("on a phone, collapses to one count line with Show, and Show focuses the heading", () => {
     viewport.value = "phone";
     renderWeek(config({ dateRules: [closure("c1", "2026-11-25")] }));
     expect(within(section()).getByText("2 changes in the next 7 days")).toBeTruthy();
     expect(within(section()).queryByText("Wed, Nov 25 · Closed")).toBeNull();
     fireEvent.click(within(section()).getByRole("button", { name: "Show" }));
     expect(within(section()).getByText("Wed, Nov 25 · Closed")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Next 7 days" })).toHaveFocus();
   });
 
   describe("holidays", () => {
@@ -288,9 +303,57 @@ describe("WeekChanges", () => {
       renderWeek();
       fireEvent.click(within(holidayRow()).getByRole("button", { name: "Open as usual" }));
       expect(await within(holidayRow()).findByText("Couldn't save.")).toBeTruthy();
-      fireEvent.click(within(holidayRow()).getByRole("button", { name: "Retry" }));
+      // Retry replaced the pressed Open as usual, so it takes focus.
+      const retry = within(holidayRow()).getByRole("button", { name: "Retry" });
+      expect(retry).toHaveFocus();
+      fireEvent.click(retry);
       await waitFor(() => expect(setDecision).toHaveBeenCalledTimes(2));
       await waitFor(() => expect(within(holidayRow()).queryByText("Couldn't save.")).toBeNull());
+    });
+
+    it("keeps Open as usual pending from the tap until the holiday leaves, so a second tap saves nothing", async () => {
+      const { refetched } = renderWeek(config({ dateRules: [closure("c1", "2026-11-28")] }));
+      const button = within(holidayRow()).getByRole("button", { name: "Open as usual" });
+      fireEvent.click(button);
+      expect(await screen.findByText("Thanksgiving: open as usual")).toBeTruthy();
+      // Saved, but the decisions have not refetched: the row is still here and still pending.
+      expect(within(holidayRow()).getByRole("button", { name: "Open as usual" })).toBeDisabled();
+      fireEvent.click(within(holidayRow()).getByRole("button", { name: "Open as usual" }));
+      expect(setDecision).toHaveBeenCalledTimes(1);
+
+      refetched([decided("2026-11-26")]);
+      expect(screen.queryByText(/isn't planned yet/)).toBeNull();
+      // Undo brings it back undecided: pressable again, not stuck pending.
+      refetched([]);
+      expect(within(holidayRow()).getByRole("button", { name: "Open as usual" })).toBeEnabled();
+    });
+
+    it("moves focus to the next row's control when the decided holiday leaves", async () => {
+      const { refetched } = renderWeek(config({ dateRules: [closure("c1", "2026-11-27")] }));
+      fireEvent.click(within(holidayRow()).getByRole("button", { name: "Open as usual" }));
+      await screen.findByText("Thanksgiving: open as usual");
+      refetched([decided("2026-11-26")]);
+      expect(
+        screen.getByRole("button", { name: "Fri, Nov 27 · Closed, show the day" })
+      ).toHaveFocus();
+    });
+
+    it("moves focus to the previous row's control when the decided holiday was last", async () => {
+      const { refetched } = renderWeek(config({ dateRules: [closure("c1", "2026-11-24")] }));
+      fireEvent.click(within(holidayRow()).getByRole("button", { name: "Open as usual" }));
+      await screen.findByText("Thanksgiving: open as usual");
+      refetched([decided("2026-11-26")]);
+      expect(
+        screen.getByRole("button", { name: "Wed, Nov 25 · Reopens, show the day" })
+      ).toHaveFocus();
+    });
+
+    it("says nothing else changes, and focuses that, when the Manager's own decision empties the list", async () => {
+      const { refetched } = renderWeek();
+      fireEvent.click(within(holidayRow()).getByRole("button", { name: "Open as usual" }));
+      await screen.findByText("Thanksgiving: open as usual");
+      refetched([decided("2026-11-26")]);
+      expect(within(section()).getByText("Nothing else changes in the next 7 days")).toHaveFocus();
     });
 
     it("sends Plan to the holiday planner", () => {

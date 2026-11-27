@@ -9,6 +9,11 @@
   margin: 0;
 }
 
+/* Holds focus when the control that had it leaves; it is not a control, so no ring. */
+.target:focus {
+  outline: none;
+}
+
 /* A phone's one line: how many changes, and Show. */
 .collapsed {
   display: flex;

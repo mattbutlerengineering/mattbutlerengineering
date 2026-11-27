@@ -1,23 +1,13 @@
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useRef, useState, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
-import { Button, Text, useToast } from "@mattbutlerengineering/rialto";
-import { addDays, weekChanges } from "@mbe/availability";
+import { Button, Text } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfig } from "@mbe/types";
-import {
-  useClearHolidayDecision,
-  useHolidayDecisions,
-  useSetHolidayDecision,
-} from "../../hooks/useHolidayDecisions.js";
-import { useManagerAccess } from "../../hooks/useIsManager.js";
-import { useNow } from "../../hooks/useNow.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { useViewport } from "../../hooks/useViewport.js";
-import { currentServiceDate } from "../../utils/current-service-date.js";
-import { venueDate } from "../../utils/service-day.js";
-import { holidayStates, HOLIDAY_HORIZON_DAYS, type DecidedHoliday } from "./holiday-decisions.js";
-import { useHolidayCountry } from "./use-holidays.js";
+import type { DecidedHoliday } from "./holiday-decisions.js";
+import { useOpenAsUsual, useWeekRows } from "./use-week-changes.js";
 import { weekChangeRowText } from "./week-changes-text.js";
-import { weekChangeRows, type WeekChangeRow } from "./week-changes-view.js";
+import type { WeekChangeRow } from "./week-changes-view.js";
 import styles from "./WeekChanges.module.css";
 
 export interface WeekChangesProps {
@@ -31,67 +21,34 @@ export interface WeekChangesProps {
   readonly sectionNames?: ReadonlyMap<string, string>;
 }
 
-type SavePhase = "saving" | "failed";
-
-/** Open as usual from a row: the same save, toast and Undo as Upcoming holidays. */
-function useOpenAsUsual(venueId: string) {
-  const { t } = useTranslation();
-  const { toast } = useToast();
-  const set = useSetHolidayDecision();
-  const clear = useClearHolidayDecision();
-  const [phases, setPhases] = useState<ReadonlyMap<string, SavePhase>>(() => new Map());
-  const setPhase = (date: string, phase: SavePhase | null) =>
-    setPhases((prev) => {
-      const next = new Map(prev);
-      if (phase === null) next.delete(date);
-      else next.set(date, phase);
-      return next;
-    });
-
-  const openAsUsual = async (holiday: DecidedHoliday, name: string): Promise<void> => {
-    const serviceDate = holiday.date;
-    setPhase(serviceDate, "saving");
-    try {
-      await set.mutateAsync({ venueId, serviceDate, decision: "open_as_usual" });
-    } catch {
-      setPhase(serviceDate, "failed");
-      return;
-    }
-    setPhase(serviceDate, null);
-    toast({
-      title: t("availabilitySpecial.holidays.openAsUsualToast", { name }),
-      action: {
-        label: t("availability.undo.action"),
-        onClick: () =>
-          void clear.mutateAsync({ venueId, serviceDate }).catch(() => {
-            // The mark stays: the holiday reads Open as usual in Special dates, which is true.
-          }),
-      },
-    });
-  };
-  return { phases, openAsUsual };
-}
-
 interface HolidayRowProps {
   readonly holiday: DecidedHoliday;
   readonly text: string;
-  readonly phase: SavePhase | undefined;
+  readonly status: "pending" | "failed" | undefined;
   readonly onOpenAsUsual: () => void;
   readonly onPlan: () => void;
 }
 
-function HolidayRow({ holiday, text, phase, onOpenAsUsual, onPlan }: HolidayRowProps) {
+function HolidayRow({ holiday, text, status, onOpenAsUsual, onPlan }: HolidayRowProps) {
   const { t } = useTranslation();
+  const retryRef = useRef<HTMLButtonElement>(null);
+  const failed = status === "failed";
+  const wasFailedRef = useRef(failed);
+  // Retry replaces the pressed Open as usual, so it takes focus; never on mount.
+  useEffect(() => {
+    if (failed && !wasFailedRef.current) retryRef.current?.focus();
+    wasFailedRef.current = failed;
+  }, [failed]);
   return (
     <li role="group" aria-label={text} className={styles.holiday} data-date={holiday.date}>
       <Text variant="body">{text}</Text>
       <div className={styles.actions}>
-        {phase === "failed" ? (
+        {failed ? (
           <>
             <Text variant="caption" color="secondary">
               {t("availability.weekChanges.saveFailed")}
             </Text>
-            <Button variant="secondary" size="sm" onClick={onOpenAsUsual}>
+            <Button ref={retryRef} variant="secondary" size="sm" onClick={onOpenAsUsual}>
               {t("availabilitySpecial.holidays.retry")}
             </Button>
           </>
@@ -99,7 +56,7 @@ function HolidayRow({ holiday, text, phase, onOpenAsUsual, onPlan }: HolidayRowP
           <Button
             variant="secondary"
             size="sm"
-            disabled={phase === "saving"}
+            isLoading={status === "pending"}
             onClick={onOpenAsUsual}
           >
             {t("availabilitySpecial.holidays.choice.openAsUsual")}
@@ -113,7 +70,7 @@ function HolidayRow({ holiday, text, phase, onOpenAsUsual, onPlan }: HolidayRowP
   );
 }
 
-/** A change's line, which opens its first date. */
+/** A change's line, which shows its first date. */
 function DayRow({ text, onOpen }: { readonly text: string; readonly onOpen: () => void }) {
   const { t } = useTranslation();
   return (
@@ -131,62 +88,85 @@ function DayRow({ text, onOpen }: { readonly text: string; readonly onOpen: () =
   );
 }
 
-/** The week's rows: undefined holidays while they are unknown, so none is offered as undecided. */
-function useWeekRows(venueId: string, config: AvailabilityConfig) {
-  const format = useVenueFormat();
-  const access = useManagerAccess();
-  const country = useHolidayCountry();
-  const now = useNow();
-  const today = venueDate(now, format.timeZone);
-  // Tomorrow on, by service day: today is TodayLine's.
-  const from = addDays(currentServiceDate(config, format.timeZone, now), 1);
-  // The params Special dates and the holiday nudge read with, so the three share one request.
-  const decisions = useHolidayDecisions({
-    venueId,
-    from: today,
-    to: addDays(today, HOLIDAY_HORIZON_DAYS),
+/** The first control of the list's `index`th row. */
+const rowControl = (list: HTMLElement | null, index: number) =>
+  list?.querySelectorAll(":scope > li")[index]?.querySelector<HTMLElement>("button") ?? null;
+
+/** Calls `focus` when `value` turns true, never on mount. */
+function useFocusOnTrue(value: boolean, focus: () => void) {
+  const wasRef = useRef(value);
+  useEffect(() => {
+    if (value && !wasRef.current) focus();
+    wasRef.current = value;
   });
-  const isManager = access.isManager && !access.isPending;
-  return useMemo(
-    () =>
-      weekChangeRows({
-        changes: weekChanges(config, from),
-        holidays:
-          country && decisions.data
-            ? holidayStates(country, from, config, decisions.data)
-            : undefined,
-        from,
-        isManager,
-      }),
-    [config, from, country, decisions.data, isManager]
-  );
+}
+
+interface Leaving {
+  readonly date: string;
+  readonly index: number;
+}
+
+/**
+ * After a Manager's Open as usual, the row leaves once the decisions are read again: focus goes to
+ * the control now in its place, else the row before it, else the "nothing else" caption, else the
+ * heading. Never to the page.
+ */
+function useFocusAfterLeave(
+  visible: readonly WeekChangeRow[],
+  refs: {
+    list: RefObject<HTMLUListElement | null>;
+    empty: RefObject<HTMLElement | null>;
+    heading: RefObject<HTMLElement | null>;
+  }
+) {
+  const leavingRef = useRef<Leaving | null>(null);
+  useEffect(() => {
+    const target = leavingRef.current;
+    if (!target || visible.some((r) => "holiday" in r && r.date === target.date)) return;
+    leavingRef.current = null;
+    const control =
+      rowControl(refs.list.current, target.index) ??
+      rowControl(refs.list.current, target.index - 1);
+    (control ?? refs.empty.current ?? refs.heading.current)?.focus();
+  });
+  return leavingRef;
 }
 
 /**
  * Calendar, "Next 7 days" (#9658): what changes at the venue from tomorrow for a week, one line
- * each, read as Special dates reads them; a line opens its first date. A Manager also sees the
+ * each, read as Special dates reads them; a line shows its first date. A Manager also sees the
  * holidays in the week nothing has decided yet, with Open as usual and Plan holidays. Nothing
- * renders when nothing changes. On a phone it starts as one count line with Show.
+ * renders when nothing changes, unless the Manager's own decision just emptied it: then one quiet
+ * line says so and holds focus. On a phone it starts as one count line with Show.
  */
-export function WeekChanges({
-  venueId,
-  config,
-  onOpenDay,
-  onPlanHolidays,
-  sectionNames,
-}: WeekChangesProps) {
+export function WeekChanges(props: WeekChangesProps) {
+  const { venueId, config, onOpenDay, onPlanHolidays, sectionNames } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
   const headingId = useId();
   const onPhone = useViewport() === "phone";
   const [opened, setOpened] = useState(false);
   const [showAll, setShowAll] = useState(false);
-  const { rows, first, more } = useWeekRows(venueId, config);
-  const { phases, openAsUsual } = useOpenAsUsual(venueId);
-  if (rows.length === 0) return null;
+  const [acted, setActed] = useState(false);
+  const headingRef = useRef<HTMLElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+  const emptyRef = useRef<HTMLElement>(null);
+  const { rows, first, more, decisions } = useWeekRows(venueId, config);
+  const { statusOf, openAsUsual } = useOpenAsUsual(venueId, decisions);
+  const visible = showAll ? rows : first;
+  const leavingRef = useFocusAfterLeave(visible, {
+    list: listRef,
+    empty: emptyRef,
+    heading: headingRef,
+  });
+  // The pressed button is gone: Show N more hands focus to the first row it revealed, Show to
+  // the heading.
+  useFocusOnTrue(showAll, () => rowControl(listRef.current, first.length)?.focus());
+  useFocusOnTrue(opened, () => headingRef.current?.focus());
+  if (rows.length === 0 && !acted) return null;
 
   const title = t("availability.weekChanges.title");
-  if (onPhone && !opened) {
+  if (onPhone && !opened && rows.length > 0) {
     return (
       <section aria-label={title} className={styles.collapsed}>
         <Text variant="caption" color="secondary">
@@ -200,32 +180,61 @@ export function WeekChanges({
   }
 
   const ctx = { t, format, config, sectionNames };
-  const item = (row: WeekChangeRow) => {
+  const item = (row: WeekChangeRow, index: number) => {
     const text = weekChangeRowText(row, ctx);
-    if (row.action.type === "holiday") {
-      const { holiday } = row.action;
-      const name = t(`availabilitySpecial.holidays.name.${holiday.id}`);
-      return (
-        <HolidayRow
-          key={row.key}
-          holiday={holiday}
-          text={text}
-          phase={phases.get(holiday.date)}
-          onOpenAsUsual={() => void openAsUsual(holiday, name)}
-          onPlan={onPlanHolidays}
-        />
-      );
+    if (row.action.type === "openDay") {
+      const { date } = row.action;
+      return <DayRow key={row.key} text={text} onOpen={() => onOpenDay(date)} />;
     }
-    const { date } = row.action;
-    return <DayRow key={row.key} text={text} onOpen={() => onOpenDay(date)} />;
+    const { holiday } = row.action;
+    const status = statusOf(holiday.date);
+    const press = () => {
+      if (status === "pending") return;
+      setActed(true);
+      leavingRef.current = { date: holiday.date, index };
+      const name = t(`availabilitySpecial.holidays.name.${holiday.id}`);
+      void openAsUsual(holiday, name, { onFailed: () => (leavingRef.current = null) });
+    };
+    return (
+      <HolidayRow
+        key={row.key}
+        holiday={holiday}
+        text={text}
+        status={status}
+        onOpenAsUsual={press}
+        onPlan={onPlanHolidays}
+      />
+    );
   };
 
   return (
     <section aria-labelledby={headingId} className={styles.week}>
-      <Text as="h2" variant="caption" color="secondary" id={headingId}>
+      <Text
+        ref={headingRef}
+        as="h2"
+        variant="caption"
+        color="secondary"
+        id={headingId}
+        tabIndex={-1}
+        className={styles.target}
+      >
         {title}
       </Text>
-      <ul className={styles.list}>{(showAll ? rows : first).map(item)}</ul>
+      {rows.length === 0 ? (
+        <Text
+          ref={emptyRef}
+          variant="caption"
+          color="secondary"
+          tabIndex={-1}
+          className={styles.target}
+        >
+          {t("availability.weekChanges.empty")}
+        </Text>
+      ) : (
+        <ul ref={listRef} className={styles.list}>
+          {visible.map(item)}
+        </ul>
+      )}
       {!showAll && more > 0 && (
         <Button variant="ghost" size="sm" className={styles.more} onClick={() => setShowAll(true)}>
           {t("availability.weekChanges.more", { count: more })}

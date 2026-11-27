@@ -3426,7 +3426,8 @@
       "seasonalEnds": "Seasonal hours end: {{name}}",
       "regularHours": "New regular hours start",
       "holiday": "{{name}} isn't planned yet",
-      "openDay": "{{change}}, open the day",
+      "openDay": "{{change}}, show the day",
+      "empty": "Nothing else changes in the next 7 days",
       "saveFailed": "Couldn't save."
     }
   },

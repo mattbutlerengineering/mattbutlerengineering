@@ -3525,7 +3525,8 @@
       "seasonalEnds": "Terminan los horarios de temporada: {{name}}",
       "regularHours": "Empieza un nuevo horario habitual",
       "holiday": "{{name}} aún no está planeado",
-      "openDay": "{{change}}, abrir el día",
+      "openDay": "{{change}}, ver el día",
+      "empty": "Nada más cambia en los próximos 7 días",
       "saveFailed": "No se pudo guardar."
     }
   },
