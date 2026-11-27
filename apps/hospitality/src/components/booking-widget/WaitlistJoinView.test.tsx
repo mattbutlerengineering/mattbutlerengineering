@@ -11,14 +11,16 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       {children}
     </button>
   ),
-  Input: ({ label, value, onChange, placeholder, type, error, hint }: any) => (
+  Input: ({ label, value, onChange, placeholder, type, error, hint, required, ref }: any) => (
     <div>
       <label>{label}</label>
       <input
+        ref={ref}
         type={type ?? "text"}
         value={value}
         onChange={onChange}
         placeholder={placeholder}
+        required={required}
         data-testid={`input-${label?.toLowerCase().replace(/\s/g, "-")}`}
         aria-invalid={Boolean(error)}
       />
@@ -92,26 +94,43 @@ describe("WaitlistJoinView", () => {
     expect(screen.getByText(/Join Waitlist/i)).toBeDefined();
   });
 
-  it("Join Waitlist button is disabled when phone is empty", () => {
+  it("Join Waitlist button is reachable (enabled) on an empty form", () => {
     render(<WaitlistJoinView {...DEFAULT_PROPS} />);
-    const btn = screen.getByText(/Join Waitlist/i) as HTMLButtonElement;
-    expect(btn.disabled).toBe(true);
-  });
-
-  it("Join Waitlist button is disabled when name is empty but phone is provided", () => {
-    render(<WaitlistJoinView {...DEFAULT_PROPS} />);
-    const phoneInput = screen.getByTestId("input-phone");
-    fireEvent.change(phoneInput, { target: { value: "+15551234567" } });
-    const btn = screen.getByText(/Join Waitlist/i) as HTMLButtonElement;
-    expect(btn.disabled).toBe(true);
-  });
-
-  it("Join Waitlist button is enabled when both name and phone are provided", () => {
-    render(<WaitlistJoinView {...DEFAULT_PROPS} />);
-    fireEvent.change(screen.getByTestId("input-name"), { target: { value: "Jane Doe" } });
-    fireEvent.change(screen.getByTestId("input-phone"), { target: { value: "+15551234567" } });
     const btn = screen.getByText(/Join Waitlist/i) as HTMLButtonElement;
     expect(btn.disabled).toBe(false);
+  });
+
+  it("marks name and phone as required", () => {
+    render(<WaitlistJoinView {...DEFAULT_PROPS} />);
+    expect((screen.getByTestId("input-name") as HTMLInputElement).required).toBe(true);
+    expect((screen.getByTestId("input-phone") as HTMLInputElement).required).toBe(true);
+  });
+
+  it("empty submit explains both errors, focuses the name field and does not join", () => {
+    render(<WaitlistJoinView {...DEFAULT_PROPS} />);
+    fireEvent.click(screen.getByText(/Join Waitlist/i));
+    expect(screen.getAllByTestId("input-error")).toHaveLength(2);
+    expect(screen.getByTestId("input-name").getAttribute("aria-invalid")).toBe("true");
+    expect(screen.getByTestId("input-phone").getAttribute("aria-invalid")).toBe("true");
+    expect(document.activeElement).toBe(screen.getByTestId("input-name"));
+    expect(mockApi.publicVenue.joinWaitlist).not.toHaveBeenCalled();
+  });
+
+  it("focuses the phone field when only the phone is missing", () => {
+    render(<WaitlistJoinView {...DEFAULT_PROPS} />);
+    fireEvent.change(screen.getByTestId("input-name"), { target: { value: "Jane Doe" } });
+    fireEvent.click(screen.getByText(/Join Waitlist/i));
+    expect(screen.getAllByTestId("input-error")).toHaveLength(1);
+    expect(document.activeElement).toBe(screen.getByTestId("input-phone"));
+    expect(mockApi.publicVenue.joinWaitlist).not.toHaveBeenCalled();
+  });
+
+  it("clears an error once the field is fixed after a failed submit", () => {
+    render(<WaitlistJoinView {...DEFAULT_PROPS} />);
+    fireEvent.click(screen.getByText(/Join Waitlist/i));
+    fireEvent.change(screen.getByTestId("input-name"), { target: { value: "Jane" } });
+    expect(screen.getAllByTestId("input-error")).toHaveLength(1);
+    expect(screen.getByTestId("input-name").getAttribute("aria-invalid")).toBe("false");
   });
 
   it("shows validation error when phone is invalid on submit", async () => {
