@@ -48,7 +48,7 @@ Key questions:
 Break the feature into **3-10 issues**, each representing a single agent-workable unit. Each issue should be:
 
 - **Self-contained**: Can be implemented without other issues being done first (unless explicitly dependent)
-- **Testable**: Has clear acceptance criteria
+- **Testable**: Has clear acceptance criteria and an `## Edge cases` list. You write the edge cases because the implementer cannot see what it never thought of; the worker writes one test per listed case.
 - **Agent-sized**: 15-60 minutes of work, touching 1-5 files
 - **Ordered**: Later issues build on earlier ones
 
@@ -97,6 +97,17 @@ Part N of M for: **<feature name>**
 - [ ] <Specific testable criteria>
 - [ ] <Another criteria>
 - [ ] Tests pass: `pnpm lint && pnpm typecheck && pnpm test`
+
+## Edge cases
+
+<One line per case: the concrete input or state, and the expected outcome. The implementer writes one failing test per line, so write them here, so the implementer does not have to guess them. Cover every class that applies and skip the rest:>
+
+- <Venue boundary: e.g. `guestId` from another venue → 403>
+- <Terminal or money state: e.g. refund an already-refunded deposit → 409, no second Stripe call>
+- <Replay or race: e.g. same idempotency key twice → one row>
+- <Date boundary: e.g. last day of the month, venue-local midnight>
+- <Empty or extreme input>
+- <Narrow or translated UI: 375px, fr-CA>
 
 ## Verification Commands
 

@@ -43,11 +43,27 @@ Caps and floors, applied after deduction:
 
 - Scores **>= 7 → `pass`**. Scores **<= 6 → `flag`**.
 - **One major defect** (hallucination, regression, security) → **max 4**.
-- **One minor defect** (lint violation, missing edge case) → **max 8**.
+- **One minor defect** (lint violation, style-level gap) → **max 8**.
+- **One untested escape-class edge case** with a concrete failing input (see § List edge cases before reading the diff) → `incomplete`, **max 6**.
 - **Missing acceptance criteria** → score by the proportion met (3 of 5 AC → max 6).
 - **All tests passing + no lint/type errors** → **floor of 5**, even with quality nits.
 
 The score is authoritative: if your prose says "this is fine" but your score is 5, the verdict is `flag`. Reconcile them before you answer.
+
+## List edge cases before reading the diff
+
+The worker wrote the acceptance criteria's tests from its own understanding, so its tests pass by construction. 59% of a month's production escapes needed only an ordinary unit or integration test that nobody wrote (`docs/fixes/escape-analysis-2026-11/report.md`). Your independent list is the only check on that.
+
+1. Before you analyse the diff (it may already be in your prompt), read `taskDescription` and the issue's `## Edge cases` section. Callers do not always pass the issue body: when the issue number is known (`Closes #N` in `commitMessage` or the PR body), read it with `gh issue view <N> --json body --jq .body`. Then write down every edge case in these escape classes that applies to the task:
+   - **Venue boundary:** an id in the body or query that belongs to another venue, or reads back null under RLS.
+   - **Terminal and money state:** acting on a row that is already cancelled, seated, refunded or closed; a rollback after a partial write.
+   - **Replay and races:** the same request twice (idempotency key, double click), or two writers at once.
+   - **Date and time boundaries:** the last day of a month, midnight UTC versus venue-local, a DST change.
+   - **Empty and extreme input:** zero rows, one row, the maximum, an empty string.
+   - **Narrow and translated UI:** a 375px column, fr-CA strings, keyboard-only use, a screen-reader name.
+2. Now read the diff and its tests. For each edge case on your list, find the test that exercises it, or the code path that handles it.
+3. An edge case that is neither tested nor handled, and for which you can name a concrete failing input, is an `incomplete` issue. It caps the score at 6. An edge case the code handles correctly but no test exercises is a minor defect (max 8). A class that does not apply to the task is skipped, not reported.
+4. Put your list in `assessment`, one line per edge case with where it is covered, so the next reader can see what you checked.
 
 ## Issue categories
 
@@ -92,7 +108,7 @@ Return a `ReviewVerdict` as JSON:
   "score": 9,
   "issues": [],
   "strengths": "Optional — what the worker did well.",
-  "assessment": "One paragraph: what changed, whether it matches the AC, why the score.",
+  "assessment": "One paragraph: what changed, whether it matches the AC, why the score. Then the edge-case list, one line per case.",
   "reviewedAt": "2026-01-01T00:00:00.000Z"
 }
 ```
