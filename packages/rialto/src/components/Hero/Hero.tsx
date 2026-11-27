@@ -10,8 +10,8 @@ import styles from "./Hero.module.css";
  * Marketing splash section with centered content, atmospheric
  * decorative touches, and a staggered entrance. The title and subtitle
  * (Hero's LCP candidates) settle into place without fading — they stay
- * opaque and only their position animates; eyebrow, divider, and actions
- * still fade up.
+ * opaque and only their position animates, as do the actions; eyebrow and
+ * divider still fade up.
  *
  * Wrap text in `<span className="accent">` inside `title`
  * to apply the gold accent color.
@@ -49,7 +49,9 @@ const fadeUp = {
 // The title and subtitle are Hero's largest-contentful-paint candidates (the
 // subtitle is the mobile one, #9915). Fading them in from opacity:0 keeps
 // them unpainted until the entrance settles, which directly delays LCP
-// (#4847). They stay fully opaque and only settle into place.
+// (#4847). They stay fully opaque and only settle into place. The actions
+// slot does too (#9972): the CTAs are the page's primary interaction, and a
+// stalled or throttled animation clock must never leave them at opacity 0.
 const settleUp = {
   hidden: { opacity: 1, y: 24 },
   visible: { opacity: 1, y: 0 },
@@ -115,7 +117,7 @@ export const Hero = forwardRef<HTMLElement, HeroProps>(
           )}
 
           {actions && (
-            <motion.div className={styles.actions} variants={fadeUp} transition={transition}>
+            <motion.div className={styles.actions} variants={settleUp} transition={transition}>
               {actions}
             </motion.div>
           )}
