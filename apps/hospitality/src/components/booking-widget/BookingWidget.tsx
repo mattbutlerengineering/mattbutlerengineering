@@ -212,6 +212,9 @@ export function BookingWidget({
           maxDate={effectiveMaxDate}
           venueTimezone={venueTimezone}
           closedDates={data.closures}
+          fallbackOperatingHours={
+            data.closedDatesLoaded ? undefined : data.venueConfig?.operatingHours
+          }
         />
       )}
 
