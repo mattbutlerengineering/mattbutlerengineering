@@ -1,5 +1,13 @@
 # @mattbutlerengineering/rialto
 
+## 3.1.13
+
+### Patch Changes
+
+- [#9847](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9847) [`eabc097`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/eabc097396dee4e42f0e5673f971131f7c0909bd) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Docs-only: the `useMotionPreset` contract comment no longer says rialto is published to npm.
+
+- [#9831](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9831) [`31e1ebd`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/31e1ebd43cdacafe7e57f10f51a3410ab58fa8e6) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - The signature palette is now the default: secondary and ghost Buttons, Input, Select and Tabs take plum, plum-muted and tinted without a scope attribute. Tier-3 component tokens re-resolve on `[data-theme]`, so a nested light island inside dark takes its own light values. Velvet bands re-declare a lighter error red so an invalid Input is legible there. Dark tinted (brown) is no longer a signature surface: the dark `surface-tinted` token now equals the dark recessed surface.
+
 ## 3.1.12
 
 ### Patch Changes
