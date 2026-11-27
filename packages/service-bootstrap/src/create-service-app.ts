@@ -362,6 +362,8 @@ export async function createServiceApp(
   // --- Baseline security headers ---
   // JSON-only API: hardening for browsers, no CSP. Does not touch CORS.
   fastify.addHook("onSend", async (_request, reply) => {
+    // Raw-stream routes (SSE) commit headers themselves; nothing left to set.
+    if (reply.raw.headersSent) return;
     reply.header("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
     reply.header("X-Content-Type-Options", "nosniff");
     reply.header("X-Frame-Options", "DENY");
