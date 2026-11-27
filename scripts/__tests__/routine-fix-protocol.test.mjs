@@ -25,6 +25,7 @@ const FIXING_ROUTINES = [
   "mbe-monthly-meta-audit",
   "mbe-doc-rot",
   "mbe-ui-quality",
+  "mbe-dev-speed",
 ];
 
 const promptOf = (name) => {
