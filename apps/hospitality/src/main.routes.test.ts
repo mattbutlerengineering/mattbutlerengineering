@@ -40,6 +40,19 @@ describe("the Availability map route (#8864)", () => {
   });
 });
 
+describe("the How availability works guide route (#10034)", () => {
+  it("mounts help/availability inside the signed-in layout, lazily", () => {
+    expect(mainTsxSource).toMatch(
+      /path:\s*"help\/availability",[\s\S]{0,200}AvailabilityGuidePage/
+    );
+    expect(mainTsxSource).toMatch(/import\("\.\/pages\/AvailabilityGuidePage\.js"\)/);
+  });
+
+  it("keeps the guide path out of the /availability tree a peer owns", () => {
+    expect(mainTsxSource).not.toMatch(/path:\s*"availability\/guide"/);
+  });
+});
+
 describe("hospitality router basename (#7709)", () => {
   it("derives the basename from the serving host rather than a literal /hospitality", () => {
     expect(mainTsxSource).not.toMatch(/basename:\s*"\/hospitality"/);
