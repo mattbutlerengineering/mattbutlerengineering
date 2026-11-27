@@ -1,6 +1,6 @@
 /**
  * Contract tests for scripts/check-dep-sync.mjs — the `Dependency Sync` CI
- * gate (ci.yml job `dependency-audit`).
+ * gate (a step of ci.yml job `repo-checks`, #10010).
  *
  * The defect class under test: fail-open accounting. `totalGaps` was only
  * incremented in the success branch, so a run where depcheck failed for every
@@ -203,12 +203,12 @@ describe("depcheck tool pin", () => {
   });
 });
 
-describe("dependency-audit job in ci.yml", () => {
+describe("repo-checks job (hosts Dependency Sync) in ci.yml", () => {
   // Parsed textually rather than with a YAML library, matching the precedent
   // in ci-node-matrix.test.mjs and pulumi-cli-pin.test.mjs.
   it("declares timeout-minutes", () => {
     const workflow = readFileSync(join(REPO_ROOT, ".github", "workflows", "ci.yml"), "utf8");
-    const jobStart = workflow.indexOf("\n  dependency-audit:");
+    const jobStart = workflow.indexOf("\n  repo-checks:");
     expect(jobStart).toBeGreaterThan(-1);
     const rest = workflow.slice(jobStart + 1);
     const nextJob = rest.slice(1).search(/\n {2}[\w-]+:/);
