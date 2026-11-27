@@ -1,45 +1,3 @@
-## 2026-11-13 — mbe-evening (progress-tracker)
-
-### Metrics
-
-| Metric                                                    | Value                                                                | Band                        |
-| --------------------------------------------------------- | -------------------------------------------------------------------- | --------------------------- |
-| Created (7d, audit+ci-fix)                                | 69 (24 audit + 45 ci-fix)                                            | —                           |
-| Closed (7d, audit+ci-fix)                                 | 60 (19 audit + 41 ci-fix)                                            | —                           |
-| Closure Rate                                              | 87.0%                                                                | Green (>80%)                |
-| Time-to-Close (mean)                                      | 12.8h                                                                | Green (<24h)                |
-| Agent Success (has-pr/(has-pr+failed), snapshot)          | 2/5 = 40%                                                            | Yellow (40-70%, lower edge) |
-| CI Pass (main, last 20 runs, skipped excluded)            | 6/6 completed non-skipped = 100%                                     | Green, but see note         |
-| Queue (ready, open)                                       | 6                                                                    | Yellow (5-10)               |
-| Stale (ready>7d)                                          | 0                                                                    | Green                       |
-| Blocked (agent-failed, open)                              | 1 (was 3; 2 auto-retried this run)                                   | Non-zero                    |
-| Skipped (agent-skip, open)                                | 0                                                                    | Green                       |
-| Daily/7d Spend (attributed, `agent-spend/sessions.jsonl`) | $0 — no `mbe agent run`/`eval` sessions today                        | Green, but see note         |
-| Queue worker usage (7d, `queue-telemetry.jsonl`)          | 4 sessions, 900,434 tokens, **cost unknown** (71 rows missing usage) | not $0 — unattributed       |
-| Cost/Issue                                                | unknown (no attributed $ to divide)                                  | —                           |
-
-Note on CI Pass: the last-20-runs sample was dominated by this session's own just-pushed activity (PR #8812/#8813 CI), not a representative 7-day main-push sample — treat the 100% read as noisy, not a trend signal.
-
-### Patterns
-
-- **Same job, recurring:** `.github/workflows/apps-visual.yml` ("Apps Visual Regression") is the dominant unstable CI job — #8781 (51.5% failure rate over 99 runs) and #8780 (3 consecutive main-push failures) are both open `ci-fix` issues against it, and it independently failed on today's unrelated PR #8813 (confirmed not caused by that PR's diff: failing snapshots were on routes `briefing`/`profile`, outside the diff). Systemic, not a one-off flake.
-- **Batch bottleneck, one iteration's evidence only:** today's implement-queue batch could only claim 2 of a possible 3 workers because 5 of the day's 7 `ready` ci-fix/audit candidates (including all 3 `apps-visual.yml`/`deploy-services.yml`/`sentry-heartbeat.yml` ci-fix issues) resolve to the same `null`/global merge-train zone (no conventional-commit scope in title, no resolvable workspace path in body), and `strictMain` admits only one global-zone issue per batch. Worth watching for `/optimize-implement-queue` — single-session observation, not yet a confirmed 3-day pattern, so no `meta-improvement` issue filed for it this run.
-- **Agent-failed cluster:** the 3 open `agent-failed` issues were all performance/process-metrics work (`api-failures` p95 latency, `sdlc-speed` regression) — harder, investigation-heavy issues, consistent with why they stalled past one attempt. 2 of the 3 (#8549, #8564) were eligible for the 3+ day auto-retry (capped at 2/run) and were re-queued to `ready` this run via `scripts/auto-retry-stale.mjs`; #8566 was not yet eligible.
-
-### Recommendations
-
-- No code or `required_check` fix landed for the Apps Visual Regression flake this run — it's already tracked (#8781/#8780) and keeps surfacing as collateral noise on unrelated PRs; consider raising its priority the next time a batch is composed, since it is blocking visibility into real regressions on hospitality PRs.
-- If the same-zone batching cap on ci-fix/workflow issues recurs over the next few days, it is meta-improvement material (e.g. teaching `issue-zone.mjs` to resolve `.github/workflows/<file>` paths to their own zone instead of global) — tracked here as an observation, not filed, pending repetition.
-- `metrics/queue-telemetry.jsonl`'s 71 rows without usage data mean queue-worker cost stays permanently unknown; wiring real `cost_usd` into that sink (as `#5885` already flags) would let Cost/Issue be computed instead of reported as "unknown" every run.
-
-### Skipped Issues
-
-0 open `agent-skip` issues — nothing to review.
-
-### Auto-retry
-
-Re-queued 2 stale `agent-failed` issues (3+ days, capped at 2/run) back to `ready`: #8549, #8564.
-
 ## 2026-11-13
 
 **queueEfficiency:** composite 0.915 (baseline n/a) — 1 regression(s) detected
@@ -1213,3 +1171,9 @@ Phase 4: no worktrees to reap. Telemetry push (`node scripts/metrics-data.mjs pu
 ### Skipped Issues
 
 0 (`agent-skip` label: empty).
+
+## 2026-11-27
+
+**queueEfficiency:** composite 0.889 (baseline n/a) — healthy
+**Difficulty distribution:** size:xs:37, size:s:53, size:xl:10, size:l:19, size:m:32
+**Issues filed:** 0
