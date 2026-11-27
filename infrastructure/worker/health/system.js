@@ -33,14 +33,17 @@ const KV_KEYS = {
 // ── Probe helpers ─────────────────────────────────────────────────────
 
 /**
- * Map a 200 service `/health` body to a probe status. Anything but an explicit
- * `ok` (e.g. `degraded`) or a failed database check counts as non-ok, so a
- * database outage behind a 200 is visible here (#9963). The probe schema only
- * allows ok/error/timeout, so non-ok maps to `error`.
+ * Map a 200 service `/health` body to a probe status (#9963). Only a database
+ * failure counts as `error`: a failed DB check, or pool exhaustion (callers
+ * waiting on a degraded pool). A plain `degraded` from other checks (error
+ * rate, Auth0 latency, rate limits, slow queries) stays `ok`, since those trip
+ * on routine traffic and would otherwise roll up to `unhealthy`.
  */
 function serviceBodyStatus(body) {
-  if (body?.status !== "ok") return "error";
-  if (body.checks?.database?.status === "error") return "error";
+  if (body?.status === "error") return "error";
+  const checks = body?.checks;
+  if (checks?.database?.status === "error") return "error";
+  if (checks?.pool?.status === "degraded" && checks.pool.waiting > 0) return "error";
   return "ok";
 }
 
