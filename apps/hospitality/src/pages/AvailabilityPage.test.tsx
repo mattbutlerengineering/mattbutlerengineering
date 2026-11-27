@@ -135,6 +135,8 @@ vi.mock("../components/availability/TodayLine.js", () => ({
     <section aria-label="Today line" data-venue={venueId} data-banner={String(bannerShowsOnline)} />
   ),
 }));
+// "Next 7 days" has its own suites (WeekChanges.test.tsx, AvailabilityPage.weekChanges.test.tsx).
+vi.mock("../components/availability/WeekChanges.js", () => ({ WeekChanges: () => null }));
 const drawerProps = vi.hoisted(() => vi.fn());
 vi.mock("../components/availability/AvailabilityDayDrawer.js", async (importOriginal) => {
   const real = await importOriginal<typeof Drawer>();

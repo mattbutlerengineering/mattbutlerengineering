@@ -53,6 +53,7 @@ import { OnlinePausedBanner } from "../components/availability/OnlinePausedBanne
 import { TodayLine } from "../components/availability/TodayLine.js";
 import { RegularWeekLine } from "../components/availability/RegularWeekLine.js";
 import { NextHolidayNudge } from "../components/availability/NextHolidayNudge.js";
+import { WeekChanges } from "../components/availability/WeekChanges.js";
 import { DiscardChangesDialog } from "../components/availability/DiscardChangesDialog.js";
 import { LeaveGuard } from "../components/availability/LeaveGuard.js";
 import { useDiscardGuard } from "../components/availability/use-discard-guard.js";
@@ -564,6 +565,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         venueId={selectedVenueId}
         config={config.data.config}
         today={today}
+        serviceDate={serviceDate}
         onPlan={() => changeTab({ tab: "special" })}
       />
     ) : null;
@@ -778,6 +780,15 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         />
       )}
       {loadFailureBanner}
+      {config.data && tab !== "pending" && (
+        <WeekChanges
+          venueId={selectedVenueId}
+          config={config.data.config}
+          onOpenDay={(date) => changeTab({ tab: "calendar", then: { openDay: date } })}
+          onPlanHolidays={() => changeTab({ tab: "special" })}
+          sectionNames={sectionNames}
+        />
+      )}
       {tab !== "pending" && (
         <AvailabilityScheduleControls
           isManager={isManager}

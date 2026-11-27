@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Button, Text } from "@mattbutlerengineering/rialto";
-import { addDays } from "@mbe/availability";
+import { addDays, WEEK_CHANGES_DAYS } from "@mbe/availability";
 import type { AvailabilityConfig } from "@mbe/types";
 import { useHolidayDecisions } from "../../hooks/useHolidayDecisions.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
@@ -17,18 +17,25 @@ export interface NextHolidayNudgeProps {
   readonly config: AvailabilityConfig;
   /** Today on the venue clock. */
   readonly today: string;
+  /**
+   * The current service date: yesterday after midnight while an overnight service is still open.
+   * "Next 7 days" runs from the day after it, so the nudge starts where that week ends.
+   */
+  readonly serviceDate: string;
   /** Shows Special dates, where Upcoming holidays plans it. */
   readonly onPlan: () => void;
 }
 
 /**
- * Calendar, Managers: the next holiday within a month that nothing has decided yet, with a way to
- * Special dates. A closure, special hours, a rule this flow does not own and an Open as usual all
- * count as decided, for everyone: they come from the venue's own data. The decisions are read
- * through the query Special dates uses, so opening it next costs no second request. While they
- * load or fail it says nothing: it never nags about a holiday it cannot yet know is decided.
+ * Calendar, Managers: the next holiday past "Next 7 days" and within a month that nothing has
+ * decided yet, with a way to Special dates. A closure, special hours, a rule this flow does not
+ * own and an Open as usual all count as decided, for everyone: they come from the venue's own
+ * data. The decisions are read through the query Special dates uses, so opening it next costs no
+ * second request. While they load or fail it says nothing: it never nags about a holiday it
+ * cannot yet know is decided.
  */
-export function NextHolidayNudge({ venueId, config, today, onPlan }: NextHolidayNudgeProps) {
+export function NextHolidayNudge(props: NextHolidayNudgeProps) {
+  const { venueId, config, today, serviceDate, onPlan } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
   const country = useHolidayCountry();
@@ -39,11 +46,13 @@ export function NextHolidayNudge({ venueId, config, today, onPlan }: NextHoliday
   });
   const next = useMemo(() => {
     if (!country || !decisions.data) return undefined;
+    // "Next 7 days" lists the week's undecided holidays: one holiday never shows on two lines.
+    const weekEnd = addDays(serviceDate, WEEK_CHANGES_DAYS);
     const last = addDays(today, NUDGE_DAYS);
     return holidayStates(country, today, config, decisions.data).find(
-      (h) => h.state.kind === "undecided" && h.date <= last
+      (h) => h.state.kind === "undecided" && h.date > weekEnd && h.date <= last
     );
-  }, [country, today, config, decisions.data]);
+  }, [country, today, serviceDate, config, decisions.data]);
   if (!next) return null;
 
   const name = t(`availabilitySpecial.holidays.name.${next.id}`);
