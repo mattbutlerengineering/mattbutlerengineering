@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useReducer, useRef } from "react";
+import { useState, useEffect, useCallback, useId, useReducer, useRef } from "react";
 import { useForm } from "react-hook-form";
 import type { TimeSlot, ReservationHold } from "@mbe/types";
 import { Input, TextArea, Button, Alert, Text, Banner, Badge } from "@mattbutlerengineering/rialto";
@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { useGuestRecognition } from "../../hooks/useGuestRecognition.js";
 import type { BookingWidgetApiClient } from "./PaymentStep.js";
+import { isValidGuestEmail } from "./guest-email.js";
 import styles from "./GuestDetailsForm.module.css";
 
 export interface GuestDetails {
@@ -52,6 +53,21 @@ function computeHoldTimeRemaining(hold: ReservationHold): string | null {
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
+/** Time left on a hold at which screen readers hear a single warning. */
+const HOLD_WARNING_MS = 2 * 60_000;
+
+/**
+ * The hold threshold the guest is past, if any. Only these crossings are
+ * announced; the per-second countdown is visual only, so a screen reader does
+ * not talk over the form for the whole hold (#9996).
+ */
+function computeHoldThreshold(hold: ReservationHold): "warning" | "expired" | null {
+  const diffMs = new Date(hold.expiresAt).getTime() - Date.now();
+  if (diffMs <= 0) return "expired";
+  if (diffMs <= HOLD_WARNING_MS) return "warning";
+  return null;
+}
+
 export function GuestDetailsForm({
   slot,
   hold,
@@ -73,6 +89,8 @@ export function GuestDetailsForm({
   const [notes, setNotes] = useState(initialDetails?.notes ?? "");
   const [nameEdited, setNameEdited] = useState(Boolean(initialDetails?.name));
   const [submitAttempted, setSubmitAttempted] = useState(false);
+  const [emailBlurred, setEmailBlurred] = useState(false);
+  const emailId = useId();
   const nameRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
   // Force re-render every second so the hold countdown stays current
@@ -102,6 +120,13 @@ export function GuestDetailsForm({
   const holdTimeRemaining = hold
     ? (computeHoldTimeRemaining(hold) ?? t("bookingWidget.details.holdExpired"))
     : null;
+  const holdThreshold = hold ? computeHoldThreshold(hold) : null;
+  const holdAnnouncement =
+    holdThreshold === "expired"
+      ? t("bookingWidget.details.holdAnnounceExpired")
+      : holdThreshold === "warning"
+        ? t("bookingWidget.details.holdAnnounceTwoMinutes")
+        : "";
 
   // Lift the current fields up to the caller (`useBookingFlow`'s reducer
   // state) on every edit, so they survive this form unmounting on hold
@@ -120,6 +145,15 @@ export function GuestDetailsForm({
   // Errors show only after a submit attempt, then track the fields live.
   const nameError = submitAttempted && name.trim().length === 0;
   const contactError = submitAttempted && email.trim().length === 0 && phone.trim().length === 0;
+  // A malformed address is flagged once the guest leaves the field (or
+  // submits), never mid-keystroke, and clears as soon as it is fixed.
+  const emailMalformed = email.trim().length > 0 && !isValidGuestEmail(email);
+  const emailFormatError = (emailBlurred || submitAttempted) && emailMalformed;
+  const emailHint = contactError
+    ? t("bookingWidget.details.contactHint")
+    : emailFormatError
+      ? t("bookingWidget.details.emailInvalid")
+      : undefined;
 
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
@@ -129,18 +163,21 @@ export function GuestDetailsForm({
         nameRef.current?.focus();
         return;
       }
-      if (email.trim().length === 0 && phone.trim().length === 0) {
+      if ((email.trim().length === 0 && phone.trim().length === 0) || emailMalformed) {
         emailRef.current?.focus();
         return;
       }
       onSubmit({ name, email, phone, notes });
     },
-    [name, email, phone, notes, onSubmit]
+    [name, email, phone, notes, emailMalformed, onSubmit]
   );
 
   const handleEmailBlur = useCallback(
     (e: React.FocusEvent<HTMLInputElement>) => {
-      recognize(e.target.value);
+      setEmailBlurred(true);
+      // The server rejects a malformed address, so asking it to recognize one
+      // only produces a 400.
+      if (isValidGuestEmail(e.target.value)) recognize(e.target.value);
     },
     [recognize]
   );
@@ -152,11 +189,18 @@ export function GuestDetailsForm({
           {t("bookingWidget.back")}
         </Button>
         {hold && holdTimeRemaining && (
-          <div className={styles.holdTimer} aria-live="polite">
+          <div className={styles.holdTimer}>
             {t("bookingWidget.details.holdExpires", { time: holdTimeRemaining })}
           </div>
         )}
       </div>
+      {/* Always mounted while a hold exists so its text changes are announced;
+          it changes only at the warning and expiry thresholds. */}
+      {hold && (
+        <div className={styles.holdAnnouncer} role="status" aria-live="polite">
+          {holdAnnouncement}
+        </div>
+      )}
 
       {/* Reservation summary */}
       <div className={styles.summaryCard}>
@@ -199,16 +243,20 @@ export function GuestDetailsForm({
             notifyDetailsChange({ name: e.target.value });
           }}
           placeholder={t("bookingWidget.details.namePlaceholder")}
+          autoComplete="name"
         />
 
         {/* The either-email-or-phone guidance is stated once: on Email while it
-            is the error, otherwise on Phone. */}
+            is the error (Phone's invalid state then points at that text),
+            otherwise on Phone. */}
         <Input
           ref={emailRef}
+          id={emailId}
           label={t("bookingWidget.details.email")}
-          error={contactError}
-          hint={contactError ? t("bookingWidget.details.contactHint") : undefined}
+          error={contactError || emailFormatError}
+          hint={emailHint}
           type="email"
+          autoComplete="email"
           value={email}
           onChange={(e) => {
             setEmail(e.target.value);
@@ -222,7 +270,12 @@ export function GuestDetailsForm({
           label={t("bookingWidget.details.phone")}
           error={contactError}
           hint={contactError ? undefined : t("bookingWidget.details.contactHint")}
+          // rialto's useField names the hint region `${id}-hint`. Spread only
+          // in the error state: rialto applies rest props after its own
+          // wiring, so even an undefined value would drop Phone's own hint.
+          {...(contactError ? { "aria-describedby": `${emailId}-hint` } : {})}
           type="tel"
+          autoComplete="tel"
           value={phone}
           onChange={(e) => {
             setPhoneInput(e.target.value);

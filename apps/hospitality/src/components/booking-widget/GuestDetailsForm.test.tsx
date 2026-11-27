@@ -41,9 +41,14 @@ vi.mock("@mattbutlerengineering/rialto", async () => {
     onBlur?: (e: any) => void;
     placeholder?: string;
     type?: string;
+    id?: string;
+    autoComplete?: string;
+    "aria-describedby"?: string;
   };
-  // Mirrors rialto's Input wiring: aria-invalid on error, hint text tied to
-  // the control through aria-describedby, ref forwarded to the <input>.
+  // Mirrors rialto's Input wiring: the control id (explicit or derived), its
+  // hint at `${id}-hint`, aria-invalid on error, hint text tied to the control
+  // through aria-describedby (an explicit prop overrides it, as rialto's rest
+  // spread does), extra attributes passed through, ref forwarded to <input>.
   const MockInput = ({
     ref,
     label,
@@ -55,28 +60,37 @@ vi.mock("@mattbutlerengineering/rialto", async () => {
     onBlur,
     placeholder,
     type,
+    id,
+    autoComplete,
+    ...rest
   }: MockInputProps) => {
     const testId = label?.toLowerCase().replace(/\s/g, "-");
+    const inputId = id ?? testId;
+    // rialto spreads the rest props after its own wiring, so a passed
+    // `aria-describedby` key wins even when its value is undefined.
+    const describedBy =
+      "aria-describedby" in rest ? rest["aria-describedby"] : hint ? `${inputId}-hint` : undefined;
     return (
       <div data-testid="input-wrapper">
-        <label htmlFor={testId}>
+        <label htmlFor={inputId}>
           {label}
           {required && "*"}
         </label>
         <input
           ref={ref}
-          id={testId}
+          id={inputId}
           data-testid={testId}
           type={type || "text"}
+          autoComplete={autoComplete}
           required={required || undefined}
           aria-invalid={error ? true : undefined}
-          aria-describedby={hint ? `${testId}-hint` : undefined}
+          aria-describedby={describedBy}
           value={value}
           onChange={onChange}
           onBlur={onBlur}
           placeholder={placeholder}
         />
-        {hint && <span id={`${testId}-hint`}>{hint}</span>}
+        {hint && <span id={`${inputId}-hint`}>{hint}</span>}
       </div>
     );
   };
@@ -299,7 +313,9 @@ describe("GuestDetailsForm", () => {
     expect(screen.getByTestId("name").getAttribute("aria-invalid")).toBeNull();
     expect(emailInput.getAttribute("aria-invalid")).toBe("true");
     expect(screen.getByTestId("phone").getAttribute("aria-invalid")).toBe("true");
-    expect(emailInput.getAttribute("aria-describedby")).toBe("email-hint");
+    expect(emailInput.getAttribute("aria-describedby")).toBe(
+      screen.getByText(enUS.bookingWidget.details.contactHint).id
+    );
     expect(document.activeElement).toBe(emailInput);
     expect(defaultProps.onSubmit).not.toHaveBeenCalled();
   });
@@ -307,9 +323,136 @@ describe("GuestDetailsForm", () => {
   it("states the either-email-or-phone guidance once, linked to the contact field", () => {
     render(<GuestDetailsForm {...defaultProps} />);
     expect(screen.getAllByText(enUS.bookingWidget.details.contactHint)).toHaveLength(1);
-    expect(screen.getByTestId("phone").getAttribute("aria-describedby")).toBe("phone-hint");
+    expect(screen.getByTestId("phone").getAttribute("aria-describedby")).toBe(
+      screen.getByText(enUS.bookingWidget.details.contactHint).id
+    );
     fireEvent.click(screen.getByTestId("submit-button"));
     expect(screen.getAllByText(enUS.bookingWidget.details.contactHint)).toHaveLength(1);
+  });
+
+  it("describes Phone's invalid state with the either/or message after an empty contact submit", () => {
+    render(<GuestDetailsForm {...defaultProps} />);
+    fireEvent.change(screen.getByTestId("name"), { target: { value: "John" } });
+    fireEvent.click(screen.getByTestId("submit-button"));
+    const phoneInput = screen.getByTestId("phone");
+    expect(phoneInput.getAttribute("aria-invalid")).toBe("true");
+    const describedBy = phoneInput.getAttribute("aria-describedby");
+    expect(describedBy).toBeTruthy();
+    expect(document.getElementById(describedBy ?? "")?.textContent).toBe(
+      enUS.bookingWidget.details.contactHint
+    );
+  });
+
+  it("tells autofill which guest field is which (WCAG 1.3.5)", () => {
+    render(<GuestDetailsForm {...defaultProps} />);
+    expect(screen.getByTestId("name").getAttribute("autocomplete")).toBe("name");
+    expect(screen.getByTestId("email").getAttribute("autocomplete")).toBe("email");
+    expect(screen.getByTestId("phone").getAttribute("autocomplete")).toBe("tel");
+  });
+
+  describe("email format", () => {
+    it("flags a malformed email on blur with a described field error", () => {
+      render(<GuestDetailsForm {...defaultProps} />);
+      const emailInput = screen.getByTestId("email");
+      fireEvent.change(emailInput, { target: { value: "not-an-email" } });
+      fireEvent.blur(emailInput);
+      expect(emailInput.getAttribute("aria-invalid")).toBe("true");
+      const error = screen.getByText(enUS.bookingWidget.details.emailInvalid);
+      expect(emailInput.getAttribute("aria-describedby")).toBe(error.id);
+      // The phone field is not part of this error.
+      expect(screen.getByTestId("phone").getAttribute("aria-invalid")).toBeNull();
+    });
+
+    it("does not flag a malformed email while the guest is still typing", () => {
+      render(<GuestDetailsForm {...defaultProps} />);
+      const emailInput = screen.getByTestId("email");
+      fireEvent.change(emailInput, { target: { value: "jane@" } });
+      expect(emailInput.getAttribute("aria-invalid")).toBeNull();
+      expect(screen.queryByText(enUS.bookingWidget.details.emailInvalid)).toBeNull();
+    });
+
+    it("clears the email error once the address is fixed", () => {
+      render(<GuestDetailsForm {...defaultProps} />);
+      const emailInput = screen.getByTestId("email");
+      fireEvent.change(emailInput, { target: { value: "not-an-email" } });
+      fireEvent.blur(emailInput);
+      fireEvent.change(emailInput, { target: { value: "jane@example.com" } });
+      expect(emailInput.getAttribute("aria-invalid")).toBeNull();
+      expect(screen.queryByText(enUS.bookingWidget.details.emailInvalid)).toBeNull();
+    });
+
+    it("blocks submit on a malformed email, even with a phone, and focuses Email", () => {
+      render(<GuestDetailsForm {...defaultProps} />);
+      fireEvent.change(screen.getByTestId("name"), { target: { value: "John" } });
+      fireEvent.change(screen.getByTestId("phone"), { target: { value: "555-123-4567" } });
+      const emailInput = screen.getByTestId("email");
+      fireEvent.change(emailInput, { target: { value: "not-an-email" } });
+      fireEvent.click(screen.getByTestId("submit-button"));
+      expect(defaultProps.onSubmit).not.toHaveBeenCalled();
+      expect(emailInput.getAttribute("aria-invalid")).toBe("true");
+      expect(screen.getByText(enUS.bookingWidget.details.emailInvalid)).toBeDefined();
+      expect(document.activeElement).toBe(emailInput);
+    });
+
+    it("does not call recognize for a malformed address", async () => {
+      render(<GuestDetailsForm {...defaultProps} venueSlug="the-grill" />);
+      await triggerRecognition(screen.getByTestId("email"), "not-an-email");
+      expect(mockApi.publicVenue.recognizeGuest).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("hold countdown announcements", () => {
+    const holdExpiringIn = (ms: number): ReservationHold => ({
+      ...mockHold,
+      expiresAt: new Date(Date.now() + ms).toISOString(),
+    });
+
+    it("keeps the ticking countdown out of every live region", () => {
+      render(<GuestDetailsForm {...defaultProps} hold={holdExpiringIn(10 * 60_000)} />);
+      const timer = screen.getByText(/hold expires in/i);
+      expect(timer.closest("[aria-live]")).toBeNull();
+      expect(timer.closest("[role='status']")).toBeNull();
+    });
+
+    it("has an always-mounted polite region that stays silent with time to spare", () => {
+      render(<GuestDetailsForm {...defaultProps} hold={holdExpiringIn(10 * 60_000)} />);
+      const region = screen.getByRole("status");
+      expect(region.getAttribute("aria-live")).toBe("polite");
+      expect(region.textContent).toBe("");
+      act(() => {
+        vi.advanceTimersByTime(60_000);
+      });
+      expect(region.textContent).toBe("");
+    });
+
+    it("announces once when two minutes are left, without repeating each second", () => {
+      render(<GuestDetailsForm {...defaultProps} hold={holdExpiringIn(2 * 60_000 + 5_000)} />);
+      const region = screen.getByRole("status");
+      expect(region.textContent).toBe("");
+      act(() => {
+        vi.advanceTimersByTime(6_000);
+      });
+      expect(region.textContent).toBe(enUS.bookingWidget.details.holdAnnounceTwoMinutes);
+      act(() => {
+        vi.advanceTimersByTime(30_000);
+      });
+      expect(region.textContent).toBe(enUS.bookingWidget.details.holdAnnounceTwoMinutes);
+    });
+
+    it("announces when the hold expires", () => {
+      render(<GuestDetailsForm {...defaultProps} hold={holdExpiringIn(3_000)} />);
+      act(() => {
+        vi.advanceTimersByTime(4_000);
+      });
+      expect(screen.getByRole("status").textContent).toBe(
+        enUS.bookingWidget.details.holdAnnounceExpired
+      );
+    });
+
+    it("renders no announcement region without a hold", () => {
+      render(<GuestDetailsForm {...defaultProps} />);
+      expect(screen.queryByRole("status")).toBeNull();
+    });
   });
 
   it("clears the Name error as the guest types a name", () => {

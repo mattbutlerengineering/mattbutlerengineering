@@ -1502,6 +1502,8 @@
     "details": {
       "holdExpires": "La reserva temporal vence en: {{time}}",
       "holdExpired": "Vencida",
+      "holdAnnounceTwoMinutes": "Quedan 2 minutos para completar tu reserva.",
+      "holdAnnounceExpired": "Tu reserva temporal venció.",
       "summaryTitle": "Detalles de la reserva",
       "welcomeBack_ordinal_one": "¡Bienvenido de nuevo, {{name}}! Es tu visita n.º {{count}}.",
       "welcomeBack_ordinal_many": "¡Bienvenido de nuevo, {{name}}! Es tu visita n.º {{count}}.",
@@ -1513,6 +1515,7 @@
       "emailPlaceholder": "juan@ejemplo.com",
       "phone": "Teléfono",
       "contactHint": "Proporciona un correo electrónico o un teléfono para la confirmación.",
+      "emailInvalid": "Escribe un correo electrónico completo, como nombre@ejemplo.com.",
       "nameRequired": "Escribe tu nombre para que el restaurante sepa a quién esperar.",
       "requestsPlaceholder": "Alergias, celebraciones, preferencias de mesa...",
       "confirming": "Confirmando...",
