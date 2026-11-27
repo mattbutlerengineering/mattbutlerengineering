@@ -8,12 +8,13 @@ import { measureEvals, measureJudgedEvals } from "../evals.js";
 
 function fixture() {
   const root = mkdtempSync(join(tmpdir(), "acmm-evals-"));
+  mkdirSync(join(root, ".metrics-data"));
   return {
     root,
     seed(rows) {
-      mkdirSync(join(root, "metrics"), { recursive: true });
+      mkdirSync(join(root, ".metrics-data"), { recursive: true });
       writeFileSync(
-        join(root, "metrics/acmm-evals.jsonl"),
+        join(root, ".metrics-data/acmm-evals.jsonl"),
         rows.map((r) => JSON.stringify(r)).join("\n") + "\n",
         "utf-8"
       );
@@ -135,9 +136,9 @@ test("measureEvals: per-model breakdown", () => {
 test("measureEvals: skips malformed JSONL lines", () => {
   const fx = fixture();
   try {
-    mkdirSync(join(fx.root, "metrics"), { recursive: true });
+    mkdirSync(join(fx.root, ".metrics-data"), { recursive: true });
     writeFileSync(
-      join(fx.root, "metrics/acmm-evals.jsonl"),
+      join(fx.root, ".metrics-data/acmm-evals.jsonl"),
       JSON.stringify(run({ success: true, score: 1 })) +
         "\n" +
         "not json\n" +
@@ -156,9 +157,9 @@ test("measureEvals: skips malformed JSONL lines", () => {
 
 function reportFixture(rows) {
   const root = mkdtempSync(join(tmpdir(), "acmm-judged-"));
-  mkdirSync(join(root, "metrics"), { recursive: true });
+  mkdirSync(join(root, ".metrics-data"), { recursive: true });
   writeFileSync(
-    join(root, "metrics/eval-reports.jsonl"),
+    join(root, ".metrics-data/eval-reports.jsonl"),
     rows.map((r) => JSON.stringify(r)).join("\n") + "\n",
     "utf-8"
   );
@@ -241,6 +242,7 @@ test("measureJudgedEvals: aggregates judged tasks only", () => {
 
 test("measureJudgedEvals: missing file is never-run, not zero", () => {
   const root = mkdtempSync(join(tmpdir(), "acmm-judged-"));
+  mkdirSync(join(root, ".metrics-data"));
   try {
     const s = measureJudgedEvals(root);
     assert.equal(s.n, 0);

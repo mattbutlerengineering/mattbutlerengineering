@@ -23,8 +23,6 @@ import { createGhClient } from "@mbe/gh-client";
 import { read, write, resolvePath } from "./metrics-store.mjs";
 import { isAgentPr } from "../plugins/acmm/scripts/agent-pr.js";
 
-const METRICS_PATH = resolvePath("pr-acceptance");
-
 /**
  * @typedef {{
  *   number: number,
@@ -149,22 +147,23 @@ export function run() {
 
   // Read existing entries (missing / corrupt / non-array → start fresh),
   // then append and persist through the metrics store.
+  const metricsPath = resolvePath("pr-acceptance");
   let entries = [];
   try {
     const existing = read("pr-acceptance");
     if (Array.isArray(existing)) {
       entries = existing;
     } else if (existing !== null) {
-      console.error(`Expected array in ${METRICS_PATH}, got ${typeof existing}. Resetting.`);
+      console.error(`Expected array in ${metricsPath}, got ${typeof existing}. Resetting.`);
     }
   } catch {
-    console.error(`Failed to parse ${METRICS_PATH}. Starting fresh.`);
+    console.error(`Failed to parse ${metricsPath}. Starting fresh.`);
   }
 
   entries.push(entry);
   write("pr-acceptance", entries);
 
-  console.log(`Appended entry to: ${METRICS_PATH}`);
+  console.log(`Appended entry to: ${metricsPath}`);
   console.log(`Total entries: ${entries.length}`);
 }
 

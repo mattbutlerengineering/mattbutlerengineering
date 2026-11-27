@@ -31,12 +31,13 @@ const NOW = new Date("2026-09-21T16:05:37.515Z");
 
 function fixture() {
   const root = mkdtempSync(join(tmpdir(), "acmm-evals-freshness-"));
+  mkdirSync(join(root, ".metrics-data"));
   return {
     root,
     seed(rows) {
-      mkdirSync(join(root, "metrics"), { recursive: true });
+      mkdirSync(join(root, ".metrics-data"), { recursive: true });
       writeFileSync(
-        join(root, "metrics/acmm-evals.jsonl"),
+        join(root, ".metrics-data/acmm-evals.jsonl"),
         rows.map((r) => JSON.stringify(r)).join("\n") + "\n",
         "utf-8"
       );

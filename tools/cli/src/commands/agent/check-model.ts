@@ -1,6 +1,6 @@
 import { Command } from "commander";
 import { dirname, join } from "node:path";
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import type { TelemetryRow } from "@mbe/agent-core";
 import { routeModelWithReason, estimateIssueTokens } from "@mbe/agent-core";
 import { createGhClient } from "@mbe/gh-client";
@@ -11,14 +11,13 @@ import { resolveIssueModel } from "../../resolve-issue-model.js";
 const REPO_ROOT = join(dirname(new URL(import.meta.url).pathname), "..", "..", "..", "..", "..");
 
 /**
- * Absolute path to the per-issue queue telemetry log (JSONL): inside the
- * metrics-data branch checkout (scripts/metrics-data.mjs) when it exists,
- * else under metrics/. Mirrors `resolvePath()` in scripts/metrics-store.mjs,
- * which this compiled package cannot import.
+ * Absolute path to the per-issue queue telemetry log (JSONL) inside the
+ * metrics-data branch checkout (scripts/metrics-data.mjs). Mirrors
+ * `resolvePath()` in scripts/metrics-store.mjs, which this compiled package
+ * cannot import. The log is not on main, so there is no `metrics/` fallback.
  */
 export function resolveQueueTelemetryPath(root: string = REPO_ROOT): string {
-  const dataDir = join(root, ".metrics-data");
-  return join(existsSync(dataDir) ? dataDir : join(root, "metrics"), "queue-telemetry.jsonl");
+  return join(root, ".metrics-data", "queue-telemetry.jsonl");
 }
 
 /**

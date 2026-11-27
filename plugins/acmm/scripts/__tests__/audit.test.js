@@ -410,6 +410,7 @@ describe("isEntryPoint (review item 7)", () => {
 describe("main() end-to-end: read-only path when gh is unavailable (review item 5)", () => {
   test("gh unavailable → state.json and README.md are byte-identical after the run, stdout says read-only", () => {
     const dir = mkdtempSync(path.join(tmpdir(), "acmm-readonly-"));
+    mkdirSync(path.join(dir, ".metrics-data"));
     try {
       const stateDir = path.join(dir, ".claude", "acmm");
       mkdirSync(stateDir, { recursive: true });

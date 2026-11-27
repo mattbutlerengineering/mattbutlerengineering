@@ -30,7 +30,6 @@ import { fileURLToPath } from "node:url";
 import { HUMAN_TOUCH_REASONS } from "../../../scripts/queue-telemetry-store.mjs";
 import { resolvePath } from "../../../scripts/metrics-store.mjs";
 
-export const QUEUE_TELEMETRY_PATH = "metrics/queue-telemetry.jsonl";
 const WINDOW_DAYS = 30;
 // Below this share, "other" is a minority of reasoned touches and the
 // breakdown is actionable (a real target exists for the next optimization

@@ -13,7 +13,10 @@ import {
 } from "../meta-criteria.js";
 
 function makeTmpDir() {
-  return mkdtempSync(join(tmpdir(), "meta-test-"));
+  const dir = mkdtempSync(join(tmpdir(), "meta-test-"));
+  // The data-branch checkout must exist (metrics-store throws without it).
+  mkdirSync(join(dir, ".metrics-data"));
+  return dir;
 }
 
 const recentDate = new Date().toISOString().split("T")[0];
@@ -22,7 +25,7 @@ const staleDate = "2024-01-01";
 describe("checkThresholdTuning", () => {
   test("passes when threshold-changes.jsonl has recent entries", () => {
     const dir = makeTmpDir();
-    const metricsDir = join(dir, "metrics");
+    const metricsDir = join(dir, ".metrics-data");
     mkdirSync(metricsDir, { recursive: true });
     writeFileSync(
       join(metricsDir, "threshold-changes.jsonl"),
@@ -35,7 +38,7 @@ describe("checkThresholdTuning", () => {
 
   test("fails when entries are stale (>30 days)", () => {
     const dir = makeTmpDir();
-    const metricsDir = join(dir, "metrics");
+    const metricsDir = join(dir, ".metrics-data");
     mkdirSync(metricsDir, { recursive: true });
     writeFileSync(
       join(metricsDir, "threshold-changes.jsonl"),
@@ -57,7 +60,7 @@ describe("checkThresholdTuning", () => {
 describe("checkInstructionEvolution", () => {
   test("passes when instruction-changes.jsonl has recent entries", () => {
     const dir = makeTmpDir();
-    const metricsDir = join(dir, "metrics");
+    const metricsDir = join(dir, ".metrics-data");
     mkdirSync(metricsDir, { recursive: true });
     writeFileSync(
       join(metricsDir, "instruction-changes.jsonl"),
@@ -79,7 +82,7 @@ describe("checkInstructionEvolution", () => {
 describe("checkProcessMetrics", () => {
   test("passes when process-metrics.jsonl exists with recent entries", () => {
     const dir = makeTmpDir();
-    const metricsDir = join(dir, "metrics");
+    const metricsDir = join(dir, ".metrics-data");
     mkdirSync(metricsDir, { recursive: true });
     writeFileSync(
       join(metricsDir, "process-metrics.jsonl"),
@@ -92,7 +95,7 @@ describe("checkProcessMetrics", () => {
 
   test("fails when file exists but entries stale (>7 days)", () => {
     const dir = makeTmpDir();
-    const metricsDir = join(dir, "metrics");
+    const metricsDir = join(dir, ".metrics-data");
     mkdirSync(metricsDir, { recursive: true });
     writeFileSync(
       join(metricsDir, "process-metrics.jsonl"),
@@ -127,7 +130,7 @@ describe("checkProcessMetrics", () => {
 describe("checkFpRate", () => {
   test("passes when latest FP rate < 30", () => {
     const dir = makeTmpDir();
-    const metricsDir = join(dir, "metrics");
+    const metricsDir = join(dir, ".metrics-data");
     mkdirSync(metricsDir, { recursive: true });
     writeFileSync(
       join(metricsDir, "process-metrics.jsonl"),
@@ -140,7 +143,7 @@ describe("checkFpRate", () => {
 
   test("fails when latest FP rate >= 30", () => {
     const dir = makeTmpDir();
-    const metricsDir = join(dir, "metrics");
+    const metricsDir = join(dir, ".metrics-data");
     mkdirSync(metricsDir, { recursive: true });
     writeFileSync(
       join(metricsDir, "process-metrics.jsonl"),
@@ -153,7 +156,7 @@ describe("checkFpRate", () => {
 
   test("fails when FP rate is null", () => {
     const dir = makeTmpDir();
-    const metricsDir = join(dir, "metrics");
+    const metricsDir = join(dir, ".metrics-data");
     mkdirSync(metricsDir, { recursive: true });
     writeFileSync(
       join(metricsDir, "process-metrics.jsonl"),
@@ -288,7 +291,7 @@ describe("META_CRITERIA", () => {
 
   test("every criterion routes through detection.type: 'check', never a workflow lookup (#5851/#5853 AC5)", () => {
     // Regression: these were `type: "active"` with a non-workflow file pattern
-    // (e.g. "metrics/threshold-changes.jsonl"), so isWorkflowActive shelled out
+    // (e.g. ".metrics-data/threshold-changes.jsonl"), so isWorkflowActive shelled out
     // to `gh run list --workflow=metrics/threshold-changes.jsonl`, which always
     // answers "could not find any workflows" — permanently unverifiable, and
     // check() never ran in production.
@@ -300,10 +303,8 @@ describe("META_CRITERIA", () => {
 
   test("evaluate() runs check() directly for every meta criterion, with no gh call", async () => {
     const { evaluate } = await import("../evaluate.js");
-    const { mkdtempSync, rmSync } = await import("node:fs");
-    const { tmpdir } = await import("node:os");
-    const { join } = await import("node:path");
-    const root = mkdtempSync(join(tmpdir(), "acmm-meta-"));
+    const { rmSync } = await import("node:fs");
+    const root = makeTmpDir();
     const throwingExec = () => {
       throw new Error("gh should never be invoked for a check-type criterion");
     };

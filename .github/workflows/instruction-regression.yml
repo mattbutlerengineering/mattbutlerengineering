@@ -11,6 +11,8 @@ on:
       # evals/index.js --report imports ../evals.js, which imports evals-freshness.js.
       - "plugins/acmm/scripts/evals.js"
       - "plugins/acmm/scripts/evals-freshness.js"
+      # The job pulls the data branch with this script before running the evals.
+      - "scripts/metrics-data.mjs"
   pull_request:
     branches: [main]
     paths:
@@ -21,6 +23,8 @@ on:
       # evals/index.js --report imports ../evals.js, which imports evals-freshness.js.
       - "plugins/acmm/scripts/evals.js"
       - "plugins/acmm/scripts/evals-freshness.js"
+      # The job pulls the data branch with this script before running the evals.
+      - "scripts/metrics-data.mjs"
   workflow_dispatch: # Allow manual trigger
 
 # A new push to a pull request supersedes its older run (#8723: runners are
@@ -48,6 +52,11 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Check out metrics-data
+        # Telemetry lives on the orphan metrics-data branch, not main
+        # (scripts/metrics-data.mjs). The eval harness reads and writes it in .metrics-data/.
+        run: node scripts/metrics-data.mjs pull
 
       - name: Run Instruction Evals (Dry Run)
         run: |

@@ -175,6 +175,7 @@ describe("buildHealthTrends / writeHealthTrends", () => {
 
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), "health-trends-"));
+    mkdirSync(join(root, ".metrics-data"));
   });
 
   afterEach(() => {
@@ -183,17 +184,17 @@ describe("buildHealthTrends / writeHealthTrends", () => {
 
   function seed() {
     mkdirSync(join(root, ".claude", "acmm"), { recursive: true });
-    mkdirSync(join(root, "metrics"), { recursive: true });
+    mkdirSync(join(root, ".metrics-data"), { recursive: true });
     writeFileSync(
       join(root, ".claude", "acmm", "state.json"),
       JSON.stringify({ history: [{ date: "2026-09-20", level: 5 }] })
     );
     writeFileSync(
-      join(root, "metrics", "mutation-score.jsonl"),
+      join(root, ".metrics-data", "mutation-score.jsonl"),
       JSON.stringify({ date: "2026-09-19", mutation_score: 99.07 }) + "\n"
     );
     writeFileSync(
-      join(root, "metrics", "process-metrics.jsonl"),
+      join(root, ".metrics-data", "process-metrics.jsonl"),
       [
         JSON.stringify({
           date: "2026-09-15",

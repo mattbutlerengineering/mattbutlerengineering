@@ -340,26 +340,41 @@ export function resolvePath(name, { root = DEFAULT_ROOT } = {}) {
 
 /**
  * Absolute path of a data file that has no METRICS entry (an EXTERNAL file or
- * directory such as `production-health`): inside the data checkout when it
- * exists, else under `metrics/`.
+ * directory such as `production-health`), inside the data checkout. Throws
+ * when the checkout is absent.
  * @param {string} relative — path relative to the metrics root
  * @param {{ root?: string }} [opts]
  * @returns {string}
  */
 export function resolveDataFile(relative, { root = DEFAULT_ROOT } = {}) {
-  const dataDir = resolve(root, DATA_DIRNAME);
-  return join(existsSync(dataDir) ? dataDir : metricsDir(root), relative);
+  return join(requireDataDir(root), relative);
 }
 
 /**
- * The data checkout for telemetry when it exists, else `metrics/`. Gate
- * inputs and non-durable snapshots always resolve to `metrics/`.
+ * The data checkout, or a loud failure naming the pull command. There is no
+ * fallback to `metrics/` on main: those copies were deleted (#9815), and a
+ * silent fallback would freeze readers on stale data.
+ * @param {string} root
+ */
+function requireDataDir(root) {
+  const dataDir = resolve(root, DATA_DIRNAME);
+  if (!existsSync(dataDir)) {
+    throw new Error(
+      `No metrics-data checkout at ${dataDir}. Telemetry lives on the metrics-data branch, ` +
+        "not main. Run `node scripts/metrics-data.mjs pull` first."
+    );
+  }
+  return dataDir;
+}
+
+/**
+ * The data checkout for telemetry; gate inputs and non-durable snapshots
+ * resolve to `metrics/` on main.
  * @param {string} name
  * @param {string} root
  */
 function dirFor(name, root) {
-  const dataDir = resolve(root, DATA_DIRNAME);
-  return isDataMetric(name, entryFor(name)) && existsSync(dataDir) ? dataDir : metricsDir(root);
+  return isDataMetric(name, entryFor(name)) ? requireDataDir(root) : metricsDir(root);
 }
 
 /**

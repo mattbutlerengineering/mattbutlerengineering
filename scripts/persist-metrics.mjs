@@ -293,9 +293,10 @@ function main() {
     paths,
     listChanged,
     branchExists: localBranchExists,
-    // Telemetry lives on the metrics-data branch once its checkout exists
-    // (scripts/metrics-data.mjs); without one, data files are still under
-    // metrics/ and ride the PR below as before.
+    // Telemetry lives on the metrics-data branch (scripts/metrics-data.mjs).
+    // Without a checkout no telemetry could have been written (metrics-store
+    // throws), so there is nothing to push; main-located gate inputs still ride
+    // the PR below.
     pushData:
       existsSync(dataDir(ROOT)) && !dryRun
         ? (message) => pushDataBranch({ root: ROOT, message, runGit: createRunGit(ROOT) })

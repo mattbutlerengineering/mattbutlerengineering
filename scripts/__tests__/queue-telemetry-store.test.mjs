@@ -36,7 +36,7 @@ const row = (issue, pr, extra = {}) => ({ issue_number: issue, pr_number: pr, ..
 
 function tempRoot() {
   const root = mkdtempSync(join(tmpdir(), "qts-"));
-  mkdirSync(join(root, "metrics"), { recursive: true });
+  mkdirSync(join(root, ".metrics-data"), { recursive: true });
   return root;
 }
 
@@ -183,7 +183,7 @@ describe("writer paths cannot produce a duplicate", () => {
 describe("path ownership", () => {
   it("resolves the sink through metrics-store, honouring root", () => {
     const root = tempRoot();
-    expect(telemetryPath({ root })).toBe(join(root, "metrics", "queue-telemetry.jsonl"));
+    expect(telemetryPath({ root })).toBe(join(root, ".metrics-data", "queue-telemetry.jsonl"));
   });
 
   it("reads an absent sink as an empty list", () => {
@@ -209,13 +209,14 @@ describe("one I/O path (#6770)", () => {
 
   it("a row written by appendTelemetryRow reads back through readTelemetryRows on the same injected I/O", () => {
     const io = memStore();
-    appendTelemetryRow(row(7, 70), { root: "/nowhere", ...io });
-    expect(readTelemetryRows({ root: "/nowhere", readFile: io.readFile })).toEqual([row(7, 70)]);
+    const root = tempRoot();
+    appendTelemetryRow(row(7, 70), { root, ...io });
+    expect(readTelemetryRows({ root, readFile: io.readFile })).toEqual([row(7, 70)]);
   });
 
   it("appendTelemetryRow writes the canonical metrics-store form, not a spliced copy of the raw file", () => {
     const io = memStore("not-valid-json\n");
-    appendTelemetryRow(row(7, 70), { root: "/nowhere", ...io });
+    appendTelemetryRow(row(7, 70), { root: tempRoot(), ...io });
     const lines = io.content().split("\n").filter(Boolean);
     expect(lines.map((l) => JSON.parse(l))).toEqual([row(7, 70)]);
   });

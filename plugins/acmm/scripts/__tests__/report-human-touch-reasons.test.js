@@ -18,7 +18,9 @@ import { writeReport } from "../outputs/report.js";
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 function tmpDir() {
-  return mkdtempSync(join(tmpdir(), "acmm-report-htr-"));
+  const dir = mkdtempSync(join(tmpdir(), "acmm-report-htr-"));
+  mkdirSync(join(dir, ".metrics-data"));
+  return dir;
 }
 
 function cleanup(dir) {
@@ -26,9 +28,9 @@ function cleanup(dir) {
 }
 
 function writeTelemetry(dir, rows) {
-  mkdirSync(join(dir, "metrics"), { recursive: true });
+  mkdirSync(join(dir, ".metrics-data"), { recursive: true });
   const content = rows.map((r) => JSON.stringify(r)).join("\n") + "\n";
-  writeFileSync(join(dir, "metrics/queue-telemetry.jsonl"), content, "utf-8");
+  writeFileSync(join(dir, ".metrics-data/queue-telemetry.jsonl"), content, "utf-8");
 }
 
 function makeState() {

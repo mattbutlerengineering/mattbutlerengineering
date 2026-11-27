@@ -4,7 +4,6 @@
  * non-zero when AI-generated code introduces a11y regressions.
  */
 import fs from "node:fs";
-import { append } from "./metrics-store.mjs";
 
 const RESULTS_FILE = "a11y-results.json";
 const VIOLATIONS_FILE = "a11y-violations.json";
@@ -75,8 +74,9 @@ function main() {
 
   const entry = buildEntry(results, branch, actor);
 
-  append("a11y-history", entry, { root: process.cwd() });
-
+  // No history append: this runs in a PR job on a runner that is discarded, and
+  // telemetry now lives on the metrics-data branch, which this job never pulls
+  // or pushes (#9815). The violations file below is the job's real output.
   // Write structured violations file for the PR comment step
   fs.writeFileSync(VIOLATIONS_FILE, JSON.stringify(entry, null, 2));
 

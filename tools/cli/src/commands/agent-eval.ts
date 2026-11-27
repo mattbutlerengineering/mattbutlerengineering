@@ -2,7 +2,7 @@ import { Command } from "commander";
 import { resolve, join } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { existsSync, mkdirSync, appendFileSync, readFileSync } from "node:fs";
+import { existsSync, appendFileSync, readFileSync } from "node:fs";
 import {
   runAgentSession,
   resolveSessionAdapter,
@@ -121,10 +121,11 @@ export const agentEvalCommand = new Command("eval")
       // this run's own adapter (#4218 rework) — comparing cost across
       // adapters is meaningless, and a $0 report from one adapter must
       // never silently disable the gate for a different adapter.
+      // Resolved up front: a missing metrics-data checkout must fail before
+      // the suite spends money, not after, when the report has nowhere to go.
+      const logFile = findLogFile();
       const costBaseline =
-        options.maxCostRegression !== undefined
-          ? loadCostBaseline(findLogFile(), adapterType)
-          : null;
+        options.maxCostRegression !== undefined ? loadCostBaseline(logFile, adapterType) : null;
 
       // Decided once per run: which adapters' reported `costUsd` is billed
       // money, and therefore whether the budget's cost arm applies. Threaded
@@ -156,7 +157,7 @@ export const agentEvalCommand = new Command("eval")
         return;
       }
 
-      persistReport(report, adapterType, costBasis);
+      persistReport(logFile, report, adapterType, costBasis);
       emitReport(report, options.json, costBasis);
 
       if (options.calibrate) {
@@ -234,13 +235,18 @@ const NON_BILLED_COST_BASIS_NOTE: Record<Exclude<CostBasis, "billed">, string> =
 };
 
 /**
- * The metrics-data branch checkout (scripts/metrics-data.mjs) when it exists,
- * else `metrics/`. Mirrors `resolveDataFile()` in scripts/metrics-store.mjs,
- * which this compiled package cannot import.
+ * The metrics-data branch checkout (scripts/metrics-data.mjs); throws when it
+ * is absent. Mirrors `resolveDataFile()` in scripts/metrics-store.mjs, which
+ * this compiled package cannot import.
  */
 function evalLogDir(root: string): string {
   const dataDir = join(root, ".metrics-data");
-  return existsSync(dataDir) ? dataDir : join(root, "metrics");
+  if (!existsSync(dataDir)) {
+    throw new Error(
+      `No metrics-data checkout at ${dataDir}. Run \`node scripts/metrics-data.mjs pull\` first.`
+    );
+  }
+  return dataDir;
 }
 
 function findLogFile(): string {
@@ -300,13 +306,12 @@ function loadCostBaseline(logFile: string, adapterType: AdapterType): number | n
  * without consulting code. Basis is a function of adapter, not task, so it
  * lives at the row level beside `adapter`.
  */
-function persistReport(report: EvalReport, adapterType: AdapterType, costBasis: CostBasis): void {
-  const root = findMonorepoRoot(process.cwd());
-  const logDir = evalLogDir(root);
-  const logFile = join(logDir, "eval-reports.jsonl");
-  if (!existsSync(logDir)) {
-    mkdirSync(logDir, { recursive: true });
-  }
+function persistReport(
+  logFile: string,
+  report: EvalReport,
+  adapterType: AdapterType,
+  costBasis: CostBasis
+): void {
   const record = {
     ...report,
     timestamp: new Date().toISOString(),
