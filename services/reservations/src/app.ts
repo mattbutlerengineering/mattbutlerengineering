@@ -70,6 +70,8 @@ import {
 import { createPrismaClosureRefundStore } from "./services/closure-refund-store.js";
 import { defaultDomainServices, type DomainServices } from "./services/domain-services.js";
 import { generateManageToken } from "./routes/public-reservations.js";
+import type { PrismaClient } from "./generated/prisma/index.js";
+import { runSeedDemoVenue } from "./scripts/seed-demo-venue.js";
 import { db, prisma } from "./services/database.js";
 import { venueScopeOf } from "./routes/venue-scope.js";
 import {
@@ -125,6 +127,11 @@ export interface ReservationsAppOptions extends AppOptions {
    * `fastify.services` decoration, so an override here is the single seam.
    */
   services?: Partial<DomainServices>;
+  /**
+   * Seeds the public demo venue on production start (#9877). Defaults to
+   * {@link runSeedDemoVenue}; tests inject a stub. Never runs outside production.
+   */
+  seedDemoVenue?: (prisma: PrismaClient) => Promise<unknown>;
 }
 
 /** A view of `map` with no mutators, so callers cannot rewrite the registry. */
@@ -447,6 +454,32 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
       fastify.addHook("onReady", async () => closureOutcomeSweeper.start());
       fastify.addHook("onClose", async () => closureOutcomeSweeper.stop());
     }
+  }
+
+  // Self-heal the public demo venue (#9877). Production only: NODE_ENV=production is
+  // baked into the image (node.Dockerfile / services/reservations/Dockerfile) and set
+  // by the Pulumi DO spec, while vitest runs with NODE_ENV=test. Fire-and-forget so
+  // readiness never waits on or fails because of seeding; failures are logged.
+  if (process.env.NODE_ENV === "production") {
+    const seedDemoVenue =
+      options.seedDemoVenue ??
+      ((client: PrismaClient) => runSeedDemoVenue(client, () => undefined));
+    fastify.addHook("onReady", async () => {
+      void seedDemoVenue(prisma).then(
+        (result) => {
+          const failure = result as { ok?: boolean; slug?: string; message?: string } | undefined;
+          if (failure?.ok === false) {
+            fastify.log.error(
+              { slug: failure.slug, message: failure.message },
+              "demo venue seed failed"
+            );
+          } else {
+            fastify.log.info({ result }, "demo venue seed complete");
+          }
+        },
+        (error: unknown) => fastify.log.error({ err: error }, "demo venue seed failed")
+      );
+    });
   }
 
   // AppError serialization is handled centrally by errorHandlerPlugin →
