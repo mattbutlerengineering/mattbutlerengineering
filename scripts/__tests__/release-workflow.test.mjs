@@ -148,7 +148,7 @@ describe("release.yml pins changesets/action to a version whose real inputs/outp
     expect(WORKFLOW).toContain("version-script: bash scripts/release-version.sh");
   });
 
-  it("is version-only: no publish-script, no registry auth (#9698, rialto is workspace-only)", () => {
+  it("is version-only: no publish-script, no registry auth (#9698, rialto is not published)", () => {
     const actionIdx = WORKFLOW.indexOf("changesets/action@");
     const block = WORKFLOW.slice(actionIdx);
     expect(block).toContain("GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}");
@@ -160,10 +160,18 @@ describe("release.yml pins changesets/action to a version whose real inputs/outp
     expect(WORKFLOW).not.toMatch(/packages:\s*write/);
   });
 
-  it("keeps @mattbutlerengineering/rialto private with no publishConfig (#9698)", () => {
+  it("keeps rialto versioned by changesets (not private) with no publish path in root scripts (#9698)", () => {
     const pkg = JSON.parse(readFileSync(resolve(ROOT, "packages/rialto/package.json"), "utf8"));
-    expect(pkg.private).toBe(true);
-    expect(pkg.publishConfig).toBeUndefined();
+    // Not private: changesets skips private packages, which would end rialto's
+    // versioning and changelogs. The GitHub Packages publishConfig stays so an
+    // accidental manual publish fails without credentials instead of reaching npm.
+    expect(pkg.private).not.toBe(true);
+    expect(pkg.publishConfig).toEqual({ registry: "https://npm.pkg.github.com" });
+    const rootPkg = JSON.parse(readFileSync(resolve(ROOT, "package.json"), "utf8"));
+    expect(rootPkg.scripts.release).toBeUndefined();
+    for (const [name, cmd] of Object.entries(rootPkg.scripts)) {
+      expect(cmd, `root script "${name}"`).not.toMatch(/changeset publish|npm publish/);
+    }
   });
 
   it("has no direct git push of a version commit — the action opens a PR instead", () => {

@@ -137,7 +137,7 @@ describe("loadWorkspacePackages against the real repo", () => {
   it("finds real, known workspace packages with private flags read correctly", () => {
     const packages = loadWorkspacePackages(root);
     const byName = new Map(packages.map((p) => [p.name, p]));
-    expect(byName.get("@mattbutlerengineering/rialto")?.private).toBe(true); // workspace-only (#9698)
+    expect(byName.get("@mattbutlerengineering/rialto")?.private).toBe(false);
     expect(byName.get("@mbe/api-client")?.private).toBe(true);
   });
 });

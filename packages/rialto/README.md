@@ -20,7 +20,7 @@ import "@mattbutlerengineering/rialto/styles"; // Import before any component re
 
 ## Compatibility
 
-Rialto is workspace-only (private, never published to a registry). Every
+Rialto is workspace-only (versioned with changesets, never published to a registry). Every
 component, including `ChatPanel`, works without any `@mbe/*` package. Rialto has no
 dependency on any `@mbe/*` workspace package: `ChatPanel` takes its
 streaming transport as a required `stream` prop, so the host app supplies the
