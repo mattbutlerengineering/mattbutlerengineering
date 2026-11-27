@@ -15,6 +15,9 @@ export const MAX_ROUTES_PER_FIRE = 40;
 /** P2 findings filed as issues per fire before the rest become backlog seeds. */
 export const MAX_P2_ISSUES_PER_FIRE = 3;
 
+/** Fix-PR candidates one fire may mark (each becomes its own reviewed PR, #10001). */
+export const MAX_FIX_PRS_PER_FIRE = 3;
+
 /** More P1 findings than this on one tell in one fire → one aggregate issue. */
 export const P1_BURST_AGGREGATE_AT = 5;
 

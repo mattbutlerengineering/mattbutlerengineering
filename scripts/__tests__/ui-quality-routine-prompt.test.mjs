@@ -279,7 +279,7 @@ describe("docs/routines/mbe-ui-quality.md", () => {
     });
 
     it("opens the fix PR on a clean-tree switch from origin/main, then switches back", () => {
-      const fix = block.slice(at("Fix PR (at most one)"), at("P1 SLA"));
+      const fix = block.slice(at("Fix PRs (at most three)"), at("P1 SLA"));
       expect(fix.indexOf("clean tree")).toBeGreaterThan(-1);
       expect(fix.indexOf("clean tree")).toBeLessThan(fix.indexOf("ui-quality/fix-<issue>"));
       expect(fix).toContain("origin/main");

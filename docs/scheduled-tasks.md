@@ -156,8 +156,9 @@ not a new row in the catalog below and not an edit of the builtin array in
 > they get `security`+`needs-review` and wait for a human merge.
 
 > **Fix, don't ticket (#9947).** `mbe-auditor`, `mbe-learning-loop`,
-> `mbe-evening`'s optimize step, `mbe-weekly-improve`, `mbe-weekly-retro` and
-> `mbe-monthly-meta-audit` all read
+> `mbe-evening`'s optimize step, `mbe-weekly-improve`, `mbe-weekly-retro`,
+> `mbe-monthly-meta-audit`, `mbe-doc-rot` and `mbe-ui-quality` (up to 3 fix
+> PRs a fire, #10001) all read
 > [`routines/fix-protocol.md`](./routines/fix-protocol.md) from their checkout.
 > A finding they can root-cause is fixed in a PR, reviewed by the `reviewer`
 > subagent and handed to `reviewed-merge.yml`; an issue is filed only when the
@@ -410,7 +411,7 @@ to a single worker without worktree isolation in cloud and keep the local
     stays distinct from the threshold-regression exit **1**, and a non-run
     result is still never appended to `metrics/eval-reports.jsonl`, so it
     can't poison the baseline either way.
-- **Does not merge.** One PR titled `<type>(<scope>): weekly improve <date> — <short description>`
+- **Hands passing PRs to `reviewed-merge.yml`** per [`routines/fix-protocol.md`](./routines/fix-protocol.md); never merges in-session. The headline PR is titled `<type>(<scope>): weekly improve <date> — <short description>`
   (e.g. `fix(routines): weekly improve 2026-09-19 — dedupe stale worktree reaper`) —
   this signature is what makes the routine's liveness verifiable (#5344; see
   `mbe-weekly-retro` Pass 1). It also appends a dated entry to
@@ -443,8 +444,8 @@ to a single worker without worktree isolation in cloud and keep the local
 - **Dedup is mandatory** — see the note under the routine catalog. `mbe-auditor`'s
   Friday lens covers the same surface earlier the same day and fixes what it
   can, so doc-rot leaves files an open `(mbe-auditor)` PR touches alone.
-- **Does not merge.** One PR titled `docs: weekly rot sweep <date>`; `ready`
-  issues only for rot it could not safely fix itself.
+- **Hands passing PRs to `reviewed-merge.yml`** per [`routines/fix-protocol.md`](./routines/fix-protocol.md); never merges in-session. One PR titled `docs: weekly rot sweep <date>`;
+  `ready` issues only for rot it could not safely fix itself.
 - **Zero changes is a successful run.** The prompt explicitly forbids padding the
   PR with cosmetic rewording — rot means _wrong_, not unpolished.
 
@@ -518,14 +519,16 @@ to a single worker without worktree isolation in cloud and keep the local
   > Adjust in the web UI if a Friday cadence is preferred.
 - **What it does:** runs the `claude-md-improver` and `claude-automation-recommender`
   skills (both in `.claude/skills/`), then opens **one PR** for the best doc/automation
-  improvement and files `ready` issues for the rest. Targets Claude Code config quality:
+  improvement, fixes up to 2 more findings in their own PRs, and files `ready`
+  issues only for what it cannot fix. Targets Claude Code config quality:
   stale CLAUDE.md references, missing guidance, and worthwhile new hooks/agents/skills.
 - **Promo-video prompt:** a second step looks at the previous month for big releases
   and, when it finds any, opens one `ready-for-human` issue asking the Owner whether to
   record a launch video. It never records anything: the browser recorder needs a local
   dev server. The Owner approves by running `/idea-to-prod:launch-demo` locally, or
   closes the issue to skip. Steps to publish: [`launch-demo.md`](./launch-demo.md).
-- **Does not merge.**
+- **Hands passing PRs to `reviewed-merge.yml`** per [`routines/fix-protocol.md`](./routines/fix-protocol.md); never merges in-session. Most of its PRs touch `CLAUDE.md` or
+  `.claude/**`, so they are held with `needs-review` for the Owner.
 
 ## `optimize-implement-queue` (folded into `mbe-evening`)
 
