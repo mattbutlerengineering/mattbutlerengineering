@@ -75,6 +75,49 @@ const DEMO_TABLES = [
   },
 ] as const;
 
+/** One published ("ACTIVE") menu so `/hospitality/menu/demo-bistro` has something to render. */
+const DEMO_MENU = {
+  name: "Dinner",
+  slug: "dinner",
+  description: "Seasonal plates from the Demo Bistro kitchen.",
+  sections: [
+    {
+      name: "Starters",
+      items: [
+        {
+          name: "Burrata & Heirloom Tomato",
+          description: "Basil oil, grilled sourdough",
+          priceCents: 1400,
+        },
+        { name: "French Onion Soup", description: "Gruyère crouton", priceCents: 1100 },
+      ],
+    },
+    {
+      name: "Mains",
+      items: [
+        {
+          name: "Pan-Roasted Salmon",
+          description: "Lemon beurre blanc, seasonal greens",
+          priceCents: 2800,
+        },
+        { name: "Steak Frites", description: "Hanger steak, herb butter", priceCents: 3200 },
+        { name: "Wild Mushroom Risotto", description: "Parmesan, thyme", priceCents: 2400 },
+      ],
+    },
+    {
+      name: "Desserts",
+      items: [
+        {
+          name: "Dark Chocolate Pot de Crème",
+          description: "Sea salt, whipped cream",
+          priceCents: 1000,
+        },
+        { name: "Lemon Tart", description: "Raspberry coulis", priceCents: 1000 },
+      ],
+    },
+  ],
+} as const;
+
 /**
  * Idempotently creates the demo venue and its availability rows. Safe to re-run:
  * existing rows are left untouched. Writes run inside the venue's RLS context
@@ -147,6 +190,36 @@ export async function ensureDemoVenue(prisma: PrismaClient): Promise<{ venueId: 
           location: t.location,
           shapeMetadata: t.shape,
           priority: t.location === "window" ? 2 : t.location === "private" ? 0 : 1,
+        },
+      });
+    }
+
+    // Only when the venue has no menu at all: a menu an operator edited or unpublished stays as is.
+    const menus = await tx.menu.count({ where: { venueId: DEMO_VENUE_ID } });
+    if (menus === 0) {
+      await tx.menu.create({
+        data: {
+          venueId: DEMO_VENUE_ID,
+          name: DEMO_MENU.name,
+          slug: DEMO_MENU.slug,
+          description: DEMO_MENU.description,
+          status: "ACTIVE",
+          sections: {
+            create: DEMO_MENU.sections.map((section, sectionIndex) => ({
+              venueId: DEMO_VENUE_ID,
+              name: section.name,
+              displayOrder: sectionIndex,
+              items: {
+                create: section.items.map((item, itemIndex) => ({
+                  venueId: DEMO_VENUE_ID,
+                  name: item.name,
+                  description: item.description,
+                  priceCents: item.priceCents,
+                  displayOrder: itemIndex,
+                })),
+              },
+            })),
+          },
         },
       });
     }

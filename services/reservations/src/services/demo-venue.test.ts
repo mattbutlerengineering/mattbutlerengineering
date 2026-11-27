@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { PrismaClient } from "../generated/prisma/index.js";
 import { DEMO_VENUE_ID, DEMO_VENUE_SLUG, ensureDemoVenue } from "./demo-venue.js";
 
-function fakePrisma(existingSchedules = 0, existingPlan = false) {
+function fakePrisma(existingSchedules = 0, existingPlan = false, existingMenus = 0) {
   const tx = {
     $executeRaw: vi.fn().mockResolvedValue(1),
     $executeRawUnsafe: vi.fn().mockResolvedValue(0),
@@ -22,6 +22,10 @@ function fakePrisma(existingSchedules = 0, existingPlan = false) {
       create: vi.fn().mockResolvedValue({ id: "fp1" }),
     },
     table: { upsert: vi.fn().mockResolvedValue({ id: "t" }) },
+    menu: {
+      count: vi.fn().mockResolvedValue(existingMenus),
+      create: vi.fn().mockResolvedValue({ id: "m1" }),
+    },
   };
   const prisma = { $transaction: (fn: (t: typeof tx) => unknown) => fn(tx) };
   return { prisma: prisma as unknown as PrismaClient, tx };
@@ -101,5 +105,31 @@ describe("ensureDemoVenue", () => {
     }
     const names = first.tx.table.upsert.mock.calls.map((c) => c[0].create.name);
     expect(new Set(names).size).toBe(names.length);
+  });
+
+  it("creates one published menu with sections and priced items when the venue has none", async () => {
+    const { prisma, tx } = fakePrisma();
+    await ensureDemoVenue(prisma);
+    expect(tx.menu.count).toHaveBeenCalledWith({ where: { venueId: DEMO_VENUE_ID } });
+    expect(tx.menu.create).toHaveBeenCalledTimes(1);
+    const data = tx.menu.create.mock.calls[0]?.[0].data;
+    expect(data).toMatchObject({ venueId: DEMO_VENUE_ID, status: "ACTIVE" });
+    expect(data.slug).toBeTruthy();
+    const sections = data.sections.create;
+    expect(sections.length).toBeGreaterThan(0);
+    for (const section of sections) {
+      expect(section.venueId).toBe(DEMO_VENUE_ID);
+      expect(section.items.create.length).toBeGreaterThan(0);
+      for (const item of section.items.create) {
+        expect(item.venueId).toBe(DEMO_VENUE_ID);
+        expect(item.priceCents).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it("does not create a second menu when the venue already has one", async () => {
+    const { prisma, tx } = fakePrisma(1, true, 1);
+    await ensureDemoVenue(prisma);
+    expect(tx.menu.create).not.toHaveBeenCalled();
   });
 });
