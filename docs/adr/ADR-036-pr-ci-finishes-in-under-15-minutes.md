@@ -37,7 +37,7 @@ A slow gate costs the hospitality work it guards: every fix waits on it, and age
 - The target is measurable and its breaches reach a durable issue, not a chat message.
 - Queue time is now the Owner's and the factory's problem, not just job duration. Levers include fewer, fatter jobs, gating advisory runs, and more runner capacity.
 - Some levers need the Owner (a plan change, a self-hosted runner); they are tracked as issues, not assumed.
-- The sensor samples up to 150 runs a week with one API call each; a busier week widens the sample cap, not the clock.
+- The sensor samples up to 150 runs a week with one API call each; on a busier week the runs are sampled evenly across the whole 7 days (every ceil(n/150)-th success/failure run, first attempts only), so the window stays 7 days; `skipped` counts sampled runs with no completed CI Gate.
 - Until #10009 closes, the check is expected to breach daily; the single deduped issue keeps that to one open item.
 
 ## Alternatives Considered

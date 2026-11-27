@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  selectGateSample,
   pushToGate,
   summarizeSdlcSpeed,
   CI_PUSH_TO_GATE_P90_MAX_MIN,
@@ -84,5 +85,39 @@ describe("summarizeSdlcSpeed push-to-gate aggregate (ADR-036)", () => {
       ],
     });
     expect(s.pushToGate.slowestJobs.map((j) => j.name)).toEqual(["B", "C", "A"]);
+  });
+});
+
+describe("selectGateSample (rolling window, ADR-036)", () => {
+  const run = (i, extra = {}) => ({
+    id: i,
+    conclusion: "success",
+    created_at: new Date(Date.parse("2026-11-27T00:00:00Z") - i * 60_000 * 10).toISOString(),
+    ...extra,
+  });
+
+  it("samples evenly across >150 runs so the oldest day is included", () => {
+    // 1000 runs, 10 min apart, newest first = ~6.9 days
+    const runs = Array.from({ length: 1000 }, (_, i) => run(i));
+    const sample = selectGateSample(runs, 150);
+    expect(sample.length).toBeLessThanOrEqual(150);
+    expect(sample.length).toBeGreaterThan(100);
+    const oldest = Math.min(...sample.map((r) => Date.parse(r.created_at)));
+    const newest = Math.max(...sample.map((r) => Date.parse(r.created_at)));
+    expect(newest - oldest).toBeGreaterThan(6 * 86_400_000);
+  });
+
+  it("filters cancelled runs before sampling, so they use no slots", () => {
+    const runs = [
+      ...Array.from({ length: 10 }, (_, i) => run(i, { conclusion: "cancelled" })),
+      run(100),
+      run(101, { conclusion: "failure" }),
+    ];
+    expect(selectGateSample(runs, 150).map((r) => r.id)).toEqual([100, 101]);
+  });
+
+  it("skips re-runs (run_attempt > 1): their created_at is the first attempt", () => {
+    const runs = [run(1, { run_attempt: 2 }), run(2, { run_attempt: 1 }), run(3)];
+    expect(selectGateSample(runs, 150).map((r) => r.id)).toEqual([2, 3]);
   });
 });

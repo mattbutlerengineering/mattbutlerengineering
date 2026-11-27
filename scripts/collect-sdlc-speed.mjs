@@ -43,9 +43,10 @@ export const CI_P50_REGRESSION = 1.3;
 export const CI_PUSH_TO_GATE_P90_MAX_MIN = 15;
 const GATE_JOB_NAME = "CI Gate";
 /**
- * Per-run `jobs` calls are one request each. A week holds ~100-200 PR runs; 150
- * keeps the p90 meaningful (it needs >= 10 samples) and stays far under the
- * 1000 req/h GITHUB_TOKEN budget alongside the other sensors.
+ * Per-run `jobs` calls are one request each, capped at this many. A busy week
+ * holds ~1000 PR runs, so the sample is spread evenly over the whole window
+ * (`selectGateSample`), never the newest N. 150 keeps the p90 meaningful and
+ * far under the 1000 req/h GITHUB_TOKEN budget alongside the other sensors.
  */
 const MAX_JOB_SAMPLES = 150;
 /** Lockfile attribution needs 1-2 calls per run; sample the newest runs only. */
@@ -116,6 +117,22 @@ export function normalizeCiRun(run, extras = {}) {
   const wall = minutesBetween(run.run_started_at, run.updated_at);
   if (!Number.isFinite(wall)) return null;
   return { id: run.id, wallMin: round1(wall), touchedLockfile: null, jobs: [], ...extras };
+}
+
+/**
+ * Runs to measure push -> CI Gate on: success/failure only (so cancelled runs use
+ * no slots) and first attempts only (a re-run keeps the first attempt's
+ * `created_at` while the jobs endpoint returns the latest attempt's CI Gate),
+ * then every ceil(n/max)-th run of the newest-first list, so the sample spans the
+ * whole window.
+ * @param {Array<{ conclusion?: string, run_attempt?: number }>} runs newest first
+ */
+export function selectGateSample(runs, max) {
+  const eligible = runs.filter(
+    (r) => (r.conclusion === "success" || r.conclusion === "failure") && (r.run_attempt ?? 1) <= 1
+  );
+  const step = Math.max(1, Math.ceil(eligible.length / max));
+  return eligible.filter((_, i) => i % step === 0);
 }
 
 /**
@@ -396,7 +413,7 @@ function fetchCiRuns(days, now) {
   const path = `repos/{owner}/{repo}/actions/workflows/ci.yml/runs?event=pull_request&created=>=${since}`;
   const out = ghPaged(
     path,
-    ".workflow_runs[] | {id,conclusion,created_at,run_started_at,updated_at,sha:.head_sha,pr:(.pull_requests[0].number // null)}"
+    ".workflow_runs[] | {id,conclusion,run_attempt,created_at,run_started_at,updated_at,sha:.head_sha,pr:(.pull_requests[0].number // null)}"
   ).join("\n");
   const runs = lines(out);
   const fileCache = new Map();
@@ -421,12 +438,11 @@ function fetchCiRuns(days, now) {
     return fileCache.get(n);
   };
   const gateRuns = [];
+  const sampled = new Set(selectGateSample(runs, MAX_JOB_SAMPLES).map((r) => r.id));
   const ciRuns = runs
     .map((run, i) => {
       const extras = i < MAX_LOCKFILE_SAMPLES ? { touchedLockfile: touchesLock(prFor(run)) } : {};
-      if (run.conclusion !== "success" && run.conclusion !== "failure") {
-        gateRuns.push(null); // cancelled/skipped/in flight: no CI Gate verdict (the skipped count)
-      } else if (i < MAX_JOB_SAMPLES) {
+      if (sampled.has(run.id)) {
         const all = lines(
           gh([
             "api",
