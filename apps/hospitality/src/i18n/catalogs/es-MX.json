@@ -3512,6 +3512,21 @@
     "holidayNudge": {
       "line": "{{name}} es el {{date}} y aún no está planeado.",
       "plan": "Planear días festivos"
+    },
+    "weekChanges": {
+      "title": "Próximos 7 días",
+      "collapsed_one": "{{count}} cambio en los próximos 7 días",
+      "collapsed_many": "{{count}} cambios en los próximos 7 días",
+      "collapsed_other": "{{count}} cambios en los próximos 7 días",
+      "show": "Mostrar",
+      "more": "Mostrar {{count}} más",
+      "reopens": "Reabre",
+      "seasonalStarts": "Empiezan los horarios de temporada: {{name}}",
+      "seasonalEnds": "Terminan los horarios de temporada: {{name}}",
+      "regularHours": "Empieza un nuevo horario habitual",
+      "holiday": "{{name}} aún no está planeado",
+      "openDay": "{{change}}, abrir el día",
+      "saveFailed": "No se pudo guardar."
     }
   },
   "availabilityHub": {
