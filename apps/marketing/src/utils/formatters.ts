@@ -123,6 +123,23 @@ export function formatTimestamp(value: string | null | undefined): string {
   });
 }
 
+/**
+ * Date, time and timezone, always rendered in UTC so the output never depends
+ * on the viewer's or the test runner's locale (#9814).
+ */
+export function formatTimestampWithZone(value: string | null | undefined): string {
+  if (value == null) return "Never";
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "UTC",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+  }).format(new Date(value));
+}
+
 const STALE_THRESHOLD_DAYS = 14;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 

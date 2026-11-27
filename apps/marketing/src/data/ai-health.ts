@@ -30,6 +30,7 @@ export interface QueueEfficiencySensor {
     readonly median_time_to_merge_hours: number;
     readonly median_rework_cycles: number;
     readonly cost_per_issue_usd: number;
+    readonly cost_coverage_n?: number;
     readonly review_coverage: number | null;
   };
   readonly distribution?: Record<string, QueueEfficiencyTierStats>;
@@ -180,6 +181,8 @@ export interface QueueEfficiencyMetrics {
   readonly composite: number | null;
   readonly firstPassSuccessRate: number | null;
   readonly costPerIssue: number | null;
+  /** Count of PRs with a matched cost row; 0 means spend is not instrumented. Null when absent. */
+  readonly costCoverage: number | null;
   readonly medianTimeToMergeHours: number | null;
   readonly distribution: ReadonlyArray<readonly [string, number]>;
 }
@@ -330,6 +333,7 @@ function normalizeQueueEfficiency(sensors: Record<string, unknown>): QueueEffici
     composite: readNumber(queueEfficiency.composite),
     firstPassSuccessRate: readNumber(subMetrics.first_pass_success_rate),
     costPerIssue: readNumber(subMetrics.cost_per_issue_usd),
+    costCoverage: readNumber(subMetrics.cost_coverage_n),
     medianTimeToMergeHours: readNumber(subMetrics.median_time_to_merge_hours),
     distribution: Object.entries(distribution).map(
       ([tier, stats]) => [tier, readNumber(asRecord(stats).count) ?? 0] as const
