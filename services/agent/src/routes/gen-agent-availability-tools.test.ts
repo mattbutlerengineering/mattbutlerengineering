@@ -389,6 +389,62 @@ describe("availability chat tools", () => {
       expect(result).not.toHaveProperty("changes");
     });
 
+    it("never reports an empty week when the section names can't be read", async () => {
+      api.availability.getConfig.mockResolvedValue(
+        withRules([
+          closure("c4", {
+            targetKind: "tables",
+            sectionId: "sec1",
+            startsOn: "2026-11-04",
+            endsOn: "2026-11-04",
+          }),
+        ])
+      );
+      api.floorPlanSections.list.mockRejectedValue(problem(500));
+
+      const result = await upcoming();
+
+      expect(result).toMatchObject({ unknown: true });
+      expect(result).not.toHaveProperty("changes");
+    });
+
+    it("starts the day after a service still open past midnight, not the day after tomorrow", async () => {
+      // 01:00 on Oct 29 in New York; Dinner runs 17:00 to 02:00, so it is still Oct 28's service.
+      vi.setSystemTime(new Date("2026-10-29T05:00:00Z"));
+      const state = configState();
+      api.availability.getConfig.mockResolvedValue({
+        ...state,
+        config: {
+          ...state.config,
+          schedules: [{ id: "s1", name: "Regular", kind: "regular", isRegular: true }],
+          assignments: [
+            { id: "a1", scheduleId: "s1", weekdays: [0, 1, 2, 3, 4, 5, 6], precedence: 0 },
+          ],
+          scheduleServices: [
+            {
+              id: "ss2",
+              scheduleId: "s1",
+              venueServiceId: "svc-dinner",
+              opensAt: 1020,
+              lastSeatingAt: 1500,
+              closesAt: 1560,
+              seating: { kind: "interval", minutes: 15 },
+              bookingTypes: ["online"],
+              ...NO_SCOPE,
+            },
+          ],
+        },
+      });
+      const tools = createAgentTools(log, api as never, {
+        venueId: "v1",
+        timeZone: "America/New_York",
+      });
+
+      await expect(
+        tools.list_upcoming_changes!.execute!({} as never, toolCtx)
+      ).resolves.toMatchObject({ from: "2026-10-29", to: "2026-11-04" });
+    });
+
     it("is a read, never held for confirmation", () => {
       expect(GEN_WRITE_TOOL_NAMES).not.toContain("list_upcoming_changes");
     });
