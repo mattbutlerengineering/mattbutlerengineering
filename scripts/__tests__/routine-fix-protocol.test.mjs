@@ -23,6 +23,8 @@ const FIXING_ROUTINES = [
   "mbe-weekly-improve",
   "mbe-weekly-retro",
   "mbe-monthly-meta-audit",
+  "mbe-doc-rot",
+  "mbe-ui-quality",
 ];
 
 const promptOf = (name) => {
