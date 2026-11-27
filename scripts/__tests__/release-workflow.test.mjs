@@ -131,7 +131,6 @@ describe("release.yml pins changesets/action to a version whose real inputs/outp
     expect(actionIdx).toBeGreaterThan(-1);
     const block = WORKFLOW.slice(actionIdx, actionIdx + 2500);
     expect(block).toContain("version-script:");
-    expect(block).toContain("publish-script:");
     expect(block).toContain("commit-message:");
     expect(block).toContain("pr-title:");
     // v1 names, renamed in v2 -- throwOnRenamedInputs() makes these a hard
@@ -142,25 +141,37 @@ describe("release.yml pins changesets/action to a version whose real inputs/outp
     expect(WORKFLOW).not.toMatch(/^\s+title:\s*["']/m);
   });
 
-  it("runs both version and publish scripts through checked-in files, not inline multi-line blocks", () => {
-    // @actions/exec tokenizes the version-script/publish-script command
-    // STRING (argv splitting) rather than spawning a shell -- an inline
-    // block with comments/$()/if-fi/redirects can't run that way. The logic
-    // must live in a real file invoked via `bash <path>`.
+  it("runs the version script through a checked-in file, not an inline multi-line block", () => {
+    // @actions/exec tokenizes the version-script command STRING (argv
+    // splitting) rather than spawning a shell -- the logic must live in a
+    // real file invoked via `bash <path>`.
     expect(WORKFLOW).toContain("version-script: bash scripts/release-version.sh");
-    expect(WORKFLOW).toContain("publish-script: bash scripts/release-publish.sh");
   });
 
-  it("authenticates the action's own GitHub API calls with GITHUB_TOKEN, and the registry publish with RIALTO_PACKAGES_TOKEN (#3322)", () => {
+  it("is version-only: no publish-script, no registry auth (#9698, rialto is not published)", () => {
     const actionIdx = WORKFLOW.indexOf("changesets/action@");
-    const block = WORKFLOW.slice(actionIdx, actionIdx + 2500);
+    const block = WORKFLOW.slice(actionIdx);
     expect(block).toContain("GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}");
-    expect(block).toContain("NODE_AUTH_TOKEN: ${{ secrets.RIALTO_PACKAGES_TOKEN }}");
-    // GITHUB_TOKEN can only reach packages GitHub Packages considers linked
-    // to the invoking repo -- @mattbutlerengineering/rialto was hand-
-    // published without a `repository` field, so it never got linked, and
-    // GITHUB_TOKEN 403s (`E403 permission_denied: read_package`) on publish.
-    expect(block).not.toContain("NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}");
+    expect(WORKFLOW).not.toMatch(/^\s+publish-script:/m);
+    expect(WORKFLOW).not.toContain("release-publish");
+    expect(WORKFLOW).not.toContain("NODE_AUTH_TOKEN");
+    expect(WORKFLOW).not.toContain("RIALTO_PACKAGES_TOKEN");
+    expect(WORKFLOW).not.toContain("npm.pkg.github.com");
+    expect(WORKFLOW).not.toMatch(/packages:\s*write/);
+  });
+
+  it("keeps rialto versioned by changesets (not private) with no publish path in root scripts (#9698)", () => {
+    const pkg = JSON.parse(readFileSync(resolve(ROOT, "packages/rialto/package.json"), "utf8"));
+    // Not private: changesets skips private packages, which would end rialto's
+    // versioning and changelogs. The GitHub Packages publishConfig stays so an
+    // accidental manual publish fails without credentials instead of reaching npm.
+    expect(pkg.private).not.toBe(true);
+    expect(pkg.publishConfig).toEqual({ registry: "https://npm.pkg.github.com" });
+    const rootPkg = JSON.parse(readFileSync(resolve(ROOT, "package.json"), "utf8"));
+    expect(rootPkg.scripts.release).toBeUndefined();
+    for (const [name, cmd] of Object.entries(rootPkg.scripts)) {
+      expect(cmd, `root script "${name}"`).not.toMatch(/changeset publish|npm publish/);
+    }
   });
 
   it("has no direct git push of a version commit — the action opens a PR instead", () => {
@@ -181,16 +192,14 @@ describe("release.yml pins changesets/action to a version whose real inputs/outp
     const block = WORKFLOW.slice(permissionsIdx, permissionsIdx + 300);
     expect(block).toMatch(/contents:\s*write/);
     expect(block).toMatch(/pull-requests:\s*write/);
-    expect(block).toMatch(/packages:\s*write/);
   });
 
-  it("points setup-node at npm.pkg.github.com, scoped to @mattbutlerengineering (#5713, unchanged)", () => {
+  it("setup-node sets no registry-url or scope (#9698)", () => {
     const setupNodeIdx = WORKFLOW.indexOf("actions/setup-node");
     expect(setupNodeIdx).toBeGreaterThan(-1);
     const block = WORKFLOW.slice(setupNodeIdx, setupNodeIdx + 300);
-    expect(block).toContain("registry-url: https://npm.pkg.github.com");
-    expect(block).toContain('scope: "@mattbutlerengineering"');
-    expect(block).not.toContain("registry.npmjs.org");
+    expect(block).not.toContain("registry-url");
+    expect(block).not.toContain("scope:");
   });
 
   it("has no leftover NPM_TOKEN references anywhere in the workflow", () => {
@@ -203,15 +212,8 @@ describe("release.yml pins changesets/action to a version whose real inputs/outp
     expect(WORKFLOW).not.toContain("Warn on missing publish credential");
   });
 
-  it("builds rialto before the changesets/action step, so publish has dist/ available", () => {
-    const buildIdx = WORKFLOW.indexOf("name: Build rialto");
-    const actionIdx = WORKFLOW.indexOf("changesets/action@");
-    expect(buildIdx).toBeGreaterThan(-1);
-    expect(actionIdx).toBeGreaterThan(-1);
-    expect(buildIdx).toBeLessThan(actionIdx);
-    expect(WORKFLOW.slice(buildIdx, buildIdx + 600)).toContain(
-      "pnpm --filter @mattbutlerengineering/rialto build"
-    );
+  it("does not build rialto — nothing publishes, so no dist/ is needed (#9698)", () => {
+    expect(WORKFLOW).not.toContain("Build rialto");
   });
 
   it("dispatches CI on the Version Packages PR branch, gated on the real v2 output name", () => {

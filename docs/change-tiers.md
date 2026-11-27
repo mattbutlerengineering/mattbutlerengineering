@@ -65,7 +65,7 @@ Rules are evaluated against the PR diff. Each rule maps a path glob (or a struct
 - Changeset additions (`.changeset/*.md`) that don't modify code.
 - Editor config: `.editorconfig`, `.vscode/*`, `.cursorrules` updates.
 - `metrics/*.jsonl` appends (these are append-only logs).
-- Auto-generated files: `package.json` `exports` regeneration after `pnpm release`.
+- Auto-generated files: `package.json` `exports` regeneration after `pnpm build` in rialto.
 - `.claude/acmm/state.json`, `apps/marketing/public/acmm-report.json`, `apps/marketing/public/metrics.json` — automation-only ACMM audit output, same class as `metrics/**` above.
 
 ## Modifiers (escalate or de-escalate)
