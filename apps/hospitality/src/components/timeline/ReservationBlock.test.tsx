@@ -67,6 +67,23 @@ describe("ReservationBlock", () => {
     expect(screen.queryByTestId("invite-rsvp-chip")).toBeNull();
   });
 
+  it.each([
+    ["PENDING", "Pending"],
+    ["NO_SHOW", "No Show"],
+    ["CANCELLED", "Cancelled"],
+  ] as const)("shows a visible %s word so status is not colour-only", (status, word) => {
+    render(<ReservationBlock reservation={makeReservation({ status })} style={defaultStyle} />);
+    const cue = screen.getByTestId("reservation-block-status-word");
+    expect(cue.textContent).toBe(word);
+    // WCAG 2.5.3: the accessible name opens with what is on screen.
+    expect(screen.getByRole("button").getAttribute("aria-label")).toContain(word);
+  });
+
+  it.each(["CONFIRMED", "COMPLETED"] as const)("shows no status word for %s", (status) => {
+    render(<ReservationBlock reservation={makeReservation({ status })} style={defaultStyle} />);
+    expect(screen.queryByTestId("reservation-block-status-word")).toBeNull();
+  });
+
   it("shows no Override tag on an ordinary booking", () => {
     render(<ReservationBlock reservation={makeReservation()} style={defaultStyle} />);
     expect(screen.queryByText("Override")).toBeNull();
