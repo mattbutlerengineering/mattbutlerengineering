@@ -1194,8 +1194,28 @@ describe("runReopenOnRevertMerge", () => {
     const reopened = await runReopenOnRevertMerge(deps);
     expect(reopened).toEqual([5]);
     expect(deps.reopenIssue).toHaveBeenCalledTimes(1);
-    expect(deps.reopenIssue).toHaveBeenCalledWith(5, buildReopenComment(90, 80));
+    expect(deps.reopenIssue).toHaveBeenCalledWith(5, buildReopenComment(90, 80), {
+      markReady: true,
+    });
   });
+
+  it.each(["needs-human", "ready-for-human"])(
+    "reopens a %s issue without putting it back in the ready queue (#9885)",
+    async (label) => {
+      const deps = base();
+      deps.getIssue = vi.fn(async (n) => ({
+        number: n,
+        state: "closed",
+        state_reason: "completed",
+        closedByCommit: n === 5 ? "msha" : "other",
+        labels: [label],
+      }));
+      expect(await runReopenOnRevertMerge(deps)).toEqual([5]);
+      expect(deps.reopenIssue).toHaveBeenCalledWith(5, buildReopenComment(90, 80), {
+        markReady: false,
+      });
+    }
+  );
 
   it("reopens nothing when the revert PR was closed unmerged", async () => {
     const deps = base();
