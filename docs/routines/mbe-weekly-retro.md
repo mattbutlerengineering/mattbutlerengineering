@@ -54,13 +54,13 @@ Cite `mainStrict` as measured; do not assume it. Only when it is `true` is `gh p
 
 Still measure by hand what the sensor does not cover: how many PRs went red at least once before merging, and how many were reverted or needed a follow-up fix within 48h. Name the slowest PR and say why it was slow.
 
-Regressions: the `proposals` array (when run with `--regressions`) holds at most one issue, already de-duplicated against open `ready` issues by title. It is non-empty only when a class's p90 rose 50% or more week over week, or `ci.yml` p50 rose 30% or more, against the latest recorded `sdlcSpeed` row whose window ended at least `--days` earlier (windows never overlap; an overlapping re-run, e.g. one day after the last row, is not a baseline, and with no non-overlapping row `proposals` is empty). File it, labeled `ready`, with the proposal's title and body unchanged. File nothing when `proposals` is empty.
+Regressions: the `proposals` array (when run with `--regressions`) holds at most one issue, already de-duplicated against open `ready` issues by title. It is non-empty only when a class's p90 rose 50% or more week over week, or `ci.yml` p50 rose 30% or more, against the latest recorded `sdlcSpeed` row whose window ended at least `--days` earlier (windows never overlap; an overlapping re-run, e.g. one day after the last row, is not a baseline, and with no non-overlapping row `proposals` is empty). Root-cause it and fix it per `docs/routines/fix-protocol.md` when you can; otherwise file it, labeled `ready`, with the proposal's title and body unchanged. Do nothing when `proposals` is empty.
 
 ## Pass 4 — recurring failure causes
 
 Pull failed CI runs from the last 7 days on both `main` and PR branches. Group them BY CAUSE, not by count. Separate genuine flake (timeout, runner death, transient network, live-advisory-DB churn) from real defects.
 
-Then cross-check every recurring cause against `.claude/rules/gotchas.md`. A failure that has now bitten twice or more and is NOT documented there is itself a finding — the fix is a gotchas entry; propose its wording in the retro (the transcript harvest that mines these, `/idea-to-prod:knowledge-base`, is local-only and does not load in this cloud session).
+Then cross-check every recurring cause against `.claude/rules/gotchas.md`. A failure that has now bitten twice or more and is NOT documented there is itself a finding. Fix its root cause per the protocol when you can; either way the gotchas entry goes in a PR per the protocol (it touches `.claude/rules/**`, so it is held with `needs-review`), and the retro links that PR (the transcript harvest that mines these, `/idea-to-prod:knowledge-base`, is local-only and does not load in this cloud session).
 
 ## Pass 5 — throughput direction
 
@@ -74,7 +74,7 @@ Pick the THREE highest-leverage process changes. Leverage means: how much flow d
 
 Open ONE PR titled `docs: weekly process retro <date>` that appends a dated entry to `docs/process-retro.md` (create the file if absent; newest entry first). Structure each entry as: Routine liveness / Blockers / Friction / Recurring causes / Throughput / Top 3 changes / Escalations.
 
-File at most THREE `ready` issues, for process fixes that are genuinely agent-implementable and have self-contained acceptance criteria. Deduplicate first: search open issues before filing, and skip anything already open or labeled `vetoed`, `deferred`, or `wontfix`.
+Then FIX the top 3 changes yourself. Read `docs/routines/fix-protocol.md` and follow it: each change you can root-cause gets its own reviewed PR, separate from the retro PR, whose title ends with ` (mbe-weekly-retro)`. File a `ready` issue only for a change the protocol says you cannot fix, at most THREE, with self-contained acceptance criteria. Deduplicate first: search open PRs and issues, and skip anything already open or labeled `vetoed`, `deferred`, or `wontfix`. The retro entry's Top 3 section links each fix PR or issue.
 
 Put everything only a human can decide in an **Escalations** section of the retro entry, with the specific ask per item. Do not file those as `ready` — an agent cannot grant an Auth0 role or add a repo secret, and filing it as `ready` just burns a worker.
 
@@ -84,7 +84,7 @@ A quiet week is a real result. If flow was clean, say so in three lines and open
 
 ## Constraints
 
-- Never merge anything. Never edit application source code — your PR touches `docs/process-retro.md` and nothing else.
+- Never merge or enable auto-merge yourself. The retro PR touches `docs/process-retro.md` and nothing else; each fix goes in its own PR, handed off per the protocol.
 - Never fetch live-site URLs: this cloud environment has no egress to production (issue #2920). Audit the repo and the GitHub API, not the site.
 - Do not re-file findings owned by other routines: generated-artifact drift belongs to `drift-fix.yml`, documentation rot to `mbe-doc-rot`, code quality to `mbe-weekly-improve`, Claude Code config to `mbe-monthly-meta-audit`. If you spot one, mention it in the retro and move on.
 ```
