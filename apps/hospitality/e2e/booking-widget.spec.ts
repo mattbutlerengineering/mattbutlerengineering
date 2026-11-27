@@ -38,8 +38,9 @@ test.describe("Booking Widget — mobile target sizes (#4981)", () => {
     await mockedPage.setViewportSize({ width: 390, height: 844 });
     await mockedPage.goto(`book/${VENUE_SLUG}`);
 
-    // selectedDate now defaults to today (#4981) — no typing needed, the
-    // mocked availability fixture returns the same slots regardless of date.
+    // selectedDate now defaults to today (#4981) — no typing needed. The mock
+    // re-dates the slots onto the asked day; late in the day the same-day ones
+    // are past, but the one after midnight (05:15Z next day) is always ahead.
     await mockedPage.getByRole("button", { name: "Find Available Times" }).click();
     await expect(mockedPage.getByRole("option").first()).toBeVisible();
 

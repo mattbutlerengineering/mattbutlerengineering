@@ -303,8 +303,13 @@ export function TimeSlotPicker({
           ];
           return (
             <div key={group.key}>
-              {/* The venue's own word for its service, shown as typed — never through t(). */}
-              {name && <Heading className={styles.periodLabel}>{name}</Heading>}
+              {/* The venue's own word for its service, shown as typed — never through t().
+                  Level 4: under the widget title (h2) and the step subtitle (h3). */}
+              {name && (
+                <Heading level={4} className={styles.periodLabel}>
+                  {name}
+                </Heading>
+              )}
               {lists
                 .filter(([listSlots]) => listSlots.length > 0)
                 .map(([listSlots, label]) => (

@@ -381,6 +381,9 @@ for (const locale of LOCALES) {
         // One headed section per venue service, each named as the venue typed it in every locale.
         await expect(page.getByRole("heading", { name: "Early Seating" })).toBeVisible();
         await expect(page.getByRole("heading", { name: "Dinner", exact: true })).toBeVisible();
+        // The slots mock is re-dated onto the picked day (api-mocks.ts buildSlotsBody): each
+        // service's same-day list, plus Dinner's after-midnight list, are all swept.
+        await expect(page.getByRole("listbox")).toHaveCount(3);
         await sweep(page, locale, "time-slot step", PUBLIC_NAMESPACE, userEnteredText());
         await page.getByRole("option").first().click();
 

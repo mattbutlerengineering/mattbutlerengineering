@@ -10,7 +10,11 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       {children}
     </button>
   ),
-  Heading: ({ children, className }: any) => <h3 className={className}>{children}</h3>,
+  // Forwards `level` like rialto's Heading (default 2), so tests see the real outline level.
+  Heading: ({ children, className, level = 2 }: any) => {
+    const Tag = `h${level}` as "h2";
+    return <Tag className={className}>{children}</Tag>;
+  },
   Text: ({ children, className }: any) => <span className={className}>{children}</span>,
   Alert: ({ children, variant, actions }: any) => (
     <div data-testid="alert" data-variant={variant}>
@@ -113,6 +117,8 @@ describe("TimeSlotPicker", () => {
       render(<TimeSlotPicker {...defaultProps} slots={slots} />);
       const headings = screen.getAllByRole("heading").map((h) => h.textContent);
       expect(headings).toEqual(["Early Seating", "Dinner"]);
+      // Under the widget title (h2) and the step subtitle (h3).
+      expect(screen.getAllByRole("heading", { level: 4 })).toHaveLength(2);
       const early = screen.getByRole("listbox", { name: "Available Early Seating times" });
       const dinner = screen.getByRole("listbox", { name: "Available Dinner times" });
       expect(optionTexts(early)).toEqual(["5:00 PM", "5:30 PM"]);
@@ -181,7 +187,7 @@ describe("TimeSlotPicker", () => {
       const lateHeading = screen.getByRole("heading", { name: "Late Seating" });
       expect(lateHeading.parentElement?.contains(afterMidnight)).toBe(true);
       expect(lateHeading.parentElement?.contains(sameDay)).toBe(true);
-      expect(container.querySelectorAll("h3")).toHaveLength(2);
+      expect(container.querySelectorAll("h4")).toHaveLength(2);
     });
 
     it("splits after-midnight times out of the unheaded list too", () => {
