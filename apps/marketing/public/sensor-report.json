@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-11-27T01:21:19.931Z",
+  "generated_at": "2026-11-27T19:05:26.055Z",
   "period": {
     "start": "2026-11-20",
     "end": "2026-11-27"
@@ -42,70 +42,70 @@
         {
           "metric": "review-burden",
           "state": "fresh",
-          "age_days": 0.21,
+          "age_days": 0.95,
           "latest": "2026-11-26T20:20:37.995Z",
           "max_age_days": 3
         },
         {
           "metric": "queue-telemetry",
           "state": "fresh",
-          "age_days": 0.28,
+          "age_days": 1.02,
           "latest": "2026-11-26T18:37:52.000Z",
           "max_age_days": 3
         },
         {
           "metric": "queueEfficiency",
           "state": "fresh",
-          "age_days": 1.06,
-          "latest": "2026-11-26T00:00:00.000Z",
+          "age_days": 0.8,
+          "latest": "2026-11-27T00:00:00.000Z",
           "max_age_days": 5
         },
         {
           "metric": "sdlcSpeed",
           "state": "fresh",
-          "age_days": 6.06,
+          "age_days": 6.8,
           "latest": "2026-11-21T00:00:00.000Z",
           "max_age_days": 14
         },
         {
           "metric": "lighthouse",
           "state": "fresh",
-          "age_days": 4.06,
+          "age_days": 4.8,
           "latest": "2026-11-23T00:00:00.000Z",
           "max_age_days": 21
         },
         {
           "metric": "audit-coverage",
           "state": "fresh",
-          "age_days": 3.06,
+          "age_days": 3.8,
           "latest": "2026-11-24T00:00:00.000Z",
           "max_age_days": 21
         },
         {
           "metric": "mutation-score",
           "state": "fresh",
-          "age_days": 2.06,
+          "age_days": 2.8,
           "latest": "2026-11-25T00:00:00.000Z",
           "max_age_days": 21
         },
         {
           "metric": "ai-issue-feedback",
           "state": "fresh",
-          "age_days": 0.21,
+          "age_days": 0.95,
           "latest": "2026-11-26T20:23:11.595Z",
           "max_age_days": 5
         },
         {
           "metric": "shipped-features",
           "state": "fresh",
-          "age_days": 1.47,
+          "age_days": 2.21,
           "latest": "2026-11-25T14:03:17.000Z",
           "max_age_days": 14
         },
         {
           "metric": "marketing-metrics",
           "state": "fresh",
-          "age_days": 0.49,
+          "age_days": 1.23,
           "latest": "2026-11-26T13:39:22.868Z",
           "max_age_days": 3
         }
@@ -126,62 +126,62 @@
     },
     "productionHealth": {
       "available": true,
-      "collected_at": "2026-11-26T16:24:23Z",
+      "collected_at": "2026-11-27T16:09:35Z",
       "endpoints": [
         {
           "name": "users-health",
           "status": "healthy",
           "http_code": 200,
-          "latency_ms": 366
+          "latency_ms": 621
         },
         {
           "name": "marketing-site",
           "status": "healthy",
           "http_code": 200,
-          "latency_ms": 212
+          "latency_ms": 185
         },
         {
           "name": "hospitality-site",
           "status": "healthy",
           "http_code": 200,
-          "latency_ms": 130
+          "latency_ms": 123
         },
         {
           "name": "rialto-storybook",
           "status": "healthy",
           "http_code": 200,
-          "latency_ms": 141
+          "latency_ms": 185
         }
       ]
     },
     "prCategoryMetrics": {
       "available": true,
-      "total_prs": 99,
-      "total_merged": 99,
-      "total_closed_without_merge": 0,
+      "total_prs": 91,
+      "total_merged": 90,
+      "total_closed_without_merge": 1,
       "by_category": {
         "tier:standard": {
-          "merged": 53,
-          "closed_without_merge": 0,
-          "acceptance_rate": 1
+          "merged": 54,
+          "closed_without_merge": 1,
+          "acceptance_rate": 0.98
         },
         "tier:trivial": {
-          "merged": 7,
-          "closed_without_merge": 0,
-          "acceptance_rate": 1
-        },
-        "unlabeled": {
-          "merged": 9,
+          "merged": 8,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
         "tier:sensitive": {
-          "merged": 25,
+          "merged": 16,
+          "closed_without_merge": 0,
+          "acceptance_rate": 1
+        },
+        "unlabeled": {
+          "merged": 8,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
         "tier:critical": {
-          "merged": 4,
+          "merged": 3,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
@@ -190,22 +190,21 @@
           "closed_without_merge": 0,
           "acceptance_rate": 1
         }
-      },
-      "signal_note": "Per-category acceptance split is currently uninformative: 0 PRs were closed-without-merge. Bad PRs appear to be fix-forwarded (pushed-over) rather than rejected outright. The metric will become meaningful once closed-without-merge events are observed."
+      }
     },
     "agentCost": {
       "available": true,
       "attribution_only": true,
-      "spend_today_usd": 0,
-      "spend_7d_usd": 0,
-      "sessions_7d": 0,
-      "avg_cost_per_session": 0,
-      "total_input_tokens_7d": 0,
-      "total_output_tokens_7d": 0,
-      "avg_turns_per_session": 0,
+      "spend_today_usd": 1.82,
+      "spend_7d_usd": 1.82,
+      "sessions_7d": 5,
+      "avg_cost_per_session": 0.36,
+      "total_input_tokens_7d": 98,
+      "total_output_tokens_7d": 15550,
+      "avg_turns_per_session": 9.8,
       "queue": {
         "sessions_7d": 6,
-        "sessions_without_usage_7d": 119,
+        "sessions_without_usage_7d": 111,
         "tokens_7d": 832949,
         "cost_7d_usd": null,
         "cost_known_sessions_7d": 0
@@ -216,17 +215,17 @@
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 5978994,
-      "output_tokens": 32035,
-      "cache_creation_tokens": 132718,
-      "cache_hit_rate": 0.9783,
+      "cache_read_tokens": 161892,
+      "output_tokens": 236,
+      "cache_creation_tokens": 35391,
+      "cache_hit_rate": 0.8206,
       "by_model": {
         "claude-sonnet-5": {
           "cost": 0,
-          "input_tokens": 84,
-          "output_tokens": 32035,
-          "cache_read_tokens": 5978994,
-          "cache_creation_tokens": 132718
+          "input_tokens": 4,
+          "output_tokens": 236,
+          "cache_read_tokens": 161892,
+          "cache_creation_tokens": 35391
         }
       }
     },
@@ -234,18 +233,18 @@
       "available": true,
       "total_runs": 30,
       "completed": 30,
-      "passed": 22,
+      "passed": 17,
       "failed": 0,
       "phantom": 0,
       "pass_rate_pct": 100,
       "most_recent": {
-        "databaseId": 45922050332,
+        "databaseId": 46053191812,
         "status": "completed",
-        "conclusion": "success",
-        "createdAt": "2026-11-27T01:20:52Z",
-        "name": "Auto-Merge Policy",
+        "conclusion": "skipped",
+        "createdAt": "2026-11-27T18:57:11Z",
+        "name": "Claude",
         "headBranch": "main",
-        "headSha": "8011e7cb6188e8b152f2c13922d50d5abb782e5b"
+        "headSha": "87239ebd4ab75516d824decdbf43905051fc5e02"
       }
     },
     "lighthouse": {
@@ -327,12 +326,12 @@
     },
     "issues": {
       "available": true,
-      "open": 22,
+      "open": 34,
       "created_7d": 200,
       "closed_7d": 200,
       "closure_rate": 100,
-      "queue_depth": 2,
-      "agent_failed": 0
+      "queue_depth": 4,
+      "agent_failed": 1
     },
     "issueFeedback": {
       "available": true,
@@ -396,17 +395,17 @@
     },
     "sessionLogs": {
       "available": true,
-      "total_logs": 1,
-      "logs_7d": 1,
-      "total_commits_7d": 8,
+      "total_logs": 0,
+      "logs_7d": 0,
+      "total_commits_7d": 0,
       "unique_branches_7d": 0,
       "branches_7d": []
     },
     "codeChurn": {
       "available": true,
       "churn_rate": 0.001,
-      "total_lines_added_7d": 1152906,
-      "lines_churned_7d": 1209,
+      "total_lines_added_7d": 1156557,
+      "lines_churned_7d": 804,
       "window_days": 7,
       "churn_threshold": 0.3
     },
@@ -466,30 +465,30 @@
       "available": true,
       "flaky_count": 0,
       "flaky_tests": [],
-      "total_runs": 977180,
-      "window_shas": 63
+      "total_runs": 888098,
+      "window_shas": 70
     },
     "e2eStability": {
       "available": true,
-      "consecutive_failures": 1,
+      "consecutive_failures": 0,
       "total_runs": 30,
-      "total_non_frontend_runs": 7,
-      "summary": "E2E instability: 1 consecutive failure(s) on non-frontend runs — likely environment issue, not a regression"
+      "total_non_frontend_runs": 3,
+      "summary": "E2E stable: no consecutive failures on non-frontend runs (3 runs checked)"
     },
     "queueEfficiency": {
       "available": true,
-      "composite": 0.889,
+      "composite": 0.879,
       "sub_metrics": {
-        "issues_merged": 151,
-        "first_pass_success_rate": 0.834,
+        "issues_merged": 171,
+        "first_pass_success_rate": 0.819,
         "median_time_to_merge_hours": 0.4,
         "median_rework_cycles": 0,
         "cost_per_issue_usd": null,
         "cost_coverage_n": 0,
-        "review_coverage": 0.457,
-        "review_coverage_n": 151,
-        "review_coverage_unmeasured_n": 52,
-        "review_coverage_unmeasured_share": 0.344,
+        "review_coverage": 0.404,
+        "review_coverage_n": 171,
+        "review_coverage_unmeasured_n": 44,
+        "review_coverage_unmeasured_share": 0.257,
         "review_coverage_trail": [
           {
             "value": 0.241,
@@ -500,36 +499,36 @@
             "n": 151
           },
           {
-            "value": 0.457,
-            "n": 151
+            "value": 0.404,
+            "n": 171
           }
         ]
       },
       "distribution": {
-        "size:xs": {
-          "count": 37,
-          "avg_commits": 1.1,
-          "avg_ttm_hours": 0.5
-        },
-        "size:s": {
-          "count": 53,
-          "avg_commits": 1.3,
-          "avg_ttm_hours": 0.7
-        },
         "size:xl": {
-          "count": 10,
-          "avg_commits": 2.3,
+          "count": 11,
+          "avg_commits": 2.5,
           "avg_ttm_hours": 0.4
         },
-        "size:l": {
-          "count": 19,
-          "avg_commits": 3.2,
-          "avg_ttm_hours": 1.6
-        },
         "size:m": {
-          "count": 32,
+          "count": 37,
           "avg_commits": 2.3,
           "avg_ttm_hours": 0.8
+        },
+        "size:l": {
+          "count": 23,
+          "avg_commits": 3.1,
+          "avg_ttm_hours": 1.4
+        },
+        "size:xs": {
+          "count": 40,
+          "avg_commits": 1.1,
+          "avg_ttm_hours": 0.4
+        },
+        "size:s": {
+          "count": 60,
+          "avg_commits": 1.3,
+          "avg_ttm_hours": 0.7
         }
       },
       "baseline": null,
