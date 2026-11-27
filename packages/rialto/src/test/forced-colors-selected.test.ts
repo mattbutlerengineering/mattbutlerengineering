@@ -17,6 +17,11 @@ import { fileURLToPath } from "node:url";
 
 const SRC_DIR = join(dirname(fileURLToPath(import.meta.url)), "..");
 
+/** Escape every regex metacharacter, backslash included. */
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function read(rel: string): string {
   return readFileSync(join(SRC_DIR, rel), "utf-8").replace(/\/\*[\s\S]*?\*\//g, "");
 }
@@ -108,7 +113,7 @@ describe("rialto forced-colors shadow-only boundaries", () => {
   for (const [file, selector] of Object.entries(SHADOW_ONLY)) {
     it(`${file} draws an edge on ${selector}`, () => {
       const block = forcedColors(file);
-      const rule = new RegExp(`${selector.replace(".", "\\.")}\\s*\\{[^}]*border[^}]*\\}`);
+      const rule = new RegExp(`${escapeRegExp(selector)}\\s*\\{[^}]*border[^}]*\\}`);
       expect(block).toMatch(rule);
     });
   }
@@ -134,7 +139,7 @@ describe("rialto prefers-contrast: more tokens", () => {
 
   for (const scope of scopes) {
     it(`remaps the three tokens in ${scope}`, () => {
-      const rule = new RegExp(`(^|[\\s}])${scope.replace(/[[\]"]/g, "\\$&")}\\s*\\{([^}]*)\\}`);
+      const rule = new RegExp(`(^|[\\s}])${escapeRegExp(scope)}\\s*\\{([^}]*)\\}`);
       const body = rule.exec(block)?.[2] ?? "";
       expect(body).toMatch(/--rialto-text-secondary:\s*var\(--rialto-text-primary\)/);
       expect(body).toMatch(/--rialto-text-tertiary:\s*var\(--rialto-text-primary\)/);
