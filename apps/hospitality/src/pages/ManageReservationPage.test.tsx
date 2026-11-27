@@ -283,9 +283,11 @@ describe("ManageReservationPage", () => {
       renderPage();
 
       await waitFor(() => {
-        expect(screen.getByText("Link Expired")).toBeDefined();
+        expect(screen.getByText("This link has expired")).toBeDefined();
       });
-      expect(screen.getByRole("link", { name: /matt butler engineering/i })).toBeDefined();
+      expect(screen.getByText(/contact the restaurant/i)).toBeDefined();
+      expect(screen.queryByRole("link")).toBeNull();
+      expect(screen.queryByText(/matt butler engineering/i)).toBeNull();
     });
   });
 
@@ -299,10 +301,13 @@ describe("ManageReservationPage", () => {
       renderPage();
 
       await waitFor(() => {
-        expect(screen.getByText("Invalid Link")).toBeDefined();
-        expect(screen.getByText("This link has already been used or is invalid.")).toBeDefined();
+        expect(screen.getByText("This link can't be used")).toBeDefined();
+        expect(
+          screen.getByText(/latest confirmation email.*contact the restaurant/i)
+        ).toBeDefined();
       });
-      expect(screen.getByRole("link", { name: /matt butler engineering/i })).toBeDefined();
+      expect(screen.queryByRole("link")).toBeNull();
+      expect(screen.queryByText(/matt butler engineering/i)).toBeNull();
     });
   });
   describe("cancelled by the venue", () => {
@@ -445,11 +450,11 @@ describe("ManageReservationPage", () => {
         makeErrorResponse(401, { status: 401, detail: "Invalid token" })
       );
       renderPage();
-      await waitFor(() => expect(screen.getByText("Invalid Link")).toBeDefined());
+      await waitFor(() => expect(screen.getByText("This link can't be used")).toBeDefined());
       const { mains, h1s } = landmarks();
       expect(mains).toHaveLength(1);
       expect(h1s).toHaveLength(1);
-      expect(within(screen.getByRole("main")).getByText("Invalid Link")).toBeDefined();
+      expect(within(screen.getByRole("main")).getByText("This link can't be used")).toBeDefined();
     });
 
     it("resolved state has one main and an h1", async () => {

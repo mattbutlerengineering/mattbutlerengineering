@@ -21,18 +21,11 @@ import { buildGoogleCalendarUrl, buildOutlookCalendarUrl } from "../utils/calend
 import { specialRequestsText } from "../utils/reservation-display.js";
 import { WidgetLocaleScope, WidgetLocalePicker } from "../components/booking-widget/index.js";
 import styles from "./ManageReservationPage.module.css";
-import { homeUrl } from "../lib/host-brand.js";
 
 /** How often the night-of clock re-reads the time (countdown, day rollover, signal window). */
 const NIGHT_OF_TICK_MS = 15_000;
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
-
-// A guest arriving from an emailed link has no venue-scoped page to route back
-// to (the manage link carries only a token, never a venue slug) — the
-// serving host's root is the destination, the same fallback
-// PublicBookingPage.tsx uses for the same reason (#4978, #7709).
-const FALLBACK_HOME_URL = homeUrl();
 
 /** Reservation statuses a guest can still self-service cancel. */
 const CANCELLABLE_STATUSES = new Set(["PENDING", "CONFIRMED"]);
@@ -58,17 +51,11 @@ const manageParamsSchema = z.object({
 
 const MANAGE_DEFAULTS = manageParamsSchema.parse({});
 
-/** No-dead-end error surface: every failure state offers a way out, not just prose (#4980). */
-function DeadEndRescue({
-  heading,
-  description,
-  withHomeLink = true,
-}: {
-  heading: string;
-  description: string;
-  /** False when the guest has no reason to go to the vendor site (no manage link at all, #9951). */
-  withHomeLink?: boolean;
-}) {
+/**
+ * Guest-facing error surface: tells the guest what to do next in their own terms. It never links to
+ * the vendor site (#9951) — the manage link carries only a token, so there is no venue page to route to.
+ */
+function DeadEndRescue({ heading, description }: { heading: string; description: string }) {
   const { t } = useTranslation();
   return (
     <main>
@@ -78,13 +65,6 @@ function DeadEndRescue({
           headingLevel={1}
           heading={heading}
           description={description}
-          action={
-            withHomeLink ? (
-              <a className={styles.homeLink} href={FALLBACK_HOME_URL}>
-                {t("manageReservation.homeLink")}
-              </a>
-            ) : undefined
-          }
         />
         <div className={styles.supportLine}>
           <Text variant="caption" color="secondary">
@@ -181,7 +161,6 @@ function ManageReservationPageContent() {
       <DeadEndRescue
         heading={t("manageReservation.noLinkHeading")}
         description={t("manageReservation.noLinkDescription")}
-        withHomeLink={false}
       />
     );
   }
