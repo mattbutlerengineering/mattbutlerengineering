@@ -209,7 +209,7 @@ export function CommandPaletteExamplePage() {
 
   return (
     <ExamplePageLayout
-      name="Command Palette"
+      name="Command Palette example"
       description="Global search composing the CommandPalette into a ⌘K workflow across reservations, guests, and rooms."
       sourceJsx={COMMAND_PALETTE_EXAMPLE_JSX}
       compositionNotes={compositionNotes}
