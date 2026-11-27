@@ -37,7 +37,6 @@ Production infrastructure secrets are injected by Pulumi at deploy time (see `in
 | `TURBO_TOKEN`                 | Turborepo remote cache token                                                                              | Semi-annually                   | —             |
 | `AGENT_API_URL`               | Agent service API base URL (not a credential)                                                             | No rotation needed              | N/A           |
 | `AUTOMATION_PAT`              | PAT/bot-token for scheduled automation that pushes commits (see below)                                    | Semi-annually                   | —             |
-| `RIALTO_PACKAGES_TOKEN`       | Classic PAT (`write:packages`) publishing `@mattbutlerengineering/rialto` to GitHub Packages (see below)  | Optional -- unset skips publish | —             |
 | `CHAT_PROBE_VENUE_ID`         | Venue id the `chat-probe.yml` live chat probe reads (E2E user must have access; reads only, #9481)        | Optional -- unset skips probe   | —             |
 | `FEEDBACK_GITHUB_TOKEN`       | Fine-grained PAT, this repo, Issues write only -- DO env on `agent-api`, not a GitHub secret              | Optional -- unset 503s feedback | —             |
 
@@ -292,38 +291,6 @@ no longer attributed to `github-actions[bot]`.
 denies it, #6125), so they post a `reviewed-merge: <head sha> PASS <score>/10` verdict and add the
 `reviewed` label; the workflow merges with this token so main's push workflows fire. A PR that
 changes `.github/workflows/**` merges only if the token also has Workflows write.
-
-### RIALTO_PACKAGES_TOKEN
-
-**Cadence:** Optional -- unset intentionally skips publish; rotate semi-annually once set.
-
-**This secret is optional (Matt, refs #3322 follow-up):** nothing outside this monorepo installs
-`@mattbutlerengineering/rialto` -- every consumer (`apps/*`, other `packages/*`) pulls it in via
-`workspace:*`. Publishing to GitHub Packages is not needed for any current consumer, so it's
-opt-in: leave this secret unset and `release.yml` skips the publish step and exits 0, rather than
-failing the whole Release workflow on every push to main.
-
-**Why `GITHUB_TOKEN` doesn't work here, if you do want to publish:** `@mattbutlerengineering/rialto`
-was hand-published to GitHub Packages in April with no `repository` field set, so
-npm.pkg.github.com never linked the package to this repo. `GITHUB_TOKEN` can only read/write
-packages GitHub Packages considers linked to the repo that's running it, so `release.yml`'s
-`changeset publish` step 403s against an orphaned package with `E403 permission_denied:
-read_package` (runs 35961368353, attempts 1-3). A PAT authenticating as a real identity with
-explicit access to the package sidesteps the link requirement entirely.
-
-To resume publishing:
-
-1. Generate a classic PAT (fine-grained PATs cannot scope to GitHub Packages publish as of this
-   writing) with the `write:packages` scope only.
-2. In GitHub, set the repo secret: `gh secret set RIALTO_PACKAGES_TOKEN --body "<token>"`.
-3. **Verify:** Trigger `release.yml` on a run with nothing to version (so it takes the publish
-   path); confirm the "Create Version Packages PR or publish to GitHub Packages" step succeeds
-   with no `E403`/`E401`.
-4. Once set, rotate semi-annually: revoke the old token before generating a replacement.
-
-Used by `release.yml`'s `publish-script` (`scripts/release-publish.sh`), which emits
-`::notice::RIALTO_PACKAGES_TOKEN is not set -- skipping publish` and exits 0 when this secret is
-missing, rather than failing the run or surfacing a cryptic registry error mid-publish.
 
 ### `packages/gh-client` REST-fallback token precedence
 

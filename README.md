@@ -185,12 +185,11 @@ See [tools/cli/](tools/cli/) for the full command reference.
 
 ## Using Rialto
 
-The design system publishes to **GitHub Packages**, not npm — `npm view
-@mattbutlerengineering/rialto` returns 404 by design.
+The design system is **workspace-only** and is not published to any registry. Consumers
+in this monorepo depend on it with `workspace:*`:
 
-```bash
-echo "@mattbutlerengineering:registry=https://npm.pkg.github.com" >> .npmrc
-pnpm add @mattbutlerengineering/rialto
+```json
+"@mattbutlerengineering/rialto": "workspace:*"
 ```
 
 ```tsx

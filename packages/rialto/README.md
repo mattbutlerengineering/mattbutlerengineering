@@ -20,8 +20,8 @@ import "@mattbutlerengineering/rialto/styles"; // Import before any component re
 
 ## Compatibility
 
-Every component works from a registry install (`npm.pkg.github.com`,
-scoped `@mattbutlerengineering`), including `ChatPanel`. Rialto has no
+Rialto is workspace-only (private, never published to a registry). Every
+component, including `ChatPanel`, works without any `@mbe/*` package. Rialto has no
 dependency on any `@mbe/*` workspace package: `ChatPanel` takes its
 streaming transport as a required `stream` prop, so the host app supplies the
 HTTP client.

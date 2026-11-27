@@ -10,7 +10,7 @@
 - **Name:** mattbutlerengineering
 - **Type:** Monorepo (Turborepo + pnpm)
 - **Package Prefix:** `@mbe/`
-- **Naming Exception:** `packages/rialto` publishes as `@mattbutlerengineering/rialto`, not `@mbe/rialto` — it's the design system's external npm publish scope (GitHub Packages), since it's consumed outside the monorepo as a public-facing package name.
+- **Naming Exception:** `packages/rialto` publishes as `@mattbutlerengineering/rialto`, not `@mbe/rialto` — it keeps its original package scope. It is private and workspace-only (never published, #9698).
 - **External Prefix:** `mattbutlerengineering-` (for Auth0, DigitalOcean, DBs)
 
 ## Project Structure

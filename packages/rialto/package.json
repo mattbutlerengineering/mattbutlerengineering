@@ -1,6 +1,7 @@
 {
   "name": "@mattbutlerengineering/rialto",
   "version": "3.1.12",
+  "private": true,
   "type": "module",
   "main": "./dist/lib/rialto.js",
   "module": "./dist/lib/rialto.js",
@@ -451,9 +452,6 @@
       "default": "./dist/lib/styles.css"
     },
     "./manifest": "./dist/manifest.json"
-  },
-  "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
   },
   "files": [
     "dist/lib",

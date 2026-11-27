@@ -72,7 +72,7 @@ GH Actions runs on this account (verify with `gh run list --limit 5`). To ship w
 - **DO services** (all services + db-migrate, single app): `doctl apps create-deployment $DO_APP_ID --wait` (`DO_APP_ID` from your local `.env` or shell)
 - **DO build logs**: `doctl apps logs $DO_APP_ID <agent-api|users-api|reservations-api|db-migrate> --type=build --deployment <id>` (component is positional, NOT `--component`)
 - **Pulumi**: `cd infrastructure/pulumi && pulumi up --stack prod`
-- **Rialto visuals without an npm republish:** consumers use `workspace:*`, so `pnpm --dir packages/rialto build && pnpm --dir apps/rialto-web build`, then deploy rialto-web. Only `npm publish` from `packages/rialto` for a real registry release.
+- **Rialto visuals:** rialto is workspace-only (never published), so `pnpm --dir packages/rialto build && pnpm --dir apps/rialto-web build`, then deploy rialto-web.
 
 ## MCP Servers & Observability
 
