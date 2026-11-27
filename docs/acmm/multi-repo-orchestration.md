@@ -19,13 +19,7 @@ Because of this structure, the vast majority of cross-package changes are alread
 
 ## External Consumers
 
-Published packages have downstream consumers outside this monorepo:
-
-| Package                         | Registry        | Known Consumers                           |
-| ------------------------------- | --------------- | ----------------------------------------- |
-| `@mattbutlerengineering/rialto` | GitHub Packages | External projects using the design system |
-
-When a published package ships a breaking change, external consumers must update their dependency and adapt to the new API. Without coordination, they discover the breakage only when they next run `npm install` or their CI fails on a seemingly unrelated update.
+This repo publishes no packages, so it has no external consumers today. `@mattbutlerengineering/rialto` was the only published package; it became workspace-only in #9838. The strategy below applies if a package is published again.
 
 ## Coordination Strategy
 
@@ -72,7 +66,7 @@ The proof-of-concept orchestrator that once lived at `scripts/orchestrate-multi.
 
 - **Manual coordination.** Cross-repo changes are coordinated by the developer who publishes the new version, following the steps above.
 - **Monorepo structure minimizes the need.** The vast majority of dependent code lives within this repo.
-- **Automation deferred.** There are currently few external consumers, so the cost of building fully automated cross-repo orchestration exceeds the benefit. The "Future Automation" section above remains the design sketch for when the need grows.
+- **Automation deferred.** There are currently no external consumers, so the cost of building fully automated cross-repo orchestration exceeds the benefit. The "Future Automation" section above remains the design sketch for when the need grows.
 
 ## Execution Log
 

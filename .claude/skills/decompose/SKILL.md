@@ -100,7 +100,7 @@ Part N of M for: **<feature name>**
 
 ## Edge cases
 
-<One line per case: the concrete input or state, and the expected outcome. The implementer writes one failing test per line, so write them here, so the implementer does not have to guess them. Cover every class that applies and skip the rest:>
+<One line per case: the concrete input or state, and the expected outcome. The implementer writes one failing test per line, so write them here and the implementer does not have to guess them. Cover every class that applies and skip the rest:>
 
 - <Venue boundary: e.g. `guestId` from another venue → 403>
 - <Terminal or money state: e.g. refund an already-refunded deposit → 409, no second Stripe call>

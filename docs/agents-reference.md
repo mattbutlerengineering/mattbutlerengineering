@@ -10,7 +10,7 @@ Reference material moved out of the root [AGENTS.md](../AGENTS.md) so it doesn't
 
 ### Multi-Repo Orchestration
 
-`scripts/orchestrate-multi.mjs` (clone downstream repo → branch → commit → push → PR) was deleted as dead code in #3044. There is no scripted replacement — coordinating changes with external consumers (e.g. published `@mattbutlerengineering/rialto` versions) is manual today. See `docs/acmm/multi-repo-orchestration.md` for the current coordination strategy. <!-- rot-ignore: scripts/orchestrate-multi.mjs -->
+`scripts/orchestrate-multi.mjs` (clone downstream repo → branch → commit → push → PR) was deleted as dead code in #3044. There is no scripted replacement — no package is published (rialto is workspace-only since #9838), so there are no external consumers to coordinate with today. See `docs/acmm/multi-repo-orchestration.md` for the current coordination strategy. <!-- rot-ignore: scripts/orchestrate-multi.mjs -->
 
 ## Continuous-improvement quick reference
 

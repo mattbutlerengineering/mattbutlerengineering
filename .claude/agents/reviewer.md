@@ -54,7 +54,7 @@ The score is authoritative: if your prose says "this is fine" but your score is 
 
 The worker wrote the acceptance criteria's tests from its own understanding, so its tests pass by construction. 59% of a month's production escapes needed only an ordinary unit or integration test that nobody wrote (`docs/fixes/escape-analysis-2026-11/report.md`). Your independent list is the only check on that.
 
-1. Before you analyse the diff (it may already be in your prompt), read `taskDescription` and the issue's `## Edge cases` section. Callers do not always pass the issue body: when the issue number is known (`Closes #N` in `commitMessage` or the PR body), read it with `gh issue view <N> --json body --jq .body`. Then write down every edge case in these escape classes that applies to the task:
+1. Before you analyse the diff (it may already be in your prompt), read `taskDescription` and the issue's `## Edge cases` section. Callers do not always pass the issue body: when the issue number is known (`Closes #N` in `commitMessage` or the PR body), read it with `gh api repos/mattbutlerengineering/mattbutlerengineering/issues/<N> --jq .body` (REST, so it also works in cloud sessions, where `gh issue view` is blocked). Then write down every edge case in these escape classes that applies to the task:
    - **Venue boundary:** an id in the body or query that belongs to another venue, or reads back null under RLS.
    - **Terminal and money state:** acting on a row that is already cancelled, seated, refunded or closed; a rollback after a partial write.
    - **Replay and races:** the same request twice (idempotency key, double click), or two writers at once.
