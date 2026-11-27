@@ -60,6 +60,10 @@ export async function countFirstPaintControls(
         if (rect.width <= 1 || rect.height <= 1) continue;
         const style = getComputedStyle(el);
         if (style.visibility === "hidden" || style.display === "none") continue;
+        // A transparent native input under its label (rialto Radio/Checkbox, #9852): the label
+        // is the control a person sees and tabs to once. The input used to be 1px and was
+        // skipped by the size check above; count it the same way now that it covers its label.
+        if (el.tagName === "INPUT" && style.opacity === "0") continue;
         if (seen.has(el)) continue;
         seen.add(el);
         const name =
