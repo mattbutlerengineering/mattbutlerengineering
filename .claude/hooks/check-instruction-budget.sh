@@ -60,7 +60,7 @@ esac
 [[ -f "$root/scripts/instruction-budget-hook.mjs" ]] || exit 0
 cd "$root" || exit 0
 
-message=$(node "$root/scripts/instruction-budget-hook.mjs" "$file_path" 2>/dev/null)
+message=$(node "$root/scripts/instruction-budget-hook.mjs" "$physical_path" 2>/dev/null)
 code=$?
 [[ -n "$message" ]] && printf '%s\n' "$message" >&2
 
