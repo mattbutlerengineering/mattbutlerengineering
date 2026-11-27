@@ -128,6 +128,11 @@
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
+}
+
+/* aria-disabled Buttons look disabled but must still receive the press
+   (e.g. a refused Save focuses its problem field) — #10019. */
+.button:disabled {
   pointer-events: none;
 }
 

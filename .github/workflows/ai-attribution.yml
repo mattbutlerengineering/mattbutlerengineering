@@ -31,6 +31,9 @@ concurrency:
 
 jobs:
   attribute:
+    # Already labelled: the label and rationale comment exist, so a later push
+    # only repeats the comment. Skip the job (no runner) (#10011).
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'agent-authored') }}
     runs-on: ubuntu-latest
     timeout-minutes: 3
     env:

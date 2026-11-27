@@ -349,13 +349,13 @@ describe("Availability map: schedules and services", () => {
     expect(screen.getByLabelText("location")).toHaveTextContent("/availability/hours?from=setup");
   });
 
-  it("sends Add a schedule… to the seeded editor on the Schedules layer", async () => {
+  it("sends Add a schedule… to the new seasonal hours editor", async () => {
     setConfig(WEEK);
     renderPage();
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Add a schedule…" }));
     expect(screen.getByLabelText("location")).toHaveTextContent(
-      "/availability/calendar?tab=schedules&action=addSchedule&from=setup"
+      "/availability/seasonal/new?from=setup"
     );
   });
 });

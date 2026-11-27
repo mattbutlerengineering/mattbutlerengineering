@@ -133,6 +133,10 @@ const HOURS = `${ROUTE}/hours`;
 export const readHoursService = (location: { readonly search: string }): string | null =>
   new URLSearchParams(location.search).get("service") || null;
 
+/** The seasonal hours set `?copy=` names on `seasonal/new`, or `null`. */
+export const readSeasonalCopy = (location: { readonly search: string }): string | null =>
+  new URLSearchParams(location.search).get("copy") || null;
+
 /** Whether a pathname is the booking rules drawer. In any case, as the router matches it. */
 export const isBookingRulesPage = (pathname: string): boolean =>
   pathname.replace(/\/+$/, "").toLowerCase() === BOOKING_RULES;
@@ -144,7 +148,7 @@ const HISTORY = `${ROUTE}/history`;
 export const isHistoryPage = (pathname: string): boolean =>
   pathname.replace(/\/+$/, "").toLowerCase() === HISTORY;
 
-/** The Seasonal hours list. Its editor and compare screens are not built yet (breakdown E4.6, E4.7). */
+/** The Seasonal hours list, its editor at `new` and `:scheduleId`. Compare is not built yet (E4.7). */
 const SEASONAL = `${ROUTE}/seasonal`;
 
 /** Closures and pauses, a page of its own. */
@@ -212,6 +216,14 @@ function setOverlay(params: URLSearchParams, target: AvailabilityTarget): void {
   if (target.from) params.set("from", target.from);
 }
 
+/** The Seasonal hours list and its editor; `undefined` for any other view, and for compare. */
+function seasonalPath(target: AvailabilityTarget): string | undefined {
+  if (target.view !== "seasonal") return undefined;
+  if (!target.screen) return SEASONAL;
+  if (target.screen === "edit") return `${SEASONAL}/${encodeURIComponent(target.scheduleId)}`;
+  return target.screen === "new" ? `${SEASONAL}/new` : undefined;
+}
+
 /**
  * The address for a target, so no caller hand-writes a path or a query string.
  *
@@ -222,10 +234,12 @@ function setOverlay(params: URLSearchParams, target: AvailabilityTarget): void {
  */
 export function availabilityPath(target: AvailabilityTarget): string {
   const params = new URLSearchParams();
-  const isSeasonalList = target.view === "seasonal" && !target.screen;
-  const ownPath = isSeasonalList ? SEASONAL : OWN_PATHS[target.view];
+  const ownPath = seasonalPath(target) ?? OWN_PATHS[target.view];
   if (ownPath) {
     if (target.view === "hours" && target.service) params.set("service", target.service);
+    if (target.view === "seasonal" && target.screen === "new" && target.copy) {
+      params.set("copy", target.copy);
+    }
     setOverlay(params, target);
     return withSearch(ownPath, params);
   }
@@ -234,11 +248,6 @@ export function availabilityPath(target: AvailabilityTarget): string {
     target.view === "calendar" && target.date && isDate(target.date) ? target.date : null;
   const tab = PAGE_TAB[target.view];
   if (tab && !date) params.set("tab", tab);
-  if (target.view === "seasonal" && target.screen === "new") {
-    params.set("action", "addSchedule");
-    // The new-hours editor (E4.6) takes this address over: `seasonal/new?copy=<id>`.
-    if (target.copy) params.set("copy", target.copy);
-  }
   if (date) params.set("date", date);
   setOverlay(params, target);
   return withSearch(TODAYS_PAGE, params);

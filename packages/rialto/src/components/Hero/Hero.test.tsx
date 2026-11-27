@@ -83,7 +83,19 @@ describe("Hero", () => {
       expect(subtitle.style.transform).toContain("translateY");
     });
 
-    it("keeps the fade-up entrance on non-LCP siblings (eyebrow)", () => {
+    // The CTAs must stay readable if the entrance stalls (#9972): a throttled
+    // or paused animation clock must not leave "Try Gen" at opacity 0.
+    it("renders the actions at full opacity on mount, not faded from 0", () => {
+      const { container } = render(
+        <Hero title="Ships itself" actions={<button type="button">Go</button>} />
+      );
+      const button = container.querySelector("button") as HTMLElement;
+      const actions = button.parentElement as HTMLElement;
+      expect(actions).not.toHaveStyle({ opacity: "0" });
+      expect(actions.style.transform).toContain("translateY");
+    });
+
+    it("keeps the fade-up entrance on the decorative eyebrow", () => {
       const { container } = render(<Hero title="Ships itself" eyebrow="Design System" />);
       const eyebrow = container.querySelector("p") as HTMLElement;
       expect(eyebrow).toHaveStyle({ opacity: "0" });

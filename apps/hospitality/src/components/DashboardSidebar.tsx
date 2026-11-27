@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { NavSection, NavItem } from "../nav-sections.js";
+import { useSubnavSlot } from "./availability/rail/subnav-slot.js";
 import type { NavAction } from "../nav-actions.js";
 import styles from "./DashboardSidebar.module.css";
 
@@ -74,6 +75,9 @@ export interface DashboardSidebarProps {
 
 /* ── Component ───────────────────────────────── */
 
+/** The items the Availability rail can nest under, first match wins. */
+const SUBNAV_HOSTS = ["availability", "setup"] as const;
+
 export function DashboardSidebar({
   sections,
   activePath,
@@ -85,6 +89,14 @@ export function DashboardSidebar({
 }: DashboardSidebarProps) {
   const { t } = useTranslation();
   const [collapsed, setCollapsed] = useState<Set<string>>(loadCollapsed);
+  // The Availability rail nests under the Availability item; before launch the map's item is the
+  // only one (#9944).
+  const subnav = useSubnavSlot();
+  const itemIds = sections.flatMap((section) => section.items.map((item) => item.id));
+  const subnavHost = SUBNAV_HOSTS.find((id) => itemIds.includes(id)) ?? null;
+  // Under the host the rail's node is the page, so the host only holds it.
+  const currentFor = (item: NavItem, active: boolean): "page" | "true" | undefined =>
+    !active ? undefined : subnav && item.id === subnavHost ? "true" : "page";
   const sidebarRef = useRef<HTMLElement>(null);
 
   // Persist collapsed state
@@ -218,7 +230,7 @@ export function DashboardSidebar({
                           <button
                             className={`${styles.navLink} ${active ? styles.navLinkActive : ""}`}
                             onClick={() => handleItemClick(item.action)}
-                            aria-current={active ? "page" : undefined}
+                            aria-current={currentFor(item, active)}
                             type="button"
                           >
                             {item.label}
@@ -229,6 +241,9 @@ export function DashboardSidebar({
                               </>
                             )}
                           </button>
+                          {subnav && item.id === subnavHost && (
+                            <div ref={subnav.setSlot} className={styles.subnav} />
+                          )}
                         </li>
                       );
                     })}
@@ -263,7 +278,7 @@ export function DashboardSidebar({
                           <button
                             className={`${styles.navLink} ${active ? styles.navLinkActive : ""}`}
                             onClick={() => handleItemClick(item.action)}
-                            aria-current={active ? "page" : undefined}
+                            aria-current={currentFor(item, active)}
                             type="button"
                           >
                             {item.label}
@@ -274,6 +289,9 @@ export function DashboardSidebar({
                               </>
                             )}
                           </button>
+                          {subnav && item.id === subnavHost && (
+                            <div ref={subnav.setSlot} className={styles.subnav} />
+                          )}
                         </li>
                       );
                     })}

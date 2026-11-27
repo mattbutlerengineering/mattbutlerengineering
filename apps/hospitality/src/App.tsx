@@ -9,6 +9,7 @@ import { Text, Footer } from "@mattbutlerengineering/rialto";
 import { siteCopyright, siteFooterColumns } from "@mbe/site-nav";
 import { AppNav } from "./components/AppNav.js";
 import { currentHostConfig } from "./lib/host-brand.js";
+import { useRobotsMeta } from "./hooks/useRobotsMeta.js";
 import { useTheme } from "./hooks/use-theme";
 import { LoadingPage } from "./pages/LoadingPage";
 import { LoginGate } from "./components/LoginGate";
@@ -128,6 +129,8 @@ export function App() {
   const gate = useAuthGate();
   const { pathname } = useLocation();
   const [navSky, setNavSky] = useState<NavSky>(null);
+  // Only the public showcase landing is indexable; everything else behind App is not.
+  useRobotsMeta(gate.phase !== "ready" && showsShowcaseLanding(gate, pathname));
 
   useEffect(() => {
     const main = document.getElementById("main-content");

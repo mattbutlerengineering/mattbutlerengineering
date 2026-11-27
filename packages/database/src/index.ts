@@ -47,6 +47,16 @@ const SLOW_QUERY_THRESHOLD_MS = 100;
 const SLOW_QUERY_WINDOW_MS = 5 * 60 * 1000;
 const MAX_SLOW_QUERIES = 10;
 
+/**
+ * Per-service pool size. Three services share the pooler's session limit, so
+ * the default leaves headroom for a rolling deploy or a migration job (#9963).
+ */
+const DEFAULT_CONNECTION_LIMIT = "3";
+/** Release idle connections back to the pooler instead of holding them. */
+const POOL_IDLE_TIMEOUT_MS = 10_000;
+/** Fail a connection checkout instead of waiting forever (pg default 0). */
+const POOL_CONNECTION_TIMEOUT_MS = 5_000;
+
 interface SlowQuery {
   model: string;
   operation: string;
@@ -101,7 +111,10 @@ export function createDatabase<T extends PrismaLike>(
   PrismaClient: PrismaConstructor,
   databaseUrl?: string
 ): DatabaseInstance<T> {
-  const connectionLimit = parseInt(process.env.PRISMA_CONNECTION_LIMIT ?? "5", 10);
+  const connectionLimit = parseInt(
+    process.env.PRISMA_CONNECTION_LIMIT ?? DEFAULT_CONNECTION_LIMIT,
+    10
+  );
   const poolUtilizationThreshold = 0.8;
   const url = databaseUrl ?? process.env.DATABASE_URL;
 
@@ -110,6 +123,8 @@ export function createDatabase<T extends PrismaLike>(
   const pool = new pg.Pool({
     connectionString: url,
     max: connectionLimit,
+    idleTimeoutMillis: POOL_IDLE_TIMEOUT_MS,
+    connectionTimeoutMillis: POOL_CONNECTION_TIMEOUT_MS,
   });
 
   pool.on("error", (err) => {
@@ -148,6 +163,11 @@ export function createDatabase<T extends PrismaLike>(
     };
   }
 
+  /** A caller queued for a connection means the pool is already exhausted. */
+  function isPoolStressed(stats: PoolStats): boolean {
+    return stats.utilization >= poolUtilizationThreshold || stats.waiting > 0;
+  }
+
   function getPoolMetrics(): PoolMetrics {
     const stats = getPoolStats();
     return {
@@ -156,15 +176,14 @@ export function createDatabase<T extends PrismaLike>(
       idle: stats.idle,
       waiting: stats.waiting,
       utilization: stats.utilization,
-      isDegraded: stats.utilization >= poolUtilizationThreshold,
+      isDegraded: isPoolStressed(stats),
     };
   }
 
   function getServiceStatus(): ServiceStatus {
     const stats = getSlowQueryStats();
-    const poolStats = getPoolStats();
     if (stats.count5min > MAX_SLOW_QUERIES) return "degraded";
-    if (poolStats.utilization >= poolUtilizationThreshold) return "degraded";
+    if (isPoolStressed(getPoolStats())) return "degraded";
     return "ok";
   }
 
@@ -187,12 +206,13 @@ export function createDatabase<T extends PrismaLike>(
         query: (args: unknown) => Promise<unknown>;
       }) => {
         const poolStats = getPoolStats();
-        if (poolStats.utilization >= poolUtilizationThreshold) {
+        if (isPoolStressed(poolStats)) {
           console.warn(
             JSON.stringify({
               type: "pool_alert",
               utilization: poolStats.utilization,
               active: poolStats.active,
+              waiting: poolStats.waiting,
               max: connectionLimit,
               timestamp: new Date().toISOString(),
             })

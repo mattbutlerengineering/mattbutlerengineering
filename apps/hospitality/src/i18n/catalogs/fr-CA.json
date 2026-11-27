@@ -1483,17 +1483,10 @@
       "otherTimes": "Autres heures ce jour-là",
       "pickAnotherDate": "Choisir une autre date",
       "noHoursGuestCall": "Appelez le {{phone}} pour réserver une table.",
-      "periods": {
-        "lunch": "Dîner",
-        "dinner": "Souper",
-        "late": "Fin de soirée"
-      },
-      "periodTimes": {
-        "lunch": "Heures disponibles pour le dîner",
-        "dinner": "Heures disponibles pour le souper",
-        "late": "Heures disponibles en fin de soirée",
-        "lateAfterMidnight": "Heures disponibles en fin de soirée, après minuit le {{date}}"
-      },
+      "serviceTimes": "Heures disponibles pour {{service}}",
+      "serviceTimesAfterMidnight": "Heures disponibles pour {{service}}, après minuit le {{date}}",
+      "availableTimes": "Heures disponibles",
+      "availableTimesAfterMidnight": "Heures disponibles, après minuit le {{date}}",
       "selected": "Sélection :",
       "tablesAvailable_one": "{{count}} table disponible",
       "tablesAvailable_many": "{{count}} de tables disponibles",
@@ -1502,6 +1495,8 @@
     "details": {
       "holdExpires": "La retenue expire dans : {{time}}",
       "holdExpired": "Expirée",
+      "holdAnnounceTwoMinutes": "Il reste 2 minutes pour terminer votre réservation.",
+      "holdAnnounceExpired": "Votre retenue a expiré.",
       "summaryTitle": "Détails de la réservation",
       "welcomeBack_ordinal_one": "Bon retour, {{name}} — c’est votre {{count}}re visite!",
       "welcomeBack_ordinal_many": "Bon retour, {{name}} — c’est votre {{count}}e visite!",
@@ -1513,6 +1508,7 @@
       "emailPlaceholder": "jean@exemple.com",
       "phone": "Téléphone",
       "contactHint": "Veuillez fournir un courriel ou un numéro de téléphone pour la confirmation.",
+      "emailInvalid": "Entrez une adresse courriel complète, comme nom@exemple.com.",
       "nameRequired": "Entrez votre nom pour que le restaurant sache qui attendre.",
       "requestsPlaceholder": "Allergies, célébrations, préférences de place...",
       "confirming": "Confirmation...",
@@ -3515,10 +3511,12 @@
     },
     "weekChanges": {
       "title": "7 prochains jours",
-      "collapsed_one": "{{count}} changement dans les 7 prochains jours",
-      "collapsed_many": "{{count}} changements dans les 7 prochains jours",
-      "collapsed_other": "{{count}} changements dans les 7 prochains jours",
-      "show": "Afficher",
+      "collapsed_one": "{{count}} à venir",
+      "collapsed_many": "{{count}} à venir",
+      "collapsed_other": "{{count}} à venir",
+      "collapsedLabel_one": "{{count}} à venir : changement dans les 7 prochains jours",
+      "collapsedLabel_many": "{{count}} à venir : changements dans les 7 prochains jours",
+      "collapsedLabel_other": "{{count}} à venir : changements dans les 7 prochains jours",
       "more": "Afficher {{count}} de plus",
       "reopens": "Réouverture",
       "seasonalStarts": "Début des heures saisonnières : {{name}}",
@@ -3550,6 +3548,15 @@
       "calendar": "Calendrier",
       "bookingRules": "Règles de réservation",
       "history": "Historique"
+    },
+    "rail": {
+      "label": "Sections de disponibilité",
+      "overview": "Aperçu",
+      "groups": {
+        "open": "Quand vous êtes ouvert",
+        "sit": "Où s'assoient les clients",
+        "views": "Vues"
+      }
     },
     "serviceFields": {
       "moreOptions": "Plus d'options",
@@ -3744,6 +3751,13 @@
       "cantDelete": "Suppression impossible : utilisé {{where}}. Changez d’abord ces jours.",
       "cantDeleteRules": "Suppression impossible. {{where}}. Changez d’abord ces dates."
     },
+    "seasonalEditor": {
+      "newTitle": "Nouveaux horaires saisonniers",
+      "duplicateTitle": "Dupliquer les horaires saisonniers",
+      "back": "Retour aux horaires saisonniers",
+      "loading": "Chargement des horaires saisonniers",
+      "notFound": "Ces horaires saisonniers n’existent plus. Retournez à la liste pour voir ce qu’il reste."
+    },
     "closuresPage": {
       "title": "Fermetures et pauses",
       "loading": "Chargement des fermetures et des pauses",
@@ -3762,6 +3776,153 @@
       "earlier": {
         "removed": "Une fermeture qui n’est plus dans la liste",
         "tonight": "Un changement fait pour ce soir"
+      }
+    },
+    "guide": {
+      "title": "Comment fonctionne la disponibilité",
+      "description": "Comment les heures habituelles, les heures saisonnières, les dates spéciales, les fermetures, les pauses et les règles de réservation se combinent pour donner les heures qu’un client peut réserver.",
+      "overview": {
+        "heading": "Aperçu",
+        "intro": "La disponibilité est construite par couches. Chaque couche peut modifier celles du dessous, et la couche la plus haute l’emporte à une date. Utilisez Vérifier une date dans la section Disponibilité pour voir quelles couches s’appliquent à une journée et laquelle l’a emporté.",
+        "layersLead": "De bas en haut, les couches sont les suivantes :",
+        "layers": {
+          "regular": "Heures habituelles : votre horaire de la semaine.",
+          "seasonal": "Heures saisonnières : des heures nommées qui remplacent les heures habituelles aux dates et aux jours de la semaine qu’elles couvrent.",
+          "otherHours": "Autres heures pour une date : une date réglée pour utiliser un autre ensemble d’heures.",
+          "special": "Heures spéciales : les heures d’une date spéciale, qui remplacent les heures du dessous à cette date.",
+          "closures": "Fermetures et pauses : une fermeture retire les clients, et une pause arrête les réservations sur un canal.",
+          "tonight": "Changements faits pour ce soir : Fermer plus tôt, une pause pour ce soir ou un rythme de réservation plus bas. Ils ne s’appliquent qu’à cette date."
+        },
+        "closuresAlwaysWin": "Une fermeture est toujours au-dessus des heures. Les heures ne rouvrent jamais une date qu’une fermeture a fermée.",
+        "bookingRulesNote": "Les règles de réservation ne sont pas une couche. Elles ne changent jamais quelles heures l’emportent. Elles transforment les heures gagnantes en heures que voit un client."
+      },
+      "whenOpen": {
+        "heading": "Quand vous êtes ouvert",
+        "intro": "Les heures qui s’appliquent à une date viennent des couches ci-dessous. Les fermetures et les pauses retirent ensuite du temps ou des canaux, et les règles de réservation transforment ce qui reste en heures réservables."
+      },
+      "regular": {
+        "what": "Les heures habituelles sont l’horaire de la semaine : pour chaque service, les jours où il a lieu, son heure d’ouverture, sa dernière prise de table et sa fermeture.",
+        "uncovered": "Si aucune heure ne couvre une date, cette date est fermée.",
+        "pastMidnight": "Un service appartient au jour où il ouvre. Un service qui dépasse minuit fait partie du jour où il a commencé et n’apparaît jamais à la date suivante."
+      },
+      "seasonal": {
+        "what": "Les heures saisonnières couvrent une plage de dates et les jours de la semaine que vous choisissez. À une date qu’elles couvrent, elles remplacent les heures habituelles lorsqu’elles sont réglées pour avoir priorité sur elles.",
+        "replaces": "Elles remplacent la journée entière : les services et les heures des heures habituelles ne sont pas conservés. Un jour de la semaine que les heures saisonnières laissent de côté reste sur les autres heures qui le couvrent.",
+        "overlap": "Quand deux ensembles d’heures couvrent la même date, celui dont la priorité est la plus haute l’emporte. En cas d’égalité, celui qui est listé en premier l’emporte."
+      },
+      "special": {
+        "what": "Une date spéciale est une date qui diffère des heures qui la couvrent. Une date peut être réglée pour utiliser un autre ensemble d’heures, ou avoir ses propres heures spéciales.",
+        "replaces": "Les heures spéciales remplacent complètement les services de cette date. Seuls les services listés dans les heures spéciales ont lieu, aux heures indiquées, peu importe ce que disent les heures habituelles ou les heures saisonnières.",
+        "repeat": "Une date spéciale peut se répéter certains jours de la semaine. Retirer une date de la répétition, ou modifier une seule date, remplace la répétition à cette date seulement. Une date retirée retourne aux heures qui se trouvent dessous.",
+        "overlap": "Si deux heures spéciales couvrent la même date, une seule est utilisée (la plus récente dans l’ordre enregistré). Il en va de même pour deux dates réglées pour utiliser d’autres heures. Évitez les dates qui se chevauchent."
+      },
+      "closures": {
+        "what": "Une fermeture retire les clients. Une pause arrête les réservations sur un canal, comme celui en ligne, pendant que les heures restent telles quelles.",
+        "kinds": {
+          "venue": "Une fermeture de l’établissement : aucun service n’a lieu. Personne ne peut réserver, peu importe le canal, et le personnel ne peut pas la contourner.",
+          "service": "Une fermeture d’un service : ce service n’a lieu sur aucun canal et les autres services se poursuivent.",
+          "window": "Une fermeture d’une partie de la journée : les heures dans la plage disparaissent et le reste de la journée demeure réservable.",
+          "pause": "Une pause : les services et les heures restent en place, mais un client ne peut pas réserver sur le canal en pause. Les clients en ligne ne voient aucune heure. La réservation par téléphone reste active, sauf si le téléphone est aussi en pause."
+        },
+        "separate": "Une fermeture et une pause ne s’annulent pas l’une l’autre. Rouvrir un établissement fermé ne lève pas une pause, et Reprendre met fin à la pause seulement.",
+        "overlap": "Deux fermetures sur la même date sont toutes deux conservées, et aucune ne connaît l’autre. L’application vous prévient quand une fermeture que vous ajoutez ne change rien, et quand en rouvrir une laisse la date fermée par une autre.",
+        "tonight": "Les changements faits pour ce soir viennent par-dessus. Fermer plus tôt raccourcit la dernière prise de table et l’heure de fermeture à cette date, et un service qui ouvre à l’heure limite ou après disparaît. Un changement fait pour ce soir ne s’applique qu’à cette date."
+      },
+      "bookingRules": {
+        "what": "Une fois les heures établies, ces règles les transforment en heures que voit un client.",
+        "items": {
+          "spacing": "Prise de table aux : dès l’ouverture, une heure est offerte à intervalles réguliers jusqu’à la dernière prise de table. Un service peut utiliser des heures fixes à la place. Aucune heure n’est offerte à l’heure de fermeture ni après.",
+          "bookedBy": "Réservation par : un service n’est offert que sur les canaux qu’il indique. Un service réservé par téléphone seulement n’apparaît jamais aux clients en ligne.",
+          "removed": "Les fermetures et les pauses retirent les heures qu’elles couvrent, sur les canaux qu’elles couvrent.",
+          "partySize": "Taille du groupe : une heure exige une table activée qui peut accueillir le groupe, entre le plus petit et le plus grand groupe de la table.",
+          "stay": "Durée du séjour : la table doit être libre pendant tout le séjour, qui découle des règles de durée de l’établissement selon la taille du groupe. Une réservation sur la table, ou une retenue qui n’a pas expiré, pendant ce séjour rend la table occupée.",
+          "pacing": "Rythme de réservation : l’établissement peut plafonner les couverts qui commencent dans une plage de temps, et un service peut fixer son propre plafond plus bas. Une heure que ce groupe ferait dépasser un plafond figure dans la liste, mais n’est pas réservable.",
+          "kept": "Une heure sans table libre, ou sans place sous le rythme de réservation, reste dans la liste et est marquée non réservable, avec la raison.",
+          "override": "Le personnel qui réserve par téléphone peut dépasser le rythme de réservation, la dernière prise de table et le plus grand groupe de l’établissement en donnant une raison. Les fermetures, les canaux en pause et les conflits de table ne peuvent pas être contournés.",
+          "window": "L’avance avec laquelle les clients peuvent réserver n’est décidée ni par ces couches ni par ces règles. Elle est vérifiée à part, alors une date qui manque loin dans le futur peut relever de la fenêtre de réservation, pas des heures."
+        }
+      },
+      "sections": {
+        "heading": "Où s’assoient les clients",
+        "what": "Une section est un groupe de tables. Fermer une section bloque ses tables à la date, ou à la partie de la journée, que vous choisissez. Elle ne retire jamais un service ni une heure à elle seule.",
+        "tables": "Une heure reste réservable tant qu’une autre table convenable est libre pour le groupe. Si la section fermée contenait les seules tables qui accueillent un groupe, toutes les heures de ce groupe figurent dans la liste, mais aucune n’est réservable.",
+        "membership": "Une fermeture de section retient la section, pas une liste de tables. Elle bloque les tables que la section contient maintenant, alors déplacer une table dans la section ou hors de celle-ci change ce que bloquent ses fermetures. Une section que le système ne connaît pas ne bloque rien.",
+        "blockedTable": "Le personnel qui choisit une table qu’une fermeture de section bloque se voit refuser, et le refus ne peut pas être contourné."
+      },
+      "examples": {
+        "heading": "Exemples concrets",
+        "intro": "Chaque exemple est exécuté dans le même moteur de disponibilité que les pages de réservation. Les heures affichées sont sa réponse, pas une description.",
+        "seasonalAndSpecial": {
+          "title": "Les heures saisonnières couvrent décembre, mais le 24 décembre est une date spéciale",
+          "scenario": "Les heures habituelles prévoient une prise de table pour le souper à chaque heure en soirée. Les heures de décembre sont des heures saisonnières qui couvrent du 1er au 31 décembre, avec le souper qui commence une heure plus tôt. Le 24 décembre est une date spéciale avec des heures spéciales plus courtes.",
+          "checks": {
+            "beforeSeason": "Mardi 30 novembre 2027, un client en ligne, groupe de 2",
+            "inSeason": "Jeudi 23 décembre 2027, un client en ligne, groupe de 2",
+            "specialDate": "Vendredi 24 décembre 2027, un client en ligne, groupe de 2"
+          },
+          "why": "Le 30 novembre, seules les heures habituelles couvrent la date. Le 23 décembre, les heures saisonnières prennent le relais. Le 24 décembre, les heures spéciales de la date remplacent les heures saisonnières, alors les clients voient la journée plus courte."
+        },
+        "closureBeatsSpecial": {
+          "title": "Une fermeture l’emporte sur les heures spéciales",
+          "scenario": "Le 24 décembre a des heures spéciales, et l’établissement est aussi fermé à cette date.",
+          "checks": {
+            "online": "Vendredi 24 décembre 2027, un client en ligne, groupe de 2",
+            "phone": "Vendredi 24 décembre 2027, le personnel qui réserve par téléphone, groupe de 2"
+          },
+          "why": "Les fermetures sont au-dessus des heures, alors aucun service n’a lieu. Un client ne peut pas réserver en ligne et le personnel ne peut pas réserver par téléphone."
+        },
+        "pauseVersusClosure": {
+          "title": "Pause ou fermeture",
+          "scenario": "Les réservations en ligne sont en pause le vendredi 26 novembre. L’établissement est fermé le samedi 27 novembre.",
+          "checks": {
+            "pausedOnline": "Vendredi 26 novembre 2027, un client en ligne, groupe de 2",
+            "pausedPhone": "Vendredi 26 novembre 2027, le personnel qui réserve par téléphone, groupe de 2",
+            "closedOnline": "Samedi 27 novembre 2027, un client en ligne, groupe de 2",
+            "closedPhone": "Samedi 27 novembre 2027, le personnel qui réserve par téléphone, groupe de 2"
+          },
+          "why": "La pause laisse les heures telles quelles et n’arrête que le canal en ligne, alors le personnel peut encore réserver par téléphone. La fermeture retire les services, alors aucun canal ne peut réserver."
+        },
+        "sectionClosed": {
+          "title": "Une section fermée",
+          "scenario": "La section de la terrasse est fermée le vendredi 26 novembre. La table de quatre de la terrasse est la seule qui accueille quatre personnes. La table de deux à l’intérieur en accueille deux au plus.",
+          "checks": {
+            "partyOfFour": "Vendredi 26 novembre 2027, un client en ligne, groupe de 4",
+            "partyOfTwo": "Vendredi 26 novembre 2027, un client en ligne, groupe de 2"
+          },
+          "why": "Une section fermée bloque ses tables, pas les heures. Un groupe de deux réserve encore à l’intérieur. Pour un groupe de quatre, toutes les heures figurent dans la liste, mais aucune n’est réservable, car aucune table convenable n’est libre."
+        },
+        "pacing": {
+          "title": "Le rythme de réservation plafonne une heure chargée",
+          "scenario": "Le vendredi 26 novembre, le souper a un plafond de rythme de quatre couverts par heure, et un groupe de quatre est déjà réservé à 18 h.",
+          "checks": {
+            "partyOfTwo": "Vendredi 26 novembre 2027, un client en ligne, groupe de 2"
+          },
+          "why": "Un groupe de deux à 18 h porterait cette heure à six couverts, au-dessus du plafond, alors 18 h figure dans la liste, mais n’est pas réservable même si une table est libre. Les autres heures ne sont pas touchées."
+        }
+      },
+      "outcome": {
+        "none": "Aucune heure offerte.",
+        "bookable": "Réservable : {{times}}",
+        "noTable": "Dans la liste mais non réservable, aucune table convenable n’est libre : {{times}}",
+        "pacing": "Dans la liste mais non réservable, le plafond du rythme de réservation est atteint : {{times}}"
+      },
+      "troubleshooting": {
+        "heading": "Pourquoi un client ne peut-il pas réserver cette heure?",
+        "lead": "Disons qu’un client ne peut pas réserver à 19 h le vendredi. Parcourez cette liste dans l’ordre, comme les couches s’empilent.",
+        "steps": {
+          "checkDate": "Vérifier une date : ouvrez ce vendredi dans la section Disponibilité. Vous y voyez les couches qui s’appliquent et laquelle l’a emporté.",
+          "special": "Date spéciale : ce vendredi est-il une date spéciale? Ses heures spéciales remplacent tout ce qui est dessous, alors seuls les services listés là ont lieu, aux heures indiquées.",
+          "seasonal": "Heures saisonnières : couvrent-elles ce vendredi, et les vendredis en particulier? Si oui, leurs heures s’appliquent à la place des heures habituelles.",
+          "regular": "Heures habituelles : si rien de ce qui précède ne s’applique, le vendredi a-t-il un service ouvert à 19 h, avec 19 h à la dernière prise de table ou avant?",
+          "seatEvery": "Prise de table aux : 19 h est-elle une des heures que le service offre? Une prise de table aux 45 minutes à partir de 17 h offre 17 h, 17 h 45, 18 h 30 et 19 h 15, pas 19 h.",
+          "bookedBy": "Réservation par : le service indique-t-il le canal utilisé par le client? Un service réservé par téléphone seulement n’apparaît jamais en ligne.",
+          "closures": "Fermetures : l’établissement, ce service ou une plage qui couvre 19 h est-il fermé à cette date? Consultez Fermetures et pauses.",
+          "pause": "Pause : les réservations en ligne sont-elles en pause? La réservation par téléphone peut encore fonctionner.",
+          "tonight": "Ce soir : si la date est aujourd’hui, Fermer plus tôt ou un rythme de réservation plus bas a-t-il été réglé pour ce soir?",
+          "tables": "Tables et taille du groupe : une table accueille-t-elle le groupe? La section de cette table est-elle fermée? Chaque table convenable est-elle occupée pendant tout le séjour?",
+          "pacing": "Rythme de réservation : 19 h figure-t-elle dans la liste, mais complète parce qu’un plafond de rythme est atteint?",
+          "window": "Fenêtre de réservation : la date est-elle plus loin que ce que les clients peuvent réserver? Cette limite ne fait pas partie des couches ci-dessus."
+        }
       }
     }
   },

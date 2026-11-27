@@ -19,6 +19,8 @@ export interface WeekChangesProps {
   readonly onPlanHolidays: () => void;
   /** Section names by id, so a section closure reads "Bar closed". */
   readonly sectionNames?: ReadonlyMap<string, string>;
+  /** The page's settled role: only a Manager is offered undecided holidays. */
+  readonly isManager: boolean;
 }
 
 interface HolidayRowProps {
@@ -145,7 +147,7 @@ function useFocusAfterLeave(
  * line says so and holds focus. On a phone it starts as one count line with Show.
  */
 export function WeekChanges(props: WeekChangesProps) {
-  const { venueId, config, onOpenDay, onPlanHolidays, sectionNames } = props;
+  const { venueId, config, onOpenDay, onPlanHolidays, sectionNames, isManager } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
   const headingId = useId();
@@ -156,7 +158,7 @@ export function WeekChanges(props: WeekChangesProps) {
   const headingRef = useRef<HTMLElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const emptyRef = useRef<HTMLElement>(null);
-  const { rows, first, more, decisions } = useWeekRows(venueId, config);
+  const { rows, first, more, decisions } = useWeekRows(venueId, config, isManager);
   const { statusOf, openAsUsual } = useOpenAsUsual(venueId, decisions);
   const visible = showAll ? rows : first;
   const leavingRef = useFocusAfterLeave(visible, {
@@ -174,11 +176,14 @@ export function WeekChanges(props: WeekChangesProps) {
   if (onPhone && !opened && rows.length > 0) {
     return (
       <section aria-label={title} className={styles.collapsed}>
-        <Text variant="caption" color="secondary">
+        <Button
+          variant="ghost"
+          size="sm"
+          // Starts with the visible count (WCAG 2.5.3) and says what it opens.
+          aria-label={t("availability.weekChanges.collapsedLabel", { count: rows.length })}
+          onClick={() => setOpened(true)}
+        >
           {t("availability.weekChanges.collapsed", { count: rows.length })}
-        </Text>
-        <Button variant="ghost" size="sm" onClick={() => setOpened(true)}>
-          {t("availability.weekChanges.show")}
         </Button>
       </section>
     );

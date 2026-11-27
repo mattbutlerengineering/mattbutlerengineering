@@ -49,6 +49,7 @@ Main must always be green. All PRs require **CI Gate** to pass before merge.
 - **If main breaks, fix is top priority.** Drop current work and restore green.
 - **Node 22 is pinned via `.nvmrc`.** Run `nvm use` before regenerating generated artifacts.
 - **Revert watchdog** monitors every commit to main and files CRITICAL issues if CI fails.
+- **PR CI must reach `CI Gate` in under 15 min at p90, push to result (ADR-036).**
 
 ## Zero-Touch Audit (Quality Mandate)
 

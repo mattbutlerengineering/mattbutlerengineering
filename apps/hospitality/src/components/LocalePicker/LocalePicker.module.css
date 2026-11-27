@@ -10,7 +10,8 @@
   gap: var(--rialto-space-xs);
 }
 
-.trigger {
+.trigger,
+button.trigger {
   display: inline-flex;
   align-items: center;
   gap: var(--rialto-space-xs);

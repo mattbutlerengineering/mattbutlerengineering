@@ -96,6 +96,31 @@ describe("Button", () => {
       expect(button).toHaveFocus();
       expect(button).not.toBeDisabled();
     });
+
+    // #10019: the press must still land (e.g. a refused Save focuses its
+    // problem field). jsdom ignores the CSS module, so the pointer-events
+    // half of this contract is pinned in Button.aria-disabled.test.ts.
+    it("still fires onClick on a pointer press, while a disabled Button does not", async () => {
+      // pointerEventsCheck: 0 lets the press reach the native-disabled
+      // Button too, so the browser's own refusal is what is asserted.
+      const user = userEvent.setup({ pointerEventsCheck: 0 });
+      const onAriaDisabledClick = vi.fn();
+      const onDisabledClick = vi.fn();
+      render(
+        <>
+          <Button aria-disabled="true" onClick={onAriaDisabledClick}>
+            Refused
+          </Button>
+          <Button disabled onClick={onDisabledClick}>
+            Off
+          </Button>
+        </>
+      );
+      await user.click(screen.getByRole("button", { name: "Refused" }));
+      await user.click(screen.getByRole("button", { name: "Off" }));
+      expect(onAriaDisabledClick).toHaveBeenCalledTimes(1);
+      expect(onDisabledClick).not.toHaveBeenCalled();
+    });
   });
 
   describe("loading state", () => {

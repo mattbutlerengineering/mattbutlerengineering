@@ -526,6 +526,119 @@ describe("useBookingFlow", () => {
       });
     });
 
+    it("waits for the venue config before asking for closed dates, so the window is known (#9950)", async () => {
+      const fakeApi = makeFakeApi();
+      let resolveConfig: (config: PublicVenueConfig) => void = () => undefined;
+      fakeApi.venues.getPublicConfig.mockReturnValue(
+        new Promise<PublicVenueConfig>((resolve) => {
+          resolveConfig = resolve;
+        })
+      );
+      renderBookingFlow(fakeApi, { venueTimezone: "America/New_York" });
+
+      await waitFor(() => expect(fakeApi.venues.getPublicConfig).toHaveBeenCalled());
+      expect(fakeApi.availability.getClosedDates).not.toHaveBeenCalled();
+
+      act(() => resolveConfig(makePublicVenueConfig({ settings: { maxAdvanceBooking: 30 } })));
+      const today = venueDate(new Date(), "America/New_York");
+      await waitFor(() =>
+        expect(fakeApi.availability.getClosedDates).toHaveBeenCalledWith(DEFAULT_SLUG, {
+          from: today,
+          to: addDays(today, 30),
+        })
+      );
+      expect(fakeApi.availability.getClosedDates).toHaveBeenCalledTimes(1);
+    });
+
+    it("drops back to the weekly fallback while a widened window loads, and stays there if it fails (#9950)", async () => {
+      const fakeApi = makeFakeApi();
+      fakeApi.venues.getPublicConfig.mockResolvedValue(
+        makePublicVenueConfig({ settings: { maxAdvanceBooking: 14 } })
+      );
+      fakeApi.availability.getClosedDates
+        .mockResolvedValueOnce([])
+        .mockRejectedValueOnce(new Error("down"));
+      const { result, rerender } = renderHook(
+        ({ memberLeadDays }: { memberLeadDays: number }) =>
+          useBookingFlow({
+            api: fakeApi as unknown as BookingWidgetApiClient,
+            venueSlug: DEFAULT_SLUG,
+            venueTimezone: "America/New_York",
+            memberLeadDays,
+          }),
+        { initialProps: { memberLeadDays: 0 } }
+      );
+
+      await waitFor(() => expect(result.current.data.closedDatesLoaded).toBe(true));
+      rerender({ memberLeadDays: 7 });
+
+      const today = venueDate(new Date(), "America/New_York");
+      await waitFor(() =>
+        expect(fakeApi.availability.getClosedDates).toHaveBeenLastCalledWith(DEFAULT_SLUG, {
+          from: today,
+          to: addDays(today, 21),
+        })
+      );
+      expect(result.current.data.closedDatesLoaded).toBe(false);
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(result.current.data.closedDatesLoaded).toBe(false);
+    });
+
+    it("drops a superseded closed-dates response (#9950)", async () => {
+      const fakeApi = makeFakeApi();
+      fakeApi.venues.getPublicConfig.mockResolvedValue(
+        makePublicVenueConfig({ settings: { maxAdvanceBooking: 14 } })
+      );
+      let resolveFirst: (dates: unknown[]) => void = () => undefined;
+      fakeApi.availability.getClosedDates
+        .mockReturnValueOnce(
+          new Promise((resolve) => {
+            resolveFirst = resolve;
+          })
+        )
+        .mockReturnValueOnce(new Promise(() => undefined));
+      const { result, rerender } = renderHook(
+        ({ memberLeadDays }: { memberLeadDays: number }) =>
+          useBookingFlow({
+            api: fakeApi as unknown as BookingWidgetApiClient,
+            venueSlug: DEFAULT_SLUG,
+            memberLeadDays,
+          }),
+        { initialProps: { memberLeadDays: 0 } }
+      );
+
+      await waitFor(() => expect(fakeApi.availability.getClosedDates).toHaveBeenCalledTimes(1));
+      rerender({ memberLeadDays: 7 });
+      await waitFor(() => expect(fakeApi.availability.getClosedDates).toHaveBeenCalledTimes(2));
+      await act(async () => {
+        resolveFirst([{ date: "2026-12-24", closure: { message: "Private event" } }]);
+      });
+
+      expect(result.current.data.closedDatesLoaded).toBe(false);
+      expect(result.current.data.closures).toEqual({});
+    });
+
+    it("clamps an explicit maxDate before today to today (#9950)", async () => {
+      const fakeApi = makeFakeApi();
+      const today = venueDate(new Date());
+      renderHook(() =>
+        useBookingFlow({
+          api: fakeApi as unknown as BookingWidgetApiClient,
+          venueSlug: DEFAULT_SLUG,
+          maxDate: addDays(today, -3),
+        })
+      );
+
+      await waitFor(() =>
+        expect(fakeApi.availability.getClosedDates).toHaveBeenCalledWith(DEFAULT_SLUG, {
+          from: today,
+          to: today,
+        })
+      );
+    });
+
     it("keeps working from the lazy path when the closed-dates listing fails", async () => {
       const fakeApi = makeFakeApi();
       fakeApi.availability.getClosedDates.mockRejectedValue(new Error("down"));
@@ -1200,6 +1313,50 @@ describe("useBookingFlow", () => {
       expect(result.current.data.holdError).toBeNull();
       expect(result.current.data.confirmError).toBeNull();
       expect(result.current.data.depositPaymentIntentId).toBeNull();
+    });
+
+    it("resetFlow keeps the venue's config, deposit policy and closed dates (#9970)", async () => {
+      const closedDay = addDays(venueDate(new Date()), 3);
+      const fakeApi = makeFakeApi();
+      fakeApi.venues.getPublicConfig.mockResolvedValue(depositVenueConfig({ amountCents: 2500 }));
+      fakeApi.availability.getClosedDates.mockResolvedValue([
+        { date: closedDay, closure: { message: "Private event" } },
+      ]);
+      const { result } = renderHook(() =>
+        useBookingFlow({
+          api: fakeApi as unknown as BookingWidgetApiClient,
+          venueSlug: DEFAULT_SLUG,
+          stripePublishableKey: "pk_test_123",
+        })
+      );
+      await waitFor(() => expect(result.current.data.closedDatesLoaded).toBe(true));
+      expect(result.current.data.depositRequired).toBe(true);
+      const venueConfig = result.current.data.venueConfig;
+      const depositConfig = result.current.data.depositConfig;
+
+      act(() => result.current.actions.setSelectedDate(addDays(venueDate(new Date()), 1)));
+      await act(async () => {
+        await result.current.actions.selectSlotAndHold(mockSlot);
+      });
+      await act(async () => {
+        await result.current.actions.confirmReservation(guestDetails);
+      });
+      act(() => result.current.actions.resetFlow());
+
+      expect(result.current.data.venueConfig).toBe(venueConfig);
+      expect(result.current.data.venueConfigSettled).toBe(true);
+      expect(result.current.data.depositConfig).toBe(depositConfig);
+      expect(result.current.data.depositRequired).toBe(true);
+      expect(result.current.data.closedDatesLoaded).toBe(true);
+      expect(result.current.data.closures).toEqual({ [closedDay]: "Private event" });
+      // The guest's own draft is still cleared.
+      expect(result.current.data.reservation).toBeNull();
+      expect(result.current.data.guestDetails).toEqual({
+        name: "",
+        email: "",
+        phone: "",
+        notes: "",
+      });
     });
   });
 

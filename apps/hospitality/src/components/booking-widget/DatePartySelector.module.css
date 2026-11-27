@@ -17,6 +17,16 @@
   margin-block-end: var(--rialto-space-xs);
 }
 
+/* Space under the stepper labels above, and a calendar centred in the card at desktop widths. */
+.dateLabel {
+  margin-block-start: var(--rialto-space-sm);
+}
+
+.calendarWrap {
+  display: flex;
+  justify-content: center;
+}
+
 .partyGrid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);

@@ -1,10 +1,12 @@
+import { useState, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfigState } from "@mbe/types";
 import { useAvailabilityScope } from "../hooks/useAvailabilityScope.js";
 import { AvailabilityLayout } from "./AvailabilityLayout.js";
+import { SubnavSlotContext } from "../components/availability/rail/subnav-slot.js";
 
 const venue = vi.hoisted(() => ({
   selectedVenueId: "venue-1" as string | null,
@@ -30,6 +32,8 @@ vi.mock("../hooks/useAvailability.js", () => ({
   useRevertAvailabilityChange: () => ({ mutateAsync: vi.fn() }),
 }));
 vi.mock("../hooks/useIsManager.js", () => ({ useManagerAccess: () => access }));
+const plans = vi.hoisted(() => ({ data: undefined as { id: string; name: string }[] | undefined }));
+vi.mock("../hooks/useFloorPlans.js", () => ({ useFloorPlans: () => ({ data: plans.data }) }));
 
 const STATE = {
   config: {
@@ -63,7 +67,18 @@ function ScopeProbe() {
   );
 }
 
-function renderLayout() {
+/** The sidebar slot the rail renders into, as the dashboard shell provides it (#9944). */
+function SubnavHost({ children }: { readonly children: ReactNode }) {
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
+  return (
+    <SubnavSlotContext.Provider value={{ slot, setSlot, onPick: () => undefined }}>
+      <div ref={setSlot} />
+      {children}
+    </SubnavSlotContext.Provider>
+  );
+}
+
+function renderLayout(url = "/availability/calendar") {
   const router = createMemoryRouter(
     [
       {
@@ -72,11 +87,13 @@ function renderLayout() {
         children: [{ path: "calendar", element: <ScopeProbe /> }],
       },
     ],
-    { initialEntries: ["/availability/calendar"] }
+    { initialEntries: [url] }
   );
   return render(
     <ToastProvider>
-      <RouterProvider router={router} />
+      <SubnavHost>
+        <RouterProvider router={router} />
+      </SubnavHost>
     </ToastProvider>
   );
 }
@@ -94,6 +111,7 @@ describe("AvailabilityLayout", () => {
     config.error = null;
     access.isManager = true;
     access.isPending = false;
+    plans.data = undefined;
   });
 
   afterEach(() => {
@@ -176,5 +194,39 @@ describe("AvailabilityLayout", () => {
     renderLayout();
     screen.getByRole("button", { name: "refresh" }).click();
     expect(config.refetch).toHaveBeenCalledTimes(1);
+  });
+
+  describe("the rail", () => {
+    const rail = () => screen.getByRole("navigation", { name: "Availability sections" });
+
+    it("shows every Availability screen beside the child, with the open one current", () => {
+      renderLayout("/availability/calendar?tab=calendar");
+      expect(read("venue")).toBe("venue-1");
+      expect(within(rail()).getByRole("link", { name: "Closures and pauses" })).toHaveAttribute(
+        "href",
+        "/availability/closures"
+      );
+      expect(within(rail()).getByRole("link", { name: "Calendar" })).toHaveAttribute(
+        "aria-current",
+        "page"
+      );
+    });
+
+    it("lists the venue's floor plans under Where guests sit once they load", () => {
+      plans.data = [{ id: "fp-1", name: "Main floor" }];
+      renderLayout();
+      expect(within(rail()).getByText("Where guests sit")).toBeInTheDocument();
+      expect(within(rail()).getByRole("link", { name: "Main floor" })).toHaveAttribute(
+        "href",
+        "/floor-plans/fp-1"
+      );
+    });
+
+    it("leaves regular and seasonal hours out for a Host", () => {
+      access.isManager = false;
+      renderLayout();
+      expect(within(rail()).queryByRole("link", { name: "Regular hours" })).not.toBeInTheDocument();
+      expect(within(rail()).getByRole("link", { name: "History" })).toBeInTheDocument();
+    });
   });
 });

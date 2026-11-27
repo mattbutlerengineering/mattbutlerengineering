@@ -56,7 +56,7 @@ not a new row in the catalog below and not an edit of the builtin array in
 | `mbe-daily-issue` _(new)_    | `trig_01Df3XFeJnGYeH33NeqE1Mp3`         | [`routines/mbe-daily-issue.md`](./routines/mbe-daily-issue.md)               | Daily 7:21am        | `CRON_TZ=America/Los_Angeles 21 7 * * *`  | sonnet   | 1 merged PR                                         | One `ready` issue taken all the way to CLOSED — review gate, `CI Gate`, squash merge (see note)                                                                       |
 | `mbe-morning`                | `trig_01QYoHCMjUgJybAoXUvjjrWX`         | [`routines/mbe-morning.md`](./routines/mbe-morning.md)                       | Daily 9:03am        | `CRON_TZ=America/Los_Angeles 3 9 * * *`   | sonnet   | issues                                              | `/ideate` (cycle-check + ideation) — ACMM audit step retired (#5955), see prompt file                                                                                 |
 | `mbe-learning-loop`          | `trig_018hcYeu5uCXgiddRwqaeYwd`         | [`routines/mbe-learning-loop.md`](./routines/mbe-learning-loop.md)           | Daily 11:00am       | `CRON_TZ=America/Los_Angeles 0 11 * * *`  | sonnet   | issues                                              | Sensor report → verify past fixes → triage regressions                                                                                                                |
-| `mbe-ui-quality` _(new)_     | `trig_01DYzgRBp66dxwQ828y9x1jV`         | [`routines/mbe-ui-quality.md`](./routines/mbe-ui-quality.md)                 | Daily 12:23am       | `CRON_TZ=America/Los_Angeles 23 0 * * *`  | **opus** | 1 PR (`ledger <date>`) + ≤1 fix PR + issues         | Captures due routes of the three apps, judges them against the rubric, files findings (see note)                                                                      |
+| `mbe-ui-quality` _(new)_     | `trig_01DYzgRBp66dxwQ828y9x1jV`         | [`routines/mbe-ui-quality.md`](./routines/mbe-ui-quality.md)                 | Daily 12:23am       | `CRON_TZ=America/Los_Angeles 23 0 * * *`  | **opus** | 1 PR (`ledger <date>`) + ≤3 fix PR + issues         | Captures due routes of the three apps, judges them against the rubric, files findings (see note)                                                                      |
 | `mbe-feature-drain` _(new)_  | `trig_01RT7JnCPWyxw4fcKKVmCTb8` (`:03`) | [`routines/mbe-feature-drain.md`](./routines/mbe-feature-drain.md)           | Hourly              | `3 * * * *`                               | sonnet   | merged PRs (`… (mbe-feature-drain #N)`) + heartbeat | Finish in-flight user-facing work (red main → open PRs → orphaned issues → `ready`), then decompose one post-veto proposal; parks PRs after a merge denial (see note) |
 | `mbe-weekly-improve`         | `trig_01G12wULcCweXSb2jmVkChPW`         | [`routines/mbe-weekly-improve.md`](./routines/mbe-weekly-improve.md)         | Fri 7:00am          | `CRON_TZ=America/Los_Angeles 0 7 * * 5`   | **opus** | 1 PR (`weekly improve <date>`) + `ready` issues     | Codebase improvement survey → implement the best change (see note)                                                                                                    |
 | `mbe-doc-rot` _(new)_        | `trig_0176gF6ty4Jg8oyyXYApKWyi`         | [`routines/mbe-doc-rot.md`](./routines/mbe-doc-rot.md)                       | Fri 8:00am          | `CRON_TZ=America/Los_Angeles 0 8 * * 5`   | sonnet   | 1 PR                                                | Documentation drift — dead links, stale refs, and false claims in docs (see note)                                                                                     |
@@ -126,8 +126,8 @@ not a new row in the catalog below and not an edit of the builtin array in
 > **`mbe-ui-quality`** works the UI coverage ledger: it captures the due
 > routes of marketing, rialto-web and hospitality against a local build,
 > judges them against `docs/ui-quality/rubric.md`, and files what the scripts
-> under `scripts/ui-quality/` plan — issues, backlog seeds and at most one fix
-> PR, never merged. Its state lives on the rolling `ui-quality/ledger` branch,
+> under `scripts/ui-quality/` plan — issues, backlog seeds and at most three fix
+> PRs, each reviewed and handed to `reviewed-merge.yml` per the fix protocol. Its state lives on the rolling `ui-quality/ledger` branch,
 > which every fire checks out first (`state.mjs checkout`); every fire, no-op
 > ones included, commits `chore(ui-quality): ledger <date>` there — its
 > liveness signature, dated by that commit — and opens the PR only when none
@@ -156,8 +156,9 @@ not a new row in the catalog below and not an edit of the builtin array in
 > they get `security`+`needs-review` and wait for a human merge.
 
 > **Fix, don't ticket (#9947).** `mbe-auditor`, `mbe-learning-loop`,
-> `mbe-evening`'s optimize step, `mbe-weekly-improve`, `mbe-weekly-retro` and
-> `mbe-monthly-meta-audit` all read
+> `mbe-evening`'s optimize step, `mbe-weekly-improve`, `mbe-weekly-retro`,
+> `mbe-monthly-meta-audit`, `mbe-doc-rot` and `mbe-ui-quality` (up to 3 fix
+> PRs a fire, #10001) all read
 > [`routines/fix-protocol.md`](./routines/fix-protocol.md) from their checkout.
 > A finding they can root-cause is fixed in a PR, reviewed by the `reviewer`
 > subagent and handed to `reviewed-merge.yml`; an issue is filed only when the
@@ -410,7 +411,7 @@ to a single worker without worktree isolation in cloud and keep the local
     stays distinct from the threshold-regression exit **1**, and a non-run
     result is still never appended to `metrics/eval-reports.jsonl`, so it
     can't poison the baseline either way.
-- **Does not merge.** One PR titled `<type>(<scope>): weekly improve <date> — <short description>`
+- **Hands passing PRs to `reviewed-merge.yml`** per [`routines/fix-protocol.md`](./routines/fix-protocol.md); never merges in-session. The headline PR is titled `<type>(<scope>): weekly improve <date> — <short description>`
   (e.g. `fix(routines): weekly improve 2026-09-19 — dedupe stale worktree reaper`) —
   this signature is what makes the routine's liveness verifiable (#5344; see
   `mbe-weekly-retro` Pass 1). It also appends a dated entry to
@@ -443,8 +444,8 @@ to a single worker without worktree isolation in cloud and keep the local
 - **Dedup is mandatory** — see the note under the routine catalog. `mbe-auditor`'s
   Friday lens covers the same surface earlier the same day and fixes what it
   can, so doc-rot leaves files an open `(mbe-auditor)` PR touches alone.
-- **Does not merge.** One PR titled `docs: weekly rot sweep <date>`; `ready`
-  issues only for rot it could not safely fix itself.
+- **Hands passing PRs to `reviewed-merge.yml`** per [`routines/fix-protocol.md`](./routines/fix-protocol.md); never merges in-session. One PR titled `docs: weekly rot sweep <date>`;
+  `ready` issues only for rot it could not safely fix itself.
 - **Zero changes is a successful run.** The prompt explicitly forbids padding the
   PR with cosmetic rewording — rot means _wrong_, not unpolished.
 
@@ -518,14 +519,16 @@ to a single worker without worktree isolation in cloud and keep the local
   > Adjust in the web UI if a Friday cadence is preferred.
 - **What it does:** runs the `claude-md-improver` and `claude-automation-recommender`
   skills (both in `.claude/skills/`), then opens **one PR** for the best doc/automation
-  improvement and files `ready` issues for the rest. Targets Claude Code config quality:
+  improvement, fixes up to 2 more findings in their own PRs, and files `ready`
+  issues only for what it cannot fix. Targets Claude Code config quality:
   stale CLAUDE.md references, missing guidance, and worthwhile new hooks/agents/skills.
 - **Promo-video prompt:** a second step looks at the previous month for big releases
   and, when it finds any, opens one `ready-for-human` issue asking the Owner whether to
   record a launch video. It never records anything: the browser recorder needs a local
   dev server. The Owner approves by running `/idea-to-prod:launch-demo` locally, or
   closes the issue to skip. Steps to publish: [`launch-demo.md`](./launch-demo.md).
-- **Does not merge.**
+- **Hands passing PRs to `reviewed-merge.yml`** per [`routines/fix-protocol.md`](./routines/fix-protocol.md); never merges in-session. Most of its PRs touch `CLAUDE.md` or
+  `.claude/**`, so they are held with `needs-review` for the Owner.
 
 ## `optimize-implement-queue` (folded into `mbe-evening`)
 

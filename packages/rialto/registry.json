@@ -2677,7 +2677,7 @@
     },
     {
       "name": "Hero",
-      "description": "Marketing splash section with centered content, atmospheric\ndecorative touches, and a staggered entrance. The title and subtitle\n(Hero's LCP candidates) settle into place without fading — they stay\nopaque and only their position animates; eyebrow, divider, and actions\nstill fade up.\n\nWrap text in `<span className=\"accent\">` inside `title`\nto apply the gold accent color.",
+      "description": "Marketing splash section with centered content, atmospheric\ndecorative touches, and a staggered entrance. The title and subtitle\n(Hero's LCP candidates) settle into place without fading — they stay\nopaque and only their position animates, as do the actions; eyebrow and\ndivider still fade up.\n\nWrap text in `<span className=\"accent\">` inside `title`\nto apply the gold accent color.",
       "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {

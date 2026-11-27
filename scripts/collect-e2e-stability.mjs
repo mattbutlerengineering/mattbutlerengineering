@@ -30,6 +30,7 @@
  *   }
  */
 
+import { E2E_SUITE_FILTERS } from "./e2e-changed-suites.mjs";
 import { isFrontendPath } from "./zone-vocabulary.mjs";
 
 /**
@@ -44,28 +45,12 @@ function isFrontendRun(changedPaths) {
 
 /**
  * Path prefixes (or exact files) that un-skip at least one E2E suite: the union
- * of the `changes` job's filters in .github/workflows/e2e.yml, pinned by
- * collect-e2e-stability.test.mjs. e2e.yml starts on every PR (#9834), so a run
- * touching none of these skipped every suite and concluded `success` having
- * tested nothing.
+ * of the per-suite filters `e2e.yml`'s `changes` job applies through
+ * scripts/e2e-changed-suites.mjs (#10025; one source, so the two cannot drift).
+ * e2e.yml runs for every PR after CI Gate (#9834), so a run touching none of
+ * these skipped every suite and concluded `success` having tested nothing.
  */
-export const E2E_SUITE_PATHS = Object.freeze([
-  "apps/hospitality/",
-  "apps/marketing/",
-  "apps/gen/",
-  "packages/rialto/",
-  "packages/rialto-catalog/",
-  "packages/api-client/",
-  "packages/auth/",
-  "services/reservations/",
-  "services/users/",
-  "packages/database/",
-  ".github/workflows/e2e.yml",
-  "scripts/e2e-auth-preflight.mjs",
-  "scripts/e2e-failure-rate.mjs",
-  "scripts/e2e-cross-branch-red.mjs",
-  "scripts/check-endpoint.mjs",
-]);
+export const E2E_SUITE_PATHS = Object.freeze([...new Set(Object.values(E2E_SUITE_FILTERS).flat())]);
 
 function ranASuite(changedPaths) {
   return changedPaths.some((path) =>

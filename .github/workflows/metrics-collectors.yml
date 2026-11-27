@@ -141,7 +141,49 @@ jobs:
             echo "Not due yet (not Monday, and the recorded sdlcSpeed row is still fresh); skipping."
             exit 0
           fi
-          node scripts/collect-sdlc-speed.mjs --days 7 --record | tee -a "$GITHUB_STEP_SUMMARY"
+          node scripts/collect-sdlc-speed.mjs --days 7 --record | tee -a "$GITHUB_STEP_SUMMARY" "$RUNNER_TEMP/sdlc-speed.json"
+
+      # ADR-036: PR CI must reach `CI Gate` in at most 15 min at p90 (push to
+      # result, queue included). The record step above leaves its JSON in
+      # $RUNNER_TEMP; a breach becomes one deduped `ci-fix` issue, refreshed with
+      # a comment while it stays open. Deliberately NOT `ready`: a human picks the
+      # lever (#10009).
+      - name: File CI push-to-gate breach issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -o pipefail
+          report="$RUNNER_TEMP/sdlc-speed.json"
+          if [ ! -f "$report" ] || [ "$(jq -r '.absoluteBreach' "$report")" != "true" ]; then
+            echo "No push-to-CI-Gate breach to report (not collected today, or p90 within target)."
+            exit 0
+          fi
+          p90="$(jq -r '.pushToGate.p90' "$report")"
+          {
+            echo "PR CI push→\`CI Gate\` p90 is **${p90} min**, over the 15 min target set by ADR-036."
+            echo
+            echo "- p50: $(jq -r '.pushToGate.p50' "$report") min, p90: ${p90} min"
+            echo "- Runs measured: $(jq -r '.pushToGate.runs' "$report") (skipped, no completed CI Gate: $(jq -r '.pushToGate.skipped' "$report"))"
+            echo "- Queue share (time before the first job started): $(jq -r '(.pushToGate.queueShare * 100) | round' "$report")%"
+            echo "- Slowest jobs by median:"
+            jq -r '.pushToGate.slowestJobs[] | "  - \(.name): \(.medianMin) min"' "$report"
+            echo
+            echo "Clock: ci.yml run \`created_at\` (queue included) to the \`CI Gate\` job \`completed_at\`, p90 over the last 7 days of pull_request runs."
+            echo "Tracking: https://github.com/${GITHUB_REPOSITORY}/issues/10009"
+            echo
+            echo "---"
+            echo "*Auto-created by the metrics-collectors workflow*"
+          } > "$RUNNER_TEMP/ci-gate-breach.md"
+
+          # Deliberately NOT labeled `ready`.
+          node scripts/lib/file-issue-cli.mjs \
+            --title "CI push→CI Gate p90 is ${p90} min, over the 15 min target (ADR-036)" \
+            --label "ci-fix" \
+            --body-file "$RUNNER_TEMP/ci-gate-breach.md" \
+            --comment-body-file "$RUNNER_TEMP/ci-gate-breach.md" \
+            --dedupe-key "ci-push-to-gate-p90" \
+            --search-label "ci-fix" \
+            --contains "CI push→CI Gate p90 is"
 
       - name: Collect AI issue feedback
         continue-on-error: true
