@@ -6,7 +6,7 @@ on:
     # `docs/**` and `**.md` are deliberately NOT ignored. `detect-changes` sets
     # has_code=false for a docs-only commit and every expensive job chains to
     # `prepare`, which is gated on has_code == 'true' — so such a push runs
-    # only detect-changes + docs-format + trivy + ci-gate. Ignoring them here
+    # only detect-changes + docs-format + containers + ci-gate. Ignoring them here
     # instead meant a docs-only commit reaching main (by merge or by direct
     # push) was never prettier-checked, and the dirty files then failed "Run
     # Full Repository Audit" on the next code PR (#4787 -> #4790/#4792/#4797
@@ -22,10 +22,9 @@ on:
   # Bare workflow_dispatch trigger — lets other workflows (e.g. drift-fix.yml)
   # dispatch a CI run on a branch after a GITHUB_TOKEN-created PR, working
   # around GitHub's anti-recursion rule (workflow_dispatch is a documented
-  # exception). Every job below is event-agnostic except migration-dry-run,
-  # which is intentionally pull_request-only and treated as an allowed
-  # "skipped" by the CI Gate job, so a dispatch run still completes and
-  # reports CI Gate on the dispatched ref's head SHA.
+  # exception). Every job below is event-agnostic; the migrations job's
+  # dry-run steps are pull_request-only at the step level, so a dispatch run
+  # still completes and reports CI Gate on the dispatched ref's head SHA.
   workflow_dispatch:
 
 concurrency:
@@ -65,9 +64,9 @@ jobs:
           fi
           # Container Checks job (#10010): the Trivy and hadolint scans read
           # only the Dockerfiles. Also run when what the images copy at the
-          # root (lockfile, workspace manifests, patches), .dockerignore or this
-          # workflow changed.
-          CONTAINER_CHANGES=$(git diff --name-only "origin/$BASE_REF"...HEAD -- ':(glob)**/Dockerfile*' ':(glob)**/.dockerignore' pnpm-lock.yaml pnpm-workspace.yaml package.json patches/ .github/workflows/ci.yml | wc -l | tr -d ' ')
+          # root (lockfile, workspace manifests, patches), .dockerignore, the
+          # hadolint config or this workflow changed.
+          CONTAINER_CHANGES=$(git diff --name-only "origin/$BASE_REF"...HEAD -- ':(glob)**/Dockerfile*' ':(glob)**/.dockerignore' pnpm-lock.yaml pnpm-workspace.yaml package.json patches/ .hadolint.yaml .github/workflows/ci.yml | wc -l | tr -d ' ')
           if [ "$CONTAINER_CHANGES" -gt 0 ]; then
             echo "has_container_changes=true" >> "$GITHUB_OUTPUT"
           else

@@ -128,16 +128,14 @@ single source of truth.
 
 `CI Gate` is the only required status check on `main`; it aggregates the jobs below.
 
-| Gate                   | What it catches                                                           |
-| ---------------------- | ------------------------------------------------------------------------- |
-| lint / typecheck       | ESLint + `tsc --noEmit` across every workspace package                    |
-| test                   | Vitest unit + integration, coverage reported to Codecov                   |
-| build                  | Every app and package builds, including generated artifacts               |
-| integrity              | Dependency graph and catalog schemas match their sources                  |
-| architecture-audit     | ADR conformance, dependency boundaries, circular-import detection         |
-| ai-antipattern-ratchet | A baselined count per antipattern; regressions fail, cleanups re-baseline |
-| migrations             | Prisma migration dry-run plus a destructive-operation check               |
-| hadolint / trivy       | Dockerfile lint and container vulnerability scan                          |
+| Job           | What it catches                                                                                |
+| ------------- | ---------------------------------------------------------------------------------------------- |
+| static-checks | ESLint, knip, `tsc --noEmit` across every workspace package, ADR and dependency-boundary audit |
+| repo-checks   | Dependency sync, instruction rot, doc freshness, AI antipattern ratchet against its baseline   |
+| test          | Vitest unit + integration, coverage reported to Codecov                                        |
+| build         | Every app and package builds; generated artifacts match their sources (`pnpm regen --check`)   |
+| migrations    | Prisma migration dry-run plus a destructive-operation check                                    |
+| containers    | hadolint and Trivy on each service Dockerfile, run when Dockerfiles or what they copy change   |
 
 Beyond the gate: Playwright E2E suites, mutation testing via Stryker, Gitleaks
 secret scanning (shifted left to a pre-commit hook), Lighthouse audits of the live
