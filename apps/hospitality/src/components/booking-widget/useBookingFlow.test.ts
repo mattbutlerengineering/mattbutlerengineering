@@ -1314,6 +1314,50 @@ describe("useBookingFlow", () => {
       expect(result.current.data.confirmError).toBeNull();
       expect(result.current.data.depositPaymentIntentId).toBeNull();
     });
+
+    it("resetFlow keeps the venue's config, deposit policy and closed dates (#9970)", async () => {
+      const closedDay = addDays(venueDate(new Date()), 3);
+      const fakeApi = makeFakeApi();
+      fakeApi.venues.getPublicConfig.mockResolvedValue(depositVenueConfig({ amountCents: 2500 }));
+      fakeApi.availability.getClosedDates.mockResolvedValue([
+        { date: closedDay, closure: { message: "Private event" } },
+      ]);
+      const { result } = renderHook(() =>
+        useBookingFlow({
+          api: fakeApi as unknown as BookingWidgetApiClient,
+          venueSlug: DEFAULT_SLUG,
+          stripePublishableKey: "pk_test_123",
+        })
+      );
+      await waitFor(() => expect(result.current.data.closedDatesLoaded).toBe(true));
+      expect(result.current.data.depositRequired).toBe(true);
+      const venueConfig = result.current.data.venueConfig;
+      const depositConfig = result.current.data.depositConfig;
+
+      act(() => result.current.actions.setSelectedDate(addDays(venueDate(new Date()), 1)));
+      await act(async () => {
+        await result.current.actions.selectSlotAndHold(mockSlot);
+      });
+      await act(async () => {
+        await result.current.actions.confirmReservation(guestDetails);
+      });
+      act(() => result.current.actions.resetFlow());
+
+      expect(result.current.data.venueConfig).toBe(venueConfig);
+      expect(result.current.data.venueConfigSettled).toBe(true);
+      expect(result.current.data.depositConfig).toBe(depositConfig);
+      expect(result.current.data.depositRequired).toBe(true);
+      expect(result.current.data.closedDatesLoaded).toBe(true);
+      expect(result.current.data.closures).toEqual({ [closedDay]: "Private event" });
+      // The guest's own draft is still cleared.
+      expect(result.current.data.reservation).toBeNull();
+      expect(result.current.data.guestDetails).toEqual({
+        name: "",
+        email: "",
+        phone: "",
+        notes: "",
+      });
+    });
   });
 
   describe("deriveStepKeys (pure, testable without full render)", () => {
