@@ -24,7 +24,6 @@ import { read, append, writeWeekly, resolvePath, resolveWeeklyPath } from "./met
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
-const VERIFICATIONS_PATH = resolvePath("verifications", { root: ROOT });
 
 const args = process.argv.slice(2);
 const DRY_RUN = args.includes("--dry-run");
@@ -265,8 +264,9 @@ function fetchIssueComments(issueNumbers) {
 }
 
 function loadVerifications() {
-  if (!existsSync(VERIFICATIONS_PATH)) return null;
-  const entries = readJsonl(VERIFICATIONS_PATH);
+  const verificationsPath = resolvePath("verifications", { root: ROOT });
+  if (!existsSync(verificationsPath)) return null;
+  const entries = readJsonl(verificationsPath);
   if (entries.length === 0) return null;
 
   // Only last 7 days

@@ -5,7 +5,7 @@
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, readFileSync } from "node:fs";
+import { mkdtempSync, rmSync, readFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -26,6 +26,7 @@ const UNKNOWN_B = crit("acmm:instruction-rot-detection", "Instruction rot detect
 
 function render({ unverifiable, diff }) {
   const root = mkdtempSync(join(tmpdir(), "acmm-report-gaps-"));
+  mkdirSync(join(root, ".metrics-data"));
   try {
     const path = writeReport(root, {
       state: {

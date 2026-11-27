@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { mkdtempSync } from "node:fs";
+import { mkdirSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { buildLighthouseRow, buildMutationRow } from "../metrics-summary-rows.mjs";
@@ -129,8 +129,13 @@ describe("buildMutationRow", () => {
 });
 
 describe("sensors read the committed summary rows", () => {
-  const rootWith = (name, row) => {
+  const emptyRoot = () => {
     const root = mkdtempSync(join(tmpdir(), "summary-sensor-"));
+    mkdirSync(join(root, ".metrics-data"));
+    return root;
+  };
+  const rootWith = (name, row) => {
+    const root = emptyRoot();
     append(name, row, { root });
     return root;
   };
@@ -164,7 +169,7 @@ describe("sensors read the committed summary rows", () => {
   });
 
   it("both stay unavailable with a reason when no row was ever committed", () => {
-    const root = mkdtempSync(join(tmpdir(), "summary-sensor-"));
+    const root = emptyRoot();
     for (const id of ["lighthouse", "mutationScore"]) {
       const out = SENSORS.find((s) => s.id === id).collect({ root, now: new Date() });
       expect(out.available).toBe(false);

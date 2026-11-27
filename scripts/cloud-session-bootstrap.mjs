@@ -64,8 +64,9 @@ export function runCloudSessionBootstrap({
 /**
  * Check out the metrics-data branch (scripts/metrics-data.mjs) in a cloud
  * session, so routines read and write telemetry there with no prompt change.
- * Local sessions are a no-op. Never throws: a failed pull is logged, and
- * metrics-store then reads metrics/ on main as before.
+ * Local sessions are a no-op. Never throws: a failed pull is logged, and any
+ * later metrics-store call fails loudly with the pull command (no fallback to
+ * main, which no longer carries telemetry, #9815).
  */
 export function runMetricsDataPull({
   env = process.env,

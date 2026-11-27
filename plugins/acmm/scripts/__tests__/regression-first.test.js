@@ -22,6 +22,7 @@ import { applyIssuesForFailures } from "../outputs/issues.js";
 
 function fixture() {
   const root = mkdtempSync(join(tmpdir(), "acmm-regression-first-"));
+  mkdirSync(join(root, ".metrics-data"));
   return {
     root,
     file(rel, body = "") {

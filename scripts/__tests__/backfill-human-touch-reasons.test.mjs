@@ -283,7 +283,7 @@ describe("runBackfill — temp fixture file I/O", () => {
 
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "backfill-human-touch-"));
-    fs.mkdirSync(path.join(tmpDir, "metrics"), { recursive: true });
+    fs.mkdirSync(path.join(tmpDir, ".metrics-data"), { recursive: true });
   });
 
   afterEach(() => {

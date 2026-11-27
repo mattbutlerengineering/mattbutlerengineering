@@ -5,7 +5,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, readFileSync } from "node:fs";
+import { mkdtempSync, rmSync, readFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -13,6 +13,7 @@ import { writeReport } from "../outputs/report.js";
 
 function fixture() {
   const root = mkdtempSync(join(tmpdir(), "acmm-report-margin-"));
+  mkdirSync(join(root, ".metrics-data"));
   return {
     root,
     cleanup() {

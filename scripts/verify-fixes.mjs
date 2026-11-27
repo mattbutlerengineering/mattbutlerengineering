@@ -23,7 +23,6 @@ import { append, resolvePath } from "./metrics-store.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
-const LOG_PATH = resolvePath("verifications", { root: ROOT });
 
 const args = process.argv.slice(2);
 const DRY_RUN = args.includes("--dry-run");
@@ -434,7 +433,9 @@ async function main() {
     for (const entry of results) {
       append("verifications", entry, { root: ROOT });
     }
-    console.log(`Logged ${results.length} verification(s) to ${LOG_PATH}\n`);
+    console.log(
+      `Logged ${results.length} verification(s) to ${resolvePath("verifications", { root: ROOT })}\n`
+    );
   }
 
   const verified = results.filter((r) => r.verified).length;

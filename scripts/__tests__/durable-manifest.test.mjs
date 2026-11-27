@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -8,6 +9,7 @@ import {
   DURABLE_OUTSIDE,
   EXTERNAL,
   durableManifest,
+  dataManifest,
   renderDurableGitignoreBlock,
   extractDurableGitignoreBlock,
   resolvePath,
@@ -85,11 +87,17 @@ describe(".gitignore durable block", () => {
 // nothing re-included it — 0 commits, ever).
 // ---------------------------------------------------------------------------
 
-describe("the verification log lives under metrics/", () => {
+describe("the verification log lives on the metrics-data checkout", () => {
   it("resolves via the registry, not a hardcoded .claude path", () => {
-    expect(resolvePath("verifications", { root: "/tmp/x" })).toBe(
-      join("/tmp/x", "metrics", "verifications.jsonl")
-    );
+    const root = mkdtempSync(join(tmpdir(), "durable-manifest-"));
+    try {
+      mkdirSync(join(root, ".metrics-data"));
+      expect(resolvePath("verifications", { root })).toBe(
+        join(root, ".metrics-data", "verifications.jsonl")
+      );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   it("leaves no script pointing at the gitignored .claude/improvement-loop copy", () => {
@@ -123,18 +131,23 @@ describe("the verification log lives under metrics/", () => {
 });
 
 describe("durable paths are tracked by git", () => {
-  it("has every manifest path in the index", () => {
-    const untracked = durableManifest().filter((path) => {
-      try {
-        execFileSync("git", ["ls-files", "--error-unmatch", "--", path], {
-          cwd: ROOT,
-          stdio: "pipe",
-        });
-        return false;
-      } catch {
-        return true;
-      }
-    });
+  // Telemetry paths moved to the metrics-data branch (#9815); only what stays
+  // on main must be in the index.
+  const onData = new Set(dataManifest());
+  it("has every main-located manifest path in the index", () => {
+    const untracked = durableManifest()
+      .filter((path) => !onData.has(path))
+      .filter((path) => {
+        try {
+          execFileSync("git", ["ls-files", "--error-unmatch", "--", path], {
+            cwd: ROOT,
+            stdio: "pipe",
+          });
+          return false;
+        } catch {
+          return true;
+        }
+      });
 
     expect(untracked).toEqual([]);
   });

@@ -18,8 +18,6 @@ import { promisify } from "node:util";
 import { createGhClient, describeGhError } from "@mbe/gh-client";
 import { read, write, resolvePath } from "./metrics-store.mjs";
 
-const FEEDBACK_PATH = resolvePath("ai-issue-feedback");
-
 /**
  * Categories tracked for AI issue feedback.
  * Maps to GitHub labels used by various skills.
@@ -391,7 +389,7 @@ export async function run() {
 
   if (!DRY_RUN) {
     write("ai-issue-feedback", feedback);
-    console.log(`[collect-ai-issue-feedback] Written to: ${FEEDBACK_PATH}`);
+    console.log(`[collect-ai-issue-feedback] Written to: ${resolvePath("ai-issue-feedback")}`);
   }
 
   console.log(`[collect-ai-issue-feedback] Collected ${now.toISOString().slice(0, 10)}`);

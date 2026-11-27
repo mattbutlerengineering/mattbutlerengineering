@@ -1,11 +1,19 @@
 import { describe, it, expect } from "vitest";
+import { mkdirSync, mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { appendTelemetryRow, HUMAN_TOUCH_REASONS } from "../queue-telemetry-store.mjs";
 
 // ── Helpers ──────────────────────────────────────────────
 
+// Injected I/O never touches disk, but path resolution still needs a data
+// checkout directory to exist (metrics-store throws without one).
 function makeStore(initial = "") {
   let content = initial;
+  const root = mkdtempSync(join(tmpdir(), "qta-"));
+  mkdirSync(join(root, ".metrics-data"));
   return {
+    root,
     readFile: () => content || null,
     writeFile: (_path, data) => {
       content = data;
@@ -114,7 +122,7 @@ describe("appendTelemetryRow", () => {
   });
 
   it("handles a null readFile return (empty sink) gracefully", () => {
-    const store = { readFile: () => null, writeFile: () => {} };
+    const store = { ...makeStore(), readFile: () => null, writeFile: () => {} };
     const result = appendTelemetryRow(makeRow(), store);
     expect(result.written).toBe(true);
   });

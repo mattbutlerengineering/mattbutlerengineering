@@ -250,7 +250,6 @@ describe("REPO_AUDIT_CHECKS is the audit's source of truth", () => {
       "check-changeset-tree",
       "check-claude-md-table-drift",
       "check-ci-gate-coverage",
-      "check-queue-telemetry-dupes",
       "check-workflow-pr-scope",
       "check-ready-label-exclusive",
       "check-memory-refs",
@@ -259,6 +258,44 @@ describe("REPO_AUDIT_CHECKS is the audit's source of truth", () => {
       "boundaries",
       "check-boundaries-coverage",
     ]);
+  });
+
+  // ci.yml and `pnpm pre-commit:full` run these without a `.metrics-data/`
+  // checkout, and metrics-store throws without one (#9815). A check that needs
+  // telemetry belongs in a workflow that pulls the data branch.
+  it("has no check that reaches the metrics-data branch through its imports", () => {
+    const DATA_MODULES = new Set([
+      "metrics-store.mjs",
+      "queue-telemetry-store.mjs",
+      "metrics-data.mjs",
+    ]);
+    const scriptsDir = join(dirname(fileURLToPath(import.meta.url)), "..");
+    const reaches = (file, seen = new Set()) => {
+      if (seen.has(file)) return [];
+      seen.add(file);
+      let source;
+      try {
+        source = readFileSync(file, "utf-8");
+      } catch {
+        return [];
+      }
+      const hits = [];
+      for (const [, spec] of source.matchAll(/from\s+"(\.{1,2}\/[^"]+)"/g)) {
+        const target = join(dirname(file), spec);
+        if (DATA_MODULES.has(spec.split("/").pop())) hits.push(`${file} -> ${spec}`);
+        else hits.push(...reaches(target, seen));
+      }
+      return hits;
+    };
+
+    const offenders = REPO_AUDIT_CHECKS.flatMap((check) =>
+      check.args
+        .filter((arg) => arg.startsWith("scripts/"))
+        .flatMap((arg) => reaches(join(scriptsDir, "..", arg)))
+    );
+
+    expect(offenders).toEqual([]);
+    expect(REPO_AUDIT_CHECKS.map((c) => c.name)).not.toContain("check-queue-telemetry-dupes");
   });
 
   it("keeps `pnpm audit` outside the runner (#4993)", () => {

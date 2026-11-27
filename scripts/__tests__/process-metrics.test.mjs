@@ -8,7 +8,7 @@ describe("process-metrics", () => {
 
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "process-metrics-"));
-    fs.mkdirSync(path.join(tmpDir, "metrics"), { recursive: true });
+    fs.mkdirSync(path.join(tmpDir, ".metrics-data"), { recursive: true });
   });
 
   afterEach(() => {
@@ -294,13 +294,14 @@ describe("process-metrics", () => {
       expect(rows[1].time_to_fix_hours).toBe(3);
     });
 
-    test("creates the metrics directory if missing", async () => {
+    test("refuses to write when the data checkout is missing", async () => {
       const { append } = await import("../metrics-store.mjs");
 
       const freshRoot = path.join(tmpDir, "fresh");
-      append("process-metrics", { timestamp: "2026-05-15T10:00:00Z" }, { root: freshRoot });
-
-      expect(fs.existsSync(path.join(freshRoot, "metrics", "process-metrics.jsonl"))).toBe(true);
+      expect(() =>
+        append("process-metrics", { timestamp: "2026-05-15T10:00:00Z" }, { root: freshRoot })
+      ).toThrow(/metrics-data\.mjs pull/);
+      expect(fs.existsSync(path.join(freshRoot, "metrics"))).toBe(false);
     });
   });
 

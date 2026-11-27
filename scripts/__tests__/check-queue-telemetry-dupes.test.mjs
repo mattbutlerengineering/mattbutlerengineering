@@ -1,5 +1,5 @@
 /**
- * One row per (issue, PR) is `metrics/queue-telemetry.jsonl`'s invariant —
+ * One row per (issue, PR) is `queue-telemetry.jsonl`'s invariant —
  * `appendTelemetryRow` has enforced it on the append path since it was
  * written. Both readers count rows and treat each as one merged PR, so a
  * doubled row inflates numerator and denominator alike.
@@ -56,9 +56,16 @@ describe("evaluateTelemetryDuplicates", () => {
   });
 });
 
-describe("the committed sink", () => {
-  it("has exactly one row per (issue, PR)", () => {
-    const rows = readFileSync(resolve(ROOT, "metrics/queue-telemetry.jsonl"), "utf-8")
+// The sink lives on the orphan `metrics-data` branch, checked out at
+// `.metrics-data/` only where `node scripts/metrics-data.mjs pull` ran. The
+// `Test` CI job does not pull it, so this real-file check runs locally and
+// wherever a workflow pulls the branch; elsewhere it is skipped, not faked.
+// The invariant is still enforced on every write path by appendTelemetryRow.
+const SINK = resolve(ROOT, ".metrics-data/queue-telemetry.jsonl");
+
+describe("the data-branch sink", () => {
+  it.skipIf(!existsSync(SINK))("has exactly one row per (issue, PR)", () => {
+    const rows = readFileSync(SINK, "utf-8")
       .split("\n")
       .filter(Boolean)
       .map((line) => JSON.parse(line));
@@ -160,8 +167,8 @@ describe("fixTelemetryFile", () => {
 
   it("CLI: fails with the --fix hint, then --fix repairs and the check passes", () => {
     withDir((_file, dir) => {
-      mkdirSync(resolve(dir, "metrics"));
-      const file = resolve(dir, "metrics/queue-telemetry.jsonl");
+      mkdirSync(resolve(dir, ".metrics-data"));
+      const file = resolve(dir, ".metrics-data/queue-telemetry.jsonl");
       writeFileSync(file, text(reconciled(1, 2), stale(1, 2)));
       const script = resolve(ROOT, "scripts/check-queue-telemetry-dupes.mjs");
       const run = (...args) =>

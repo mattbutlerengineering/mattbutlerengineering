@@ -744,26 +744,18 @@ describe("agent eval command", () => {
     expect(filePath).toMatch(/\.metrics-data[\\/]eval-reports\.jsonl$/);
   });
 
-  it("writes under metrics/ when there is no metrics-data checkout", async () => {
-    mockLoadSuite.mockResolvedValue([task]);
-    mockRunAgentSession.mockResolvedValue(fakeSession());
-    mockExistsSync.mockImplementation((p: string) => !String(p).endsWith(".metrics-data"));
-
-    await agentEvalCommand.parseAsync([], { from: "user" });
-
-    const [filePath] = mockAppendFileSync.mock.calls[0] as [string, string];
-    expect(filePath).toMatch(/[\\/]metrics[\\/]eval-reports\.jsonl$/);
-  });
-
-  it("creates the log directory when it does not exist", async () => {
+  it("fails before running anything when there is no metrics-data checkout", async () => {
     mockLoadSuite.mockResolvedValue([task]);
     mockRunAgentSession.mockResolvedValue(fakeSession());
     mockExistsSync.mockReturnValue(false);
 
-    await agentEvalCommand.parseAsync([], { from: "user" });
+    await expect(agentEvalCommand.parseAsync([], { from: "user" })).rejects.toThrow(
+      /metrics-data\.mjs pull/
+    );
 
-    expect(mockMkdirSync).toHaveBeenCalledWith(expect.any(String), { recursive: true });
-    expect(mockAppendFileSync).toHaveBeenCalledOnce();
+    expect(mockRunAgentSession).not.toHaveBeenCalled();
+    expect(mockAppendFileSync).not.toHaveBeenCalled();
+    expect(mockMkdirSync).not.toHaveBeenCalled();
   });
 
   it("prints calibration summary with --calibrate", async () => {

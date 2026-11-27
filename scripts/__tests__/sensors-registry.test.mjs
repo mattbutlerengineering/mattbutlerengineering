@@ -212,8 +212,8 @@ describe("sensors-registry", () => {
 
     it("reports real data when metrics/pr-acceptance.json exists at repo root", () => {
       tmpDir = mkdtempSync(join(tmpdir(), "pr-metrics-sensor-"));
-      mkdirSync(join(tmpDir, "metrics"), { recursive: true });
-      writeFileSync(join(tmpDir, "metrics", "pr-acceptance.json"), JSON.stringify(fixture));
+      mkdirSync(join(tmpDir, ".metrics-data"), { recursive: true });
+      writeFileSync(join(tmpDir, ".metrics-data", "pr-acceptance.json"), JSON.stringify(fixture));
 
       const sensor = SENSORS.find((s) => s.id === "prMetrics");
       const result = sensor.collect({ root: tmpDir });
@@ -250,8 +250,8 @@ describe("sensors-registry", () => {
 
     const writeFixture = (data) => {
       tmpDir = mkdtempSync(join(tmpdir(), "issue-feedback-sensor-"));
-      mkdirSync(join(tmpDir, "metrics"), { recursive: true });
-      writeFileSync(join(tmpDir, "metrics", "ai-issue-feedback.json"), JSON.stringify(data));
+      mkdirSync(join(tmpDir, ".metrics-data"), { recursive: true });
+      writeFileSync(join(tmpDir, ".metrics-data", "ai-issue-feedback.json"), JSON.stringify(data));
       return SENSORS.find((s) => s.id === "issueFeedback");
     };
 
@@ -1721,9 +1721,9 @@ describe("metricsFreshness sensor (#5529)", () => {
 
   function seed(files, { withSnapshot = true } = {}) {
     tmpDir = mkdtempSync(join(tmpdir(), "metrics-freshness-sensor-"));
-    mkdirSync(join(tmpDir, "metrics"), { recursive: true });
+    mkdirSync(join(tmpDir, ".metrics-data"), { recursive: true });
     for (const [name, content] of Object.entries(files)) {
-      writeFileSync(join(tmpDir, "metrics", name), content);
+      writeFileSync(join(tmpDir, ".metrics-data", name), content);
     }
     if (withSnapshot) {
       const dir = join(tmpDir, "apps/marketing/src/data");
@@ -1868,9 +1868,9 @@ describe("reviewBurden sensor (#5530)", () => {
 
   it("surfaces the latest entry's summary counts", () => {
     tmpDir = mkdtempSync(join(tmpdir(), "review-burden-sensor-"));
-    mkdirSync(join(tmpDir, "metrics"), { recursive: true });
+    mkdirSync(join(tmpDir, ".metrics-data"), { recursive: true });
     writeFileSync(
-      join(tmpDir, "metrics", "review-burden.json"),
+      join(tmpDir, ".metrics-data", "review-burden.json"),
       JSON.stringify([entry({ timestamp: "2026-09-01T00:00:00.000Z" }), entry()])
     );
 
@@ -1895,9 +1895,9 @@ describe("reviewBurden sensor (#5530)", () => {
   // collector, so the classification has to survive the sensor hop.
   it("carries the structural-zero classification through to the report", () => {
     tmpDir = mkdtempSync(join(tmpdir(), "review-burden-sensor-"));
-    mkdirSync(join(tmpDir, "metrics"), { recursive: true });
+    mkdirSync(join(tmpDir, ".metrics-data"), { recursive: true });
     writeFileSync(
-      join(tmpDir, "metrics", "review-burden.json"),
+      join(tmpDir, ".metrics-data", "review-burden.json"),
       JSON.stringify([
         entry({
           reviewers: [],
@@ -1924,9 +1924,9 @@ describe("reviewBurden sensor (#5530)", () => {
   // confirmed structural zero.
   it("reports an unclassified legacy entry as unknown, never as a structural zero", () => {
     tmpDir = mkdtempSync(join(tmpdir(), "review-burden-sensor-"));
-    mkdirSync(join(tmpDir, "metrics"), { recursive: true });
+    mkdirSync(join(tmpDir, ".metrics-data"), { recursive: true });
     writeFileSync(
-      join(tmpDir, "metrics", "review-burden.json"),
+      join(tmpDir, ".metrics-data", "review-burden.json"),
       JSON.stringify([
         entry({
           summary: {
@@ -1953,8 +1953,8 @@ describe("reviewBurden sensor (#5530)", () => {
 
   it("returns { available: false } for an empty array", () => {
     tmpDir = mkdtempSync(join(tmpdir(), "review-burden-sensor-"));
-    mkdirSync(join(tmpDir, "metrics"), { recursive: true });
-    writeFileSync(join(tmpDir, "metrics", "review-burden.json"), "[]");
+    mkdirSync(join(tmpDir, ".metrics-data"), { recursive: true });
+    writeFileSync(join(tmpDir, ".metrics-data", "review-burden.json"), "[]");
     expect(sensor().collect({ root: tmpDir })).toEqual({ available: false });
   });
 
@@ -1991,7 +1991,7 @@ describe("productionHealth sensor (#9525)", () => {
     });
   const dirOf = () => {
     tmpDir = mkdtempSync(join(tmpdir(), "production-health-sensor-"));
-    const dir = join(tmpDir, "metrics", "production-health");
+    const dir = join(tmpDir, ".metrics-data", "production-health");
     mkdirSync(dir, { recursive: true });
     return dir;
   };
@@ -2027,7 +2027,13 @@ describe("productionHealth sensor (#9525)", () => {
 
   it("is unavailable when the directory is missing", () => {
     tmpDir = mkdtempSync(join(tmpdir(), "production-health-sensor-"));
+    mkdirSync(join(tmpDir, ".metrics-data"));
     expect(sensor().collect({ root: tmpDir })).toEqual({ available: false });
+  });
+
+  it("throws, naming the pull command, when the metrics-data checkout is missing", () => {
+    tmpDir = mkdtempSync(join(tmpdir(), "production-health-sensor-"));
+    expect(() => sensor().collect({ root: tmpDir })).toThrow(/metrics-data\.mjs pull/);
   });
 
   it("formats a display line with healthy count", () => {

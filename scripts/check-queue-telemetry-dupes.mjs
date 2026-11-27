@@ -38,8 +38,6 @@ import { resolve } from "node:path";
 import { runCheck } from "./lib/fitness-check.mjs";
 import { telemetryRowKey, telemetryPath } from "./queue-telemetry-store.mjs";
 
-const TELEMETRY_PATH = telemetryPath();
-
 /**
  * The gate, as a pure decision.
  *
@@ -142,13 +140,13 @@ export function fixTelemetryFile(path) {
 }
 
 const FAIL_MESSAGE =
-  "FAIL: metrics/queue-telemetry.jsonl has more than one row per (issue, PR).\n" +
+  "FAIL: queue-telemetry.jsonl (metrics-data branch) has more than one row per (issue, PR).\n" +
   "Both readers count rows and treat each as one merged PR, so a doubled row\n" +
   "inflates numerator and denominator alike (#5630).\n" +
   "Fix: node scripts/check-queue-telemetry-dupes.mjs --fix\n" +
   "keeps the most complete row per (issue, PR) (most non-null of merged,\n" +
   "merged_at, ci_first_pass, rework_cycles; ties keep the earliest line), offline;\n" +
-  "commit only metrics/queue-telemetry.jsonl.\n" +
+  'then `node scripts/metrics-data.mjs push -m "chore(metrics): dedupe queue telemetry"`.\n' +
   "Duplicated identities:";
 
 /* c8 ignore start -- thin CLI over the pure function above; exercised via repo-audit */
@@ -158,7 +156,7 @@ if (isMain) {
   const argv = process.argv.slice(2);
   const rootAt = argv.indexOf("--root");
   const sinkPath =
-    rootAt === -1 ? TELEMETRY_PATH : telemetryPath({ root: resolve(argv[rootAt + 1]) });
+    rootAt === -1 ? telemetryPath() : telemetryPath({ root: resolve(argv[rootAt + 1]) });
 
   if (argv.includes("--fix")) {
     try {

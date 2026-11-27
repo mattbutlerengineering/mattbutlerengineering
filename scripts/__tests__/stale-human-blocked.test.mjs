@@ -710,8 +710,8 @@ describe("constants", () => {
     ]);
   });
 
-  it("records metrics next to the repo's other jsonl series", () => {
-    expect(STALE_METRICS_PATH).toBe("metrics/stale-human-blocked.jsonl");
+  it("names the data-branch file in the run summary, not a main path", () => {
+    expect(STALE_METRICS_PATH).toBe("stale-human-blocked.jsonl (metrics-data branch)");
   });
 
   it("treats exactly the label writes as label-only events", () => {
