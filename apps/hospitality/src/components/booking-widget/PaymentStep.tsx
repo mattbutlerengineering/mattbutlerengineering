@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
-import { loadStripe } from "@stripe/stripe-js";
+// "/pure" does not inject js.stripe.com on import; only loadStripe() does, at the payment step.
+import { loadStripe } from "@stripe/stripe-js/pure";
 import type { Stripe } from "@stripe/stripe-js";
 import { ApiClientError, type createApiClient } from "@mbe/api-client";
 import { Button, Alert, Text } from "@mattbutlerengineering/rialto";
