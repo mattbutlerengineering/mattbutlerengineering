@@ -25,9 +25,14 @@ import { hasPermission } from "./plugin.js";
  *
  * Assumes `requireAuth` ran first (request.user is guaranteed set).
  */
-export async function requireAdmin(request: FastifyRequest, reply: FastifyReply): Promise<void> {
+export async function requireAdmin(
+  request: FastifyRequest,
+  reply: FastifyReply
+): Promise<FastifyReply | void> {
   if (!hasPermission(request.user, "admin")) {
-    reply.code(403).send(createProblemDetails(403, titleForStatus(403), "Admin role required"));
+    return reply
+      .code(403)
+      .send(createProblemDetails(403, titleForStatus(403), "Admin role required"));
   }
 }
 
@@ -82,14 +87,14 @@ export function requireVenueAccess(
   return async function venueAccessHandler(
     request: FastifyRequest,
     reply: FastifyReply
-  ): Promise<void> {
+  ): Promise<FastifyReply | void> {
     const user = request.user;
 
     if (!user) {
       reply
         .code(401)
         .send(createProblemDetails(401, titleForStatus(401), "Authentication required"));
-      return;
+      return reply;
     }
 
     // Platform admins are scoped to every venue; skip the per-request lookup.
@@ -104,7 +109,7 @@ export function requireVenueAccess(
         .send(
           createProblemDetails(403, titleForStatus(403), "You do not have access to this venue")
         );
-      return;
+      return reply;
     }
 
     const isMember = await lookupMembership(user.raw.sub, venueId);
@@ -114,7 +119,7 @@ export function requireVenueAccess(
         .send(
           createProblemDetails(403, titleForStatus(403), "You do not have access to this venue")
         );
-      return;
+      return reply;
     }
   };
 }
@@ -165,14 +170,14 @@ export function requireVenueRole(
   return async function venueRoleHandler(
     request: FastifyRequest,
     reply: FastifyReply
-  ): Promise<void> {
+  ): Promise<FastifyReply | void> {
     const user = request.user;
 
     if (!user) {
       reply
         .code(401)
         .send(createProblemDetails(401, titleForStatus(401), "Authentication required"));
-      return;
+      return reply;
     }
 
     if (hasPermission(user, "admin")) {
@@ -188,11 +193,11 @@ export function requireVenueRole(
         .send(
           createProblemDetails(403, titleForStatus(403), "You do not have access to this venue")
         );
-      return;
+      return reply;
     }
 
     if (!hasVenueRole(role, minimum)) {
-      reply.code(403).send(createProblemDetails(403, titleForStatus(403), roleDetail));
+      return reply.code(403).send(createProblemDetails(403, titleForStatus(403), roleDetail));
     }
   };
 }
@@ -227,14 +232,14 @@ export function requireVenueCreateAccess(hasAnyVenueMembership: HasAnyVenueMembe
   return async function venueCreateAccessHandler(
     request: FastifyRequest,
     reply: FastifyReply
-  ): Promise<void> {
+  ): Promise<FastifyReply | void> {
     const user = request.user;
 
     if (!user) {
       reply
         .code(401)
         .send(createProblemDetails(401, titleForStatus(401), "Authentication required"));
-      return;
+      return reply;
     }
 
     // Platform admins may create any venue; skip the per-request lookup.
@@ -247,7 +252,7 @@ export function requireVenueCreateAccess(hasAnyVenueMembership: HasAnyVenueMembe
     const alreadyHasVenue = await hasAnyVenueMembership(user.raw.sub);
 
     if (alreadyHasVenue) {
-      reply
+      return reply
         .code(403)
         .send(
           createProblemDetails(
