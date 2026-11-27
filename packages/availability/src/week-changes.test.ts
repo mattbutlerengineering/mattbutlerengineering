@@ -125,6 +125,56 @@ describe("weekChanges", () => {
       ]);
     });
 
+    it("gives no reopen to a closure that ended months before the window", () => {
+      expect(rulesOnly([rule("c1", { startsOn: "2026-09-01", endsOn: "2026-09-02" })])).toEqual([]);
+    });
+
+    it("gives no reopen to a closure that ended two days before the window", () => {
+      expect(rulesOnly([rule("c1", { startsOn: "2026-12-01", endsOn: "2026-12-05" })])).toEqual([]);
+    });
+
+    it("reopens on the window's first day when the closure ended the day before", () => {
+      expect(rulesOnly([rule("c1", { startsOn: "2026-12-01", endsOn: "2026-12-06" })])).toEqual([
+        { kind: "reopen", ruleId: "c1", date: "2026-12-07" },
+      ]);
+    });
+
+    it("reopens inside the window after a chain of closures that began before it", () => {
+      const first = rule("c1", { startsOn: "2026-11-20", endsOn: "2026-11-30" });
+      const second = rule("c2", { startsOn: "2026-12-01", endsOn: "2026-12-09" });
+      expect(rulesOnly([first, second])).toEqual([
+        { kind: "reopen", ruleId: "c1", date: "2026-12-10" },
+        { kind: "reopen", ruleId: "c2", date: "2026-12-10" },
+      ]);
+    });
+
+    it("gives no reopen to a service, section, booking or part-day closure", () => {
+      const service = rule("c1", { targetKind: "service", venueServiceId: "vs-dinner" });
+      const tables = rule("c2", { targetKind: "tables", sectionId: "patio", tableIds: ["t1"] });
+      const booking = rule("c3", { targetKind: "booking", bookingTypes: ["online"] });
+      const partDay = rule("c4", { window: { version: 1, from: 1080, to: 2880 } });
+      expect(rulesOnly([service, tables, booking, partDay])).toEqual([
+        { kind: "closure", ruleId: "c1", dates: ["2026-12-09"] },
+        { kind: "closure", ruleId: "c2", dates: ["2026-12-09"] },
+        { kind: "closure", ruleId: "c3", dates: ["2026-12-09"] },
+        { kind: "closure", ruleId: "c4", dates: ["2026-12-09"] },
+      ]);
+    });
+
+    it("gives nothing for a use_schedule rule whose schedule is archived", () => {
+      const use = rule("u1", {
+        kind: "use_schedule",
+        useScheduleId: "patio",
+        startsOn: "2026-12-10",
+        endsOn: "2026-12-20",
+      } as Partial<DateRule>);
+      const cfg = config({
+        schedules: [schedule("patio", { archivedAt: "2026-11-01" })],
+        dateRules: [use],
+      });
+      expect(weekChanges(cfg, FROM)).toEqual([]);
+    });
+
     it("drops tonight and skip rules", () => {
       const tonight = rule("t1", {
         kind: "tonight",
@@ -183,6 +233,17 @@ describe("weekChanges", () => {
       ]);
     });
 
+    it("surfaces a single-weekday series in the week of its first active date when the first is skipped", () => {
+      const series = rule("r1", { startsOn: "2026-12-07", endsOn: "2027-03-31", repeat: mondays });
+      const skip = rule("k1", { kind: "skip", startsOn: "2026-12-07", seriesId: "r1" });
+      const cfg = config({ dateRules: [series, skip] });
+      expect(weekChanges(cfg, FROM)).toEqual([]);
+      expect(weekChanges(cfg, "2026-12-14")).toEqual([
+        { kind: "closure", ruleId: "r1", dates: ["2026-12-14"] },
+      ]);
+      expect(weekChanges(cfg, "2026-12-21")).toEqual([]);
+    });
+
     it("lists a one-date edit as its own row in place of the series", () => {
       const series = rule("r1", { startsOn: "2026-11-30", endsOn: "2027-03-31", repeat: mondays });
       const edit = rule("e1", {
@@ -212,6 +273,26 @@ describe("weekChanges", () => {
       });
       expect(weekChanges(cfg, FROM)).toEqual([
         { kind: "regularHours", scheduleId: "regular", date: "2026-12-10" },
+      ]);
+    });
+
+    it("includes an assignment starting on the window's first day", () => {
+      const cfg = config({
+        schedules: [schedule("winter")],
+        assignments: [assignment("a1", "winter", { startsOn: "2026-12-07" })],
+      });
+      expect(weekChanges(cfg, FROM)).toEqual([
+        { kind: "seasonalStarts", scheduleId: "winter", date: "2026-12-07", via: "assignment" },
+      ]);
+    });
+
+    it("lists a seasonal end on the window's first day when the assignment ended the day before", () => {
+      const cfg = config({
+        schedules: [schedule("winter")],
+        assignments: [assignment("a1", "winter", { startsOn: "2026-11-01", endsOn: "2026-12-06" })],
+      });
+      expect(weekChanges(cfg, FROM)).toEqual([
+        { kind: "seasonalEnds", scheduleId: "winter", date: "2026-12-07" },
       ]);
     });
 

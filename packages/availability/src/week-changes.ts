@@ -60,23 +60,41 @@ function ruleDates(rules: readonly DateRule[], w: Window): Map<Listed, ServiceDa
   return found;
 }
 
+const isActive = (rule: DateRule, rules: readonly DateRule[], date: ServiceDate) =>
+  activeRules(rules, date).some((r) => r.id === rule.id);
+
+/**
+ * The series' first date on or after its start that is not skipped or edited away, walking its
+ * own occurrences only and stopping past the window's end.
+ */
+function firstActiveDate(rule: DateRule, rules: readonly DateRule[], w: Window) {
+  let date = firstOccurrenceOnOrAfter(rule, rule.startsOn);
+  while (date != null && date <= w.to) {
+    if (isActive(rule, rules, date)) return date;
+    date = firstOccurrenceOnOrAfter(rule, addDays(date, 1));
+  }
+  return null;
+}
+
 /** A rule counts as a change only when it newly takes effect inside the window. */
 function startsInWindow(rule: DateRule, rules: readonly DateRule[], w: Window): boolean {
-  if (activeRules(rules, addDays(w.from, -1)).some((r) => r.id === rule.id)) return false;
+  if (isActive(rule, rules, addDays(w.from, -1))) return false;
   if (rule.repeat == null || rule.seriesId != null) return true;
-  // A series is news once: in the week of its first-ever occurrence.
-  const first = firstOccurrenceOnOrAfter(rule, rule.startsOn);
+  // A series is news once: in the week of its first active occurrence.
+  const first = firstActiveDate(rule, rules, w);
   return first != null && inWindow(w, first);
 }
 
+/** Only a venue-wide, whole-day closure shuts the venue, and only its end is a reopening. */
 const shutsVenue = (rule: DateRule) =>
   rule.kind === "closure" && rule.targetKind === "venue" && rule.window == null;
 
-/** The first in-window day after a one-off closure ends that no venue-wide closure shuts. */
+/** The first day after a one-off venue closure ends that no venue closure shuts, if in the window. */
 function reopenDate(rule: DateRule, rules: readonly DateRule[], w: Window): ServiceDate | null {
-  if (rule.kind !== "closure" || rule.endsOn == null || rule.repeat != null) return null;
+  if (!shutsVenue(rule) || rule.endsOn == null || rule.repeat != null) return null;
   for (let date = addDays(rule.endsOn, 1); date <= w.to; date = addDays(date, 1)) {
-    if (date >= w.from && !activeRules(rules, date).some(shutsVenue)) return date;
+    // The venue reopened before the window: old news.
+    if (!activeRules(rules, date).some(shutsVenue)) return date >= w.from ? date : null;
   }
   return null;
 }
@@ -153,8 +171,9 @@ function compare(a: WeekChange, b: WeekChange): number {
 
 /**
  * The changes starting in `[from, from + days - 1]`, sorted by first date then a fixed kind rank.
- * A rule already in force the day before `from` is not a change; a one-off closure that ends
- * yields a `reopen` on its first open day. `tonight` and `skip` rules never appear.
+ * A rule already in force the day before `from` is not a change; a one-off venue-wide, whole-day
+ * closure yields a `reopen` when its first open day falls in the window. A series appears in the
+ * week of its first active date. `tonight` and `skip` rules never appear.
  */
 export function weekChanges(
   config: AvailabilityConfig,
