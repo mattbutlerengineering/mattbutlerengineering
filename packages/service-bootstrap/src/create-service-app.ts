@@ -359,6 +359,15 @@ export async function createServiceApp(
   // --- Error Handler (RFC 7807) ---
   await fastify.register(errorHandlerPlugin);
 
+  // --- Baseline security headers ---
+  // JSON-only API: hardening for browsers, no CSP. Does not touch CORS.
+  fastify.addHook("onSend", async (_request, reply) => {
+    reply.header("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+    reply.header("X-Content-Type-Options", "nosniff");
+    reply.header("X-Frame-Options", "DENY");
+    reply.header("Referrer-Policy", "no-referrer");
+  });
+
   // --- API Versioning ---
   // Policy (successor computation, sunset headers, deprecation decorators) is
   // governed by ADR-002 and lives in apply-versioning.ts.
