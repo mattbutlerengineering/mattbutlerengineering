@@ -86,7 +86,7 @@
 }
 
 .ghost:hover {
-  background: var(--rialto-accent-muted);
+  background: var(--rialto-button-ghost-bg-hover);
   color: var(--rialto-text-primary);
   border-color: var(--rialto-border);
 }
@@ -200,8 +200,4 @@
 
 .secondary:active {
   background: var(--rialto-surface-recessed);
-}
-
-.ghost:hover {
-  background: var(--rialto-button-ghost-bg-hover);
 }

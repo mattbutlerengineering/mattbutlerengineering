@@ -111,3 +111,13 @@ describe.each(COMPONENT_SHEETS)("$name.module.css", ({ rules: componentRules }) 
       for (const selector of r.selectors) expect(selector).not.toContain("data-palette");
   });
 });
+
+describe("Button ghost press", () => {
+  it("keeps the press tint: no .ghost:hover rule sits after .ghost:active", () => {
+    const button = COMPONENT_SHEETS.find((sheet) => sheet.name === "Button")!.rules;
+    const order = button.flatMap((r) => r.selectors);
+    const active = order.indexOf(".ghost:active");
+    expect(active).toBeGreaterThan(-1);
+    expect(order.lastIndexOf(".ghost:hover")).toBeLessThan(active);
+  });
+});
