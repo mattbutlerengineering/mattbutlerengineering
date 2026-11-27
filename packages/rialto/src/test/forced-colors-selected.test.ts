@@ -77,6 +77,20 @@ describe("rialto forced-colors selected states", () => {
     }
   }
 
+  it("keeps child marks legible on the Highlight fill", () => {
+    expect(forcedColors("components/Checkbox/Checkbox.module.css")).toContain(
+      ".input:checked + .box .check"
+    );
+    expect(forcedColors("components/Checkbox/Checkbox.module.css")).toContain(
+      ".input:checked + .circle .dot"
+    );
+    for (const c of ["Select", "Combobox"]) {
+      expect(forcedColors(`components/${c}/${c}.module.css`)).toContain(
+        '.option[data-selected="true"] .check'
+      );
+    }
+  });
+
   it("uses system colours, never hex", () => {
     for (const file of [...Object.keys(SELECTED), ...Object.keys(SHADOW_ONLY)]) {
       expect(forcedColors(file), file).not.toMatch(/#[0-9a-f]{3,8}\b/i);
