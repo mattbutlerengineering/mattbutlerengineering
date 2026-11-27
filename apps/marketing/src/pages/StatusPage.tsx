@@ -98,6 +98,10 @@ async function checkStaticSite(url: string): Promise<Omit<ServiceStatus, "name" 
   }
 }
 
+function latencyLabel({ latency }: ServiceStatus): string {
+  return latency === undefined ? "Latency: checking…" : `Latency: ${latency}ms`;
+}
+
 export function StatusPage() {
   const [services, setServices] = useState<ServiceStatus[]>(
     SERVICES.map((s) => ({ ...s, status: "loading" as const }))
@@ -165,19 +169,18 @@ export function StatusPage() {
                   <Badge color={statusColor(service.status)}>{statusLabel(service.status)}</Badge>
                 )}
               </div>
-              {service.latency !== undefined && (
-                <Text className={styles.meta}>
-                  {`Latency: ${service.latency}ms`}
-                  {service.version && (
-                    <>
-                      {" · "}
-                      <code className={styles.version} title={`v${service.version}`}>
-                        {`v${service.version}`}
-                      </code>
-                    </>
-                  )}
-                </Text>
-              )}
+              {/* Always rendered so the card keeps its height when probe results land (#9888). */}
+              <Text className={styles.meta}>
+                {latencyLabel(service)}
+                {service.version && (
+                  <>
+                    {" · "}
+                    <code className={styles.version} title={`v${service.version}`}>
+                      {`v${service.version}`}
+                    </code>
+                  </>
+                )}
+              </Text>
             </Card>
           ))}
         </div>
@@ -196,9 +199,7 @@ export function StatusPage() {
                   <Badge color={statusColor(site.status)}>{statusLabel(site.status)}</Badge>
                 )}
               </div>
-              {site.latency !== undefined && (
-                <Text className={styles.meta}>Latency: {site.latency}ms</Text>
-              )}
+              <Text className={styles.meta}>{latencyLabel(site)}</Text>
             </Card>
           ))}
         </div>

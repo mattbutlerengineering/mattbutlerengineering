@@ -61,6 +61,9 @@
 .meta {
   margin-top: 0.5rem;
   font-size: 0.8125rem;
+  /* Fixed line box so the loaded line (with inline <code>) is exactly as tall as the placeholder (#9888). */
+  line-height: 1.25rem;
+  height: 1.25rem;
   color: var(--rialto-text-secondary);
   min-width: 0;
   overflow: hidden;
@@ -70,6 +73,7 @@
 
 .version {
   font-family: var(--rialto-font-mono);
+  line-height: 1;
 }
 
 /* Unlike .meta, this must wrap — it carries a full sentence explaining why

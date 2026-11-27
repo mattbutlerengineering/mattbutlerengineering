@@ -39,6 +39,14 @@ describe("StatusPage", () => {
     expect(screen.getAllByTestId("spinner").length).toBeGreaterThan(0);
   });
 
+  it("reserves a meta line in every service and site card before probes resolve (#9888)", () => {
+    mockFetch.mockImplementation(() => new Promise(() => {}));
+    render(<StatusPage />);
+    const spinnerCards = screen.getAllByTestId("spinner").length;
+    // One spinner per loading service/site/CI card; the CI card has no meta line.
+    expect(screen.getAllByText("Latency: checking…")).toHaveLength(spinnerCards - 1);
+  });
+
   it("reserves the last-checked line before the first probe round completes", async () => {
     mockFetch.mockResolvedValue({ ok: true, json: async () => ({ status: "ok" }) });
     render(<StatusPage />);
