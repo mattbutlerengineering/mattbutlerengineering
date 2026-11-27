@@ -22,7 +22,9 @@ describe("BookingWidget header locale picker", () => {
         <BookingWidget venueId="v1" venueSlug="v" />
       </WidgetLocaleScope>
     );
-    expect(await screen.findByRole("button", { name: /Language/ })).toHaveTextContent("EN-US");
+    expect(await screen.findByRole("button", { name: /Language/ })).toHaveTextContent(
+      "English (US)"
+    );
   });
 
   it("shows no picker outside a scope", () => {
