@@ -28,6 +28,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { BLOCKED_EXIT_CODES } from "./check-rialto-changeset.mjs";
+import { UNVERIFIED_EXIT_CODES } from "./check-ready-label-exclusive.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -36,7 +37,15 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
  * to the reason a check reports an environmental blocker (e.g. a shallow
  * clone) — shown as BLOCKED, not FAIL, but still a non-zero run (#9203).
  *
- * @type {ReadonlyArray<{ name: string, command: string, args: string[], blocked?: Record<number, string> }>}
+ * `unverified` maps an exit code to the reason a check could not reach the
+ * input it grades at all (e.g. `gh` cannot answer) — shown as UNVERIFIED and
+ * named in the tally, never as PASS, but it does not redden the run (#9922).
+ * The distinction from `blocked`: a blocked check could not be trusted to
+ * grade a diff it CAN see, so the run fails closed; an unverified check never
+ * saw its subject, and the environments where that happens (CCR sessions, CI
+ * without a token) are not ones a red audit would help.
+ *
+ * @type {ReadonlyArray<{ name: string, command: string, args: string[], blocked?: Record<number, string>, unverified?: Record<number, string> }>}
  */
 export const REPO_AUDIT_CHECKS = [
   { name: "prettier", command: "pnpm", args: ["check:prettier"] },
@@ -144,6 +153,10 @@ export const REPO_AUDIT_CHECKS = [
     name: "check-ready-label-exclusive",
     command: "node",
     args: ["scripts/check-ready-label-exclusive.mjs"],
+    unverified: {
+      [UNVERIFIED_EXIT_CODES["github-unreachable"]]:
+        "gh unreachable — ready / human-blocked exclusivity not verified",
+    },
   },
   { name: "check-memory-refs", command: "node", args: ["scripts/check-memory-refs.mjs"] },
   {
@@ -166,15 +179,20 @@ export const REPO_AUDIT_CHECKS = [
  *
  * @param {ReadonlyArray<{ name: string, command: string, args: string[] }>} checks
  * @param {(check: { name: string, command: string, args: string[] }) => { ok: boolean, detail?: string }} runCheck
- * @returns {{ name: string, ok: boolean, detail: string, blocked?: true }[]}
+ * @returns {{ name: string, ok: boolean, detail: string, blocked?: true, unverified?: true }[]}
  */
 export function runAllChecks(checks, runCheck) {
   return checks.map((check) => {
     try {
       const { ok, detail = "" } = runCheck(check);
       const code = /^exit (\d+)$/.exec(detail)?.[1];
-      const reason = ok || code === undefined ? undefined : check.blocked?.[Number(code)];
+      const declared = (map) => (ok || code === undefined ? undefined : map?.[Number(code)]);
+      const reason = declared(check.blocked);
       if (reason) return { name: check.name, ok, blocked: true, detail: reason };
+      // Unverified is not a failure: the run stays green (`ok: true`) but the
+      // check is never labelled or tallied as a pass.
+      const unverified = declared(check.unverified);
+      if (unverified) return { name: check.name, ok: true, unverified: true, detail: unverified };
       return { name: check.name, ok, detail };
     } catch (error) {
       return { name: check.name, ok: false, detail: error instanceof Error ? error.message : "" };
@@ -195,14 +213,19 @@ export function exitCodeFor(results) {
  *
  * A BLOCKED check (environmental, e.g. a shallow clone) is listed apart from
  * FAIL so a reader can tell it from a real violation; it is still not a pass.
+ * An UNVERIFIED check (it could not reach its subject at all) is listed apart
+ * from both and named in the tally, so an otherwise-clean run never claims
+ * "N of N checks passed" on a gate that never ran (#9922).
  *
- * @param {ReadonlyArray<{ name: string, ok: boolean, detail: string, blocked?: boolean }>} results
+ * @param {ReadonlyArray<{ name: string, ok: boolean, detail: string, blocked?: boolean, unverified?: boolean }>} results
  * @returns {string}
  */
 export function formatSummary(results) {
-  const label = (result) => (result.ok ? "PASS" : result.blocked ? "BLOCKED" : "FAIL");
+  const label = (result) =>
+    result.unverified ? "UNVERIFIED" : result.ok ? "PASS" : result.blocked ? "BLOCKED" : "FAIL";
   const failed = results.filter((result) => !result.ok && !result.blocked);
   const blocked = results.filter((result) => result.blocked);
+  const unverified = results.filter((result) => result.unverified);
   const lines = results.map(
     (result) => `  ${label(result)}  ${result.name}${result.detail ? ` (${result.detail})` : ""}`
   );
@@ -216,6 +239,13 @@ export function formatSummary(results) {
       `${blocked.length} blocked (${names(blocked)})`,
     ];
     tally = `${failed.length + blocked.length} of ${results.length} checks did not pass: ${parts.join(", ")}`;
+  }
+  if (unverified.length > 0) {
+    const clause = `${unverified.length} unverified (${names(unverified)})`;
+    tally =
+      failed.length === 0 && blocked.length === 0
+        ? `${results.length - unverified.length} of ${results.length} checks verified: ${clause}`
+        : `${tally}; ${clause}`;
   }
 
   return ["repo-audit summary:", ...lines, tally].join("\n");
