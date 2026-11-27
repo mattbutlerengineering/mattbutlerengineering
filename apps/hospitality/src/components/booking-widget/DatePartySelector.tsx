@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type Ref } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { Calendar, Input, Button } from "@mattbutlerengineering/rialto";
 import type { OperatingHours } from "@mbe/types";
@@ -15,6 +15,8 @@ export interface DatePartySelectorProps {
   onEndDateChange?: (date: string) => void;
   onPartySizeChange: (size: number) => void;
   onNext: () => void;
+  /** Attached to "Find Available Times", so Back from the time step can return focus to it (#9995). */
+  findTimesRef?: Ref<HTMLButtonElement>;
   minDate?: string;
   maxDate?: string;
   maxPartySize?: number;
@@ -53,6 +55,7 @@ export function DatePartySelector({
   onEndDateChange,
   onPartySizeChange,
   onNext,
+  findTimesRef,
   minDate,
   maxDate,
   maxPartySize = 8,
@@ -197,6 +200,7 @@ export function DatePartySelector({
       </div>
 
       <Button
+        ref={findTimesRef}
         variant="primary"
         onClick={onNext}
         disabled={!canProceed}

@@ -171,14 +171,23 @@ export function BookingWidget({
   const isWaitlistState = state === "waitlist-join" || state === "waitlist-confirmation";
 
   // A step change unmounts the control that was pressed, dropping focus to <body> (#9995):
-  // move it to the new step's heading so the change is announced. The first render keeps focus
-  // where the page put it.
+  // move it to the new step's heading so the change is announced. Back from the time step returns
+  // to "Find Available Times", which renders synchronously; other Backs land on a step whose
+  // advancing control isn't mounted yet (slots refetch), so they take the heading. The first
+  // render keeps focus where the page put it.
   const headerRef = useRef<HTMLDivElement>(null);
   const stepHeadingRef = useRef<HTMLElement>(null);
+  const findTimesRef = useRef<HTMLButtonElement>(null);
   const focusedStateRef = useRef(state);
   useEffect(() => {
-    if (focusedStateRef.current === state) return;
+    const previous = focusedStateRef.current;
+    if (previous === state) return;
     focusedStateRef.current = state;
+    const findTimes = findTimesRef.current;
+    if (previous === "time-slot" && state === "date-party" && findTimes && !findTimes.disabled) {
+      findTimes.focus();
+      return;
+    }
     focusStepHeading(stepHeadingRef.current, headerRef.current);
   }, [state]);
 
@@ -241,6 +250,7 @@ export function BookingWidget({
           onEndDateChange={enableDateRange ? actions.setSelectedEndDate : undefined}
           onPartySizeChange={actions.setPartySize}
           onNext={actions.goToTimeSlot}
+          findTimesRef={findTimesRef}
           maxPartySize={maxPartySize}
           phone={phone}
           enableDateRange={enableDateRange}
