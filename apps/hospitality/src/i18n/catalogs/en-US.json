@@ -1448,17 +1448,10 @@
       "otherTimes": "Other times that day",
       "pickAnotherDate": "Pick another date",
       "noHoursGuestCall": "Call {{phone}} to book a table.",
-      "periods": {
-        "lunch": "Lunch",
-        "dinner": "Dinner",
-        "late": "Late Night"
-      },
-      "periodTimes": {
-        "lunch": "Available lunch times",
-        "dinner": "Available dinner times",
-        "late": "Available late night times",
-        "lateAfterMidnight": "Available late night times, after midnight on {{date}}"
-      },
+      "serviceTimes": "Available {{service}} times",
+      "serviceTimesAfterMidnight": "Available {{service}} times, after midnight on {{date}}",
+      "availableTimes": "Available times",
+      "availableTimesAfterMidnight": "Available times, after midnight on {{date}}",
       "selected": "Selected:",
       "tablesAvailable_one": "{{count}} table available",
       "tablesAvailable_other": "{{count}} tables available"

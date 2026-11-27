@@ -1483,17 +1483,10 @@
       "otherTimes": "Autres heures ce jour-là",
       "pickAnotherDate": "Choisir une autre date",
       "noHoursGuestCall": "Appelez le {{phone}} pour réserver une table.",
-      "periods": {
-        "lunch": "Dîner",
-        "dinner": "Souper",
-        "late": "Fin de soirée"
-      },
-      "periodTimes": {
-        "lunch": "Heures disponibles pour le dîner",
-        "dinner": "Heures disponibles pour le souper",
-        "late": "Heures disponibles en fin de soirée",
-        "lateAfterMidnight": "Heures disponibles en fin de soirée, après minuit le {{date}}"
-      },
+      "serviceTimes": "Heures disponibles pour {{service}}",
+      "serviceTimesAfterMidnight": "Heures disponibles pour {{service}}, après minuit le {{date}}",
+      "availableTimes": "Heures disponibles",
+      "availableTimesAfterMidnight": "Heures disponibles, après minuit le {{date}}",
       "selected": "Sélection :",
       "tablesAvailable_one": "{{count}} table disponible",
       "tablesAvailable_many": "{{count}} de tables disponibles",

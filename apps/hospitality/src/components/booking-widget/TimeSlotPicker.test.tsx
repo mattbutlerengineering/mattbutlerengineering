@@ -31,8 +31,11 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   ),
 }));
 
-function makeSlot(time: string, available = true): TimeSlot {
-  return { time, available };
+const EARLY = { id: "vs_early", name: "Early Seating" };
+const DINNER = { id: "vs_dinner", name: "Dinner" };
+
+function makeSlot(time: string, available = true, service?: TimeSlot["service"]): TimeSlot {
+  return service ? { time, available, service } : { time, available };
 }
 
 describe("TimeSlotPicker", () => {
@@ -95,32 +98,104 @@ describe("TimeSlotPicker", () => {
     expect(screen.getByText("Try a different date or party size.")).toBeDefined();
   });
 
-  it("renders slots grouped by lunch period", () => {
-    const slots = [makeSlot("2026-05-20T12:00:00"), makeSlot("2026-05-20T12:30:00")];
-    render(<TimeSlotPicker {...defaultProps} slots={slots} />);
-    expect(screen.getByText("Lunch")).toBeDefined();
-  });
+  describe("grouping by venue service", () => {
+    const optionTexts = (listbox: HTMLElement) =>
+      Array.from(listbox.querySelectorAll("[role=option]")).map((o) => o.textContent);
 
-  it("renders slots grouped by dinner period", () => {
-    const slots = [makeSlot("2026-05-20T18:00:00"), makeSlot("2026-05-20T19:00:00")];
-    render(<TimeSlotPicker {...defaultProps} slots={slots} />);
-    expect(screen.getByText("Dinner")).toBeDefined();
-  });
+    it("gives each of two services its own headed section, in opening order", () => {
+      // Out of time order on the wire: the section order follows the times, not the payload.
+      const slots = [
+        makeSlot("2026-05-20T19:00:00", true, DINNER),
+        makeSlot("2026-05-20T17:30:00", true, EARLY),
+        makeSlot("2026-05-20T17:00:00", true, EARLY),
+        makeSlot("2026-05-20T19:30:00", true, DINNER),
+      ];
+      render(<TimeSlotPicker {...defaultProps} slots={slots} />);
+      const headings = screen.getAllByRole("heading").map((h) => h.textContent);
+      expect(headings).toEqual(["Early Seating", "Dinner"]);
+      const early = screen.getByRole("listbox", { name: "Available Early Seating times" });
+      const dinner = screen.getByRole("listbox", { name: "Available Dinner times" });
+      expect(optionTexts(early)).toEqual(["5:00 PM", "5:30 PM"]);
+      expect(optionTexts(dinner)).toEqual(["7:00 PM", "7:30 PM"]);
+    });
 
-  it("renders slots grouped by late night period", () => {
-    const slots = [makeSlot("2026-05-20T21:00:00"), makeSlot("2026-05-20T22:00:00")];
-    render(<TimeSlotPicker {...defaultProps} slots={slots} />);
-    expect(screen.getByText("Late Night")).toBeDefined();
-  });
+    it("shows the venue's service name exactly as typed, never a clock band", () => {
+      const slots = [
+        makeSlot("2026-05-20T12:00:00", true, { id: "vs_1", name: "brunch & bubbles" }),
+        makeSlot("2026-05-20T21:00:00", true, { id: "vs_2", name: "After Hours" }),
+      ];
+      render(<TimeSlotPicker {...defaultProps} slots={slots} />);
+      expect(screen.getByRole("heading", { name: "brunch & bubbles" })).toBeDefined();
+      expect(screen.getByRole("heading", { name: "After Hours" })).toBeDefined();
+      expect(screen.queryByText("Lunch")).toBeNull();
+      expect(screen.queryByText("Late Night")).toBeNull();
+    });
 
-  it("groups after-midnight times under Late Night, named for the next day", () => {
-    const slots = [makeSlot("2026-05-20T22:00:00"), makeSlot("2026-05-21T00:30:00")];
-    render(<TimeSlotPicker {...defaultProps} slots={slots} />);
-    expect(screen.getAllByText("Late Night")).toHaveLength(1);
-    expect(screen.queryByText("Lunch")).toBeNull();
-    const afterMidnight = screen.getByRole("listbox", { name: /after midnight on .*May 21/i });
-    expect(afterMidnight.textContent).toContain("12:30 AM");
-    expect(screen.getByRole("listbox", { name: "Available late night times" })).toBeDefined();
+    it("shows one unheaded list named Available times when the venue has one service", () => {
+      const slots = [
+        makeSlot("2026-05-20T12:00:00", true, DINNER),
+        makeSlot("2026-05-20T18:00:00", true, DINNER),
+      ];
+      render(<TimeSlotPicker {...defaultProps} slots={slots} />);
+      expect(screen.queryAllByRole("heading")).toHaveLength(0);
+      const listbox = screen.getByRole("listbox", { name: "Available times" });
+      expect(optionTexts(listbox)).toEqual(["12:00 PM", "6:00 PM"]);
+    });
+
+    it("shows one unheaded list when slots carry no service (legacy hours)", () => {
+      const slots = [makeSlot("2026-05-20T18:00:00"), makeSlot("2026-05-20T12:00:00")];
+      render(<TimeSlotPicker {...defaultProps} slots={slots} />);
+      expect(screen.queryAllByRole("heading")).toHaveLength(0);
+      expect(screen.getAllByRole("listbox")).toHaveLength(1);
+      const listbox = screen.getByRole("listbox", { name: "Available times" });
+      expect(optionTexts(listbox)).toEqual(["12:00 PM", "6:00 PM"]);
+    });
+
+    it("falls back to one unheaded list when only some slots carry a service", () => {
+      const slots = [
+        makeSlot("2026-05-20T17:00:00", true, EARLY),
+        makeSlot("2026-05-20T19:00:00"),
+        makeSlot("2026-05-20T19:30:00", true, DINNER),
+      ];
+      render(<TimeSlotPicker {...defaultProps} slots={slots} />);
+      expect(screen.queryAllByRole("heading")).toHaveLength(0);
+      const listbox = screen.getByRole("listbox", { name: "Available times" });
+      expect(optionTexts(listbox)).toEqual(["5:00 PM", "7:00 PM", "7:30 PM"]);
+    });
+
+    it("puts a service's after-midnight times in a second list inside its section, named for the next day", () => {
+      const late = { id: "vs_late", name: "Late Seating" };
+      const slots = [
+        makeSlot("2026-05-20T18:00:00", true, DINNER),
+        makeSlot("2026-05-20T22:00:00", true, late),
+        makeSlot("2026-05-21T00:30:00", true, late),
+      ];
+      const { container } = render(<TimeSlotPicker {...defaultProps} slots={slots} />);
+      const afterMidnight = screen.getByRole("listbox", {
+        name: /^Available Late Seating times, after midnight on .*May 21/,
+      });
+      expect(optionTexts(afterMidnight)).toEqual(["12:30 AM"]);
+      const sameDay = screen.getByRole("listbox", { name: "Available Late Seating times" });
+      expect(optionTexts(sameDay)).toEqual(["10:00 PM"]);
+      // Both lists sit under the Late Seating heading, not in a section of their own.
+      const lateHeading = screen.getByRole("heading", { name: "Late Seating" });
+      expect(lateHeading.parentElement?.contains(afterMidnight)).toBe(true);
+      expect(lateHeading.parentElement?.contains(sameDay)).toBe(true);
+      expect(container.querySelectorAll("h3")).toHaveLength(2);
+    });
+
+    it("splits after-midnight times out of the unheaded list too", () => {
+      const slots = [makeSlot("2026-05-20T22:00:00"), makeSlot("2026-05-21T00:30:00")];
+      render(<TimeSlotPicker {...defaultProps} slots={slots} />);
+      expect(screen.queryAllByRole("heading")).toHaveLength(0);
+      const afterMidnight = screen.getByRole("listbox", {
+        name: /^Available times, after midnight on .*May 21/,
+      });
+      expect(optionTexts(afterMidnight)).toEqual(["12:30 AM"]);
+      expect(optionTexts(screen.getByRole("listbox", { name: "Available times" }))).toEqual([
+        "10:00 PM",
+      ]);
+    });
   });
 
   it("shows the closure message and a way to other dates when the date is closed", () => {
@@ -254,33 +329,26 @@ describe("TimeSlotPicker", () => {
     expect(onBack).toHaveBeenCalled();
   });
 
-  it("does not render a period section if no slots fall in that period", () => {
-    const slots = [makeSlot("2026-05-20T18:00:00")]; // dinner only
-    render(<TimeSlotPicker {...defaultProps} slots={slots} />);
-    expect(screen.queryByText("Lunch")).toBeNull();
-    expect(screen.queryByText("Late Night")).toBeNull();
-    expect(screen.getByText("Dinner")).toBeDefined();
-  });
-
   describe("keyboard navigation", () => {
-    it("scopes roving tabindex to each period's listbox independently", () => {
+    it("scopes roving tabindex to each service's listbox independently", () => {
       const slots = [
-        makeSlot("2026-05-20T12:00:00"), // lunch
-        makeSlot("2026-05-20T12:30:00"), // lunch
-        makeSlot("2026-05-20T18:00:00"), // dinner
+        makeSlot("2026-05-20T17:00:00", true, EARLY),
+        makeSlot("2026-05-20T17:30:00", true, EARLY),
+        makeSlot("2026-05-20T19:00:00", true, DINNER),
       ];
       render(<TimeSlotPicker {...defaultProps} slots={slots} />);
 
       const listboxes = screen.getAllByRole("listbox");
       expect(listboxes).toHaveLength(2);
 
-      const lunchOptions = screen.getAllByRole("option").slice(0, 2);
-      fireEvent.keyDown(lunchOptions[0]!, { key: "ArrowDown" });
+      const earlyOptions = screen.getAllByRole("option").slice(0, 2);
+      fireEvent.keyDown(earlyOptions[0]!, { key: "ArrowDown" });
 
       const optionsAfter = screen.getAllByRole("option");
-      // Lunch's second option becomes the roving tab stop...
+      // Early Seating's second option becomes the roving tab stop...
+      expect(optionsAfter[0]?.getAttribute("tabindex")).toBe("-1");
       expect(optionsAfter[1]?.getAttribute("tabindex")).toBe("0");
-      // ...while dinner's only option is untouched (unaffected by lunch's nav).
+      // ...while Dinner's only option is untouched (unaffected by Early Seating's nav).
       expect(optionsAfter[2]?.getAttribute("tabindex")).toBe("0");
     });
 
@@ -404,7 +472,6 @@ describe("TimeSlotPicker", () => {
             venueTimezone="America/New_York"
           />
         );
-        expect(screen.getByText("Lunch")).toBeDefined();
         expect(screen.getByText("1:00 PM")).toBeDefined();
         expect(screen.queryByText("10:00 AM")).toBeNull();
       } finally {

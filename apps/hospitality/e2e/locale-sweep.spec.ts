@@ -378,7 +378,10 @@ for (const locale of LOCALES) {
           .click();
 
         await expect(page.getByRole("option").first()).toBeVisible();
-        await sweep(page, locale, "time-slot step");
+        // One headed section per venue service, each named as the venue typed it in every locale.
+        await expect(page.getByRole("heading", { name: "Early Seating" })).toBeVisible();
+        await expect(page.getByRole("heading", { name: "Dinner", exact: true })).toBeVisible();
+        await sweep(page, locale, "time-slot step", PUBLIC_NAMESPACE, userEnteredText());
         await page.getByRole("option").first().click();
 
         await page
@@ -438,12 +441,14 @@ const USER_TEXT_FIELDS: Record<string, RegExp> = {
   "floor-plans-list.json": /^name$/,
   "venues-list.json": /^name$/,
   "user-me.json": /^name$/,
+  // The slots' venue service names ("Early Seating", "Dinner") head the guest time step as typed.
+  "availability-slots.json": /^name$/,
 };
 
 /**
  * Names a Manager typed for the mock availability config's services (api-mocks.ts, inline rather
  * than a JSON fixture). Venue Setup lists them; "Lunch" and "Dinner" are also catalog words
- * (quick-setup presets, the booking widget's periods) a locale translates.
+ * (quick-setup presets) a locale translates.
  */
 const MOCK_SERVICE_NAMES: readonly string[] = ["Lunch", "Dinner"];
 
