@@ -3,7 +3,13 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { RIALTO_WEB_REGISTRY, createRepoIo } from "../ui-quality/routes.mjs";
-import { SITEMAP_PATH, buildSitemap, collectEntries, renderSitemap } from "../generate-sitemap.mjs";
+import {
+  SHIPPED_FEATURES_PATH,
+  SITEMAP_PATH,
+  buildSitemap,
+  collectEntries,
+  renderSitemap,
+} from "../generate-sitemap.mjs";
 import { FAMILIES } from "../regen-manifest.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -25,6 +31,21 @@ describe("collectEntries", () => {
       "/rialto/demos/",
       "/weekly",
     ]);
+  });
+});
+
+describe("collectEntries shipped stories", () => {
+  it("adds one /shipped/<slug> url per story slug, deterministically ordered", () => {
+    const entries = collectEntries(
+      [page("shipped"), page("shipped/:slug")],
+      [],
+      ["b-story", "a-story"]
+    );
+    const paths = entries.map((e) => e.path);
+    expect(paths).toContain("/shipped/a-story");
+    expect(paths).toContain("/shipped/b-story");
+    expect(paths.indexOf("/shipped/a-story")).toBeLessThan(paths.indexOf("/shipped/b-story"));
+    expect(paths).not.toContain("/shipped/:slug");
   });
 });
 
@@ -50,7 +71,23 @@ describe("committed sitemap", () => {
     }
   });
 
+  it("lists every shipped story from the committed snapshot", () => {
+    const xml = readFileSync(resolve(ROOT, SITEMAP_PATH), "utf8");
+    const snapshot = JSON.parse(readFileSync(resolve(ROOT, SHIPPED_FEATURES_PATH), "utf8"));
+    expect(snapshot.features.length).toBeGreaterThan(0);
+    for (const f of snapshot.features) {
+      expect(xml).toContain(`<loc>https://mattbutlerengineering.com/shipped/${f.slug}</loc>`);
+    }
+  });
+
   it("is registered as a regen family", () => {
     expect(FAMILIES.find((f) => f.id === "marketing-sitemap")?.outputs).toEqual([SITEMAP_PATH]);
+  });
+
+  it("regenerates when the shipped-features snapshot changes", () => {
+    const hit = FAMILIES.find((f) => f.id === "marketing-sitemap")?.changedBy(
+      SHIPPED_FEATURES_PATH
+    );
+    expect(hit?.outputs).toEqual([SITEMAP_PATH]);
   });
 });

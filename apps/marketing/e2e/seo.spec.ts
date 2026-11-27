@@ -146,16 +146,16 @@ test.describe("SEO metadata", () => {
     expect(href).toMatch(/^\/shipped\/[^/]+$/);
     await story.click();
     await expect(page).toHaveURL(new RegExp(`${href}$`));
-    await expect(page).toHaveTitle("Shipped Story — Matt Butler Engineering");
+    const heading = page.getByRole("heading", { level: 1 });
+    await expect(heading).toBeVisible();
+    const storyTitle = `${(await heading.textContent())?.trim()} — Shipped — Matt Butler Engineering`;
+    await expect(page).toHaveTitle(storyTitle);
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", `${ORIGIN}${href}`);
     await expect(page.locator('meta[property="og:url"]')).toHaveAttribute(
       "content",
       `${ORIGIN}${href}`
     );
-    await expect(page.locator('meta[property="og:title"]')).toHaveAttribute(
-      "content",
-      "Shipped Story — Matt Butler Engineering"
-    );
+    await expect(page.locator('meta[property="og:title"]')).toHaveAttribute("content", storyTitle);
   });
 
   test("404 is noindex and does not canonicalize to the homepage", async ({ page }) => {

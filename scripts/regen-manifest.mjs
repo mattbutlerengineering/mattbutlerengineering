@@ -120,10 +120,12 @@ export const FAMILIES = [
     label: "apps/marketing/public/sitemap.xml (derived from the route inventory)",
     command: "node scripts/generate-sitemap.mjs",
     outputs: ["apps/marketing/public/sitemap.xml"],
-    // Same inputs as the route inventory, plus the shared derivePath module.
+    // Same inputs as the route inventory, plus the shared derivePath module
+    // and the shipped-features snapshot (one sitemap URL per story).
     changedBy(path) {
       return ROUTER_FILES.some((file) => path === file || path.endsWith(`/${file}`)) ||
-        path.endsWith("scripts/ui-quality/derive-path.mjs")
+        path.endsWith("scripts/ui-quality/derive-path.mjs") ||
+        path === "apps/marketing/src/data/shipped-features.json"
         ? { command: this.command, outputs: this.outputs }
         : null;
     },
