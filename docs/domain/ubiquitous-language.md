@@ -274,7 +274,7 @@ Context covers `packages/rialto`, `packages/rialto-catalog`, `packages/rialto-pl
 
 ### Component
 
-**Definition:** A curated, design-token-driven React UI primitive published by `packages/rialto` under `@mattbutlerengineering/rialto`; each Component has exactly one `*.catalog.ts` file declaring its catalog metadata.
+**Definition:** A curated, design-token-driven React UI primitive exported by `packages/rialto` as `@mattbutlerengineering/rialto` (workspace-only, no longer published to a registry since #9838); each Component has exactly one `*.catalog.ts` file declaring its catalog metadata.
 
 **Source:** `packages/rialto/src/components/catalog-meta.ts:CatalogMeta.name`
 
