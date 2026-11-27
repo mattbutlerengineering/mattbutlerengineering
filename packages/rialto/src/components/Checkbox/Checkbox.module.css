@@ -300,8 +300,9 @@
 
   /* forced-color-adjust: none above stops the UA repainting the transparent
      focus outline; restore it in the system text colour (#9857). */
-  .input:focus-visible + .box,
-  .input:focus-visible + .circle {
+  .input:checked:focus-visible + .box,
+  .input[data-indeterminate="true"]:focus-visible + .box,
+  .input:checked:focus-visible + .circle {
     outline-color: CanvasText;
   }
 }
