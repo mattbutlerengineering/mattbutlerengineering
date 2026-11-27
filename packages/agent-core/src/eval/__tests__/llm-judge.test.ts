@@ -80,4 +80,32 @@ describe("createEvalJudge", () => {
     expect(result.passed).toBe(true);
     expect(result.issues).not.toContain("Empty diff");
   });
+  it("shows the judge the agent's final summary so a declared no-op can be judged on evidence (#9926)", async () => {
+    const evaluate = vi.fn().mockResolvedValue({ passed: true });
+    const withSummary = {
+      diff: "",
+      session: { resultText: "Verified js-yaml ^5.5.0 is the latest 5.x; no change needed." },
+    } as unknown as TaskRunResult;
+    await createEvalJudge(withSummary, evaluate)("bump", "c");
+    const task = evaluate.mock.calls[0]![0] as string;
+    expect(task).toContain("## Agent Summary");
+    expect(task).toContain("Verified js-yaml ^5.5.0 is the latest 5.x");
+  });
+
+  it("adds no summary section when the session reported no text", async () => {
+    const evaluate = vi.fn().mockResolvedValue({ passed: true });
+    const blank = { diff: "x", session: { resultText: "  " } } as unknown as TaskRunResult;
+    await createEvalJudge(blank, evaluate)("p", "c");
+    expect(evaluate.mock.calls[0]![0]).not.toContain("## Agent Summary");
+  });
+
+  it("still fails closed without calling the evaluator when the diff is missing, even with a summary", async () => {
+    const evaluate = vi.fn();
+    const result = await createEvalJudge(
+      { session: { resultText: "done" } } as unknown as TaskRunResult,
+      evaluate
+    )("p", "c");
+    expect(evaluate).not.toHaveBeenCalled();
+    expect(result.evaluationFailed).toBe(true);
+  });
 });
