@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { load } from "js-yaml";
 
 // #10011: per-PR bookkeeping workflows skip cheaply when their outcome cannot
 // change. A job skipped by `if:` takes no runner.
@@ -47,10 +48,24 @@ describe("ai-attribution.yml", () => {
 });
 
 describe("adr-check.yml", () => {
-  it("runs on main pushes only; PRs get check-adr from ci.yml's architecture-audit", () => {
-    const src = read("adr-check.yml");
-    expect(src).not.toMatch(/\n {2}pull_request:/);
-    expect(src).toMatch(/push:\s*\n\s*branches: \[main\]/);
-    expect(read("ci.yml")).toContain("pnpm --filter @mbe/cli start check-adr");
+  // ci.yml's architecture-audit chains to `prepare` (gated on has_code), so an
+  // ADR-only markdown PR gets no check-adr there; this workflow must cover it.
+  const doc = load(read("adr-check.yml"));
+  const on = doc.on ?? doc[true];
+
+  it("triggers on PRs only for check-adr inputs, including docs/adr/**", () => {
+    expect(on.pull_request.branches).toEqual(["main"]);
+    expect(on.pull_request.paths).toEqual(
+      expect.arrayContaining([
+        "docs/adr/**",
+        "tools/cli/src/check-adr.ts",
+        "tools/cli/src/commands/adr*.ts",
+      ])
+    );
+  });
+
+  it("still audits every push to main", () => {
+    expect(on.push.branches).toEqual(["main"]);
+    expect(on.push.paths).toBeUndefined();
   });
 });
