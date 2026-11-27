@@ -2,3 +2,39 @@
 .dialogs {
   composes: phoneTargets from "../components/availability/phone-targets.module.css";
 }
+
+/* The rail beside the open screen (#9944). The rail stays in view while a long editor scrolls. */
+.frame {
+  display: grid;
+  grid-template-columns: 15rem minmax(0, 1fr);
+  align-items: start;
+  min-width: 0;
+}
+
+.rail {
+  position: sticky;
+  top: 0;
+  max-height: 100dvh;
+  overflow-y: auto;
+  padding: var(--rialto-space-xl) var(--rialto-space-sm) var(--rialto-space-xl)
+    var(--rialto-space-md);
+  border-inline-end: 1px solid var(--rialto-border);
+}
+
+.content {
+  min-width: 0;
+}
+
+/* A phone stacks the rail, folded behind "Jump to", above the screen. */
+@media (max-width: 767px) {
+  .frame {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .rail {
+    position: static;
+    max-height: none;
+    padding: var(--rialto-space-md) var(--rialto-space-md) 0;
+    border-inline-end: none;
+  }
+}

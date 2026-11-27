@@ -74,7 +74,7 @@ async function openHub(page: Page, viewport = DESKTOP): Promise<void> {
 async function screensTall(page: Page, viewport: { height: number }): Promise<number> {
   const main = page.locator("main#main-content");
   const scrolled = await main.evaluate((el) => el.scrollTop);
-  const box = await page.getByRole("link", { name: "History" }).boundingBox();
+  const box = await page.getByTestId("hub-history").boundingBox();
   if (!box) throw new Error("the hub's History link has no box");
   return (box.y + box.height + scrolled) / viewport.height;
 }
@@ -170,12 +170,12 @@ test.describe("Availability hub", () => {
         body: JSON.stringify({ data: { total: 0, offset: 0, items: [] } }),
       })
     );
-    await page.getByRole("link", { name: "History" }).click();
+    await page.getByTestId("hub-history").click();
     await expect(page).toHaveURL(/\/availability\/history$/);
     await expect(page.getByRole("dialog", { name: "History" })).toBeVisible();
     await back();
     await expect(page.getByRole("dialog", { name: "History" })).toHaveCount(0);
-    await expect(page.getByRole("link", { name: "History" })).toBeFocused();
+    await expect(page.getByTestId("hub-history")).toBeFocused();
   });
 
   test("a Host reads the same rows and sees no edit control", async ({ mockedPage: page }) => {

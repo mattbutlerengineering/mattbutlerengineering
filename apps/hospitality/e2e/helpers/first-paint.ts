@@ -36,8 +36,11 @@ const ACTIONABLE = [
   "summary",
 ].join(",");
 
-/** The breadcrumb row the layout renders at the top of `<main>` (`DashboardLayout` `breadcrumbBar`). */
-const SHELL_ROW = '[class*="breadcrumbBar"]';
+/**
+ * The shell inside `<main>`: the breadcrumb row (`DashboardLayout` `breadcrumbBar`) and the
+ * Availability rail (#9944), navigation beside every Availability page, like the sidebar.
+ */
+const SHELL_ROW = '[class*="breadcrumbBar"], nav[aria-label="Availability sections"]';
 
 export async function countFirstPaintControls(
   page: Page,
@@ -53,7 +56,7 @@ export async function countFirstPaintControls(
       for (const el of main.querySelectorAll(selector)) {
         if (outside?.contains(el)) continue;
         if (el.closest("[aria-hidden=true], [inert]")) continue;
-        // The shell's own row inside <main>: breadcrumb, system health badge, paused pill.
+        // The shell inside <main>: breadcrumb, system health badge, paused pill, Availability rail.
         if (el.closest(shell)) continue;
         if (el.matches(":disabled")) continue;
         const rect = el.getBoundingClientRect();

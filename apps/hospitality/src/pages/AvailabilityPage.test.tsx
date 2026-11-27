@@ -64,6 +64,7 @@ const venue = vi.hoisted(() => ({
 }));
 
 vi.mock("../hooks/useFloorPlans.js", () => ({
+  useFloorPlans: () => ({ data: undefined }),
   useVenueFloorPlanSections: () => ({
     data: sections.value,
     isLoading: false,
@@ -1644,7 +1645,8 @@ describe("AvailabilityPage layers", () => {
     const panel = screen.getByTestId("week-panel");
     const controls = Array.from(
       document.body.querySelectorAll<HTMLElement>("button, a[href], input, select, textarea")
-    ).filter((el) => !panel.contains(el));
+      // The layout's rail is navigation, like the sidebar, not one of the page's own controls.
+    ).filter((el) => !panel.contains(el) && !el.closest('nav[aria-label="Availability sections"]'));
     expect(controls.map((el) => el.textContent || el.getAttribute("aria-label"))).toEqual([
       "Close…",
       "Pause online booking",
