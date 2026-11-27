@@ -3,6 +3,8 @@ import { join } from "node:path";
 import { describe, it, expect, afterEach } from "vitest";
 import { render } from "@testing-library/react";
 import { ComponentPageLayout } from "./pages/components/ComponentPageLayout.js";
+import { DocumentTitle } from "./document-title.js";
+import { extractLayoutDescription } from "./data/layout-description.js";
 import { PAGE_REGISTRY } from "./data/page-registry.js";
 import { resolveHead } from "./data/route-head-data.js";
 
@@ -55,6 +57,19 @@ describe("page description", () => {
   });
 });
 
+describe("DocumentTitle description", () => {
+  afterEach(() => {
+    for (const [attribute, key] of KEYS) {
+      document.head.querySelector(`meta[${attribute}="${key}"]`)?.remove();
+    }
+  });
+
+  it("sets the description tags when given one", () => {
+    render(<DocumentTitle title="Demos" description="Demo pages." />);
+    for (const [attribute, key] of KEYS) expect(meta(attribute, key)).toBe("Demo pages.");
+  });
+});
+
 describe("unique titles", () => {
   it("gives the command-palette component and example different titles", () => {
     const component = resolveHead("/components/command-palette", PAGE_REGISTRY).title;
@@ -83,10 +98,7 @@ describe("authored descriptions", () => {
     const dupes: string[] = [];
     for (const file of walk(join(__dirname, "pages"))) {
       if (!/Page\.tsx$/.test(file)) continue;
-      const match = readFileSync(file, "utf8").match(
-        /<(?:Component|Example)PageLayout\b[\s\S]*?\bdescription=(?:"([^"]+)"|\{"([^"]+)"\})/
-      );
-      const text = match?.[1] ?? match?.[2];
+      const text = extractLayoutDescription(readFileSync(file, "utf8"));
       if (!text) continue;
       const prior = seen.get(text);
       if (prior) dupes.push(`${prior} / ${file}`);
