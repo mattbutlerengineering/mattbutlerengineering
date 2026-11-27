@@ -13,6 +13,9 @@
   border-top: none;
   border-right: none;
   border-bottom: none;
+  /* The on-surface text token, never a status tint (#10036): tinted text on its own tinted
+     background read 2.1-4.2:1. The status signal lives in the border and the background. */
+  color: var(--rialto-text-primary);
 }
 
 .block:hover {
@@ -56,20 +59,17 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  opacity: 0.75;
 }
 
 /* Status-specific colors */
 .statusPending {
   background: var(--rialto-warning-muted);
   border-inline-start-color: var(--rialto-warning);
-  color: var(--rialto-warning);
 }
 
 .statusConfirmed {
   background: color-mix(in srgb, var(--rialto-accent) 15%, transparent);
   border-inline-start-color: var(--rialto-accent);
-  color: var(--rialto-accent);
 }
 
 .statusCancelled {
@@ -81,13 +81,11 @@
 .statusCompleted {
   background: var(--rialto-success-muted);
   border-inline-start-color: var(--rialto-success);
-  color: var(--rialto-success);
 }
 
 .statusNoShow {
   background: var(--rialto-error-muted);
   border-inline-start-color: var(--rialto-error);
-  color: var(--rialto-error);
 }
 
 /* Staff booked past a soft limit; the reason is in the title and the spoken label. */
