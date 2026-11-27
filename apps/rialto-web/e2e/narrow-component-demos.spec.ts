@@ -336,6 +336,7 @@ test.describe("desktop light mode", () => {
     const background = await page
       .getByRole("dialog", { name: "Command palette" })
       .evaluate((el) => getComputedStyle(el).backgroundColor);
-    expect(background).toBe("rgba(253, 252, 250, 0.85)");
+    // Opaque elevated surface (#9869): nothing behind the palette shows through.
+    expect(background).toBe("rgb(253, 252, 250)");
   });
 });
