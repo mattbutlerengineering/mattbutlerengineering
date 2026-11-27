@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { usePublicApiClient } from "../../hooks/usePublicApiClient.js";
 import { Alert, EmptyState, Steps, Text } from "@mattbutlerengineering/rialto";
@@ -80,6 +81,21 @@ const STEP_LABEL_KEYS = {
   payment: "bookingWidget.steps.payment",
 } as const;
 
+const HEADING_SELECTOR = "h1, h2, h3, h4, h5, h6";
+
+/**
+ * Focuses the widget's own step heading or, for steps that title themselves (waitlist,
+ * confirmation), the first heading below the widget header, made programmatically focusable.
+ */
+function focusStepHeading(stepHeading: HTMLElement | null, header: HTMLElement | null) {
+  const headings = header?.parentElement?.querySelectorAll<HTMLElement>(HEADING_SELECTOR) ?? [];
+  const heading =
+    stepHeading ?? Array.from(headings).find((candidate) => !header?.contains(candidate));
+  if (!heading) return;
+  if (!heading.hasAttribute("tabindex")) heading.tabIndex = -1;
+  heading.focus();
+}
+
 export function BookingWidget({
   venueId,
   venueSlug,
@@ -154,16 +170,36 @@ export function BookingWidget({
 
   const isWaitlistState = state === "waitlist-join" || state === "waitlist-confirmation";
 
+  // A step change unmounts the control that was pressed, dropping focus to <body> (#9995):
+  // move it to the new step's heading so the change is announced. The first render keeps focus
+  // where the page put it.
+  const headerRef = useRef<HTMLDivElement>(null);
+  const stepHeadingRef = useRef<HTMLElement>(null);
+  const focusedStateRef = useRef(state);
+  useEffect(() => {
+    if (focusedStateRef.current === state) return;
+    focusedStateRef.current = state;
+    focusStepHeading(stepHeadingRef.current, headerRef.current);
+  }, [state]);
+
   return (
     <div className={[styles.widget, className].filter(Boolean).join(" ")}>
       {/* Header */}
-      <div className={styles.header}>
+      <div ref={headerRef} className={styles.header}>
         <WidgetLocalePicker />
         <Text variant="display" as="h2" align="center">
           {t("bookingWidget.title")}
         </Text>
         {state !== "confirmation" && !isWaitlistState && (
-          <Text variant="caption" color="secondary" align="center">
+          <Text
+            ref={stepHeadingRef}
+            variant="caption"
+            color="secondary"
+            align="center"
+            as="h3"
+            tabIndex={-1}
+            className={styles.stepHeading}
+          >
             {state === "date-party" && t("bookingWidget.subtitle.dateParty")}
             {state === "time-slot" && t("bookingWidget.subtitle.timeSlot")}
             {state === "guest-details" && t("bookingWidget.subtitle.guestDetails")}

@@ -54,7 +54,24 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       {steps?.[currentStep]?.label}
     </div>
   ),
-  Text: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  // Forwards ref, `as` and tabIndex so the widget's step heading can take focus (#9995).
+  Text: ({
+    children,
+    as: Tag = "div",
+    ref,
+    tabIndex,
+    className,
+  }: {
+    children: React.ReactNode;
+    as?: React.ElementType;
+    ref?: React.Ref<HTMLElement>;
+    tabIndex?: number;
+    className?: string;
+  }) => (
+    <Tag ref={ref} tabIndex={tabIndex} className={className}>
+      {children}
+    </Tag>
+  ),
   Button: ({
     children,
     onClick,
@@ -943,6 +960,92 @@ describe("BookingWidget", () => {
       expect(await screen.findByText(/7:00 PM/i)).toBeDefined();
       expect(screen.getByRole("button", { name: "Pick another date" })).toBeDefined();
       expect(mockApi.holds.releaseForVenue).toHaveBeenCalledWith("the-oak-table", "hold-1");
+    });
+  });
+
+  // Each step swaps the content under the keyboard; without this focus falls to <body> and
+  // the next Tab restarts at the locale button (#9995).
+  describe("keyboard focus across step changes (#9995)", () => {
+    const slots = [
+      { time: "2026-05-20T18:00:00", available: true },
+      { time: "2026-05-20T19:00:00", available: true },
+    ];
+
+    function findTimes() {
+      fireEvent.change(screen.getByLabelText("Date"), { target: { value: FUTURE_DATE } });
+      fireEvent.click(screen.getByText("Find Available Times"));
+    }
+
+    async function pickSlot() {
+      mockApi.holds.createForVenue.mockResolvedValue({
+        hold: { id: "hold-1", expiresAt: new Date(Date.now() + 600000).toISOString() },
+      });
+      fireEvent.click(await screen.findByText(/6:00 PM/i));
+    }
+
+    it("leaves focus alone on first render", () => {
+      renderWidget();
+      expect(document.body).toHaveFocus();
+    });
+
+    it("moves focus to the time step's heading after Find Available Times", async () => {
+      mockApi.availability.getPublicAvailability.mockResolvedValue({ data: slots });
+      renderWidget();
+      findTimes();
+
+      const heading = await screen.findByRole("heading", { name: "Choose an available time" });
+      await waitFor(() => expect(heading).toHaveFocus());
+      expect(heading.getAttribute("tabindex")).toBe("-1");
+    });
+
+    it("moves focus to the details step's heading after picking a time", async () => {
+      mockApi.availability.getPublicAvailability.mockResolvedValue({ data: slots });
+      renderWidget();
+      findTimes();
+      await pickSlot();
+
+      const heading = await screen.findByRole("heading", {
+        name: "Enter your details to confirm",
+      });
+      await waitFor(() => expect(heading).toHaveFocus());
+    });
+
+    it("returns focus to the time step's heading when the guest goes Back from details", async () => {
+      mockApi.availability.getPublicAvailability.mockResolvedValue({ data: slots });
+      renderWidget();
+      findTimes();
+      await pickSlot();
+      await screen.findByRole("heading", { name: "Enter your details to confirm" });
+
+      fireEvent.click(screen.getByText("← Back"));
+
+      const heading = await screen.findByRole("heading", { name: "Choose an available time" });
+      await waitFor(() => expect(heading).toHaveFocus());
+    });
+
+    it("returns focus to the date step's heading when the guest goes Back from times", async () => {
+      mockApi.availability.getPublicAvailability.mockResolvedValue({ data: slots });
+      renderWidget();
+      findTimes();
+      await screen.findByText(/6:00 PM/i);
+
+      fireEvent.click(screen.getByText("← Back"));
+
+      const heading = await screen.findByRole("heading", {
+        name: "Select your date and party size",
+      });
+      await waitFor(() => expect(heading).toHaveFocus());
+    });
+
+    it("moves focus to the waitlist heading after Join Waitlist", async () => {
+      mockApi.availability.getPublicAvailability.mockResolvedValue({ data: [] });
+      renderWidget();
+      findTimes();
+
+      fireEvent.click(await screen.findByText("Join Waitlist"));
+
+      const heading = await screen.findByRole("heading", { name: "No tables available" });
+      await waitFor(() => expect(heading).toHaveFocus());
     });
   });
 });
