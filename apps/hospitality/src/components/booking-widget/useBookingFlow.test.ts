@@ -533,6 +533,15 @@ describe("useBookingFlow", () => {
 
       await waitFor(() => expect(fakeApi.availability.getClosedDates).toHaveBeenCalled());
       expect(result.current.data.closures).toEqual({});
+      expect(result.current.data.closedDatesLoaded).toBe(false);
+    });
+
+    it("marks the closed-dates feed loaded only once it succeeds (#9949)", async () => {
+      const fakeApi = makeFakeApi();
+      const { result } = renderBookingFlow(fakeApi);
+
+      expect(result.current.data.closedDatesLoaded).toBe(false);
+      await waitFor(() => expect(result.current.data.closedDatesLoaded).toBe(true));
     });
 
     it("remembers a closed date and its message from the listing", async () => {

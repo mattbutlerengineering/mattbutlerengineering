@@ -233,6 +233,64 @@ describe("BookingWidget", () => {
     );
   });
 
+  describe("weekly closed days while the closed-dates feed is unavailable (#9949)", () => {
+    // FUTURE_DATE (2026-05-31) is a Sunday; the venue's weekly hours close Sundays.
+    const closedSundayConfig = {
+      name: "The Oak Table",
+      slug: "the-oak-table",
+      ianaTimezone: "America/New_York",
+      currencyCode: "USD",
+      operatingHours: {
+        saturday: { open: "17:00", close: "22:00" },
+        sunday: { open: "00:00", close: "00:00", closed: true },
+      },
+      settings: { maxAdvanceBooking: 60 },
+      deposit: {
+        enabled: false,
+        depositType: null,
+        amountCents: null,
+        freeCancellationHours: null,
+        lateCancellationFeePercent: null,
+        noShowFeePercent: null,
+      },
+    };
+
+    it("disables the weekly closed day when the feed fails", async () => {
+      mockApi.venues.getPublicConfig.mockResolvedValue(closedSundayConfig);
+      mockApi.availability.getClosedDates.mockRejectedValue(new Error("down"));
+      renderWidget();
+
+      await waitFor(() =>
+        expect((screen.getByTestId("probe-day") as HTMLButtonElement).disabled).toBe(true)
+      );
+    });
+
+    it("disables the weekly closed day while the feed is still loading", async () => {
+      mockApi.venues.getPublicConfig.mockResolvedValue(closedSundayConfig);
+      mockApi.availability.getClosedDates.mockReturnValue(new Promise(() => undefined));
+      renderWidget();
+
+      await waitFor(() =>
+        expect((screen.getByTestId("probe-day") as HTMLButtonElement).disabled).toBe(true)
+      );
+    });
+
+    it("lets a successful feed win, re-opening a day the weekly hours close", async () => {
+      mockApi.venues.getPublicConfig.mockResolvedValue(closedSundayConfig);
+      mockApi.availability.getClosedDates.mockResolvedValue([]);
+      renderWidget();
+
+      // The venue config has landed once its 60-day window bounds the picker.
+      const expectedMax = addDays(venueDate(new Date(), "America/New_York"), 60);
+      await waitFor(() =>
+        expect((screen.getByLabelText("Date") as HTMLInputElement).max).toBe(expectedMax)
+      );
+      await waitFor(() =>
+        expect((screen.getByTestId("probe-day") as HTMLButtonElement).disabled).toBe(false)
+      );
+    });
+  });
+
   describe("Regulars Club member link (#9627)", () => {
     const venueConfig = {
       name: "The Oak Table",

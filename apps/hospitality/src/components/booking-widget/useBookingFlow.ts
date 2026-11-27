@@ -59,6 +59,12 @@ export interface BookingFlowData {
    * after a listing for it has come back.
    */
   closures: Record<string, string>;
+  /**
+   * Whether the upfront closed-dates feed has succeeded. Until it does (still
+   * loading, or failed), the calendar falls back to the venue's weekly closed
+   * days from `venueConfig.operatingHours` (#9949).
+   */
+  closedDatesLoaded: boolean;
   /** Online booking is paused venue-wide; from the latest listing. */
   bookingPaused: BookingPaused | null;
   closedMidBooking: ClosedMidBooking | null;
@@ -142,6 +148,7 @@ const INITIAL_DATA: BookingFlowData = {
   slotsLoading: false,
   slotsError: null,
   closures: {},
+  closedDatesLoaded: false,
   bookingPaused: null,
   closedMidBooking: null,
   hold: null,
@@ -279,7 +286,11 @@ function reducer(state: BookingFlowState, action: BookingFlowAction): BookingFlo
       // What a listing already learned about a date wins over the upfront list.
       return {
         ...state,
-        data: { ...state.data, closures: { ...action.closures, ...state.data.closures } },
+        data: {
+          ...state.data,
+          closures: { ...action.closures, ...state.data.closures },
+          closedDatesLoaded: true,
+        },
       };
 
     case "CLOSED_MID_BOOKING":
@@ -607,7 +618,9 @@ export function useBookingFlow({
 
   // Closed dates for the booking window, fetched once so the calendar can
   // disable and name them before a guest picks one. A failure is non-fatal:
-  // the per-date listing still reports a closure when a date is opened.
+  // `closedDatesLoaded` stays false, so the calendar keeps disabling the
+  // venue's weekly closed days (#9949), and the per-date listing still
+  // reports a closure when a date is opened.
   useEffect(() => {
     if (!venueSlug) return;
     const from = venueDate(new Date(), venueTimezone);

@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { Calendar, Input, Button } from "@mattbutlerengineering/rialto";
+import type { OperatingHours } from "@mbe/types";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { addDays, venueDate } from "../../utils/service-day.js";
+import { isWeeklyClosedDay } from "./hasOperatingHours.js";
 import styles from "./DatePartySelector.module.css";
 
 export interface DatePartySelectorProps {
@@ -30,6 +32,12 @@ export interface DatePartySelectorProps {
    * the calendar with the reason as their accessible name (ux.md F9.1).
    */
   closedDates?: Readonly<Record<string, string>>;
+  /**
+   * The venue's weekly hours, passed only while the closed-dates feed is
+   * loading or has failed: weekdays they mark closed are disabled too
+   * (#9949). Omit once the feed succeeds, so it alone decides.
+   */
+  fallbackOperatingHours?: OperatingHours | null;
 }
 
 /** Upper bound on how many numbered buttons the grid ever renders (#4979) — a
@@ -52,6 +60,7 @@ export function DatePartySelector({
   phone,
   venueTimezone,
   closedDates = {},
+  fallbackOperatingHours,
 }: DatePartySelectorProps) {
   const { t } = useTranslation();
   const format = useVenueFormat({ ianaTimezone: venueTimezone ?? "", currencyCode: "USD" });
@@ -103,7 +112,10 @@ export function DatePartySelector({
             value={selectedDate}
             onChange={(value) => value && onDateChange(value)}
             isDateDisabled={(iso) =>
-              iso < effectiveMinDate || iso > effectiveMaxDate || iso in closedDates
+              iso < effectiveMinDate ||
+              iso > effectiveMaxDate ||
+              iso in closedDates ||
+              isWeeklyClosedDay(fallbackOperatingHours, iso)
             }
             getDateLabel={(iso) =>
               iso in closedDates
