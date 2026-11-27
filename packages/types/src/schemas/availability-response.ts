@@ -15,10 +15,18 @@ export const AvailableTableSchema = z.object({
   maxCovers: z.number().int().nullable(),
 });
 
+/** The venue service a slot belongs to ("Dinner"), by its stable id and current name. */
+export const SlotServiceSchema = z.object({
+  id: z.string(),
+  name: z.string().min(1),
+});
+
 export const TimeSlotSchema = z.object({
   time: z.string(),
   available: z.boolean(),
   tables: z.array(AvailableTableSchema).optional(),
+  /** Absent for venues still on legacy hours, whose service ids are not stable across reads. */
+  service: SlotServiceSchema.optional(),
 });
 
 /** The date is closed; `message` is the Manager's message for guests, or a default. */
