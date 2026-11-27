@@ -20,7 +20,13 @@ jobs:
   evaluate:
     name: Evaluate Auto-Merge Eligibility
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request_target' || (github.event_name == 'check_suite' && github.event.check_suite.conclusion == 'success')
+    # A PR event without the `auto-merge` label always ends "Skipping" below, so
+    # skip the job (no runner) instead (#10011). check_suite payloads carry no
+    # labels, so that path still resolves the PR and checks inside the job.
+    if: >-
+      (github.event_name == 'pull_request_target' &&
+      contains(github.event.pull_request.labels.*.name, 'auto-merge')) ||
+      (github.event_name == 'check_suite' && github.event.check_suite.conclusion == 'success')
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
