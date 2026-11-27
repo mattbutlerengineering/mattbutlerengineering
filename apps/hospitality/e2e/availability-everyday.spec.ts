@@ -330,8 +330,10 @@ test.describe("Availability, the everyday edits (R1-R11)", () => {
     await counter.page.getByRole("button", { name: "Close…", exact: true }).click();
     const dialog = counter.page.getByRole("dialog", { name: /^Close / });
     await dialog.getByRole("button", { name: "Tonight" }).click();
-    await dialog.getByRole("combobox", { name: "Time" }).click();
-    const options = counter.page.getByRole("listbox", { name: "Time" }).getByRole("option");
+    await dialog.getByRole("combobox", { name: "Time", exact: true }).click();
+    const options = counter.page
+      .getByRole("listbox", { name: "Time", exact: true })
+      .getByRole("option");
     const labels = await options.allTextContents();
     expect(labels.length).toBeLessThanOrEqual(12);
     expect(labels[0]).toBe("All day");
@@ -345,7 +347,7 @@ test.describe("Availability, the everyday edits (R1-R11)", () => {
       notifications(page).getByText("Closed from 9:30 PM tonight", { exact: true })
     ).toBeVisible();
     test.info().annotations.push({
-      type: "starting-at options",
+      type: "close-early options",
       description: `${labels.length}: ${labels.join(" | ")}`,
     });
     record("R6", counter.count(), 5);

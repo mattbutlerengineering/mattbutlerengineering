@@ -50,7 +50,10 @@ function spanText(by: ClosedByRule, t: TFunction, format: VenueFormat): string |
   });
 }
 
-/** The closure in words: "Whole venue · From 6:00 PM · Thu, Dec 24 to Sat, Dec 26". */
+/**
+ * The closure in words: "Whole venue · Closing early · 6:00 PM · Thu, Dec 24 to Sat, Dec 26". A
+ * booking pause stops booking "From 6:00 PM"; anything else closes early.
+ */
 function closureText(
   by: ClosedByRule,
   services: readonly VenueService[],
@@ -58,7 +61,12 @@ function closureText(
   format: VenueFormat
 ): string {
   const from = by.window
-    ? t("availability.close.window.from", { time: minuteText(by.window.from, t, format) })
+    ? t(
+        by.targetKind === "booking"
+          ? "availability.close.window.from"
+          : "availability.close.window.closingEarly",
+        { time: minuteText(by.window.from, t, format) }
+      )
     : null;
   return [targetText(by, services, t), from, spanText(by, t, format)]
     .filter((part) => part !== null)
