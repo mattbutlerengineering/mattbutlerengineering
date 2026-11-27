@@ -3417,9 +3417,10 @@
     },
     "weekChanges": {
       "title": "Next 7 days",
-      "collapsed_one": "{{count}} change in the next 7 days",
-      "collapsed_other": "{{count}} changes in the next 7 days",
-      "show": "Show",
+      "collapsed_one": "{{count}} change",
+      "collapsed_other": "{{count}} changes",
+      "collapsedLabel_one": "{{count}} change in the next 7 days",
+      "collapsedLabel_other": "{{count}} changes in the next 7 days",
       "more": "Show {{count}} more",
       "reopens": "Reopens",
       "seasonalStarts": "Seasonal hours start: {{name}}",

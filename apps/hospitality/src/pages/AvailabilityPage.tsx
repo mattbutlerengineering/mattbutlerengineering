@@ -787,11 +787,27 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
       calendarLayer
     );
 
+  const weekChanges = config.data && tab !== "pending" && (
+    <WeekChanges
+      venueId={selectedVenueId}
+      config={config.data.config}
+      onOpenDay={(date) => changeTab({ tab: "calendar", then: { openDay: date } })}
+      onPlanHolidays={() => changeTab({ tab: "special" })}
+      sectionNames={sectionNames}
+      isManager={isManager}
+    />
+  );
+
   return (
     <Stack gap="md">
       {pageHeader(
         headerActions,
-        <TodayLine venueId={selectedVenueId} bannerShowsOnline={pause !== null} />
+        // A phone's "Next 7 days" shares the Today line's row when it fits, so it adds no row
+        // above the calendar's first days.
+        <div className={styles.todayRow}>
+          <TodayLine venueId={selectedVenueId} bannerShowsOnline={pause !== null} />
+          {onPhone && weekChanges}
+        </div>
       )}
       {pause && config.data && (
         <OnlinePausedBanner
@@ -802,15 +818,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         />
       )}
       {loadFailureBanner}
-      {config.data && tab !== "pending" && (
-        <WeekChanges
-          venueId={selectedVenueId}
-          config={config.data.config}
-          onOpenDay={(date) => changeTab({ tab: "calendar", then: { openDay: date } })}
-          onPlanHolidays={() => changeTab({ tab: "special" })}
-          sectionNames={sectionNames}
-        />
-      )}
+      {!onPhone && weekChanges}
       {tab !== "pending" && (
         <AvailabilityScheduleControls
           isManager={isManager}

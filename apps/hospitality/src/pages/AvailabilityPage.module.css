@@ -6,6 +6,14 @@
   gap: var(--rialto-space-xs);
 }
 
+/* The header's Today line; on a phone, "Next 7 days" beside it, or under it when it does not fit. */
+.todayRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--rialto-space-xs) var(--rialto-space-sm);
+}
+
 .summaryRow {
   display: flex;
   flex-wrap: wrap;
