@@ -204,6 +204,7 @@ describe("POST /api/gen/agent", () => {
       "list_menus",
       "list_today_reservations",
       "list_tonight_changes",
+      "list_upcoming_changes",
       "list_waitlist",
       "lookup_reservation",
       "mark_no_show",
