@@ -1,9 +1,9 @@
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router";
+import { act, render, screen } from "@testing-library/react";
+import { MemoryRouter, Route, Routes, useNavigate } from "react-router";
 import type { ShippedFeature } from "../data/shipped-features.js";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
@@ -16,9 +16,12 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   Badge: ({ children }: { children: ReactNode }) => <span>{children}</span>,
 }));
 
-const mockData = vi.hoisted(() => ({ feature: undefined as unknown }));
+const mockData = vi.hoisted(() => ({
+  feature: undefined as unknown,
+  bySlug: {} as Record<string, unknown>,
+}));
 vi.mock("../data/shipped-features.js", () => ({
-  findShippedFeature: () => mockData.feature,
+  findShippedFeature: (slug: string) => mockData.bySlug[slug] ?? mockData.feature,
 }));
 const videoData = vi.hoisted(() => ({ video: undefined as unknown }));
 vi.mock("../data/shipped-videos.js", () => ({
@@ -94,6 +97,7 @@ function MetaHost({ children }: { readonly children: ReactNode }) {
 
 describe("ShippedStoryPage head metadata", () => {
   beforeEach(() => {
+    mockData.bySlug = {};
     mockData.feature = feature();
     videoData.video = undefined;
     document.head.innerHTML = "";
@@ -117,6 +121,37 @@ describe("ShippedStoryPage head metadata", () => {
     expect(content('meta[property="og:title"]')).toBe(expected);
     expect(content('meta[name="twitter:title"]')).toBe(expected);
     expect(content('meta[name="description"]')).toContain("Demo feature");
+  });
+
+  it("follows client-side navigation story A -> story B -> /shipped index", () => {
+    mockData.bySlug = {
+      a: feature({ slug: "a", title: "Story A" }),
+      b: feature({ slug: "b", title: "Story B" }),
+    };
+    const nav = { go: (_to: string): void => undefined };
+    function Nav() {
+      const navigate = useNavigate();
+      useEffect(() => {
+        nav.go = (to) => void navigate(to);
+      }, [navigate]);
+      return null;
+    }
+    render(
+      <MemoryRouter initialEntries={["/shipped/a"]}>
+        <Nav />
+        <MetaHost>
+          <Routes>
+            <Route path="/shipped" element={<h1>index</h1>} />
+            <Route path="/shipped/:slug" element={<ShippedStoryPage />} />
+          </Routes>
+        </MetaHost>
+      </MemoryRouter>
+    );
+    expect(document.title).toBe("Story A — Shipped — Matt Butler Engineering");
+    act(() => nav.go("/shipped/b"));
+    expect(document.title).toBe("Story B — Shipped — Matt Butler Engineering");
+    act(() => nav.go("/shipped"));
+    expect(document.title).toBe("Shipped by the Factory — Matt Butler Engineering");
   });
 
   it("keeps the generic story title for an unknown slug", () => {
