@@ -276,6 +276,13 @@ jobs:
       - name: Run E2E tests
         run: pnpm --dir apps/hospitality test:e2e --shard=${{ matrix.shard }}/${{ strategy.job-total }}
         env:
+          # Test-count share of each shard, in shard order (#10014). Shards are
+          # contiguous slices of the file-ordered tests, and 1:1:1 gave
+          # 22.4 / 11.8 / 15.2 min (run 46069938962) because the availability
+          # specs at the front are slow. Pinned, with the estimated minutes per
+          # shard, by scripts/__tests__/e2e-hospitality-shards.test.mjs; the
+          # number of weights must equal the matrix size.
+          PWTEST_SHARD_WEIGHTS: "170:300:280"
           VITE_AUTH_AUTHORITY: https://${{ secrets.E2E_AUTH0_DOMAIN }}
           VITE_AUTH_CLIENT_ID: ${{ secrets.E2E_AUTH0_CLIENT_ID }}
           VITE_AUTH_AUDIENCE: ${{ secrets.E2E_AUTH0_AUDIENCE }}

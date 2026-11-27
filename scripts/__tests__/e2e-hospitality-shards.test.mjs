@@ -1,8 +1,10 @@
+import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { describe, it, expect } from "vitest";
 import { getJob, getStep, loadWorkflow } from "../lib/workflow.mjs";
 
 const WORKFLOW = loadWorkflow("e2e.yml");
+const HOSPITALITY = new URL("../../apps/hospitality", import.meta.url).pathname;
 const LOCALE_SWEEP = new URL("../../apps/hospitality/e2e/locale-sweep.spec.ts", import.meta.url);
 
 /**
@@ -36,6 +38,91 @@ describe("e2e.yml always reports Hospitality E2E", () => {
     expect(result.name).toBe("Hospitality E2E");
     expect(result.if).toContain("needs.hospitality-e2e.result != 'skipped'");
   });
+});
+
+/**
+ * Balance by duration, not test count (#10014). Playwright slices the file-ordered
+ * tests into contiguous shards by test count, weighted by PWTEST_SHARD_WEIGHTS. At
+ * 1:1:1 the shards held 252 / 251 / 251 tests but ran 22.4 / 11.8 / 15.2 minutes
+ * (run 46069938962, shard 1 = the slow availability specs; its 22.4 includes four
+ * failing tests and their retries). Each test is costed at its baseline shard's
+ * minutes per test, then the real `playwright test --list --shard` split under the
+ * workflow's weights is summed per shard.
+ */
+describe("e2e.yml hospitality shard weights", () => {
+  const BASELINE_MINUTES = [22.4, 11.8, 15.2];
+  const MAX_TO_MIN = 1.5;
+  const total = getJob(WORKFLOW, "hospitality-e2e").strategy.matrix.shard.length;
+  const weights = getStep(getJob(WORKFLOW, "hospitality-e2e"), "Run E2E tests").env
+    .PWTEST_SHARD_WEIGHTS;
+
+  const memo = new Map();
+  const listShard = (current, shardWeights) => {
+    const key = `${current}|${shardWeights}`;
+    if (!memo.has(key)) memo.set(key, listShardUncached(current, shardWeights));
+    return memo.get(key);
+  };
+  const listShardUncached = (current, shardWeights) => {
+    const env = {
+      ...process.env,
+      // auth.setup.ts throws on load without these, which drops the setup test.
+      E2E_AUTH0_DOMAIN: "x",
+      E2E_AUTH0_CLIENT_ID: "x",
+      E2E_AUTH0_AUDIENCE: "x",
+      E2E_AUTH_EMAIL: "x",
+      E2E_AUTH_PASSWORD: "x",
+    };
+    if (shardWeights) env.PWTEST_SHARD_WEIGHTS = shardWeights;
+    else delete env.PWTEST_SHARD_WEIGHTS;
+    const result = spawnSync(
+      "pnpm",
+      ["exec", "playwright", "test", "--list", "--reporter=json", `--shard=${current}/${total}`],
+      { cwd: HOSPITALITY, env, encoding: "utf8", maxBuffer: 1 << 28 }
+    );
+    const json = JSON.parse(result.stdout.slice(result.stdout.indexOf("{")));
+    expect(json.errors).toEqual([]);
+    const ids = [];
+    const walk = (suite) => {
+      for (const spec of suite.specs ?? []) {
+        for (const t of spec.tests)
+          ids.push(`${spec.file}:${spec.line}:${spec.title}:${t.projectName}`);
+      }
+      (suite.suites ?? []).forEach(walk);
+    };
+    json.suites.forEach(walk);
+    return ids;
+  };
+  const shardNumbers = Array.from({ length: total }, (_, i) => i + 1);
+
+  it("gives one integer weight per shard", () => {
+    const parts = weights.split(":");
+    expect(parts).toHaveLength(total);
+    for (const part of parts) expect(part).toMatch(/^[1-9]\d*$/);
+  });
+
+  // Ids repeat for parameterised tests, so compare the sorted lists, not sets.
+  it("keeps every test in exactly one shard, so none is dropped", () => {
+    const all = shardNumbers.flatMap((n) => listShard(n, weights));
+    const unsharded = shardNumbers.flatMap((n) => listShard(n, undefined));
+    expect(all.toSorted()).toEqual(unsharded.toSorted());
+  }, 240_000);
+
+  it("estimates the longest shard within 1.5x of the shortest", () => {
+    expect(BASELINE_MINUTES).toHaveLength(total);
+    const cost = new Map();
+    shardNumbers.forEach((n) => {
+      const ids = listShard(n, undefined);
+      ids.forEach((id) => cost.set(id, (cost.get(id) ?? 0) + BASELINE_MINUTES[n - 1] / ids.length));
+    });
+    const count = new Map();
+    for (const id of shardNumbers.flatMap((n) => listShard(n, undefined))) {
+      count.set(id, (count.get(id) ?? 0) + 1);
+    }
+    const minutes = shardNumbers.map((n) =>
+      listShard(n, weights).reduce((sum, id) => sum + cost.get(id) / count.get(id), 0)
+    );
+    expect(Math.max(...minutes) / Math.min(...minutes)).toBeLessThanOrEqual(MAX_TO_MIN);
+  }, 240_000);
 });
 
 describe("e2e.yml hospitality shards", () => {
