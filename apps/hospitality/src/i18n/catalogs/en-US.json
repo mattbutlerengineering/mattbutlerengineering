@@ -3452,6 +3452,15 @@
       "bookingRules": "Booking rules",
       "history": "History"
     },
+    "rail": {
+      "label": "Availability sections",
+      "overview": "Overview",
+      "groups": {
+        "open": "When you're open",
+        "sit": "Where guests sit",
+        "views": "Views"
+      }
+    },
     "serviceFields": {
       "moreOptions": "More options",
       "seatEvery": "Seat every",

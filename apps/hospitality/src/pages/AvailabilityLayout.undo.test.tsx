@@ -16,6 +16,7 @@ const venue = vi.hoisted(() => ({
 
 vi.mock("../contexts/VenueContext.js", () => ({ useVenue: () => venue }));
 vi.mock("../contexts/venue-context-object.js", () => ({ useOptionalVenue: () => venue }));
+vi.mock("../hooks/useFloorPlans.js", () => ({ useFloorPlans: () => ({ data: undefined }) }));
 vi.mock("../hooks/useAvailability.js", () => ({
   useAvailabilityConfig: () => ({
     data: undefined,

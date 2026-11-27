@@ -426,7 +426,7 @@ test.describe("Setup hierarchy: the layered Availability page", () => {
         body: JSON.stringify({ data: { total: 0, offset: 0, items: [] } }),
       })
     );
-    await page.getByRole("link", { name: "History" }).click();
+    await page.getByTestId("hub-history").click();
     const history = page.getByRole("dialog", { name: "History" });
     await history.getByRole("button", { name: "Close" }).click();
     await expect(history).toHaveCount(0);

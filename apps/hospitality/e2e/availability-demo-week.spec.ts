@@ -149,7 +149,7 @@ test.describe("The demo week (PRD: the demo runs as written)", () => {
     await expect(
       page.getByRole("status").filter({ hasText: "Friday, Saturday updated" })
     ).toBeAttached();
-    await expect(page).toHaveURL(/\/availability\/calendar$/);
+    await expect(page).toHaveURL(/\/availability\/calendar\?tab=schedules$/);
 
     // 8. Brunch from its chip, on weekends.
     await page.getByRole("button", { name: "Add another service" }).click();

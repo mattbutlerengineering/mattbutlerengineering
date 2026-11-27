@@ -58,7 +58,7 @@ export interface QuickSetupFormProps {
    * shows what will be saved. Omit it where the save falls back to the defaults.
    */
   readonly storedKept?: Readonly<Record<string, KeptHours>>;
-  /** With `collapsible`: the service open on arrival (Regular hours' `?service=`). */
+  /** With `collapsible`: the service to open (Regular hours' `?service=`); a new value opens that one. */
   readonly initialOpenId?: string | null;
   /**
    * With `collapsible`: rendered right after the open service (after the last one when none is
@@ -149,6 +149,12 @@ export function QuickSetupForm({
   const [openId, setOpenId] = useState<string | null>(
     () => initialOpenId ?? draft.services.find(isBlankService)?.id ?? null
   );
+  // A new `initialOpenId` opens that service too: the page asked for another one (#9944).
+  const [askedOpenId, setAskedOpenId] = useState(initialOpenId);
+  if (askedOpenId !== initialOpenId) {
+    setAskedOpenId(initialOpenId);
+    if (initialOpenId !== null) setOpenId(initialOpenId);
+  }
   const firstIssueOf = new Map<string, QuickSetupIssue>();
   for (const issue of issues) {
     if (issue.serviceId !== null && !firstIssueOf.has(issue.serviceId)) {

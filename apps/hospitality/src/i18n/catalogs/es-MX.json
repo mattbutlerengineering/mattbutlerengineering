@@ -3551,6 +3551,15 @@
       "bookingRules": "Reglas de reserva",
       "history": "Historial"
     },
+    "rail": {
+      "label": "Secciones de disponibilidad",
+      "overview": "Resumen",
+      "groups": {
+        "open": "Cuándo abres",
+        "sit": "Dónde se sientan los clientes",
+        "views": "Vistas"
+      }
+    },
     "serviceFields": {
       "moreOptions": "Más opciones",
       "seatEvery": "Asignar mesas cada",

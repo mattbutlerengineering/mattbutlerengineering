@@ -79,7 +79,16 @@ function EditorBody(props: BodyProps) {
   useEffect(() => {
     onStatus({ dirty, reviewing });
   }, [dirty, reviewing, onStatus]);
-  const [initialOpenId] = useState(() => openServiceId(state, draft.draft, props.service));
+  // The service to open: the one the address names, read again when the address names another
+  // (the Availability rail links each service on this same page, #9944).
+  const [opened, setOpened] = useState(() => ({
+    service: props.service,
+    id: openServiceId(state, draft.draft, props.service),
+  }));
+  if (opened.service !== props.service) {
+    setOpened({ service: props.service, id: openServiceId(state, draft.draft, props.service) });
+  }
+  const initialOpenId = opened.id;
 
   const bar = (
     <EditorSaveBar

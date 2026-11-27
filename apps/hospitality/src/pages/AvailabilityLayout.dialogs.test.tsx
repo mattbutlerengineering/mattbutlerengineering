@@ -17,6 +17,7 @@ const closeProps = vi.hoisted(() => vi.fn());
 const pauseProps = vi.hoisted(() => vi.fn());
 
 vi.mock("../contexts/VenueContext.js", () => ({ useVenue: () => venue }));
+vi.mock("../hooks/useFloorPlans.js", () => ({ useFloorPlans: () => ({ data: undefined }) }));
 vi.mock("../hooks/useAvailability.js", () => ({
   useAvailabilityConfig: () => ({ data: config.data, error: null, refetch: vi.fn() }),
   useRevertAvailabilityChange: () => ({ mutateAsync: vi.fn() }),
