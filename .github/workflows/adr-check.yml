@@ -5,9 +5,9 @@ name: ADR check
 # squash-merges, or fork PRs still get audited.
 # No untrusted input is used anywhere in this workflow.
 
+# PRs are covered by ci.yml's `architecture-audit` job, which runs the same
+# `check-adr` (#10011); this workflow now audits pushes to main only.
 on:
-  pull_request:
-    branches: [main]
   push:
     branches: [main]
 
