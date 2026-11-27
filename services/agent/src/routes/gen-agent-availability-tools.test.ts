@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { FastifyBaseLogger } from "fastify";
 import { createAgentTools } from "./gen-agent-tools.js";
+import { GEN_WRITE_TOOL_NAMES } from "./gen-runner.js";
 
 function createMockLogger(): FastifyBaseLogger {
   return {
@@ -26,6 +27,7 @@ function createMockApiClient() {
       revertChange: vi.fn(),
     },
     tables: { list: vi.fn() },
+    floorPlanSections: { list: vi.fn() },
   };
 }
 
@@ -249,6 +251,202 @@ describe("availability chat tools", () => {
       });
 
       await expect(list()).resolves.toMatchObject({ undoable: null });
+    });
+  });
+
+  describe("list_upcoming_changes", () => {
+    function upcoming() {
+      const tools = createAgentTools(log, api as never, { venueId: "v1" });
+      return tools.list_upcoming_changes!.execute!({} as never, toolCtx);
+    }
+
+    function withRules(dateRules: unknown[]) {
+      const state = configState(dateRules);
+      return {
+        ...state,
+        config: {
+          ...state.config,
+          schedules: [{ id: "s-winter", name: "Winter", kind: "alternate", isRegular: false }],
+        },
+      };
+    }
+
+    const closure = (id: string, fields: Record<string, unknown>) => ({
+      id,
+      kind: "closure",
+      targetKind: "venue",
+      ...fields,
+    });
+
+    it("reads the seven days after the current service day, and says when nothing changes", async () => {
+      await expect(upcoming()).resolves.toEqual({
+        from: "2026-10-29",
+        to: "2026-11-04",
+        changes: [],
+      });
+      expect(api.floorPlanSections.list).not.toHaveBeenCalled();
+    });
+
+    it("lists closures, one reopening per date, and a schedule start, by name", async () => {
+      api.availability.getConfig.mockResolvedValue(
+        withRules([
+          // Back-to-back venue closures: each yields a reopen row on 11-01.
+          closure("c1", { startsOn: "2026-10-30", endsOn: "2026-10-30" }),
+          closure("c2", { startsOn: "2026-10-31", endsOn: "2026-10-31" }),
+          {
+            id: "u1",
+            kind: "use_schedule",
+            targetKind: "venue",
+            startsOn: "2026-11-02",
+            endsOn: "2026-11-20",
+            useScheduleId: "s-winter",
+          },
+          closure("c3", {
+            targetKind: "service",
+            venueServiceId: "svc-dinner",
+            startsOn: "2026-11-03",
+            endsOn: "2026-11-03",
+          }),
+          closure("c4", {
+            targetKind: "tables",
+            sectionId: "sec1",
+            startsOn: "2026-11-04",
+            endsOn: "2026-11-04",
+            window: { version: 1, from: 1080, to: 1260 },
+          }),
+        ])
+      );
+      api.floorPlanSections.list.mockResolvedValue([{ id: "sec1", name: "Patio" }]);
+
+      await expect(upcoming()).resolves.toEqual({
+        from: "2026-10-29",
+        to: "2026-11-04",
+        changes: [
+          { change: "closure", dates: ["2026-10-30"], scope: "whole_venue" },
+          { change: "closure", dates: ["2026-10-31"], scope: "whole_venue" },
+          { change: "reopen", date: "2026-11-01" },
+          { change: "schedule_starts", date: "2026-11-02", schedule: "Winter" },
+          { change: "closure", dates: ["2026-11-03"], scope: "service", service: "Dinner" },
+          {
+            change: "closure",
+            dates: ["2026-11-04"],
+            scope: "section",
+            section: "Patio",
+            from: "18:00",
+            to: "21:00",
+          },
+        ],
+      });
+      expect(api.floorPlanSections.list).toHaveBeenCalledWith("v1");
+    });
+
+    it("lists special hours with each service's times", async () => {
+      api.availability.getConfig.mockResolvedValue(
+        withRules([
+          {
+            id: "sh1",
+            kind: "special_hours",
+            targetKind: "venue",
+            startsOn: "2026-10-30",
+            endsOn: "2026-10-30",
+            payload: {
+              version: 1,
+              services: [
+                {
+                  venueServiceId: "svc-dinner",
+                  opensAt: 960,
+                  lastSeatingAt: 1260,
+                  closesAt: 1320,
+                  seating: { version: 1, intervalMinutes: 15 },
+                  bookingTypes: ["online"],
+                },
+              ],
+            },
+          },
+        ])
+      );
+
+      await expect(upcoming()).resolves.toMatchObject({
+        changes: [
+          {
+            change: "special_hours",
+            dates: ["2026-10-30"],
+            services: [{ service: "Dinner", opens: "16:00", closes: "22:00" }],
+          },
+        ],
+      });
+    });
+
+    it("never reports an empty week when the read failed", async () => {
+      api.availability.getConfig.mockRejectedValue(problem(500));
+
+      const result = await upcoming();
+
+      expect(result).toMatchObject({
+        unknown: true,
+        error: expect.stringContaining("Couldn't read"),
+      });
+      expect(result).not.toHaveProperty("changes");
+    });
+
+    it("never reports an empty week when the section names can't be read", async () => {
+      api.availability.getConfig.mockResolvedValue(
+        withRules([
+          closure("c4", {
+            targetKind: "tables",
+            sectionId: "sec1",
+            startsOn: "2026-11-04",
+            endsOn: "2026-11-04",
+          }),
+        ])
+      );
+      api.floorPlanSections.list.mockRejectedValue(problem(500));
+
+      const result = await upcoming();
+
+      expect(result).toMatchObject({ unknown: true });
+      expect(result).not.toHaveProperty("changes");
+    });
+
+    it("starts the day after a service still open past midnight, not the day after tomorrow", async () => {
+      // 01:00 on Oct 29 in New York; Dinner runs 17:00 to 02:00, so it is still Oct 28's service.
+      vi.setSystemTime(new Date("2026-10-29T05:00:00Z"));
+      const state = configState();
+      api.availability.getConfig.mockResolvedValue({
+        ...state,
+        config: {
+          ...state.config,
+          schedules: [{ id: "s1", name: "Regular", kind: "regular", isRegular: true }],
+          assignments: [
+            { id: "a1", scheduleId: "s1", weekdays: [0, 1, 2, 3, 4, 5, 6], precedence: 0 },
+          ],
+          scheduleServices: [
+            {
+              id: "ss2",
+              scheduleId: "s1",
+              venueServiceId: "svc-dinner",
+              opensAt: 1020,
+              lastSeatingAt: 1500,
+              closesAt: 1560,
+              seating: { kind: "interval", minutes: 15 },
+              bookingTypes: ["online"],
+              ...NO_SCOPE,
+            },
+          ],
+        },
+      });
+      const tools = createAgentTools(log, api as never, {
+        venueId: "v1",
+        timeZone: "America/New_York",
+      });
+
+      await expect(
+        tools.list_upcoming_changes!.execute!({} as never, toolCtx)
+      ).resolves.toMatchObject({ from: "2026-10-29", to: "2026-11-04" });
+    });
+
+    it("is a read, never held for confirmation", () => {
+      expect(GEN_WRITE_TOOL_NAMES).not.toContain("list_upcoming_changes");
     });
   });
 
@@ -706,6 +904,7 @@ describe("availability chat tools", () => {
 
   it.each([
     "list_tonight_changes",
+    "list_upcoming_changes",
     "change_tonight_availability",
     "end_tonight_change",
     "undo_availability_change",
