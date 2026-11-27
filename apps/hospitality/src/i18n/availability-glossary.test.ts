@@ -212,6 +212,29 @@ describe("Availability glossary", () => {
     expect(retired.filter((word) => terms.includes(word))).toEqual([]);
   });
 
+  it("names closing before the day's hours end Close early, retiring Starting at (#9930)", () => {
+    expect(AVAILABILITY_GLOSSARY).toContainEqual({
+      concept: "Stop taking guests before the day's hours end",
+      term: "Close early",
+      retired: ["Starting at"],
+    });
+    const base = clean();
+    const catalogs: GlossaryCatalogs = {
+      ...base,
+      "en-US": { ...base["en-US"], availability: { close: { label: "Starting at" } } },
+      "es-MX": { ...base["es-MX"], availability: { close: { label: "Cuándo" } } },
+      "fr-CA": { ...base["fr-CA"], availability: { close: { label: "Quand" } } },
+    };
+    expect(checkAvailabilityGlossary(catalogs, NONE)).toEqual([
+      {
+        kind: "retired-word",
+        locale: "en-US",
+        key: "availability.close.label",
+        detail: "Starting at",
+      },
+    ]);
+  });
+
   it("holds in the real catalogs, with LEGACY_KEYS as the only exceptions", () => {
     expect(checkAvailabilityGlossary(REAL, LEGACY_KEYS)).toEqual([]);
   });

@@ -2965,11 +2965,13 @@
         "endOptionalLabel": "End date (optional)"
       },
       "window": {
-        "label": "Starting at",
+        "label": "Time",
         "allDay": "All day",
         "from": "From {{time}}",
+        "closeEarly": "Close early at {{time}}",
+        "closingEarly": "Closing early · {{time}}",
         "reset": "That time comes before opening on a day that runs past midnight, so this closes all day.",
-        "hostNote": "An emergency close covers the whole day. Only a manager can close from a set time."
+        "hostNote": "An emergency close covers the whole day. Only a manager can close early."
       },
       "replaces": "{{date}} has special hours; the closure replaces them.",
       "impactLabel": "Bookings in this closure",

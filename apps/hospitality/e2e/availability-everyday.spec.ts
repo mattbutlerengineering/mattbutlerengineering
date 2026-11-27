@@ -330,14 +330,16 @@ test.describe("Availability, the everyday edits (R1-R11)", () => {
     await counter.page.getByRole("button", { name: "Close…", exact: true }).click();
     const dialog = counter.page.getByRole("dialog", { name: /^Close / });
     await dialog.getByRole("button", { name: "Tonight" }).click();
-    await dialog.getByRole("combobox", { name: "Starting at" }).click();
-    const options = counter.page.getByRole("listbox", { name: "Starting at" }).getByRole("option");
+    await dialog.getByRole("combobox", { name: "Time", exact: true }).click();
+    const options = counter.page
+      .getByRole("listbox", { name: "Time", exact: true })
+      .getByRole("option");
     const labels = await options.allTextContents();
     expect(labels.length).toBeLessThanOrEqual(12);
     expect(labels[0]).toBe("All day");
-    expect(labels[1]).toBe("From 6:30 PM");
-    expect(labels.at(-1)).toBe("From 10:30 PM");
-    await options.filter({ hasText: "From 9:30 PM" }).click();
+    expect(labels[1]).toBe("Close early at 6:30 PM");
+    expect(labels.at(-1)).toBe("Close early at 10:30 PM");
+    await options.filter({ hasText: "Close early at 9:30 PM" }).click();
     await dialog.getByTestId("close-primary").click();
 
     await expect.poll(() => state.saved()).not.toBeNull();
@@ -345,7 +347,7 @@ test.describe("Availability, the everyday edits (R1-R11)", () => {
       notifications(page).getByText("Closed from 9:30 PM tonight", { exact: true })
     ).toBeVisible();
     test.info().annotations.push({
-      type: "starting-at options",
+      type: "close-early options",
       description: `${labels.length}: ${labels.join(" | ")}`,
     });
     record("R6", counter.count(), 5);
