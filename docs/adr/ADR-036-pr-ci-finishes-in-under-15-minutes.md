@@ -22,7 +22,7 @@ A slow gate costs the hospitality work it guards: every fix waits on it, and age
 
 **PR CI must reach `CI Gate` in under 15 minutes at p90, push to result.**
 
-**The clock.** It starts at the `ci.yml` run's `created_at`, so time spent queued counts, and stops at the `CI Gate` job's `completed_at`. The population is `pull_request` runs of `ci.yml` over a rolling 7 days. Runs whose `CI Gate` never completed (cancelled by a newer push, still running) are excluded and reported as a skipped count. A p90 of exactly 15.0 minutes meets the target; anything above breaches it.
+**The clock.** It starts at the `ci.yml` run's `created_at`, so time spent queued counts, and stops at the `CI Gate` job's `completed_at`. The population is `pull_request` runs of `ci.yml` over a rolling 7 days. Cancelled, still-running and re-run attempts are excluded before sampling; the skipped count is sampled runs whose `CI Gate` never completed. A p90 of exactly 15.0 minutes meets the target; anything above breaches it.
 
 **Rules.**
 
