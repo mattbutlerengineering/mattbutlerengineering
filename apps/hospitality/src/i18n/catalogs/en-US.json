@@ -3658,6 +3658,153 @@
         "removed": "A closure that is no longer listed",
         "tonight": "A change made for tonight"
       }
+    },
+    "guide": {
+      "title": "How availability works",
+      "description": "How Regular hours, Seasonal hours, special dates, closures, pauses and booking rules combine into the times a guest can book.",
+      "overview": {
+        "heading": "Overview",
+        "intro": "Availability is built in layers. Each layer can change the layers below it, and the layer nearest the top wins on a date. Use Check a date in the Availability area to see which layers apply to one day and which one won.",
+        "layersLead": "From the bottom up, the layers are:",
+        "layers": {
+          "regular": "Regular hours: your weekly pattern.",
+          "seasonal": "Seasonal hours: named hours that take over from Regular hours on the dates and days of the week they cover.",
+          "otherHours": "Other hours for one date: a date set to use a different set of hours.",
+          "special": "Special hours: the hours a special date runs, replacing the hours below them for that date.",
+          "closures": "Closures and pauses: a closure takes guests away, and a pause stops booking on a channel.",
+          "tonight": "Changes made for tonight: Close early, a pause for tonight, or lower pacing. They apply to that one date only."
+        },
+        "closuresAlwaysWin": "A closure always sits above the hours. Hours never reopen a date a closure has shut.",
+        "bookingRulesNote": "Booking rules are not a layer. They never change which hours win. They turn the winning hours into the times a guest sees."
+      },
+      "whenOpen": {
+        "heading": "When you’re open",
+        "intro": "Which hours apply on a date comes from the layers below. Closures and pauses then take time or channels away, and booking rules turn what is left into bookable times."
+      },
+      "regular": {
+        "what": "Regular hours are the weekly pattern: for each service, the days it runs and when it opens, takes its last seating and closes.",
+        "uncovered": "If no hours cover a date, that date is closed.",
+        "pastMidnight": "A service belongs to the day it opens on. A service that runs past midnight is part of the day it started and never appears on the next date."
+      },
+      "seasonal": {
+        "what": "Seasonal hours cover a range of dates and the days of the week you choose. On a date they cover, they take over from Regular hours when they are set to win over them.",
+        "replaces": "They replace the whole day: the services and hours of Regular hours do not carry over. A day of the week the Seasonal hours leave out stays on whichever other hours cover it.",
+        "overlap": "When two sets of hours cover the same date, the one with the higher priority wins. If they tie, the one listed first wins."
+      },
+      "special": {
+        "what": "A special date is a date that differs from the hours that cover it. A date can be set to use a different set of hours, or can run its own Special hours.",
+        "replaces": "Special hours replace the services for that date completely. Only the services listed in the Special hours run, at the hours listed there, whatever Regular hours or Seasonal hours say.",
+        "repeat": "A special date can repeat on chosen days of the week. Taking one date out of a repeat, or editing one date, replaces the repeat on that date only. A date taken out goes back to the hours underneath it.",
+        "overlap": "If two Special hours cover the same date, only one is used (the later one in the stored order). The same goes for two dates set to use other hours. Avoid overlapping dates."
+      },
+      "closures": {
+        "what": "A closure takes guests away. A pause stops booking on a channel, such as online, while the hours stay as they are.",
+        "kinds": {
+          "venue": "A closure of the venue: no service runs. Nobody can book on any channel, and staff cannot override it.",
+          "service": "A closure of one service: that service runs on no channel and the other services carry on.",
+          "window": "A closure of part of the day: the times inside the window disappear and the rest of the day stays bookable.",
+          "pause": "A pause: the services and times stay on the books, but a guest cannot book on the paused channel. Online guests see no times. Phone booking stays on unless the phone is paused too."
+        },
+        "separate": "A closure and a pause do not cancel each other. Reopening a closed venue does not lift a pause, and Resume ends only the pause.",
+        "overlap": "Two closures over the same date are both kept, and neither knows about the other. The app tells you when a closure you add changes nothing, and when reopening one leaves the date shut by another.",
+        "tonight": "Changes made for tonight sit on top. Close early cuts the last seating and closing time on that date, and a service that opens at or after the cut-off disappears. A change made for tonight applies to that one date only."
+      },
+      "bookingRules": {
+        "what": "Once the hours are settled, these rules turn them into the times a guest sees.",
+        "items": {
+          "spacing": "Seat every: from opening, a time is offered every set number of minutes up to the last seating. A service can use fixed times instead. A time is never offered at or after closing.",
+          "bookedBy": "Booked by: a service is offered only on the channels it lists. A service booked by phone only never shows to online guests.",
+          "removed": "Closures and pauses remove the times they cover, on the channels they cover.",
+          "partySize": "Party size: a time needs a table that is turned on and seats the party, between the table’s smallest and largest party.",
+          "stay": "Length of stay: the table must be free for the whole stay, which comes from the venue’s duration rules for the party size. A booking on the table, or a hold that has not expired, during that stay makes the table busy.",
+          "pacing": "Pacing: the venue can cap the covers that start within a time window, and a service can set a lower cap of its own. A time that this party would push over a cap is listed but not bookable.",
+          "kept": "A time with no free table, or no room under pacing, is kept in the list and marked not bookable, with the reason.",
+          "override": "Staff booking by phone can go past pacing, the last seating and the venue’s largest party size by giving a reason. Closures, paused channels and table clashes cannot be overridden.",
+          "window": "How far ahead guests can book is not decided by these layers or rules. It is checked separately, so a date that is missing far in the future may be a booking window matter, not hours."
+        }
+      },
+      "sections": {
+        "heading": "Where guests sit",
+        "what": "A section is a group of tables. Closing a section blocks its tables for the date, or the part of the day, you pick. It never removes a service or a time by itself.",
+        "tables": "A time stays bookable while another suitable table is free for the party. If the closed section held the only tables that seat a party, every time for that party is listed but not bookable.",
+        "membership": "A section closure remembers the section, not a list of tables. It blocks the tables the section holds now, so moving a table into or out of the section changes what its closures block. A section the system does not know blocks nothing.",
+        "blockedTable": "Staff who pick a table that a section closure blocks are refused, and the refusal cannot be overridden."
+      },
+      "examples": {
+        "heading": "Worked examples",
+        "intro": "Each example is run through the same availability engine the booking pages use. The times shown are its answer, not a description.",
+        "seasonalAndSpecial": {
+          "title": "Seasonal hours cover December, but December 24 is a special date",
+          "scenario": "Regular hours seat dinner every hour in the evening. December hours are Seasonal hours that cover December 1 to 31, with dinner starting an hour earlier. December 24 is a special date with shorter Special hours.",
+          "checks": {
+            "beforeSeason": "Tuesday, November 30, 2027, an online guest, party of 2",
+            "inSeason": "Thursday, December 23, 2027, an online guest, party of 2",
+            "specialDate": "Friday, December 24, 2027, an online guest, party of 2"
+          },
+          "why": "On November 30 only Regular hours cover the date. On December 23 the Seasonal hours take over. On December 24 the special date’s Special hours replace the Seasonal hours, so guests see the shorter day."
+        },
+        "closureBeatsSpecial": {
+          "title": "A closure beats Special hours",
+          "scenario": "December 24 has Special hours, and the venue is also closed that date.",
+          "checks": {
+            "online": "Friday, December 24, 2027, an online guest, party of 2",
+            "phone": "Friday, December 24, 2027, staff booking by phone, party of 2"
+          },
+          "why": "Closures sit above hours, so no service runs. A guest cannot book online and staff cannot book by phone."
+        },
+        "pauseVersusClosure": {
+          "title": "Pause versus closure",
+          "scenario": "Online booking is paused on Friday, November 26. The venue is closed on Saturday, November 27.",
+          "checks": {
+            "pausedOnline": "Friday, November 26, 2027, an online guest, party of 2",
+            "pausedPhone": "Friday, November 26, 2027, staff booking by phone, party of 2",
+            "closedOnline": "Saturday, November 27, 2027, an online guest, party of 2",
+            "closedPhone": "Saturday, November 27, 2027, staff booking by phone, party of 2"
+          },
+          "why": "The pause leaves the hours alone and stops only the online channel, so staff can still book by phone. The closure removes the services, so no channel can book."
+        },
+        "sectionClosed": {
+          "title": "A closed section",
+          "scenario": "The patio section is closed on Friday, November 26. The patio four-top is the only table that seats four. The indoor two-top seats up to two.",
+          "checks": {
+            "partyOfFour": "Friday, November 26, 2027, an online guest, party of 4",
+            "partyOfTwo": "Friday, November 26, 2027, an online guest, party of 2"
+          },
+          "why": "A closed section blocks its tables, not the times. A party of two still books indoors. For a party of four every time is listed but none is bookable, because no suitable table is free."
+        },
+        "pacing": {
+          "title": "Pacing caps a busy hour",
+          "scenario": "On Friday, November 26 dinner has a pacing cap of four covers per hour, and a party of four is already booked at 6 PM.",
+          "checks": {
+            "partyOfTwo": "Friday, November 26, 2027, an online guest, party of 2"
+          },
+          "why": "A party of two at 6 PM would bring that hour to six covers, over the cap, so 6 PM is listed but not bookable even though a table is free. The other times are not affected."
+        }
+      },
+      "outcome": {
+        "none": "No times offered.",
+        "bookable": "Bookable: {{times}}",
+        "noTable": "Listed but not bookable, no suitable table is free: {{times}}",
+        "pacing": "Listed but not bookable, the pacing cap is reached: {{times}}"
+      },
+      "troubleshooting": {
+        "heading": "Why can’t a guest book that time?",
+        "lead": "Say a guest cannot book 7 PM on Friday. Work down this list in order, the way the layers stack.",
+        "steps": {
+          "checkDate": "Check a date: open that Friday in the Availability area. It lists the layers that apply and which one won.",
+          "special": "Special date: is that Friday a special date? Its Special hours replace everything below, so only the services listed there run, at the hours listed there.",
+          "seasonal": "Seasonal hours: do they cover that Friday, and Fridays in particular? If so, their hours apply instead of Regular hours.",
+          "regular": "Regular hours: if nothing above applies, does Friday have a service that is open at 7 PM, with 7 PM at or before its last seating?",
+          "seatEvery": "Seat every: is 7 PM one of the times the service seats? Seating every 45 minutes from 5 PM offers 5:00, 5:45, 6:30 and 7:15 PM, not 7:00.",
+          "bookedBy": "Booked by: does the service list the channel the guest used? A service booked by phone only never shows online.",
+          "closures": "Closures: is the venue, that service or a window covering 7 PM closed on that date? Look in Closures and pauses.",
+          "pause": "Pause: is online booking paused? Phone booking may still work.",
+          "tonight": "Tonight: if the date is today, was Close early or lower pacing set for tonight?",
+          "tables": "Tables and party size: does a table seat the party? Is that table’s section closed? Is each table that fits busy for the whole stay?",
+          "pacing": "Pacing: is 7 PM listed but full because a pacing cap is reached?",
+          "window": "Booking window: is the date further ahead than guests may book? That limit is not part of the layers above."
+        }
+      }
     }
   },
   "setup": {

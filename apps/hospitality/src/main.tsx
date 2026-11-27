@@ -104,6 +104,9 @@ const AvailabilitySeasonalListPage = lazy(() =>
 const AvailabilityHoursPage = lazy(() =>
   import("./pages/AvailabilityHoursPage.js").then((m) => ({ default: m.AvailabilityHoursPage }))
 );
+const AvailabilityGuidePage = lazy(() =>
+  import("./pages/AvailabilityGuidePage.js").then((m) => ({ default: m.AvailabilityGuidePage }))
+);
 const ProfilePage = lazy(() =>
   import("./pages/ProfilePage.js").then((m) => ({ default: m.ProfilePage }))
 );
@@ -450,6 +453,15 @@ const router = createBrowserRouter(
                   ),
                 },
               ],
+            },
+            {
+              // How availability works: a staff guide, outside the Availability layout.
+              path: "help/availability",
+              element: (
+                <Suspense fallback={<LoadingPage />}>
+                  <AvailabilityGuidePage />
+                </Suspense>
+              ),
             },
             {
               path: "menus",
