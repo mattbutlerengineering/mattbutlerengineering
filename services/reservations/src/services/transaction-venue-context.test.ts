@@ -125,14 +125,13 @@ interface TransactionSite {
   readonly scoped: boolean;
 }
 
-function findSites(file: string, helpers: ReadonlySet<string>): readonly TransactionSite[] {
-  const source = ts.createSourceFile(
-    file,
-    readFileSync(file, "utf8"),
-    ts.ScriptTarget.Latest,
-    true
-  );
-  const rel = relative(SRC_ROOT, file).split(sep).join("/");
+function scanSource(
+  fileName: string,
+  text: string,
+  rel: string,
+  helpers: ReadonlySet<string>
+): readonly TransactionSite[] {
+  const source = ts.createSourceFile(fileName, text, ts.ScriptTarget.Latest, true);
   const sites: TransactionSite[] = [];
   const visit = (node: ts.Node): void => {
     if (
@@ -141,10 +140,13 @@ function findSites(file: string, helpers: ReadonlySet<string>): readonly Transac
       node.expression.name.text === "$transaction"
     ) {
       const callback = node.arguments[0];
-      if (callback !== undefined && isFunctionLike(callback)) {
+      // Array-form (batch) is out of scope. Anything else that is not an inline
+      // function (a callback passed by reference) cannot be inspected, so it
+      // fails safe: not scoped, hence registered or inlined.
+      if (callback !== undefined && !ts.isArrayLiteralExpression(callback)) {
         sites.push({
           key: `${rel}:${enclosingName(node)}`,
-          scoped: setsContextFirst(callback, helpers),
+          scoped: isFunctionLike(callback) && setsContextFirst(callback, helpers),
         });
       }
     }
@@ -152,6 +154,11 @@ function findSites(file: string, helpers: ReadonlySet<string>): readonly Transac
   };
   visit(source);
   return sites;
+}
+
+function findSites(file: string, helpers: ReadonlySet<string>): readonly TransactionSite[] {
+  const rel = relative(SRC_ROOT, file).split(sep).join("/");
+  return scanSource(file, readFileSync(file, "utf8"), rel, helpers);
 }
 
 function scanAll(helpers: ReadonlySet<string>): readonly TransactionSite[] {
@@ -190,5 +197,53 @@ describe("explicit $transaction venue context", () => {
     const baseline = sites.filter((s) => !s.scoped).length;
     const unused = helpers.filter((name) => without(name) === baseline).sort();
     expect(unused).toEqual([]);
+  });
+});
+
+describe("scanSource", () => {
+  const scan = (code: string, helpers: readonly string[] = []) =>
+    scanSource("x.ts", code, "x.ts", new Set(helpers));
+
+  it("treats a callback passed by reference as not scoped", () => {
+    const sites = scan(`
+      export function run(prisma: P) {
+        const work = async (tx: Tx) => { await tx.reservation.findMany(); };
+        return prisma.$transaction(work);
+      }`);
+    expect(sites).toEqual([{ key: "x.ts:run", scoped: false }]);
+  });
+
+  it("accepts an inline callback that sets context first", () => {
+    const sites = scan(`
+      export function run(prisma: P) {
+        return prisma.$transaction(async (tx) => {
+          await setVenueContext(tx, "v");
+          return tx.table.findMany();
+        });
+      }`);
+    expect(sites).toEqual([{ key: "x.ts:run", scoped: true }]);
+  });
+
+  it("rejects an inline callback that touches tx before setting context", () => {
+    const sites = scan(`
+      export function run(prisma: P) {
+        return prisma.$transaction(async (tx) => {
+          await tx.table.findMany();
+          await setVenueContext(tx, "v");
+        });
+      }`);
+    expect(sites).toEqual([{ key: "x.ts:run", scoped: false }]);
+  });
+
+  it("accepts a listed helper and ignores array-form batches", () => {
+    const sites = scan(
+      `
+      export function run(prisma: P) {
+        prisma.$transaction([prisma.a.findMany()]);
+        return prisma.$transaction(async (tx) => { await scopeIt(tx, "v"); });
+      }`,
+      ["scopeIt"]
+    );
+    expect(sites).toEqual([{ key: "x.ts:run", scoped: true }]);
   });
 });
