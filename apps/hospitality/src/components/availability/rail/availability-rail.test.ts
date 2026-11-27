@@ -90,7 +90,9 @@ describe("buildAvailabilityRail", () => {
     expect(seasonal.children?.map((c) => [c.label, c.to])).toEqual([
       [
         { text: "Summer" },
-        availabilityPath({ view: "seasonal", screen: "edit", scheduleId: "s-summer" }),
+        // Until the seasonal editor has its own address (#9944 S2a), a schedule opens the list:
+        // today's edit address drops the schedule, so every one would share a single link.
+        availabilityPath({ view: "seasonal" }),
       ],
     ]);
   });
@@ -113,6 +115,8 @@ describe("buildAvailabilityRail", () => {
     const hostIds = ids(all(rail({ isManager: false })));
     expect(hostIds).not.toContain("hours");
     expect(hostIds).not.toContain("seasonal");
+    // The floor plan editor is Manager-only too (until S3 gives a Host a plan to view).
+    expect(hostIds.some((id) => id.startsWith("floorPlan:"))).toBe(false);
     expect(hostIds).toEqual(
       expect.arrayContaining(["overview", "closures", "calendar", "history"])
     );
@@ -149,5 +153,32 @@ describe("selectedRailId", () => {
 
   it("selects nothing on an address the rail does not list", () => {
     expect(selectedRailId(groups, { pathname: "/availability/nope", search: "" })).toBeNull();
+  });
+
+  describe("on today's tabbed page", () => {
+    const at = (search: string) =>
+      selectedRailId(groups, { pathname: "/availability/calendar", search });
+
+    it("selects the node whose job the open layer does", () => {
+      expect(at("?tab=calendar")).toBe("calendar");
+      expect(at("?tab=special")).toBe("specialDates");
+      // The Schedules layer edits the weekly hours, regular and seasonal alike.
+      expect(at("?tab=schedules")).toBe("hours");
+    });
+
+    it("never selects a seasonal schedule, which has no address of its own yet", () => {
+      const base = fixtureConfig();
+      const config: AvailabilityConfig = {
+        ...base,
+        schedules: [
+          ...base.schedules,
+          { ...base.schedules[0]!, id: "s-a", name: "A", isRegular: false, kind: "alternate" },
+        ],
+      };
+      const withSeasonal = rail({ config });
+      expect(selectedRailId(withSeasonal, { pathname: "/availability/seasonal", search: "" })).toBe(
+        "seasonal"
+      );
+    });
   });
 });

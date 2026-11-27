@@ -194,6 +194,20 @@ describe("AvailabilityHoursPage", () => {
     expect(line("Lunch")).toHaveAttribute("aria-expanded", "false");
   });
 
+  it("follows a new ?service= on the same page, as the rail's service links make", async () => {
+    const config = demoConfig();
+    const dinner = config.venueServices.find((s) => s.name === "Dinner")!;
+    const lunch = config.venueServices.find((s) => s.name === "Lunch")!;
+    const { router } = renderPage(
+      scopeOf({ state: stateOf(config) }),
+      `/availability/hours?service=${dinner.id}`
+    );
+    expect(line("Dinner")).toHaveAttribute("aria-expanded", "true");
+    await act(() => router.navigate(`/availability/hours?service=${lunch.id}`));
+    expect(line("Lunch")).toHaveAttribute("aria-expanded", "true");
+    expect(line("Dinner")).toHaveAttribute("aria-expanded", "false");
+  });
+
   it("starts today, and a later start is an edit that the Save label states", () => {
     renderPage(scopeOf());
     expect(screen.getByLabelText("Starting")).toHaveValue(TODAY);

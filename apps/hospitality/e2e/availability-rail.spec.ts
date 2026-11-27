@@ -15,7 +15,7 @@ const rail = (page: Page) => page.getByRole("navigation", { name: "Availability 
 
 test.describe("Availability rail", () => {
   test("lists the rules, the floor plans and the views, and opens each where it is edited", async ({
-    page,
+    mockedPage: page,
   }) => {
     await page.setViewportSize(DESKTOP);
     await page.goto("availability");
@@ -50,7 +50,7 @@ test.describe("Availability rail", () => {
     ).toEqual([]);
   });
 
-  test("folds behind Jump to on a phone, and closes on a pick", async ({ page }) => {
+  test("folds behind Jump to on a phone, and closes on a pick", async ({ mockedPage: page }) => {
     await page.setViewportSize(PHONE);
     await page.goto("availability");
     const toggle = rail(page).getByRole("button", { name: "Jump to" });

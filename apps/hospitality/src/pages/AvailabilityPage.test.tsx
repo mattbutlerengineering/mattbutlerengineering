@@ -716,8 +716,11 @@ describe("AvailabilityPage", () => {
     renderPage("/availability/calendar?date=2026-10-30");
     expect(screen.getByRole("radio", { name: "Calendar" })).toBeChecked();
     expect(screen.getByRole("dialog", { name: /Friday, October 30/ })).toBeInTheDocument();
+    // The day is not reopened by a refresh; the layer is named instead, for the rail (#9944).
     await waitFor(() =>
-      expect(screen.getByTestId("location")).toHaveTextContent(/^\/availability\/calendar$/)
+      expect(screen.getByTestId("location")).toHaveTextContent(
+        /^\/availability\/calendar\?tab=calendar$/
+      )
     );
   });
 
@@ -1775,6 +1778,47 @@ describe("AvailabilityPage layers", () => {
       )
     );
     expect(layerRadio("Calendar")).toBeChecked();
+  });
+
+  describe("beside the rail (#9944), which links layers of this same page", () => {
+    const rail = () => screen.getByRole("navigation", { name: "Availability sections" });
+    const where = () => screen.getByTestId("location").textContent ?? "";
+
+    it("writes the open layer to the address, so the rail can mark it", () => {
+      renderPage("/availability/calendar");
+      expect(layerRadio("Schedules")).toBeChecked();
+      expect(where()).toContain("tab=schedules");
+      fireEvent.click(layerRadio("Calendar"));
+      expect(where()).toContain("tab=calendar");
+      expect(within(rail()).getByRole("link", { name: "Calendar" })).toHaveAttribute(
+        "aria-current",
+        "page"
+      );
+    });
+
+    it("follows a rail link to another layer without a remount", () => {
+      renderPage("/availability/calendar?tab=calendar");
+      fireEvent.click(within(rail()).getByRole("link", { name: "Special dates" }));
+      expect(layerRadio("Special dates")).toBeChecked();
+      expect(within(rail()).getByRole("link", { name: "Special dates" })).toHaveAttribute(
+        "aria-current",
+        "page"
+      );
+    });
+
+    it("asks before a rail link leaves an edited week, and Keep editing keeps the layer and its mark", () => {
+      renderPage("/availability/calendar");
+      fireEvent.click(screen.getByRole("button", { name: "Add another service" }));
+      fireEvent.click(within(rail()).getByRole("link", { name: "Calendar" }));
+      const ask = screen.getByRole("alertdialog", { name: "Discard your changes?" });
+      fireEvent.click(within(ask).getByRole("button", { name: "Keep editing" }));
+      expect(layerRadio("Schedules")).toBeChecked();
+      expect(where()).toContain("tab=schedules");
+      expect(within(rail()).getByRole("link", { name: "Regular hours" })).toHaveAttribute(
+        "aria-current",
+        "page"
+      );
+    });
   });
 
   it("opens the ?date= day on Calendar for a Manager, whose landing layer is Schedules", () => {

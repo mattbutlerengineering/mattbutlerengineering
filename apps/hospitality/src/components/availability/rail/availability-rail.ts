@@ -1,5 +1,5 @@
 import type { AvailabilityConfig } from "@mbe/types";
-import { availabilityPath } from "../availability-address.js";
+import { availabilityPath, isTodaysPage, parseAvailabilityEntry } from "../availability-address.js";
 import { visibleSchedules } from "../superseded-schedules.js";
 
 /**
@@ -76,7 +76,9 @@ function seasonalSchedules(config: AvailabilityConfig, serviceDate: string): Rai
     .map((s) => ({
       id: `schedule:${s.id}`,
       label: { text: s.name },
-      to: availabilityPath({ view: "seasonal", screen: "edit", scheduleId: s.id }),
+      // Until the seasonal editor has its own address (#9944 S2a) a schedule opens the list: the
+      // edit address today drops the schedule, so every schedule would share one link.
+      to: availabilityPath({ view: "seasonal" }),
     }));
 }
 
@@ -134,7 +136,8 @@ export function buildAvailabilityRail(input: RailInput): RailGroup[] {
     {
       id: "sit",
       heading: "availabilityHub.rail.groups.sit",
-      nodes: (floorPlans ?? []).map((p) => ({
+      // The floor plan editor is Manager-only; a Host gets a plan to view in #9944 S3.
+      nodes: (isManager ? (floorPlans ?? []) : []).map((p) => ({
         id: `floorPlan:${p.id}`,
         label: { text: p.name },
         to: floorPlanPath(p.id),
@@ -173,6 +176,9 @@ function matchScore(to: string, pathname: string, params: URLSearchParams): numb
   return own.every(([k, v]) => params.get(k) === v) ? own.length : -1;
 }
 
+const hasNode = (groups: readonly RailGroup[], id: string): boolean =>
+  groups.some((g) => g.nodes.some((n) => n.id === id));
+
 /**
  * The node the current address opens: the one whose path matches and whose own query params the
  * address carries most of, so `hours?service=x` selects that service over Regular hours. First in
@@ -193,5 +199,10 @@ export function selectedRailId(
     }
   };
   groups.forEach((g) => visit(g.nodes));
-  return (best as { id: string } | null)?.id ?? null;
+  const found = (best as { id: string } | null)?.id ?? null;
+  if (found) return found;
+  // Today's Schedules layer edits the weekly hours, regular and seasonal alike (until #9944 S6).
+  const onSchedules =
+    isTodaysPage(location.pathname) && parseAvailabilityEntry(params).tab === "schedules";
+  return onSchedules && hasNode(groups, "hours") ? "hours" : null;
 }
