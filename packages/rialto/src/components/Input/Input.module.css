@@ -143,3 +143,10 @@
 .error .input:hover {
   border-color: var(--rialto-error);
 }
+
+/* Forced colors strip box-shadow: draw an edge. */
+@media (forced-colors: active) {
+  .input {
+    border: 1px solid CanvasText;
+  }
+}

@@ -101,3 +101,12 @@
 .tabActive:hover {
   color: var(--rialto-tabs-text-active);
 }
+
+/* Forced colors flatten colour differences: the active tab gets an underline edge. */
+@media (forced-colors: active) {
+  .tabActive,
+  .tabActive:hover {
+    color: Highlight;
+    border-bottom: 2px solid Highlight;
+  }
+}

@@ -224,3 +224,21 @@
 .option[data-focused="true"] {
   background: var(--rialto-select-option-highlight-bg);
 }
+
+/* Forced colors flatten backgrounds: highlighted and selected options read by system colours. */
+@media (forced-colors: active) {
+  .option[data-selected="true"],
+  .option[data-focused="true"] {
+    background: Highlight;
+    color: HighlightText;
+    forced-color-adjust: none;
+  }
+
+  .option[data-selected="true"] .check {
+    color: HighlightText;
+  }
+
+  .trigger {
+    border: 1px solid CanvasText;
+  }
+}

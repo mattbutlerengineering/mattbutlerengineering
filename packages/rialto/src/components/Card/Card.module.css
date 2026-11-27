@@ -98,3 +98,10 @@
     var(--rialto-card-elevated-bg) 100%
   );
 }
+
+/* Forced colors strip box-shadow: draw an edge. */
+@media (forced-colors: active) {
+  .card {
+    border: 1px solid CanvasText;
+  }
+}
