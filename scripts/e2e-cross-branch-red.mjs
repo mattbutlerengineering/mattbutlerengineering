@@ -82,6 +82,24 @@ export function groupCrossBranchFailures(records, { minBranches = DEFAULT_MIN_BR
     });
 }
 
+/**
+ * True when a prior issue is closed and the test has NOT re-broken since: the
+ * pre-fix runs still inside the 48h window must not reopen a fixed issue every
+ * hour. A genuine re-break needs >= `minBranches` distinct branches failing
+ * after `closedAt`.
+ * @param {{state?: string, closedAt?: string|null}|null} prior
+ * @param {string} key  `file:line title`
+ * @param {Parameters<typeof groupCrossBranchFailures>[0]} records
+ * @param {{minBranches?: number}} [options]
+ */
+export function shouldSuppressReopen(prior, key, records, options = {}) {
+  if (!prior || String(prior.state).toLowerCase() !== "closed" || !prior.closedAt) return false;
+  const closedMs = Date.parse(prior.closedAt);
+  if (Number.isNaN(closedMs)) return false;
+  const fresh = records.filter((r) => r.createdAt && Date.parse(r.createdAt) > closedMs);
+  return !groupCrossBranchFailures(fresh, options).some((g) => g.key === key);
+}
+
 export function buildIssueTitle(group) {
   return `${TITLE_PREFIX}${group.branches.length} unrelated PR branches: ${group.file}:${group.line}`;
 }
@@ -189,34 +207,42 @@ async function scan() {
   const repo = process.env.GITHUB_REPOSITORY;
   if (!repo) throw new Error("GITHUB_REPOSITORY is required");
   const { createGhClient } = await import("@mbe/gh-client");
-  const { fileIssueViaGhClient } = await import("./lib/issue-filing.mjs");
+  const { fileIssueBySearch, ghIssueDeps } = await import("./lib/issue-filing.mjs");
   const ghClient = createGhClient();
-  const groups = groupCrossBranchFailures(collectRecords(repo, Date.now()));
+  const records = collectRecords(repo, Date.now());
+  const groups = groupCrossBranchFailures(records);
   process.stdout.write(`${groups.length} test(s) red on >= ${DEFAULT_MIN_BRANCHES} branches\n`);
   for (const group of groups) {
     const id = `${group.file}:${group.line}`;
-    const result = fileIssueViaGhClient(
-      ghClient,
+    let candidates = [];
+    try {
+      candidates = ghClient.issue.list([
+        "--label",
+        "ci-fix",
+        "--state",
+        "all",
+        "--search",
+        `"E2E test red on" in:title ${id}`,
+        "--json",
+        "number,title,state,closedAt",
+      ]);
+    } catch (err) {
+      console.error(`prior-issue search failed: ${err.message}`);
+    }
+    const prior = candidates.find((issue) => titleTestId(issue.title) === id) ?? null;
+    if (shouldSuppressReopen(prior, group.key, records)) {
+      process.stdout.write(`${id}: skip (closed #${prior.number}, no failures since close)\n`);
+      continue;
+    }
+    const result = fileIssueBySearch(
       {
         title: buildIssueTitle(group),
         body: buildIssueBody(group, repo),
         labels: ["ci-fix"],
         dedupeKey: id,
       },
-      {
-        listArgs: [
-          "--label",
-          "ci-fix",
-          "--state",
-          "all",
-          "--search",
-          `"E2E test red on" in:title ${id}`,
-          "--json",
-          "number,title,state",
-        ],
-        match: (issue) => titleTestId(issue.title) === id,
-        onSearchError: (err) => console.error(`prior-issue search failed: ${err.message}`),
-      }
+      { search: () => candidates, match: (issue) => titleTestId(issue.title) === id },
+      ghIssueDeps(ghClient)
     );
     process.stdout.write(`${id}: ${result.action} #${result.issueNumber}\n`);
   }

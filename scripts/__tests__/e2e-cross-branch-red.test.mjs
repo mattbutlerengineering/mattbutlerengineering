@@ -6,6 +6,7 @@ import {
   buildIssueTitle,
   buildIssueBody,
   titleTestId,
+  shouldSuppressReopen,
 } from "../e2e-cross-branch-red.mjs";
 
 const rec = (branch, runId, failed, createdAt = "2026-11-26T10:00:00Z") => ({
@@ -147,5 +148,34 @@ describe("issue title and body", () => {
     expect(body).toContain("https://github.com/o/r/actions/runs/2");
     expect(body).toContain("does a thing");
     expect(body).toMatch(/red for everyone/);
+  });
+});
+
+describe("shouldSuppressReopen", () => {
+  const KEY = "a.spec.ts:10 does a thing";
+  const closed = { number: 5, state: "CLOSED", closedAt: "2026-11-26T12:00:00Z" };
+  const before = "2026-11-26T10:00:00Z";
+  const after = "2026-11-26T14:00:00Z";
+  const three = (t) => [rec("a", 1, [T], t), rec("b", 2, [T], t), rec("c", 3, [T], t)];
+
+  it("suppresses when every failure predates closedAt", () => {
+    expect(shouldSuppressReopen(closed, KEY, three(before))).toBe(true);
+  });
+
+  it("allows reopen when 3 branches failed after closedAt", () => {
+    expect(shouldSuppressReopen(closed, KEY, three(after))).toBe(false);
+  });
+
+  it("suppresses when only 1 branch re-broke after closedAt", () => {
+    const records = [...three(before), rec("d", 4, [T], after)];
+    expect(shouldSuppressReopen(closed, KEY, records)).toBe(true);
+  });
+
+  it("does not suppress an open issue (fileIssue already skips it)", () => {
+    expect(shouldSuppressReopen({ ...closed, state: "OPEN" }, KEY, three(before))).toBe(false);
+  });
+
+  it("does not suppress when there is no prior issue", () => {
+    expect(shouldSuppressReopen(null, KEY, three(before))).toBe(false);
   });
 });
