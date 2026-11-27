@@ -19,6 +19,12 @@ import { weekChangeRows } from "./week-changes-view.js";
 
 type Decisions = HolidayDecision[] | null | undefined;
 
+/** The decisions query as last seen: a new read is new data or a new error. */
+export interface DecisionsRead {
+  readonly data: Decisions;
+  readonly error: unknown;
+}
+
 /** The week's rows: undefined holidays while they are unknown, so none is offered as undecided. */
 export function useWeekRows(venueId: string, config: AvailabilityConfig) {
   const format = useVenueFormat();
@@ -48,13 +54,14 @@ export function useWeekRows(venueId: string, config: AvailabilityConfig) {
       }),
     [config, from, country, decisions.data, isManager]
   );
-  return { ...view, decisions: decisions.data as Decisions };
+  const read: DecisionsRead = { data: decisions.data as Decisions, error: decisions.error };
+  return { ...view, decisions: read };
 }
 
-/** One holiday's save. `at` is the decisions read when it was pressed. */
+/** One holiday's save. `at` is the decisions read (data and error) when it was pressed. */
 interface SaveState {
   readonly phase: "saving" | "failed" | "saved";
-  readonly at: Decisions;
+  readonly at: DecisionsRead;
 }
 
 export interface HolidaySaveCallbacks {
@@ -67,7 +74,7 @@ export interface HolidaySaveCallbacks {
  * from the tap until the decisions are read again (the row leaves then), not only until the save
  * resolves: a second tap in between would save twice.
  */
-export function useOpenAsUsual(venueId: string, decisions: Decisions) {
+export function useOpenAsUsual(venueId: string, decisions: DecisionsRead) {
   const { t } = useTranslation();
   const { toast } = useToast();
   const set = useSetHolidayDecision();
@@ -107,9 +114,12 @@ export function useOpenAsUsual(venueId: string, decisions: Decisions) {
   /** "pending" until the decisions are read again after the tap; "failed" until a Retry. */
   const statusOf = (date: string): "pending" | "failed" | undefined => {
     const save = saves.get(date);
-    if (save?.phase === "failed") return "failed";
-    if (save?.phase === "saving") return "pending";
-    return save?.phase === "saved" && save.at === decisions ? "pending" : undefined;
+    if (save === undefined) return undefined;
+    if (save.phase === "failed") return "failed";
+    if (save.phase === "saving") return "pending";
+    // A refetch that errors ends it too: the row stays, pressable again, never stuck pending.
+    const unread = save.at.data === decisions.data && save.at.error === decisions.error;
+    return unread ? "pending" : undefined;
   };
   return { statusOf, openAsUsual };
 }

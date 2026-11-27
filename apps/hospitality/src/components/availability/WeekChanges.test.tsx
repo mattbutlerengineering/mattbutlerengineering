@@ -127,7 +127,12 @@ function renderWeek(cfg: AvailabilityConfig = config()) {
     read.decisions = decisions;
     view.rerender(element());
   };
-  return { onOpenDay, onPlanHolidays, view, refetched };
+  // The refetch failed: react-query keeps the last data and reports the error.
+  const refetchFailed = () => {
+    read.error = new Error("down");
+    view.rerender(element());
+  };
+  return { onOpenDay, onPlanHolidays, view, refetched, refetchFailed };
 }
 
 const section = () => screen.getByRole("region", { name: "Next 7 days" });
@@ -314,18 +319,49 @@ describe("WeekChanges", () => {
     it("keeps Open as usual pending from the tap until the holiday leaves, so a second tap saves nothing", async () => {
       const { refetched } = renderWeek(config({ dateRules: [closure("c1", "2026-11-28")] }));
       const button = within(holidayRow()).getByRole("button", { name: "Open as usual" });
+      button.focus();
       fireEvent.click(button);
       expect(await screen.findByText("Thanksgiving: open as usual")).toBeTruthy();
       // Saved, but the decisions have not refetched: the row is still here and still pending.
-      expect(within(holidayRow()).getByRole("button", { name: "Open as usual" })).toBeDisabled();
-      fireEvent.click(within(holidayRow()).getByRole("button", { name: "Open as usual" }));
+      // Pending is aria-disabled, never native disabled, which would blur the focused button.
+      const pending = within(holidayRow()).getByRole("button", { name: "Open as usual" });
+      expect(pending).toHaveAttribute("aria-disabled", "true");
+      expect(pending).not.toBeDisabled();
+      expect(pending).toHaveFocus();
+      fireEvent.click(pending);
       expect(setDecision).toHaveBeenCalledTimes(1);
 
       refetched([decided("2026-11-26")]);
       expect(screen.queryByText(/isn't planned yet/)).toBeNull();
       // Undo brings it back undecided: pressable again, not stuck pending.
       refetched([]);
-      expect(within(holidayRow()).getByRole("button", { name: "Open as usual" })).toBeEnabled();
+      expect(
+        within(holidayRow()).getByRole("button", { name: "Open as usual" })
+      ).not.toHaveAttribute("aria-disabled", "true");
+    });
+
+    it("ends pending when the decisions fail to load again after the save, keeping focus on the button", async () => {
+      const { refetchFailed } = renderWeek(config({ dateRules: [closure("c1", "2026-11-28")] }));
+      const button = within(holidayRow()).getByRole("button", { name: "Open as usual" });
+      button.focus();
+      fireEvent.click(button);
+      await screen.findByText("Thanksgiving: open as usual");
+      refetchFailed();
+      const again = within(holidayRow()).getByRole("button", { name: "Open as usual" });
+      expect(again).not.toHaveAttribute("aria-disabled", "true");
+      expect(again).toHaveFocus();
+      fireEvent.click(again);
+      await waitFor(() => expect(setDecision).toHaveBeenCalledTimes(2));
+    });
+
+    it("leaves focus alone when the Manager moved it elsewhere before the holiday left", async () => {
+      const { refetched } = renderWeek(config({ dateRules: [closure("c1", "2026-11-27")] }));
+      fireEvent.click(within(holidayRow()).getByRole("button", { name: "Open as usual" }));
+      await screen.findByText("Thanksgiving: open as usual");
+      const elsewhere = screen.getByRole("button", { name: "Sat, Nov 28 · Reopens, show the day" });
+      elsewhere.focus();
+      refetched([decided("2026-11-26")]);
+      expect(elsewhere).toHaveFocus();
     });
 
     it("moves focus to the next row's control when the decided holiday leaves", async () => {

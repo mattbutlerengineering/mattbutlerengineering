@@ -56,7 +56,9 @@ function HolidayRow({ holiday, text, status, onOpenAsUsual, onPlan }: HolidayRow
           <Button
             variant="secondary"
             size="sm"
-            isLoading={status === "pending"}
+            // Not native disabled: that would blur the focused button while it is pending.
+            aria-disabled={status === "pending"}
+            aria-busy={status === "pending" || undefined}
             onClick={onOpenAsUsual}
           >
             {t("availabilitySpecial.holidays.choice.openAsUsual")}
@@ -109,7 +111,7 @@ interface Leaving {
 /**
  * After a Manager's Open as usual, the row leaves once the decisions are read again: focus goes to
  * the control now in its place, else the row before it, else the "nothing else" caption, else the
- * heading. Never to the page.
+ * heading. Never to the page, and never taken back from where the Manager moved it meanwhile.
  */
 function useFocusAfterLeave(
   visible: readonly WeekChangeRow[],
@@ -124,6 +126,9 @@ function useFocusAfterLeave(
     const target = leavingRef.current;
     if (!target || visible.some((r) => "holiday" in r && r.date === target.date)) return;
     leavingRef.current = null;
+    // Focus was lost with the row; if the Manager moved it elsewhere meanwhile, it stays there.
+    const active = document.activeElement;
+    if (active && active !== document.body && active.isConnected) return;
     const control =
       rowControl(refs.list.current, target.index) ??
       rowControl(refs.list.current, target.index - 1);
