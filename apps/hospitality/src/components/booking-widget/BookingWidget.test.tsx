@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { act, render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { BookingWidget } from "./BookingWidget.js";
 import { MISSING_VENUE_SLUG_ERROR } from "./useBookingFlow.js";
 import { ERROR_COPY } from "../../lib/describe-api-error.js";
@@ -347,6 +347,41 @@ describe("BookingWidget", () => {
       mockApi.availability.getClosedDates.mockReturnValue(new Promise(() => undefined));
       renderWidget();
 
+      await waitFor(() =>
+        expect((screen.getByTestId("probe-day") as HTMLButtonElement).disabled).toBe(true)
+      );
+    });
+
+    it("keeps disabling a weekly closed day in a member's widened tail when its feed fails (#9950)", async () => {
+      // Public window ends 2026-05-15; the member's runs to 2026-06-14, past FUTURE_DATE.
+      mockApi.venues.getPublicConfig.mockResolvedValue({
+        ...closedSundayConfig,
+        settings: { maxAdvanceBooking: 14 },
+      });
+      let resolveMember: (status: { member: true; leadDays: number }) => void = () => undefined;
+      mockApi.publicVenue.memberStatus.mockReturnValue(
+        new Promise((resolve) => {
+          resolveMember = resolve;
+        })
+      );
+      mockApi.availability.getClosedDates
+        .mockResolvedValueOnce([])
+        .mockRejectedValueOnce(new Error("down"));
+      render(<BookingWidget venueId="v1" venueSlug="the-oak-table" memberToken="tok" />);
+
+      await waitFor(() => expect(mockApi.availability.getClosedDates).toHaveBeenCalledTimes(1));
+      await act(async () => {
+        resolveMember({ member: true, leadDays: 30 });
+      });
+      await waitFor(() => expect(mockApi.availability.getClosedDates).toHaveBeenCalledTimes(2));
+
+      const memberMax = addDays(venueDate(new Date(), "America/New_York"), 44);
+      expect(mockApi.availability.getClosedDates).toHaveBeenLastCalledWith("the-oak-table", {
+        from: venueDate(new Date()),
+        to: memberMax,
+      });
+      // FUTURE_DATE sits inside the member's window, so only the weekly fallback can disable it.
+      expect(FUTURE_DATE < memberMax).toBe(true);
       await waitFor(() =>
         expect((screen.getByTestId("probe-day") as HTMLButtonElement).disabled).toBe(true)
       );

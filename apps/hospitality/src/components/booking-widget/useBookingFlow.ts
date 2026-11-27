@@ -123,6 +123,7 @@ type BookingFlowAction =
   | { type: "GO_TO_DATE_PARTY" }
   | { type: "SET_SLOTS"; listing: SlotListing }
   | { type: "CLOSED_MID_BOOKING"; message: string }
+  | { type: "CLOSED_DATES_REQUESTED" }
   | { type: "SET_CLOSED_DATES"; closures: Record<string, string> }
   | { type: "SET_SLOTS_ERROR"; error: string }
   | { type: "HOLD_START"; slot: TimeSlot }
@@ -285,6 +286,10 @@ function reducer(state: BookingFlowState, action: BookingFlowAction): BookingFlo
         },
       };
     }
+
+    case "CLOSED_DATES_REQUESTED":
+      // A new (wider) window is loading: the weekly fallback covers it until it lands.
+      return { ...state, data: { ...state.data, closedDatesLoaded: false } };
 
     case "SET_CLOSED_DATES":
       // What a listing already learned about a date wins over the upfront list.
@@ -660,15 +665,21 @@ export function useBookingFlow({
     const cap = addDays(from, CLOSED_DATES_LOOKAHEAD_DAYS);
     const through = bookableThrough ?? cap;
     const to = through > cap ? cap : through < from ? from : through;
+    let cancelled = false;
+    dispatch({ type: "CLOSED_DATES_REQUESTED" });
     api.availability
       .getClosedDates(venueSlug, { from, to })
-      .then((dates) =>
+      .then((dates) => {
+        if (cancelled) return;
         dispatch({
           type: "SET_CLOSED_DATES",
           closures: Object.fromEntries(dates.map(({ date, closure }) => [date, closure.message])),
-        })
-      )
+        });
+      })
       .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
   }, [api, venueSlug, venueTimezone, closedDatesReady, bookableThrough]);
 
   const goToTimeSlot = useCallback(() => {
