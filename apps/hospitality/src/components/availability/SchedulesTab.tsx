@@ -90,7 +90,7 @@ export function SchedulesTab(props: SchedulesTabProps) {
     const saved = await saver.save(
       venueId,
       state,
-      buildDeleteScheduleChanges(deleting.id),
+      buildDeleteScheduleChanges(deleting.id, state.config),
       "replace"
     );
     if (saved) {
@@ -139,7 +139,7 @@ export function SchedulesTab(props: SchedulesTabProps) {
             </Heading>
             <ul className={styles.list}>
               {others.map((schedule) => {
-                const unused = isScheduleUnused(state.config, schedule.id);
+                const unused = isScheduleUnused(state.config, schedule.id, serviceDate);
                 const where = usage(schedule);
                 const shown = scheduleNameText(schedule.name, t);
                 return (
@@ -172,7 +172,11 @@ export function SchedulesTab(props: SchedulesTabProps) {
                       <DisabledTooltip
                         disabled={!unused}
                         disabledReason={
-                          state.config.assignments.some((a) => a.scheduleId === schedule.id)
+                          state.config.assignments.some(
+                            (a) =>
+                              a.scheduleId === schedule.id &&
+                              (a.endsOn == null || a.endsOn >= serviceDate)
+                          )
                             ? t("availabilitySchedules.deleteBlocked", { where })
                             : t("availabilitySchedules.deleteBlockedRules", { where })
                         }

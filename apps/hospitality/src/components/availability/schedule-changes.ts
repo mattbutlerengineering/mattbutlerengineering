@@ -51,18 +51,54 @@ export function weekdayRuns(weekdays: readonly number[]): [number, number][] {
 const liveSchedules = (config: AvailabilityConfig): Schedule[] =>
   config.schedules.filter((s) => !s.archivedAt);
 
-/** A schedule can be deleted only when nothing assigns it and no date rule points at it. */
-export function isScheduleUnused(config: AvailabilityConfig, scheduleId: string): boolean {
+/** Does a use ending on `endsOn` still reach `serviceDate`? An open end never stops. */
+const reaches = (endsOn: string | null | undefined, serviceDate?: string): boolean =>
+  serviceDate === undefined || endsOn == null || endsOn >= serviceDate;
+
+/**
+ * A schedule can be deleted only when nothing assigns it and no date rule points at it. With
+ * `serviceDate`, uses that ended before it no longer count: a past-dated schedule is deletable
+ * (#9871); they are the Manager's to clear, and past days keep reading the archived record.
+ */
+export function isScheduleUnused(
+  config: AvailabilityConfig,
+  scheduleId: string,
+  serviceDate?: string
+): boolean {
   const schedule = config.schedules.find((s) => s.id === scheduleId);
   if (!schedule || schedule.isRegular) return false;
   return (
-    !config.assignments.some((a) => a.scheduleId === scheduleId) &&
-    !config.dateRules.some((r) => r.kind === "use_schedule" && r.useScheduleId === scheduleId)
+    !config.assignments.some(
+      (a) => a.scheduleId === scheduleId && reaches(a.endsOn, serviceDate)
+    ) &&
+    !config.dateRules.some(
+      (r) =>
+        r.kind === "use_schedule" &&
+        r.useScheduleId === scheduleId &&
+        reaches(r.endsOn, serviceDate)
+    )
   );
 }
 
-export function buildDeleteScheduleChanges(scheduleId: string): AvailabilityConfigChanges {
-  return { upsert: {}, remove: { schedules: [scheduleId] } };
+/** Removing a schedule archives it; given `config`, its (ended) assignments and rules go with it. */
+export function buildDeleteScheduleChanges(
+  scheduleId: string,
+  config?: AvailabilityConfig
+): AvailabilityConfigChanges {
+  const assignments = (config?.assignments ?? [])
+    .filter((a) => a.scheduleId === scheduleId)
+    .map((a) => a.id);
+  const dateRules = (config?.dateRules ?? [])
+    .filter((r) => r.kind === "use_schedule" && r.useScheduleId === scheduleId)
+    .map((r) => r.id);
+  return {
+    upsert: {},
+    remove: {
+      schedules: [scheduleId],
+      ...(assignments.length > 0 && { assignments }),
+      ...(dateRules.length > 0 && { dateRules }),
+    },
+  };
 }
 
 /** What stops a schedule draft being saved; `availabilitySchedules.blocked.<code>` says it. */

@@ -112,6 +112,56 @@ describe("isScheduleUnused", () => {
     expect(isScheduleUnused(used, "patio")).toBe(false);
   });
 
+  it("is unused when every assignment and rule using it ended before the service date (#9871)", () => {
+    const ended = {
+      ...withPatio(),
+      dateRules: [
+        {
+          id: "r-use",
+          kind: "use_schedule" as const,
+          targetKind: "venue" as const,
+          startsOn: "2026-11-20",
+          endsOn: "2026-11-21",
+          useScheduleId: "patio",
+        },
+      ],
+    };
+    // Patio ended 2026-11-30; the service date is after it.
+    expect(isScheduleUnused(ended, "patio", "2026-12-01")).toBe(true);
+    // The last day still counts: it is not over until the service date moves past it.
+    expect(isScheduleUnused(ended, "patio", "2026-11-30")).toBe(false);
+    // Without a service date nothing is treated as ended.
+    expect(isScheduleUnused(ended, "patio")).toBe(false);
+    // An open-ended assignment never ends.
+    const open = {
+      ...ended,
+      assignments: ended.assignments.map((a) => (a.id === "as-patio" ? { ...a, endsOn: null } : a)),
+    };
+    expect(isScheduleUnused(open, "patio", "2026-12-01")).toBe(false);
+  });
+
+  it("deleting an ended schedule also removes its ended assignments and rules (#9871)", () => {
+    const config = {
+      ...withPatio(),
+      dateRules: [
+        {
+          id: "r-use",
+          kind: "use_schedule" as const,
+          targetKind: "venue" as const,
+          startsOn: "2026-11-20",
+          endsOn: "2026-11-21",
+          useScheduleId: "patio",
+        },
+      ],
+    };
+    expect(buildDeleteScheduleChanges("patio", config).remove).toEqual({
+      schedules: ["patio"],
+      assignments: ["as-patio"],
+      dateRules: ["r-use"],
+    });
+    expect(buildDeleteScheduleChanges("patio").remove).toEqual({ schedules: ["patio"] });
+  });
+
   it("deleting an unused schedule removes only that schedule", () => {
     expect(buildDeleteScheduleChanges("patio").remove).toEqual({ schedules: ["patio"] });
   });
