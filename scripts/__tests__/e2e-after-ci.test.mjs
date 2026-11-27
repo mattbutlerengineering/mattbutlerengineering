@@ -92,6 +92,13 @@ describe("e2e.yml runs after CI Gate, by dispatch", () => {
     expect(changes.steps[0].with["fetch-depth"]).toBe(0);
   });
 
+  it("publishes error, not a stuck pending, when the run is cancelled", () => {
+    const result = getJob(E2E, "hospitality-e2e-result");
+    expect(result.if).toContain("always()");
+    expect(result.if).not.toContain("!cancelled()");
+    expect(mapResultToState("cancelled")).toBe("error");
+  });
+
   it("publishes a commit status per suite on the head SHA", () => {
     const publishers = [
       ["changes", "Publish pending and skipped suite statuses"],

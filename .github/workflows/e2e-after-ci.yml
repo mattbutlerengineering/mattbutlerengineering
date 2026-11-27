@@ -51,7 +51,8 @@ jobs:
             echo "Dispatched e2e.yml on $HEAD_BRANCH @ $HEAD_SHA"
           else
             # A branch cut before e2e.yml took these inputs has no `pr_number` /
-            # `head_sha` to receive (HTTP 422), and still runs the old
-            # pull_request path. Warn rather than add a red check; rebasing fixes it.
+            # `head_sha` to receive (HTTP 422), and its merge ref has no
+            # pull_request trigger for e2e.yml, so it gets no advisory E2E until
+            # rebased. Warn rather than add a red check.
             echo "::warning::Could not dispatch e2e.yml on $HEAD_BRANCH. Its e2e.yml may predate the dispatch inputs; rebase onto main."
           fi

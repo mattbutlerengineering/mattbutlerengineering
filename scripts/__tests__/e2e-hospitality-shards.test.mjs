@@ -79,7 +79,8 @@ describe("e2e.yml hospitality shards", () => {
   it("reports one combined result under the original check name", () => {
     expect(result.name).toBe("Hospitality E2E");
     expect(result.needs).toEqual(["hospitality-e2e"]);
-    expect(result.if).toContain("!cancelled()");
+    // always(), so a cancelled run still publishes an `error` status (#10025).
+    expect(result.if).toContain("always()");
     expect(result.if).toContain("needs.hospitality-e2e.result != 'skipped'");
     const step = getStep(result, "All shards passed");
     expect(step.env.SHARDS_RESULT).toBe("${{ needs.hospitality-e2e.result }}");

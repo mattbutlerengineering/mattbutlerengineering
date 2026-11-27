@@ -472,7 +472,9 @@ jobs:
   hospitality-e2e-result:
     name: Hospitality E2E
     needs: hospitality-e2e
-    if: ${{ !cancelled() && needs.hospitality-e2e.result != 'skipped' }}
+    # `always()`, not `!cancelled()`: a cancelled run must still publish `error`
+    # (cancelled maps to error), or `Hospitality E2E` stays pending forever.
+    if: ${{ always() && needs.hospitality-e2e.result != 'skipped' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
