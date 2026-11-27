@@ -451,6 +451,9 @@ const SENSOR_GAP_EXPLANATIONS: Readonly<Record<string, string>> = {
   no_runs: "No E2E Tests runs were returned (the workflow runs on pull requests, not main pushes).",
   no_non_frontend_runs:
     "Every recent E2E run touched frontend paths, so there is nothing to measure.",
+  no_suite_runs: "Recent E2E runs all skipped every suite job, so there is nothing to measure.",
+  no_classifiable_runs:
+    "E2E runs were found, but their job results could not be fetched, so they could not be classified.",
 };
 
 /** Why a sensor is unavailable, or null when it is available or gave no reason. */
