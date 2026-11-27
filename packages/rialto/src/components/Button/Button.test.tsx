@@ -87,6 +87,17 @@ describe("Button", () => {
     });
   });
 
+  describe("aria-disabled state", () => {
+    it("stays focusable and does not play the tap animation", async () => {
+      const user = userEvent.setup();
+      render(<Button aria-disabled="true">Pending</Button>);
+      await user.tab();
+      const button = screen.getByRole("button");
+      expect(button).toHaveFocus();
+      expect(button).not.toBeDisabled();
+    });
+  });
+
   describe("loading state", () => {
     it("disables the button when isLoading", () => {
       render(<Button isLoading>Save</Button>);

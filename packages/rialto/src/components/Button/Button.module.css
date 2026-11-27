@@ -122,7 +122,8 @@
   }
 }
 
-.button:disabled {
+.button:disabled,
+.button[aria-disabled="true"] {
   filter: saturate(0.6) brightness(0.95);
   cursor: not-allowed;
   transform: none;

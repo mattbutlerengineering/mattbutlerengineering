@@ -59,7 +59,6 @@ function HolidayRow({ holiday, text, status, onOpenAsUsual, onPlan }: HolidayRow
             // Not native disabled: that would blur the focused button while it is pending.
             aria-disabled={status === "pending"}
             aria-busy={status === "pending" || undefined}
-            className={status === "pending" ? styles.pending : undefined}
             onClick={onOpenAsUsual}
           >
             {t("availabilitySpecial.holidays.choice.openAsUsual")}
