@@ -191,7 +191,7 @@
           "name": "glass",
           "type": "boolean | undefined",
           "required": false,
-          "description": "Apply glass surface with backdrop blur. Default true."
+          "description": "Apply the opaque glass surface (elevated fill, border and shine). Default true."
         },
         {
           "name": "height",
@@ -641,7 +641,7 @@
           "name": "variant",
           "type": "\"elevated\" | \"glass\" | \"flat\" | undefined",
           "required": false,
-          "description": "Surface treatment: `\"elevated\"` (shadow), `\"glass\"` (translucent blur), or `\"flat\"` (no shadow)"
+          "description": "Surface treatment: `\"elevated\"` (shadow), `\"glass\"` (opaque, border and shine), or `\"flat\"` (no shadow)"
         },
         {
           "name": "tilt",

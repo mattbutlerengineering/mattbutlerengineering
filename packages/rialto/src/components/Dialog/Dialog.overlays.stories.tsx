@@ -287,8 +287,8 @@ export const PopoverIsOpaqueInDialogDark: Story = {
   },
 };
 
-/** On a plain page nothing blends through the panel, so it keeps its glass. */
-export const PopoverKeepsGlassOnPlainPage: Story = {
+/** The glass recipe is opaque everywhere, so a plain-page panel hides what is behind it too (#9869). */
+export const PopoverIsOpaqueOnPlainPage: Story = {
   render: () => (
     <Popover trigger={<Button>Details</Button>} placement="bottom">
       <p>Panel text</p>
@@ -297,8 +297,8 @@ export const PopoverKeepsGlassOnPlainPage: Story = {
   play: async () => {
     await inTheme("light", async () => {
       const panel = await openPopoverPanel();
-      await waitFor(() => expect(alphaOf(getComputedStyle(panel).backgroundColor)).toBeLessThan(1));
-      expect(getComputedStyle(panel).backdropFilter).not.toBe("none");
+      await waitFor(() => expect(alphaOf(getComputedStyle(panel).backgroundColor)).toBe(1));
+      expect(getComputedStyle(panel).backdropFilter).toBe("none");
     });
   },
 };

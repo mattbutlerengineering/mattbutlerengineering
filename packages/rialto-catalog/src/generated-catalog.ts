@@ -19,7 +19,7 @@ export const catalogMeta: Record<string, CatalogMeta> = {
   AppBar: {
     name: "AppBar",
     description:
-      "Sticky horizontal header bar for app navigation. Use glass=true (default) for backdrop blur surface. Use logo slot for brand identity and actions slot for navigation controls. Fixed height defaults to 56px.",
+      "Sticky horizontal header bar for app navigation. Use glass=true (default) for the opaque glass surface. Use logo slot for brand identity and actions slot for navigation controls. Fixed height defaults to 56px.",
     charLimits: { height: 20 },
   },
   AspectRatio: {
