@@ -13,7 +13,6 @@ import { AuthConfigError } from "./components/AuthConfigError";
 import { GuestSurface } from "./components/GuestSurface";
 import { LoadingPage } from "./pages/LoadingPage";
 import { RequireAdmin } from "./components/RequireAdmin";
-import { RequireManager } from "./components/RequireManager";
 import { validateAuthConfig } from "./constants/auth";
 import { currentHostConfig, legacyPathRedirect } from "./lib/host-brand.js";
 import { I18nextProvider } from "react-i18next";
@@ -29,6 +28,12 @@ initSentry({
 });
 
 // Lazy-loaded route components — each becomes its own chunk
+// The manager guard reads the venue context and team hooks, which the public
+// landing must not download (#9976). It only renders under the signed-in
+// layout, whose <Suspense> covers the load.
+const RequireManager = lazy(() =>
+  import("./components/RequireManager.js").then((m) => ({ default: m.RequireManager }))
+);
 const DashboardLayout = lazy(() =>
   import("./components/DashboardLayout.js").then((m) => ({
     default: m.DashboardLayout,
