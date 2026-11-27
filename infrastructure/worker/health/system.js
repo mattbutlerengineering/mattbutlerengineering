@@ -33,6 +33,21 @@ const KV_KEYS = {
 // ── Probe helpers ─────────────────────────────────────────────────────
 
 /**
+ * Map a 200 service `/health` body to a probe status (#9963). Only a database
+ * failure counts as `error`: a failed DB check, or pool exhaustion (callers
+ * waiting on a degraded pool). A plain `degraded` from other checks (error
+ * rate, Auth0 latency, rate limits, slow queries) stays `ok`, since those trip
+ * on routine traffic and would otherwise roll up to `unhealthy`.
+ */
+function serviceBodyStatus(body) {
+  if (body?.status === "error") return "error";
+  const checks = body?.checks;
+  if (checks?.database?.status === "error") return "error";
+  if (checks?.pool?.status === "degraded" && checks.pool.waiting > 0) return "error";
+  return "ok";
+}
+
+/**
  * Fetch a service health endpoint with a timeout.
  * Returns { status, latency, version?, checks? }.
  */
@@ -48,7 +63,7 @@ async function checkService(apiOrigin, path) {
     }
     const body = await response.json();
     return {
-      status: body.status === "error" ? "error" : "ok",
+      status: serviceBodyStatus(body),
       latency,
       version: body.version,
       checks: body.checks,

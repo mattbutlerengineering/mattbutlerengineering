@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
+// Utilization fixtures below assume a 5-connection pool; the package default is 3 (#9963).
+vi.hoisted(() => vi.stubEnv("PRISMA_CONNECTION_LIMIT", "5"));
+
 // ---------------------------------------------------------------------------
 // vi.hoisted runs before vi.mock factories — use it for shared state that the
 // mock class constructors reference at module-load time.
