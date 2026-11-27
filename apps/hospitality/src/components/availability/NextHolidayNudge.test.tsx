@@ -88,8 +88,29 @@ describe("NextHolidayNudge", () => {
 
   it("names the next undecided one when the nearest is decided", () => {
     read.decisions = [decision("2026-12-24")];
-    renderNudge([], "2026-12-20");
+    renderNudge([], "2026-12-14");
     expect(screen.getByText("Christmas Day is Fri, Dec 25 and isn't planned yet.")).toBeTruthy();
+  });
+
+  // "Next 7 days" lists the week's undecided holidays, so one holiday never shows on two lines.
+  it("says nothing about a holiday 3 days out: Next 7 days lists it", () => {
+    renderNudge([], "2026-11-23");
+    expect(screen.queryByText(/Thanksgiving is/)).toBeNull();
+  });
+
+  it("says nothing about a holiday on the week's last day, 7 days out", () => {
+    renderNudge([], "2026-11-19");
+    expect(screen.queryByText(/Thanksgiving is/)).toBeNull();
+  });
+
+  it("nudges for a holiday 8 days out, the first day past the week", () => {
+    renderNudge([], "2026-11-18");
+    expect(screen.getByText("Thanksgiving is Thu, Nov 26 and isn't planned yet.")).toBeTruthy();
+  });
+
+  it("nudges for a holiday 10 days out", () => {
+    renderNudge([], "2026-11-16");
+    expect(screen.getByText("Thanksgiving is Thu, Nov 26 and isn't planned yet.")).toBeTruthy();
   });
 
   it("says nothing while the decisions load, and nothing if they failed to load", () => {
