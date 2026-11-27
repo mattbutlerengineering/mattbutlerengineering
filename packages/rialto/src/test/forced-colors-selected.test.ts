@@ -91,6 +91,12 @@ describe("rialto forced-colors selected states", () => {
     }
   });
 
+  it("keeps the indeterminate dash legible", () => {
+    expect(forcedColors("components/Checkbox/Checkbox.module.css")).toContain(
+      '.input[data-indeterminate="true"] + .box .check'
+    );
+  });
+
   it("uses system colours, never hex", () => {
     for (const file of [...Object.keys(SELECTED), ...Object.keys(SHADOW_ONLY)]) {
       expect(forcedColors(file), file).not.toMatch(/#[0-9a-f]{3,8}\b/i);

@@ -281,12 +281,14 @@
   }
 
   .input:checked + .box .check,
+  .input[data-indeterminate="true"] + .box .check,
   .input:checked + .circle .dot {
     color: HighlightText;
     background: HighlightText;
   }
 
-  .input:checked + .box .check {
+  .input:checked + .box .check,
+  .input[data-indeterminate="true"] + .box .check {
     background: none;
   }
 
