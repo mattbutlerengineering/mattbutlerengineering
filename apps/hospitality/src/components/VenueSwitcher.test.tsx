@@ -94,19 +94,21 @@ describe("VenueSwitcher", () => {
       expect(screen.getByText("Venue Alpha")).toBeDefined();
     });
 
-    it("does not render a dropdown chevron (not interactive)", () => {
+    // #9873: with one venue the dropdown still opens, so "Add Venue" stays reachable.
+    it("opens a listbox with the venue and Add Venue on click", async () => {
       render(<VenueSwitcher onNavigate={onNavigate} />);
-      // The chevron SVG is only rendered when isMultiVenue is true
-      const trigger = screen.getByRole("button", { name: /Venue Alpha/ });
-      // aria-haspopup is not set for single venue
-      expect(trigger.getAttribute("aria-haspopup")).toBeNull();
+      const trigger = screen.getByRole("button", { name: /Current venue/ });
+      expect(trigger.getAttribute("aria-haspopup")).toBe("listbox");
+      await userEvent.click(trigger);
+      expect(screen.getByRole("listbox")).toBeDefined();
+      expect(screen.getByRole("option", { name: /Venue Alpha/ })).toBeDefined();
     });
 
-    it("does not open a dropdown on click", async () => {
+    it("calls onNavigate with /onboarding when Add Venue is clicked", async () => {
       render(<VenueSwitcher onNavigate={onNavigate} />);
-      const trigger = screen.getByRole("button", { name: /Venue Alpha/ });
-      await userEvent.click(trigger);
-      expect(screen.queryByRole("listbox")).toBeNull();
+      await userEvent.click(screen.getByRole("button", { name: /Current venue/ }));
+      await userEvent.click(screen.getByText("Add Venue"));
+      expect(onNavigate).toHaveBeenCalledWith("/onboarding");
     });
   });
 

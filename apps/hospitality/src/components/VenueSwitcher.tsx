@@ -8,7 +8,7 @@ interface VenueSwitcherProps {
 }
 
 export function VenueSwitcher({ onNavigate }: VenueSwitcherProps) {
-  const { venues, selectedVenue, setVenueId, isMultiVenue } = useVenue();
+  const { venues, selectedVenue, setVenueId } = useVenue();
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -38,15 +38,14 @@ export function VenueSwitcher({ onNavigate }: VenueSwitcherProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps, @eslint-react/exhaustive-deps
   }, [isOpen]);
 
+  // Opens with one venue too: "Add Venue" lives in the dropdown (#9873).
   const handleToggle = useCallback(() => {
-    if (isMultiVenue) {
-      setIsOpen((prev) => !prev);
-    }
-  }, [isMultiVenue]);
+    setIsOpen((prev) => !prev);
+  }, []);
 
   const handleListKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
-      // isMultiVenue guarantees venues.length > 1 whenever the listbox renders.
+      // The listbox renders only with a selected venue, so venues.length >= 1.
       switch (e.key) {
         case "ArrowDown":
           e.preventDefault();
@@ -119,33 +118,27 @@ export function VenueSwitcher({ onNavigate }: VenueSwitcherProps) {
       <button
         ref={triggerRef}
         type="button"
-        className={`${styles.trigger} ${isMultiVenue ? styles.triggerInteractive : ""}`}
+        className={`${styles.trigger} ${styles.triggerInteractive}`}
         onClick={handleToggle}
-        aria-haspopup={isMultiVenue ? "listbox" : undefined}
-        aria-expanded={isMultiVenue ? isOpen : undefined}
-        aria-label={
-          isMultiVenue
-            ? t("venueSwitcher.currentVenue", { name: selectedVenue.name })
-            : selectedVenue.name
-        }
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        aria-label={t("venueSwitcher.currentVenue", { name: selectedVenue.name })}
       >
         <span className={styles.venueName}>{selectedVenue.name}</span>
-        {isMultiVenue && (
-          <svg
-            className={`${styles.chevron} ${isOpen ? styles.chevronOpen : ""}`}
-            width="12"
-            height="12"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <polyline points="6 9 12 15 18 9" />
-          </svg>
-        )}
+        <svg
+          className={`${styles.chevron} ${isOpen ? styles.chevronOpen : ""}`}
+          width="12"
+          height="12"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
       </button>
 
       {isOpen && (
