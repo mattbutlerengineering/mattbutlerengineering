@@ -29,112 +29,133 @@ const mockApi = {
   },
 };
 
-vi.mock("@mattbutlerengineering/rialto", () => ({
-  Input: ({
-    label,
-    required,
-    value,
-    onChange,
-    onBlur,
-    placeholder,
-    type,
-  }: {
+vi.mock("@mattbutlerengineering/rialto", async () => {
+  type MockInputProps = {
+    ref?: React.Ref<HTMLInputElement>;
     label?: string;
     required?: boolean;
+    error?: boolean;
+    hint?: string;
     value?: string;
     onChange?: (e: any) => void;
     onBlur?: (e: any) => void;
     placeholder?: string;
     type?: string;
-  }) => (
-    <div data-testid="input-wrapper">
-      <label>
-        {label}
-        {required && "*"}
-      </label>
-      <input
-        data-testid={label?.toLowerCase().replace(/\s/g, "-")}
-        type={type || "text"}
-        value={value}
-        onChange={onChange}
-        onBlur={onBlur}
-        placeholder={placeholder}
-      />
-    </div>
-  ),
-  TextArea: ({
+  };
+  // Mirrors rialto's Input wiring: aria-invalid on error, hint text tied to
+  // the control through aria-describedby, ref forwarded to the <input>.
+  const MockInput = ({
+    ref,
     label,
+    required,
+    error,
+    hint,
     value,
     onChange,
-    rows,
+    onBlur,
     placeholder,
-  }: {
-    label?: string;
-    value?: string;
-    onChange?: (e: any) => void;
-    rows?: number;
-    placeholder?: string;
-  }) => (
-    <div data-testid="textarea-wrapper">
-      {/* Mirrors rialto's TextArea, whose visible label is tied to the control. */}
-      <label htmlFor={label?.toLowerCase().replace(/\s/g, "-")}>{label}</label>
-      <textarea
-        id={label?.toLowerCase().replace(/\s/g, "-")}
-        data-testid={label?.toLowerCase().replace(/\s/g, "-")}
-        value={value}
-        onChange={onChange}
-        rows={rows}
-        placeholder={placeholder}
-      />
-    </div>
-  ),
-  Button: ({
-    children,
-    variant,
-    size,
-    disabled,
-    onClick,
     type,
-  }: {
-    children?: React.ReactNode;
-    variant?: string;
-    size?: string;
-    disabled?: boolean;
-    onClick?: () => void;
-    type?: "button" | "submit" | "reset";
-  }) => (
-    <button
-      data-testid={variant === "ghost" ? "back-button" : "submit-button"}
-      data-variant={variant}
-      data-size={size}
-      disabled={disabled}
-      onClick={onClick}
-      type={type}
-    >
-      {children}
-    </button>
-  ),
-  Alert: ({ children, variant }: { children?: React.ReactNode; variant?: string }) => (
-    <div data-testid="alert" data-variant={variant}>
-      {children}
-    </div>
-  ),
-  Text: ({ children, className }: { children?: React.ReactNode; className?: string }) => (
-    <div data-testid="text" className={className}>
-      {children}
-    </div>
-  ),
-  Banner: ({ children, variant }: { children?: React.ReactNode; variant?: string }) => (
-    <div data-testid="recognition-banner" data-variant={variant}>
-      {children}
-    </div>
-  ),
-  Badge: ({ children, variant }: { children?: React.ReactNode; variant?: string }) => (
-    <span data-testid="preferences-badge" data-variant={variant}>
-      {children}
-    </span>
-  ),
-}));
+  }: MockInputProps) => {
+    const testId = label?.toLowerCase().replace(/\s/g, "-");
+    return (
+      <div data-testid="input-wrapper">
+        <label htmlFor={testId}>
+          {label}
+          {required && "*"}
+        </label>
+        <input
+          ref={ref}
+          id={testId}
+          data-testid={testId}
+          type={type || "text"}
+          required={required || undefined}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={hint ? `${testId}-hint` : undefined}
+          value={value}
+          onChange={onChange}
+          onBlur={onBlur}
+          placeholder={placeholder}
+        />
+        {hint && <span id={`${testId}-hint`}>{hint}</span>}
+      </div>
+    );
+  };
+  return {
+    Input: MockInput,
+    TextArea: ({
+      label,
+      value,
+      onChange,
+      rows,
+      placeholder,
+    }: {
+      label?: string;
+      value?: string;
+      onChange?: (e: any) => void;
+      rows?: number;
+      placeholder?: string;
+    }) => (
+      <div data-testid="textarea-wrapper">
+        {/* Mirrors rialto's TextArea, whose visible label is tied to the control. */}
+        <label htmlFor={label?.toLowerCase().replace(/\s/g, "-")}>{label}</label>
+        <textarea
+          id={label?.toLowerCase().replace(/\s/g, "-")}
+          data-testid={label?.toLowerCase().replace(/\s/g, "-")}
+          value={value}
+          onChange={onChange}
+          rows={rows}
+          placeholder={placeholder}
+        />
+      </div>
+    ),
+    Button: ({
+      children,
+      variant,
+      size,
+      disabled,
+      onClick,
+      type,
+    }: {
+      children?: React.ReactNode;
+      variant?: string;
+      size?: string;
+      disabled?: boolean;
+      onClick?: () => void;
+      type?: "button" | "submit" | "reset";
+    }) => (
+      <button
+        data-testid={variant === "ghost" ? "back-button" : "submit-button"}
+        data-variant={variant}
+        data-size={size}
+        disabled={disabled}
+        onClick={onClick}
+        type={type}
+      >
+        {children}
+      </button>
+    ),
+    Alert: ({ children, variant }: { children?: React.ReactNode; variant?: string }) => (
+      <div data-testid="alert" data-variant={variant}>
+        {children}
+      </div>
+    ),
+    Text: ({ children, className }: { children?: React.ReactNode; className?: string }) => (
+      <div data-testid="text" className={className}>
+        {children}
+      </div>
+    ),
+    Banner: ({ children, variant }: { children?: React.ReactNode; variant?: string }) => (
+      <div data-testid="recognition-banner" data-variant={variant}>
+        {children}
+      </div>
+    ),
+    Badge: ({ children, variant }: { children?: React.ReactNode; variant?: string }) => (
+      <span data-testid="preferences-badge" data-variant={variant}>
+        {children}
+      </span>
+    ),
+  };
+});
 
 /** Fire email blur + advance 300ms debounce + flush async microtasks */
 async function triggerRecognition(emailInput: HTMLElement, email: string) {
@@ -244,10 +265,67 @@ describe("GuestDetailsForm", () => {
     expect((notesInput as HTMLTextAreaElement).value).toBe("Birthday celebration");
   });
 
-  it("should not submit when name is empty", () => {
+  it("keeps Complete Reservation enabled on an empty form", () => {
     render(<GuestDetailsForm {...defaultProps} />);
-    const submitButton = screen.getByTestId("submit-button");
-    expect(submitButton).toBeDisabled();
+    expect(screen.getByTestId("submit-button")).not.toBeDisabled();
+  });
+
+  it("shows no errors before a submit attempt", () => {
+    render(<GuestDetailsForm {...defaultProps} />);
+    expect(screen.getByTestId("name").getAttribute("aria-invalid")).toBeNull();
+    expect(screen.getByTestId("email").getAttribute("aria-invalid")).toBeNull();
+  });
+
+  it("marks Name as required", () => {
+    render(<GuestDetailsForm {...defaultProps} />);
+    expect(screen.getByTestId("name")).toBeRequired();
+  });
+
+  it("submitting empty shows a Name error, focuses Name, and does not call onSubmit", () => {
+    render(<GuestDetailsForm {...defaultProps} />);
+    fireEvent.click(screen.getByTestId("submit-button"));
+    const nameInput = screen.getByTestId("name");
+    expect(nameInput.getAttribute("aria-invalid")).toBe("true");
+    expect(screen.getByText(enUS.bookingWidget.details.nameRequired)).toBeDefined();
+    expect(document.activeElement).toBe(nameInput);
+    expect(defaultProps.onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("name-only submit shows the contact error, focuses Email, and does not call onSubmit", () => {
+    render(<GuestDetailsForm {...defaultProps} />);
+    fireEvent.change(screen.getByTestId("name"), { target: { value: "John" } });
+    fireEvent.click(screen.getByTestId("submit-button"));
+    const emailInput = screen.getByTestId("email");
+    expect(screen.getByTestId("name").getAttribute("aria-invalid")).toBeNull();
+    expect(emailInput.getAttribute("aria-invalid")).toBe("true");
+    expect(screen.getByTestId("phone").getAttribute("aria-invalid")).toBe("true");
+    expect(emailInput.getAttribute("aria-describedby")).toBe("email-hint");
+    expect(document.activeElement).toBe(emailInput);
+    expect(defaultProps.onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("states the either-email-or-phone guidance once, linked to the contact field", () => {
+    render(<GuestDetailsForm {...defaultProps} />);
+    expect(screen.getAllByText(enUS.bookingWidget.details.contactHint)).toHaveLength(1);
+    expect(screen.getByTestId("phone").getAttribute("aria-describedby")).toBe("phone-hint");
+    fireEvent.click(screen.getByTestId("submit-button"));
+    expect(screen.getAllByText(enUS.bookingWidget.details.contactHint)).toHaveLength(1);
+  });
+
+  it("clears the Name error as the guest types a name", () => {
+    render(<GuestDetailsForm {...defaultProps} />);
+    fireEvent.click(screen.getByTestId("submit-button"));
+    fireEvent.change(screen.getByTestId("name"), { target: { value: "J" } });
+    expect(screen.getByTestId("name").getAttribute("aria-invalid")).toBeNull();
+  });
+
+  it("clears the contact error once an email is entered", () => {
+    render(<GuestDetailsForm {...defaultProps} />);
+    fireEvent.change(screen.getByTestId("name"), { target: { value: "John" } });
+    fireEvent.click(screen.getByTestId("submit-button"));
+    fireEvent.change(screen.getByTestId("email"), { target: { value: "j@example.com" } });
+    expect(screen.getByTestId("email").getAttribute("aria-invalid")).toBeNull();
+    expect(screen.getByTestId("phone").getAttribute("aria-invalid")).toBeNull();
   });
 
   it("should enable submit when name and email are provided", () => {

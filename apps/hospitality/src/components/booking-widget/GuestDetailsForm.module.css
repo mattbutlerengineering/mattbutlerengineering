@@ -43,8 +43,3 @@
   flex-direction: column;
   gap: var(--rialto-space-md);
 }
-
-.hint {
-  font-size: var(--rialto-text-xs);
-  color: var(--rialto-text-secondary);
-}
