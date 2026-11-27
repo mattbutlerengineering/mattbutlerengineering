@@ -23,6 +23,7 @@ const FIXING_ROUTINES = [
   "mbe-weekly-improve",
   "mbe-weekly-retro",
   "mbe-monthly-meta-audit",
+  "mbe-dev-speed",
 ];
 
 const promptOf = (name) => {
@@ -58,6 +59,37 @@ describe("fix protocol (#9947)", () => {
     for (const path of [".github/**", ".claude/**", "scripts/reviewed-merge.mjs", "CLAUDE.md"]) {
       expect(hold[1]).toContain(path);
     }
+  });
+
+  it("lets only mbe-dev-speed's workflow-only changes skip the guardrail hold (#10044)", () => {
+    const hold = /\*\*Hold these for the Owner\.\*\*([\s\S]*?)\n\n`reviewed-merge\.yml`/.exec(
+      protocol
+    );
+    expect(hold, "hold section").not.toBeNull();
+    const exception = /\*\*Exception \(Owner, 2026-11-27, #10044\)\.\*\*([\s\S]*)$/.exec(hold[1]);
+    expect(exception, "dev-speed exception paragraph inside the hold section").not.toBeNull();
+    const text = exception[1].replace(/\s+/g, " ");
+    // Scope: one routine, one path family.
+    expect(text).toContain("`mbe-dev-speed`");
+    expect(text).toContain("`.github/workflows/**`");
+    expect(text).toMatch(/every other routine and every other guardrail path/i);
+    // Still held, even for mbe-dev-speed.
+    for (const held of [
+      "`ci-gate`",
+      "`needs`",
+      "required-check",
+      "`permissions:`",
+      "secrets",
+      "`pull_request_target`",
+      "`workflow_run`",
+      "`reviewed-merge.yml`",
+      "`merge-queue.yml`",
+      "`auto-merge*.yml`",
+    ]) {
+      expect(text, `exception keeps ${held} held`).toContain(held);
+    }
+    // The base hold list is unchanged: .github/** is still held by default.
+    expect(hold[1]).toContain("`.github/**`");
   });
 
   it("files an issue only when the cause or the decision is out of reach", () => {

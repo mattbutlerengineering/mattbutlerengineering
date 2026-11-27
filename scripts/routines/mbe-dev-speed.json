@@ -1,0 +1,10 @@
+{
+  "name": "mbe-dev-speed",
+  "triggerId": null,
+  "periodDays": 1,
+  "signature": { "type": "heartbeat" },
+  "paused": {
+    "since": "2026-11-27",
+    "reason": "RemoteTrigger not created yet: it is created after the docs PR merges (#10044). Set triggerId and activatedAt and remove this field then."
+  }
+}

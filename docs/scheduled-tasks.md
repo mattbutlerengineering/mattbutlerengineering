@@ -418,6 +418,36 @@ to a single worker without worktree isolation in cloud and keep the local
   recording that none opened and why, so a no-op week is a positive signal
   rather than an absence.
 
+## `mbe-dev-speed`
+
+> **Prompt:** [`routines/mbe-dev-speed.md`](./routines/mbe-dev-speed.md).
+> This section describes intent — the file is the prompt. Manifest:
+> `scripts/routines/mbe-dev-speed.json` (heartbeat signature; `paused` until
+> the RemoteTrigger exists).
+
+- **When:** daily 5:30am PT (`CRON_TZ=America/Los_Angeles 30 5 * * *`),
+  before the workday. Model: opus.
+- **What it does:** measures dev speed from live data (push to `CI Gate`
+  p50/p90 via `scripts/collect-sdlc-speed.mjs --days 7`, the 3 slowest
+  `ci.yml` jobs and queue share from the jobs API, PR open-to-merge median),
+  compares it with its previous entry in `.claude/improvement-loop/log.md`,
+  checks whether its previous change moved the number (filing a `ready`
+  revert/fix issue if it made things slower), then fixes the single biggest
+  root-caused bottleneck in one small PR (about 150 changed lines) titled
+  `… (mbe-dev-speed)`, per [`routines/fix-protocol.md`](./routines/fix-protocol.md).
+  Feeds #10009 (ADR-036: p90 under 15 minutes).
+- **Guardrails:** never weakens a gate for speed (no removed required check,
+  no `continue-on-error` on a gating step, no skipped tests, no lowered
+  coverage, no job dropped from `ci-gate`'s `needs`). Its PRs confined to
+  `.github/workflows/**` may take the reviewed-merge hand-off under the
+  protocol's narrow #10044 exception; changes to the `ci-gate` job's `needs`,
+  required checks, `permissions:`, secrets, `pull_request_target`/`workflow_run`
+  triggers or the merge workflows stay held for the Owner.
+- **Does not merge.** Every fire, including a no-op, logs to
+  `.claude/improvement-loop/log.md` in its own docs-only PR
+  (`docs(metrics): dev-speed log <date> (mbe-dev-speed)`) and posts a
+  heartbeat on #6211.
+
 ## `mbe-doc-rot`
 
 > **Prompt:** [`routines/mbe-doc-rot.md`](./routines/mbe-doc-rot.md).
@@ -596,6 +626,7 @@ sonnet trigger (up to 24 fires/day since 2026-11-18, down from 48). A fire with
 nothing in flight exits in a few minutes after one heartbeat check, so the real
 cost tracks how much work is actually queued, not the fire count. A `throttled`
 heartbeat on #6211 is the signal that this cadence has hit the plan's limits.
+`mbe-dev-speed` (added 2026-11-27, #10044) adds one daily opus run at 5:30am PT.
 Note `mbe-doc-rot`'s 2026-10-09 fire already failed with `USAGE_LIMIT_REACHED`
 before any sub-hourly routine existed, so the Friday-morning stack is the hour
 to watch.

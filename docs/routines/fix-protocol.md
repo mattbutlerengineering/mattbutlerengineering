@@ -87,6 +87,14 @@ treat the finding under section 4, with what you learned in the issue body.
   `packages/agent-core/src/pr-risk-classifier.ts`. A reviewer must never be
   the only check on an edit to its own rules.
 
+**Exception (Owner, 2026-11-27, #10044).** A `mbe-dev-speed` PR whose
+guardrail-path changes are confined to `.github/workflows/**` may take the
+normal hand-off above, unless its diff touches the `ci-gate` job's `needs`,
+a required-check name, a `permissions:` scope, secrets, a
+`pull_request_target` or `workflow_run` trigger, or a merge workflow
+(`reviewed-merge.yml`, `merge-queue.yml`, `auto-merge*.yml`). Those stay held.
+Every other routine and every other guardrail path is unchanged.
+
 `reviewed-merge.yml` already holds every PR that touches a gate path
 (`docs/adr/**`, `docs/design/**`, any `prd.md` or `architecture.md`), so those
 need no extra step.
