@@ -43,6 +43,25 @@
   margin-block-start: var(--rialto-space-xs);
 }
 
+/* Phone and tablet (the sidebar is still beside main at 768): guest info on the first line, the
+   table picker and actions wrap onto their own line so nothing scrolls sideways (#10035). */
+@media (max-width: 1024px) {
+  .row {
+    flex-wrap: wrap;
+  }
+
+  .details {
+    min-inline-size: 0;
+  }
+
+  .actions {
+    flex-basis: 100%;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: var(--rialto-space-sm);
+  }
+}
+
 /* Row controls stay finger-sized on touch screens and tablet-width viewports (NF INCLUSIVE, ≥ 44 × 44). */
 @media (pointer: coarse), (max-width: 1024px) {
   .actions > button {
