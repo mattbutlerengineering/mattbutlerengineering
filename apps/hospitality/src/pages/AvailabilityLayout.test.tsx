@@ -1,3 +1,4 @@
+import { useState, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router";
@@ -5,6 +6,7 @@ import { ToastProvider } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfigState } from "@mbe/types";
 import { useAvailabilityScope } from "../hooks/useAvailabilityScope.js";
 import { AvailabilityLayout } from "./AvailabilityLayout.js";
+import { SubnavSlotContext } from "../components/availability/rail/subnav-slot.js";
 
 const venue = vi.hoisted(() => ({
   selectedVenueId: "venue-1" as string | null,
@@ -65,6 +67,17 @@ function ScopeProbe() {
   );
 }
 
+/** The sidebar slot the rail renders into, as the dashboard shell provides it (#9944). */
+function SubnavHost({ children }: { readonly children: ReactNode }) {
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
+  return (
+    <SubnavSlotContext.Provider value={{ slot, setSlot, onPick: () => undefined }}>
+      <div ref={setSlot} />
+      {children}
+    </SubnavSlotContext.Provider>
+  );
+}
+
 function renderLayout(url = "/availability/calendar") {
   const router = createMemoryRouter(
     [
@@ -78,7 +91,9 @@ function renderLayout(url = "/availability/calendar") {
   );
   return render(
     <ToastProvider>
-      <RouterProvider router={router} />
+      <SubnavHost>
+        <RouterProvider router={router} />
+      </SubnavHost>
     </ToastProvider>
   );
 }

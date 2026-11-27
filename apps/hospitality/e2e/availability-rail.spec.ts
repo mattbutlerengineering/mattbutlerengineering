@@ -3,9 +3,9 @@ import AxeBuilder from "@axe-core/playwright";
 import { test, expect } from "./fixtures.js";
 
 /**
- * The Availability rail (#9944): every Availability screen as one tree beside the open one, so a
- * Manager sees how the rules and the floor plans relate while editing any of them, and reaches any
- * screen in one click. The demo venue is `mockApi`'s.
+ * The Availability rail (#9944): every Availability screen as one tree, nested under the sidebar's
+ * Availability item beside the open page, so a Manager sees how the rules and the floor plans
+ * relate while editing any of them, and reaches any screen in one click. The demo venue is `mockApi`'s.
  */
 
 const DESKTOP = { width: 1280, height: 800 };
@@ -50,16 +50,30 @@ test.describe("Availability rail", () => {
     ).toEqual([]);
   });
 
-  test("folds behind Jump to on a phone, and closes on a pick", async ({ mockedPage: page }) => {
+  test("comes with the sidebar's drawer on a phone, which closes on a pick", async ({
+    mockedPage: page,
+  }) => {
     await page.setViewportSize(PHONE);
     await page.goto("availability");
-    const toggle = rail(page).getByRole("button", { name: "Jump to" });
-    await expect(toggle).toHaveAttribute("aria-expanded", "false");
-    await expect(rail(page).getByRole("link", { name: "History" })).toBeHidden();
+    // The page keeps its whole width: the rail is in the sidebar, not above the page.
+    await expect(rail(page).getByRole("link", { name: "History" })).not.toBeInViewport();
+    const toggle = page.getByRole("button", { name: "Open sidebar" });
     await toggle.click();
-    await page.screenshot({ path: "test-results/availability-rail-phone.png", fullPage: false });
+    await expect(rail(page).getByRole("link", { name: "History" })).toBeInViewport();
     await rail(page).getByRole("link", { name: "History" }).click();
     await expect(page).toHaveURL(/\/availability\/history$/);
-    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await expect(page.getByRole("button", { name: "Open sidebar" })).toHaveAttribute(
+      "aria-expanded",
+      "false"
+    );
+  });
+
+  test("sits under the sidebar's Availability item, so the tree reads as part of it", async ({
+    mockedPage: page,
+  }) => {
+    await page.setViewportSize(DESKTOP);
+    await page.goto("availability");
+    const item = page.getByRole("listitem").filter({ has: rail(page) });
+    await expect(item.getByRole("button", { name: "Availability", exact: true })).toBeVisible();
   });
 });

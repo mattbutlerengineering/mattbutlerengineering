@@ -1,3 +1,4 @@
+import { useState, type ReactNode } from "react";
 import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from "vitest";
 import { act, render, screen, within, fireEvent, waitFor } from "@testing-library/react";
 import { axe } from "vitest-axe";
@@ -194,6 +195,7 @@ vi.mock("@mbe/availability", async (importOriginal) => ({
 import { AvailabilityPage } from "./AvailabilityPage.js";
 import { AvailabilityHubPage } from "./AvailabilityHubPage.js";
 import { AvailabilityLayout } from "./AvailabilityLayout.js";
+import { SubnavSlotContext } from "../components/availability/rail/subnav-slot.js";
 
 // jsdom cannot compute colour contrast; token contrast is covered in rialto.
 const AXE_OPTIONS = { rules: { "color-contrast": { enabled: false } } };
@@ -217,20 +219,33 @@ function LocationProbe() {
 }
 
 // Under the layout, as main.tsx mounts it: the layout hosts the Close and Pause dialogs (C2.4).
+/** The sidebar slot the rail renders into, as the dashboard shell provides it (#9944). */
+function SubnavHost({ children }: { readonly children: ReactNode }) {
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
+  return (
+    <SubnavSlotContext.Provider value={{ slot, setSlot, onPick: () => undefined }}>
+      <div ref={setSlot} data-testid="sidebar-slot" />
+      {children}
+    </SubnavSlotContext.Provider>
+  );
+}
+
 function page(url = "/availability/calendar?tab=calendar") {
   return (
-    <MemoryRouter initialEntries={[url]}>
-      <ToastProvider>
-        <main>
-          <Routes>
-            <Route path="availability" element={<AvailabilityLayout />}>
-              <Route path="calendar" element={<AvailabilityPage />} />
-            </Route>
-          </Routes>
-        </main>
-        <LocationProbe />
-      </ToastProvider>
-    </MemoryRouter>
+    <SubnavHost>
+      <MemoryRouter initialEntries={[url]}>
+        <ToastProvider>
+          <main>
+            <Routes>
+              <Route path="availability" element={<AvailabilityLayout />}>
+                <Route path="calendar" element={<AvailabilityPage />} />
+              </Route>
+            </Routes>
+          </main>
+          <LocationProbe />
+        </ToastProvider>
+      </MemoryRouter>
+    </SubnavHost>
   );
 }
 
@@ -1648,8 +1663,8 @@ describe("AvailabilityPage layers", () => {
     const panel = screen.getByTestId("week-panel");
     const controls = Array.from(
       document.body.querySelectorAll<HTMLElement>("button, a[href], input, select, textarea")
-      // The layout's rail is navigation, like the sidebar, not one of the page's own controls.
-    ).filter((el) => !panel.contains(el) && !el.closest('nav[aria-label="Availability sections"]'));
+      // The rail renders in the app sidebar, not on the page.
+    ).filter((el) => !panel.contains(el) && !el.closest('[data-testid="sidebar-slot"]'));
     expect(controls.map((el) => el.textContent || el.getAttribute("aria-label"))).toEqual([
       "Close…",
       "Pause online booking",

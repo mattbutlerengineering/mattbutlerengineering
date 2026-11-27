@@ -1,13 +1,14 @@
-import { useId, useState } from "react";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
-import { Button, Text } from "@mattbutlerengineering/rialto";
+import { Text } from "@mattbutlerengineering/rialto";
 import type { RailGroup, RailLabel, RailNode } from "./availability-rail.js";
 import styles from "./AvailabilityRail.module.css";
 
 interface AvailabilityRailProps {
   readonly groups: readonly RailGroup[];
   readonly selectedId: string | null;
+  /** Called on every pick, so the phone's sidebar drawer can close. */
+  readonly onPick: () => void;
 }
 
 function useLabel(): (label: RailLabel) => string {
@@ -49,42 +50,28 @@ function RailList({
 }
 
 /**
- * Every Availability screen as one tree, beside whichever one is open (#9944). Each line is a link,
- * so it opens in a new tab and reads as navigation; records nest under the rule they belong to, so
- * the hierarchy is in the markup, not only the indent. On a phone it folds behind "Jump to".
+ * Every Availability screen as one tree, nested under the app sidebar's Availability item beside
+ * whichever one is open (#9944). Each line is a link, so it opens in a new tab and reads as
+ * navigation; records nest under the rule they belong to, so the hierarchy is in the markup, not
+ * only the indent. On a phone it comes with the sidebar's drawer, which `onPick` closes.
  */
-export function AvailabilityRail({ groups, selectedId }: AvailabilityRailProps) {
+export function AvailabilityRail({ groups, selectedId, onPick }: AvailabilityRailProps) {
   const { t } = useTranslation();
   const labelOf = useLabel();
-  const [open, setOpen] = useState(false);
-  const listId = useId();
-  // Closing on a pick: a phone shows the screen it opened, not the list over it.
-  const close = () => setOpen(false);
   return (
     <nav className={styles.rail} aria-label={t("availabilityHub.rail.label")}>
-      <Button
-        variant="secondary"
-        className={styles.toggle}
-        aria-expanded={open}
-        aria-controls={listId}
-        onClick={() => setOpen((o) => !o)}
-      >
-        {t("availabilityHub.rail.jumpTo")}
-      </Button>
-      <div id={listId} className={open ? styles.groups : `${styles.groups} ${styles.folded}`}>
-        {groups
-          .filter((g) => g.nodes.length > 0)
-          .map((g) => (
-            <div key={g.id} className={styles.group}>
-              {g.heading && (
-                <Text as="p" variant="label" color="secondary" className={styles.heading}>
-                  {labelOf({ key: g.heading })}
-                </Text>
-              )}
-              <RailList nodes={g.nodes} selectedId={selectedId} onPick={close} />
-            </div>
-          ))}
-      </div>
+      {groups
+        .filter((g) => g.nodes.length > 0)
+        .map((g) => (
+          <div key={g.id} className={styles.group}>
+            {g.heading && (
+              <Text as="p" variant="label" color="secondary" className={styles.heading}>
+                {labelOf({ key: g.heading })}
+              </Text>
+            )}
+            <RailList nodes={g.nodes} selectedId={selectedId} onPick={onPick} />
+          </div>
+        ))}
     </nav>
   );
 }

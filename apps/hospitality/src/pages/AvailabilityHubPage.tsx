@@ -27,7 +27,12 @@ import { ErrorRetryBanner } from "../components/ErrorRetryBanner.js";
 import { PageHeader } from "../components/PageHeader.js";
 import { useAvailabilityHub } from "../hooks/useAvailabilityHub.js";
 import { useAvailabilityScope, type AvailabilityScope } from "../hooks/useAvailabilityScope.js";
-import { UNLESS_COVERED, useFocusAfter, type FocusAfterApi } from "../hooks/useFocusAfter.js";
+import {
+  UNLESS_COVERED,
+  useFocusAfter,
+  type FocusAfterApi,
+  type FocusTarget,
+} from "../hooks/useFocusAfter.js";
 import { useNow } from "../hooks/useNow.js";
 import { useVenueFormat } from "../hooks/useVenueFormat.js";
 import { minutesOfDayIn } from "../utils/service-day.js";
@@ -76,11 +81,19 @@ function useFocusAfterDrawers(
     const left = previous.current;
     previous.current = pathname;
     if (left === pathname) return;
-    if (isManager && isBookingRulesPage(left)) {
-      focusAfter({ kind: "firstIn", testId: "hub-row-5" });
-    } else if (isHistoryPage(left)) {
-      focusAfter({ kind: "testId", testId: HISTORY_LINK });
-    }
+    const target: FocusTarget | null =
+      isManager && isBookingRulesPage(left)
+        ? { kind: "firstIn", testId: "hub-row-5" }
+        : isHistoryPage(left)
+          ? { kind: "testId", testId: HISTORY_LINK }
+          : null;
+    if (!target) return;
+    // The closing drawer hands focus back to whatever held it when it opened, a frame after it
+    // closes (rialto useReturnFocus), so the request waits two frames and lands after that.
+    let frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() => focusAfter(target));
+    });
+    return () => cancelAnimationFrame(frame);
   }, [pathname, isManager, focusAfter]);
 }
 

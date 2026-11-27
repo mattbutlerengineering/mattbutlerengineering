@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { AvailabilityRail } from "./AvailabilityRail.js";
@@ -33,10 +33,12 @@ const GROUPS: RailGroup[] = [
   { id: "views", heading: "availabilityHub.rail.groups.views", nodes: [] },
 ];
 
+const onPick = vi.fn();
+
 function renderRail(selectedId: string | null = null) {
   return render(
     <MemoryRouter>
-      <AvailabilityRail groups={GROUPS} selectedId={selectedId} />
+      <AvailabilityRail groups={GROUPS} selectedId={selectedId} onPick={onPick} />
     </MemoryRouter>
   );
 }
@@ -78,11 +80,10 @@ describe("AvailabilityRail", () => {
     expect(screen.getByRole("link", { name: "Regular hours" })).not.toHaveAttribute("aria-current");
   });
 
-  it("offers a Jump to toggle that says whether the list is shown", () => {
+  it("tells the sidebar about each pick, so the phone's drawer can close", () => {
+    onPick.mockClear();
     renderRail();
-    const toggle = screen.getByRole("button", { name: "Jump to" });
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
-    fireEvent.click(toggle);
-    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    fireEvent.click(screen.getByRole("link", { name: "Dinner" }));
+    expect(onPick).toHaveBeenCalledTimes(1);
   });
 });

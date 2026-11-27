@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Outlet, useLocation } from "react-router";
 import { AvailabilityDialogHost } from "../components/availability/AvailabilityDialogHost.js";
 import { StrandedRevertDialog } from "../components/availability/StrandedRevertDialog.js";
 import { AvailabilityRail } from "../components/availability/rail/AvailabilityRail.js";
+import { useSubnavSlot } from "../components/availability/rail/subnav-slot.js";
 import {
   buildAvailabilityRail,
   selectedRailId,
@@ -26,8 +28,8 @@ import styles from "./AvailabilityLayout.module.css";
  * child that saved, and the dialog that lists the bookings blocking a refused one. It hosts the
  * Close and Pause dialogs over any child, from `?close=` and `?pause=1` (`openClose`, `openPause`).
  *
- * Its only chrome is the rail (#9944): every Availability screen as one tree beside the open one.
- * Each child renders its own header and says itself when the config failed to load, so the layout
+ * It renders no page chrome. Its one piece of navigation, the rail (#9944), goes into the app
+ * sidebar under the Availability item, so the page keeps its full width. Each child renders its own header and says itself when the config failed to load, so the layout
  * showing either would show it twice. The scope says where the read stands (`load`,
  * `rolePending`) and each child words it.
  */
@@ -60,6 +62,7 @@ export function AvailabilityLayout() {
     if (venueId) latest.current.offer({ venueId, title, saved });
   }, []);
   const location = useLocation();
+  const subnav = useSubnavSlot();
   const floorPlans = useFloorPlans({ venueId: selectedVenueId });
   const railConfig = state?.config ?? null;
   const rail = useMemo(
@@ -111,14 +114,12 @@ export function AvailabilityLayout() {
   );
   return (
     <>
-      <div className={styles.frame}>
-        <aside className={styles.rail}>
-          <AvailabilityRail groups={rail} selectedId={selectedId} />
-        </aside>
-        <div className={styles.content}>
-          <Outlet context={scope} />
-        </div>
-      </div>
+      <Outlet context={scope} />
+      {subnav?.slot &&
+        createPortal(
+          <AvailabilityRail groups={rail} selectedId={selectedId} onPick={subnav.onPick} />,
+          subnav.slot
+        )}
       <div className={styles.dialogs}>
         <AvailabilityDialogHost scope={scope} dialogs={dialogs} />
         {/* Last: a top-level Dialog stacks by document order, so a refused Undo's list paints

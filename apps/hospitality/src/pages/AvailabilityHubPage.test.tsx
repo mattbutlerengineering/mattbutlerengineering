@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, Outlet, RouterProvider } from "react-router";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
@@ -177,6 +177,57 @@ describe("AvailabilityHubPage", () => {
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     // The heading takes focus on arrival only when nothing covers it.
     expect(screen.getByRole("button", { name: "Cancel" })).toHaveFocus();
+  });
+
+  it("puts focus on row 5 once booking rules closes, after the drawer hands focus back", async () => {
+    // As rialto's useReturnFocus does: a frame after the drawer closes, focus goes back to what
+    // held it when the drawer opened. Here that is the page heading.
+    const Overlay = () => {
+      useEffect(
+        () => () => {
+          requestAnimationFrame(() => document.querySelector<HTMLElement>("h1")?.focus());
+        },
+        []
+      );
+      return <div role="dialog" aria-modal="true" aria-label="Booking rules" />;
+    };
+    const router = createMemoryRouter(
+      [
+        {
+          path: "availability",
+          element: <Outlet context={scopeOf()} />,
+          children: [
+            { index: true, element: <AvailabilityHubPage /> },
+            {
+              path: "booking-rules",
+              element: (
+                <AvailabilityHubPage>
+                  <Overlay />
+                </AvailabilityHubPage>
+              ),
+            },
+          ],
+        },
+      ],
+      { initialEntries: ["/availability/booking-rules"] }
+    );
+    render(
+      <main>
+        <RouterProvider router={router} />
+      </main>
+    );
+    await act(() => router.navigate("/availability"));
+    await waitFor(() =>
+      expect(within(row(5)).getByRole("link", { name: "Edit Booking rules" })).toHaveFocus()
+    );
+    // And it stays there once the frames after it have run.
+    const frame = () => new Promise((resolve) => requestAnimationFrame(resolve));
+    await act(async () => {
+      await frame();
+      await frame();
+      await frame();
+    });
+    expect(within(row(5)).getByRole("link", { name: "Edit Booking rules" })).toHaveFocus();
   });
 
   it("lists the five rows in the order they win, under the line that says so", () => {

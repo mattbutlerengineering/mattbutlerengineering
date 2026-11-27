@@ -1,19 +1,13 @@
 /* ── Availability rail ─────────────────────────── */
-/* Every Availability screen as one tree. Grouping is spacing; a rule only where a level nests. */
+/* Every Availability screen as one tree, under the sidebar's Availability item. Grouping is
+   spacing; a rule only where a level nests. */
 
 .rail {
   composes: phoneTargets from "../phone-targets.module.css";
-  min-width: 0;
-}
-
-.toggle {
-  display: none;
-}
-
-.groups {
   display: flex;
   flex-direction: column;
-  gap: var(--rialto-space-lg);
+  gap: var(--rialto-space-md);
+  min-width: 0;
 }
 
 .group {
@@ -74,26 +68,4 @@
   background: var(--rialto-accent-muted);
   box-shadow: inset 2px 0 0 var(--rialto-accent);
   font-weight: 600;
-}
-
-@media (max-width: 767px) {
-  .toggle {
-    display: block;
-    width: 100%;
-    padding: var(--rialto-space-sm) var(--rialto-space-md);
-    border: 1px solid var(--rialto-border);
-    border-radius: var(--rialto-radius-default);
-    background: var(--rialto-surface);
-    color: var(--rialto-text-primary);
-    font: inherit;
-    text-align: start;
-  }
-
-  .groups {
-    padding-block-start: var(--rialto-space-md);
-  }
-
-  .folded {
-    display: none;
-  }
 }
