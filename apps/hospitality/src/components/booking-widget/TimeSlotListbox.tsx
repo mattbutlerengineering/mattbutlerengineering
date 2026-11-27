@@ -8,7 +8,7 @@ export interface TimeSlotListboxProps {
   slots: TimeSlot[];
   selectedSlot: TimeSlot | null;
   onSelectSlot: (slot: TimeSlot) => void;
-  /** Accessible name for this period's listbox, e.g. "Available dinner times". */
+  /** Accessible name for this listbox, e.g. "Available Dinner times". */
   label: string;
   /** IANA timezone to display slot times in; falls back to device-local (#4976). */
   venueTimezone?: string;
@@ -20,11 +20,11 @@ function clampIndex(index: number, length: number): number {
 }
 
 /**
- * One meal-period's time slots as an ARIA APG roving-tabindex listbox — same
+ * One service's time slots as an ARIA APG roving-tabindex listbox — same
  * pattern as rialto's TimeList (packages/rialto/src/components/TimePicker/TimeList.tsx):
  * only the active option is a Tab stop, Up/Down/Home/End move it, Enter/Space
- * selects. Each period group gets its own instance so roving is scoped within
- * that group, not across the whole picker.
+ * selects. Each list (a service's same-day or after-midnight times) gets its own
+ * instance so roving is scoped within that list, not across the whole picker.
  */
 export function TimeSlotListbox({
   slots,

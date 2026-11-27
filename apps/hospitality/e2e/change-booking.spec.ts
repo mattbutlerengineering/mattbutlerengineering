@@ -11,7 +11,8 @@ const MANAGE_TOKEN = "e2e-change-booking-token";
 const SESSION_ID = "sess_e2e_change_001";
 const HOLD_ID = "hold_e2e_change_001";
 
-// The slots fixture is re-dated to the next 17 May so the date picker accepts it. In the venue's
+// The slots fixture is re-dated to the next 17 May so the date picker accepts it; the dialog asks
+// for that day (the booking's), and the public mock serves the slots on the day asked. In the venue's
 // zone (America/New_York, EDT) 18:00Z is 2:00 PM and 18:30Z is 2:30 PM.
 const slots = (JSON.parse(buildSlotsBody(new Date())) as { data: { time: string }[] }).data;
 const ORIGINAL_START = slots.find((s) => s.time.endsWith("T18:00:00.000Z"))!.time;

@@ -272,7 +272,7 @@ Drawer overflow → **Copy to other days…** offers weekday toggles, From [date
 3. **Online booking paused:** "Online booking is paused right now. Call (555) 123-4567." The phone number appears only while phone booking is open; otherwise the guest message shows alone (or "Not taking reservations right now" if there is none).
 4. **Nothing configured:** "Not taking online bookings yet", with the phone if set. Never an empty picker.
 5. **A closure lands mid-booking.** At confirm, or when the hold is refreshed: "This time just closed: the venue has closed Dec 24." Inline alternatives (the same up-to-3 rule) and "Pick another date". The hold is released.
-6. After-midnight times appear under "Late Night", with an accessible name that includes the next-day date.
+6. **Times group by the venue's services.** When the venue offers two or more services that day, each gets its own section in opening order, headed with the service's name exactly as the venue typed it ("Early Seating", "Dinner"); it is never translated. One service, or a venue still on legacy hours (slots carry no service), shows one list with no heading, named "Available times". After-midnight times sit in a second list inside their service's section, with an accessible name that includes the next-day date.
 
 ### F10: Guest receives a closure message (PRD 23, 24)
 
