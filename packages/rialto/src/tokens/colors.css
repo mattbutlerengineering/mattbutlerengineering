@@ -32,6 +32,8 @@
   --rialto-text-tertiary: #6c6868;
   /* Text on accent-filled backgrounds (primary buttons, badges) */
   --rialto-text-on-accent: #1a1918;
+  /* Text on error-filled backgrounds (destructive buttons; 5.86:1 on error) */
+  --rialto-text-on-error: #fdfcfa;
 
   /* ── Border ───────────────────────────────────── */
   /* Default borders for cards, inputs, dividers (3.06:1 on surface — WCAG AA UI) */
@@ -123,6 +125,7 @@
   --rialto-text-secondary: rgb(253 252 250 / 0.6);
   --rialto-text-tertiary: rgb(253 252 250 / 0.5);
   --rialto-text-on-accent: #1a1918;
+  --rialto-text-on-error: #1a1918;
 
   /* ── Border ───────────────────────────────────── */
   --rialto-border: rgb(255 255 255 / 0.4);
@@ -202,6 +205,8 @@
   --rialto-text-tertiary: #6c6868;
   /* Text on accent-filled backgrounds (primary buttons, badges) */
   --rialto-text-on-accent: #1a1918;
+  /* Text on error-filled backgrounds (destructive buttons; 5.86:1 on error) */
+  --rialto-text-on-error: #fdfcfa;
 
   /* ── Border ───────────────────────────────────── */
   /* Default borders for cards, inputs, dividers (3.06:1 on surface — WCAG AA UI) */

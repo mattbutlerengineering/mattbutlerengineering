@@ -48,7 +48,7 @@ const FALLBACK_COLORS: Record<"light" | "dark", Record<ColorKey, string>> = {
   light: {
     available: "#5e6a2e",
     "reserved-soon": "#b0841e",
-    seated: "#b84a3c",
+    seated: "#a94134",
     "needs-bussing": "#8a6820",
     inactive: "#a8a49d",
     selectedStroke: "#b0841e",

@@ -121,6 +121,20 @@ describe("Light theme — text on the recessed and tinted surfaces (#9979, 4.5:1
   });
 });
 
+describe("text-on-error on an error fill (destructive buttons, 4.5:1 minimum)", () => {
+  it("light theme", () => {
+    const textOnError = colors.color.text["on-error"].$value;
+    expect(contrastRatio(textOnError, error)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("dark theme", () => {
+    const textOnError = darkColors.color.text["on-error"].$value;
+    expect(
+      contrastRatio(resolveOn(textOnError, dark.error), resolveOn(dark.error, dark.surface))
+    ).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
 describe("Light theme — semantic text on surface (4.5:1 minimum)", () => {
   it("error on surface", () => {
     expect(contrastRatio(error, surface)).toBeGreaterThanOrEqual(4.5);

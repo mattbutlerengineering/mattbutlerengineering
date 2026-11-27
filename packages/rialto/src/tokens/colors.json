@@ -57,6 +57,11 @@
         "$value": "#1a1918",
         "$type": "color",
         "$description": "Text on accent-filled backgrounds (primary buttons, badges)"
+      },
+      "on-error": {
+        "$value": "#fdfcfa",
+        "$type": "color",
+        "$description": "Text on error-filled backgrounds (destructive buttons; 5.86:1 on error)"
       }
     },
     "border": {
