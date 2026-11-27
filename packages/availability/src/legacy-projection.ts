@@ -6,7 +6,7 @@ import { MINUTES_PER_DAY, WEEKDAYS, type Weekday } from "./types.js";
  * The legacy `Venue.operatingHours` value, derived from the regular week of an
  * availability config (docs/features/venue-availability/architecture.md §
  * Migration): per weekday, the first opening and the last closing across the
- * services that day's undated assignment brings and that run on that weekday
+ * services that day's open-ended assignment brings and that run on that weekday
  * (a service scoped to some days, or with other hours on some, counts per day). The store writes it so bundles
  * that still read the column keep working until Phase 2 drops it.
  */
@@ -36,8 +36,17 @@ export function projectLegacyOperatingHours(config: AvailabilityConfig): LegacyO
   const liveServices = new Map(
     config.venueServices.filter((s) => !s.archivedAt).map((s) => [s.id, s])
   );
+  // The regular week is every undated assignment, plus an open-ended one of a regular-kind
+  // schedule. "Change regular week" gives the new week a start date and the old one an end date,
+  // so requiring no start date read every day closed after one such save (#9875). An alternate
+  // with a start date stays out even when open-ended: it outranks the regular week, and would
+  // project its hours long before it begins.
+  const regularKind = new Set(
+    config.schedules.filter((s) => s.kind === "regular").map((s) => s.id)
+  );
   const regularWeek = config.assignments.filter(
-    (a) => !a.startsOn && !a.endsOn && liveSchedules.has(a.scheduleId)
+    (a) =>
+      !a.endsOn && liveSchedules.has(a.scheduleId) && (!a.startsOn || regularKind.has(a.scheduleId))
   );
   const dayHours = (day: Weekday): LegacyDayHours => {
     const stored = (WEEKDAYS.indexOf(day) + 1) % 7;
