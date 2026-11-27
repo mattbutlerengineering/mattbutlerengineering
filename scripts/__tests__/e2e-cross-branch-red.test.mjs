@@ -7,6 +7,7 @@ import {
   buildIssueBody,
   titleTestId,
   shouldSuppressReopen,
+  mergeGroupsByLocation,
 } from "../e2e-cross-branch-red.mjs";
 
 const rec = (branch, runId, failed, createdAt = "2026-11-26T10:00:00Z") => ({
@@ -116,12 +117,46 @@ describe("extractFailedTests / buildFailureRecord", () => {
   });
 });
 
+describe("mergeGroupsByLocation", () => {
+  const en = { file: "p.spec.ts", line: 7, title: "books (en-US)" };
+  const fr = { file: "p.spec.ts", line: 7, title: "books (fr-CA)" };
+  const records = [
+    rec("a", 1, [en, fr]),
+    rec("b", 2, [en]),
+    rec("c", 3, [en, fr]),
+    rec("d", 4, [fr]),
+    rec("e", 5, [fr]),
+  ];
+
+  it("turns two titles on one file:line into one group (one filing request)", () => {
+    const merged = mergeGroupsByLocation(groupCrossBranchFailures(records));
+    expect(merged).toHaveLength(1);
+    expect(merged[0].id).toBe("p.spec.ts:7");
+    expect(merged[0].titles).toEqual(["books (en-US)", "books (fr-CA)"]);
+    expect(merged[0].branches).toEqual(["a", "b", "c", "d", "e"]);
+    expect(merged[0].runIds).toEqual([1, 2, 3, 4, 5]);
+    expect(merged[0].keys).toEqual(["p.spec.ts:7 books (en-US)", "p.spec.ts:7 books (fr-CA)"]);
+  });
+
+  it("lists every failing title in the body", () => {
+    const [merged] = mergeGroupsByLocation(groupCrossBranchFailures(records));
+    const body = buildIssueBody(merged, "o/r");
+    expect(body).toContain("books (en-US)");
+    expect(body).toContain("books (fr-CA)");
+    expect(buildIssueTitle(merged)).toBe(
+      "ci-fix: E2E test red on 5 unrelated PR branches: p.spec.ts:7"
+    );
+  });
+});
+
 describe("issue title and body", () => {
   const group = {
     key: "a.spec.ts:10 does a thing",
+    id: "a.spec.ts:10",
+    keys: ["a.spec.ts:10 does a thing"],
     file: "a.spec.ts",
     line: 10,
-    title: "does a thing",
+    titles: ["does a thing"],
     branches: ["a", "b", "c"],
     runIds: [1, 2, 3],
     firstSeen: "x",

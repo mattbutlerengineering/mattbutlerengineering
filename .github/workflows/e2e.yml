@@ -22,6 +22,7 @@ on:
       # scripts/check-workflow-paths-coverage.mjs exists to catch).
       - "scripts/e2e-auth-preflight.mjs"
       - "scripts/e2e-failure-rate.mjs"
+      - "scripts/e2e-cross-branch-red.mjs"
       - "scripts/check-endpoint.mjs"
   workflow_dispatch:
 
@@ -65,6 +66,7 @@ jobs:
               # must not only start the workflow but also un-skip this suite.
               - 'scripts/e2e-auth-preflight.mjs'
               - 'scripts/e2e-failure-rate.mjs'
+              - 'scripts/e2e-cross-branch-red.mjs'
               - 'scripts/check-endpoint.mjs'
             marketing:
               - 'apps/marketing/**'

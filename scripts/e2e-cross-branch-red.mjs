@@ -100,6 +100,46 @@ export function shouldSuppressReopen(prior, key, records, options = {}) {
   return !groupCrossBranchFailures(fresh, options).some((g) => g.key === key);
 }
 
+const union = (a, b) => [...a, ...b.filter((x) => !a.includes(x))];
+
+/**
+ * Merges per-title groups that share a `file:line` (loop-generated tests, e.g.
+ * one `test()` per locale) so each location files exactly one issue — the
+ * dedupe id is `file:line`, and a second search in one scan lags GitHub's index.
+ * @param {ReturnType<typeof groupCrossBranchFailures>} groups
+ */
+export function mergeGroupsByLocation(groups) {
+  const byId = new Map();
+  for (const g of groups) {
+    const id = `${g.file}:${g.line}`;
+    const prev = byId.get(id);
+    if (!prev) {
+      byId.set(id, {
+        id,
+        file: g.file,
+        line: g.line,
+        titles: [g.title],
+        keys: [g.key],
+        branches: g.branches,
+        runIds: g.runIds,
+        firstSeen: g.firstSeen,
+        lastSeen: g.lastSeen,
+      });
+      continue;
+    }
+    byId.set(id, {
+      ...prev,
+      titles: [...prev.titles, g.title],
+      keys: [...prev.keys, g.key],
+      branches: union(prev.branches, g.branches),
+      runIds: union(prev.runIds, g.runIds),
+      firstSeen: [prev.firstSeen, g.firstSeen].filter(Boolean).sort()[0] ?? null,
+      lastSeen: [prev.lastSeen, g.lastSeen].filter(Boolean).sort().at(-1) ?? null,
+    });
+  }
+  return [...byId.values()];
+}
+
 export function buildIssueTitle(group) {
   return `${TITLE_PREFIX}${group.branches.length} unrelated PR branches: ${group.file}:${group.line}`;
 }
@@ -116,7 +156,10 @@ export function buildIssueBody(group, repo) {
     .map((id) => `- https://github.com/${repo}/actions/runs/${id}`)
     .join("\n");
   return [
-    `\`${group.file}:${group.line}\` — "${group.title}" failed (after retries) on ${group.branches.length} unrelated PR branches.`,
+    `\`${group.file}:${group.line}\` failed (after retries) on ${group.branches.length} unrelated PR branches.`,
+    "",
+    "Failing titles:",
+    group.titles.map((t) => `- ${t}`).join("\n"),
     "",
     "This test is red for everyone, not for the PR that shows it. `Hospitality E2E` is advisory and does not run on `main`, so PRs merge through it.",
     "",
@@ -210,10 +253,10 @@ async function scan() {
   const { fileIssueBySearch, ghIssueDeps } = await import("./lib/issue-filing.mjs");
   const ghClient = createGhClient();
   const records = collectRecords(repo, Date.now());
-  const groups = groupCrossBranchFailures(records);
-  process.stdout.write(`${groups.length} test(s) red on >= ${DEFAULT_MIN_BRANCHES} branches\n`);
+  const groups = mergeGroupsByLocation(groupCrossBranchFailures(records));
+  process.stdout.write(`${groups.length} location(s) red on >= ${DEFAULT_MIN_BRANCHES} branches\n`);
   for (const group of groups) {
-    const id = `${group.file}:${group.line}`;
+    const id = group.id;
     let candidates = [];
     try {
       candidates = ghClient.issue.list([
@@ -230,7 +273,7 @@ async function scan() {
       console.error(`prior-issue search failed: ${err.message}`);
     }
     const prior = candidates.find((issue) => titleTestId(issue.title) === id) ?? null;
-    if (shouldSuppressReopen(prior, group.key, records)) {
+    if (group.keys.every((key) => shouldSuppressReopen(prior, key, records))) {
       process.stdout.write(`${id}: skip (closed #${prior.number}, no failures since close)\n`);
       continue;
     }
