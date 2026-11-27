@@ -96,7 +96,7 @@ export function assertTokenParity(light: TokenGroup, dark: TokenGroup): void {
  * Keys a scope may declare without the others following. `error` re-declares
  * --rialto-error where the base red fails contrast (velvet).
  */
-export const OPTIONAL_SCOPE_KEYS: ReadonlySet<string> = new Set(["error"]);
+const OPTIONAL_SCOPE_KEYS: ReadonlySet<string> = new Set(["error"]);
 
 /** Themes every surface scope declares, in emission order. */
 export const SURFACE_SCOPE_THEMES = ["light", "dark"] as const;
