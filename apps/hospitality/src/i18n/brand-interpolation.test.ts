@@ -27,7 +27,6 @@ describe("brand interpolation", () => {
     expect(i18n.t("auth.login.documentTitle")).toBe(`Hospitality - ${brand}`);
     expect(i18n.t("shell.dashboardDocumentTitle")).toBe(`Dashboard - ${brand}`);
     expect(i18n.t("publicBooking.poweredBy")).toBe(`Powered by ${brand}`);
-    expect(i18n.t("manageReservation.homeLink")).toBe(`Back to ${brand}`);
   });
 
   it("defaults to the serving host's brand", () => {

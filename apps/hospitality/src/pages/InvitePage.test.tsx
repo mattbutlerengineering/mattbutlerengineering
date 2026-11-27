@@ -175,6 +175,7 @@ describe("InvitePage", () => {
 
     await waitFor(() => expect(screen.getByText("This invitation has ended")).toBeDefined());
     expect(screen.queryByRole("button", { name: "I'm in" })).toBeNull();
+    expect(screen.queryByRole("link")).toBeNull();
   });
 
   it("has a level-one heading while the invitation loads", () => {
@@ -191,6 +192,8 @@ describe("InvitePage", () => {
     renderPage();
 
     await waitFor(() => expect(screen.getByText("Invitation not found")).toBeDefined());
+    expect(screen.queryByRole("link")).toBeNull();
+    expect(screen.getByText(/ask the person who invited you/i)).toBeDefined();
   });
 
   it("downloads an .ics built without a cancellation URL", async () => {
