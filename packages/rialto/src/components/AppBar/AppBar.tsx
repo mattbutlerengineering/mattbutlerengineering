@@ -23,7 +23,7 @@ export interface AppBarProps extends Pick<
   logo?: ReactNode;
   /** Right-aligned action slot (theme toggle, links, etc.). */
   actions?: ReactNode;
-  /** Apply glass surface with backdrop blur. Default true. */
+  /** Apply the opaque glass surface (elevated fill, border and shine). Default true. */
   glass?: boolean;
   /** Bar height. Default "56px". */
   height?: string;

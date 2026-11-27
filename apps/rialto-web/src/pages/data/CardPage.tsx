@@ -65,7 +65,7 @@ export function CardPage() {
   return (
     <ComponentPageLayout
       name="Card"
-      description="The jewelry box. Three surface treatments: polished aluminum elevation, frosted glass translucency, and flat for quiet grouping."
+      description="The jewelry box. Three surface treatments: polished aluminum elevation, an opaque glass panel with a fine border and shine, and flat for quiet grouping."
     >
       {/* ── Variants ──────────────────────────────────────────────── */}
       <Section title="Variants">
@@ -77,7 +77,8 @@ export function CardPage() {
           </Card>
           <Card variant="glass" title="Glass" subtitle="Frosted Gorilla Glass">
             <Text variant="caption" color="secondary">
-              The Rialto effect — backdrop blur with warm translucency. For floating panels.
+              The Rialto effect: an opaque warm panel with a fine border and shine. For floating
+              panels.
             </Text>
           </Card>
           <Card variant="flat" title="Flat" subtitle="Brushed matte">

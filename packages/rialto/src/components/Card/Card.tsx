@@ -20,7 +20,7 @@ import styles from "./Card.module.css";
  * </Card>
  */
 export interface CardProps extends HTMLAttributes<HTMLDivElement> {
-  /** Surface treatment: `"elevated"` (shadow), `"glass"` (translucent blur), or `"flat"` (no shadow) */
+  /** Surface treatment: `"elevated"` (shadow), `"glass"` (opaque, border and shine), or `"flat"` (no shadow) */
   variant?: "elevated" | "glass" | "flat";
   /** Enable subtle cursor-tracking 3D tilt on hover. Disabled for `glass` variant. */
   tilt?: boolean;
