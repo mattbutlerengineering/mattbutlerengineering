@@ -54,7 +54,7 @@ vi.mock("@stripe/react-stripe-js", () => ({
   useStripe: () => null,
   useElements: () => null,
 }));
-vi.mock("@stripe/stripe-js", () => ({ loadStripe: vi.fn().mockResolvedValue(null) }));
+vi.mock("@stripe/stripe-js/pure", () => ({ loadStripe: vi.fn().mockResolvedValue(null) }));
 
 const api = {
   publicVenue: { recognizeGuest: vi.fn(), joinWaitlist: vi.fn() },

@@ -41,7 +41,7 @@ vi.mock("@stripe/react-stripe-js", () => ({
   useElements: vi.fn(),
 }));
 
-vi.mock("@stripe/stripe-js", () => ({
+vi.mock("@stripe/stripe-js/pure", () => ({
   loadStripe: vi.fn().mockResolvedValue(null),
 }));
 

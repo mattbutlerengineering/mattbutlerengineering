@@ -15,7 +15,9 @@ vi.mock("@stripe/react-stripe-js", () => ({
   useElements: vi.fn(),
 }));
 
-vi.mock("@stripe/stripe-js", () => ({
+// The "/pure" entry defers injecting Stripe.js until loadStripe() is called;
+// the main entry injects the script on import, so the booking page would load it eagerly.
+vi.mock("@stripe/stripe-js/pure", () => ({
   loadStripe: vi.fn().mockResolvedValue({}),
 }));
 
@@ -125,6 +127,12 @@ describe("PaymentStep", () => {
     expect(screen.getByText(/free cancellation/i).textContent).toContain("$20.00");
     // No-show disclosure must be visible before the guest authorizes the hold
     expect(screen.getByText(/no-show/i)).toBeDefined();
+  });
+
+  it("loads Stripe.js through the side-effect-free /pure entry with the publishable key", async () => {
+    const { loadStripe } = await import("@stripe/stripe-js/pure");
+    render(<PaymentStep {...defaultProps} />);
+    expect(loadStripe).toHaveBeenCalledWith("pk_test_key");
   });
 
   it("renders Stripe card element", () => {
