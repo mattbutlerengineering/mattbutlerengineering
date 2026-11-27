@@ -3512,6 +3512,22 @@
     "holidayNudge": {
       "line": "{{name}} tombe le {{date}} et n’est pas encore planifié.",
       "plan": "Planifier les jours fériés"
+    },
+    "weekChanges": {
+      "title": "7 prochains jours",
+      "collapsed_one": "{{count}} changement dans les 7 prochains jours",
+      "collapsed_many": "{{count}} changements dans les 7 prochains jours",
+      "collapsed_other": "{{count}} changements dans les 7 prochains jours",
+      "show": "Afficher",
+      "more": "Afficher {{count}} de plus",
+      "reopens": "Réouverture",
+      "seasonalStarts": "Début des heures saisonnières : {{name}}",
+      "seasonalEnds": "Fin des heures saisonnières : {{name}}",
+      "regularHours": "Nouvelles heures habituelles en vigueur",
+      "holiday": "{{name}} n’est pas encore planifié",
+      "openDay": "{{change}}, voir la journée",
+      "empty": "Rien d’autre ne change dans les 7 prochains jours",
+      "saveFailed": "Enregistrement impossible."
     }
   },
   "availabilityHub": {

@@ -3414,6 +3414,21 @@
     "holidayNudge": {
       "line": "{{name}} is {{date}} and isn't planned yet.",
       "plan": "Plan holidays"
+    },
+    "weekChanges": {
+      "title": "Next 7 days",
+      "collapsed_one": "{{count}} change in the next 7 days",
+      "collapsed_other": "{{count}} changes in the next 7 days",
+      "show": "Show",
+      "more": "Show {{count}} more",
+      "reopens": "Reopens",
+      "seasonalStarts": "Seasonal hours start: {{name}}",
+      "seasonalEnds": "Seasonal hours end: {{name}}",
+      "regularHours": "New regular hours start",
+      "holiday": "{{name}} isn't planned yet",
+      "openDay": "{{change}}, show the day",
+      "empty": "Nothing else changes in the next 7 days",
+      "saveFailed": "Couldn't save."
     }
   },
   "availabilityHub": {
