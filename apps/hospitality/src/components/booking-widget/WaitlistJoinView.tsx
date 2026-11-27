@@ -133,6 +133,7 @@ export function WaitlistJoinView({
           value={name}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
           placeholder={t("bookingWidget.waitlist.namePlaceholder")}
+          autoComplete="name"
         />
 
         <Input
@@ -140,6 +141,7 @@ export function WaitlistJoinView({
           label={t("bookingWidget.waitlist.phone")}
           required
           type="tel"
+          autoComplete="tel"
           value={phone}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPhone(e.target.value)}
           placeholder="+1 (555) 123-4567"

@@ -1502,6 +1502,8 @@
     "details": {
       "holdExpires": "La retenue expire dans : {{time}}",
       "holdExpired": "Expirée",
+      "holdAnnounceTwoMinutes": "Il reste 2 minutes pour terminer votre réservation.",
+      "holdAnnounceExpired": "Votre retenue a expiré.",
       "summaryTitle": "Détails de la réservation",
       "welcomeBack_ordinal_one": "Bon retour, {{name}} — c’est votre {{count}}re visite!",
       "welcomeBack_ordinal_many": "Bon retour, {{name}} — c’est votre {{count}}e visite!",
@@ -1513,6 +1515,7 @@
       "emailPlaceholder": "jean@exemple.com",
       "phone": "Téléphone",
       "contactHint": "Veuillez fournir un courriel ou un numéro de téléphone pour la confirmation.",
+      "emailInvalid": "Entrez une adresse courriel complète, comme nom@exemple.com.",
       "nameRequired": "Entrez votre nom pour que le restaurant sache qui attendre.",
       "requestsPlaceholder": "Allergies, célébrations, préférences de place...",
       "confirming": "Confirmation...",
