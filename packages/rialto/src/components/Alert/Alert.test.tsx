@@ -207,7 +207,8 @@ describe("Alert", () => {
       await user.click(screen.getByRole("button", { name: "Dismiss" }));
       expect(screen.getByRole("button", { name: "After click" })).toHaveFocus();
       expect(document.activeElement).not.toBe(document.body);
-      expect(screen.queryByText("Clicked notice")).not.toBeInTheDocument();
+      // AnimatePresence unmounts on exit completion, which lags under CPU load.
+      await waitFor(() => expect(screen.queryByText("Clicked notice")).not.toBeInTheDocument());
     });
 
     it("moves focus to the previous control when nothing follows the alert", async () => {
