@@ -73,6 +73,7 @@ vi.mock("@mattbutlerengineering/rialto", () => {
 });
 
 import { routeTree } from "./routes";
+import { DEMOS_DESCRIPTION } from "./data/route-head-data";
 import { DocumentTitle } from "./document-title";
 import { DEMO_ROUTES } from "./data/demo-routes";
 import { DEMO_PAGES } from "./data/nav-sections";
@@ -306,5 +307,17 @@ describe("route document titles", () => {
 
   it("the demos index is titled", () => {
     expect(titleFor(`${BASENAME}/demos`)).toBe("Demos");
+  });
+
+  it("the demos index sets its own description, distinct from the shell's", () => {
+    const element = matchRoutes(routeTree, `${BASENAME}/demos`, BASENAME)?.at(-1)?.route.element;
+    const found = Children.toArray(
+      isValidElement<{ children?: ReactNode }>(element) ? element.props.children : []
+    ).find(
+      (child): child is ReactElement<{ description?: string }> =>
+        isValidElement(child) && child.type === DocumentTitle
+    );
+    expect(found?.props.description).toBe(DEMOS_DESCRIPTION);
+    expect(DEMOS_DESCRIPTION).not.toContain("precision-crafted");
   });
 });

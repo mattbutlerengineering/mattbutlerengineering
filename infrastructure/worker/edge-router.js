@@ -23,6 +23,7 @@ import {
   addHeaders,
   brandedErrorPage,
 } from "./response-formatter.js";
+import { isKnownMarketingPath } from "./marketing-routes.js";
 import { inviteTokenFrom, injectInviteMeta } from "./invite-og.js";
 import { handleHealthSystem } from "./health/system.js";
 import { handleHealthUptime } from "./health/uptime.js";
@@ -325,6 +326,22 @@ export default {
       } catch {
         // Relative or malformed Location header — pass through as-is
       }
+    }
+
+    // Soft-404 fix (#9977): the marketing Worker answers unknown paths with the
+    // SPA shell and 200. Keep the body (the not-found page renders) but tell
+    // crawlers the truth. Only HTML pages; assets keep their own status.
+    if (
+      routeName === "marketing" &&
+      response.status === 200 &&
+      (response.headers.get("Content-Type") ?? "").includes("text/html") &&
+      !isKnownMarketingPath(url.pathname)
+    ) {
+      response = new Response(response.body, {
+        status: 404,
+        statusText: "Not Found",
+        headers: response.headers,
+      });
     }
 
     writeAnalytics(env, request, routeName, response.status, startTime);

@@ -195,6 +195,28 @@ describe("App", () => {
     expect(screen.queryByTestId("login-prompt")).toBeNull();
   });
 
+  const robotsContent = () =>
+    document.head.querySelector('meta[name="robots"]')?.getAttribute("content") ?? null;
+
+  it("leaves the showcase landing indexable", async () => {
+    renderAt({ phase: "signed-out", afterSignOut: false });
+    await screen.findByTestId("showcase-landing");
+    expect(robotsContent()).toBe("index, follow");
+  });
+
+  it("marks the sign-in gate on a deep link noindex, nofollow", () => {
+    renderAt({ phase: "signed-out", afterSignOut: false }, DEEP_LINK);
+    expect(robotsContent()).toBe("noindex, nofollow");
+  });
+
+  it("marks the signed-in dashboard noindex, nofollow at the root and on a deep link", () => {
+    const { unmount } = renderAt({ phase: "ready" });
+    expect(robotsContent()).toBe("noindex, nofollow");
+    unmount();
+    renderAt({ phase: "ready" }, DEEP_LINK);
+    expect(robotsContent()).toBe("noindex, nofollow");
+  });
+
   it("keeps the plain gate at the root after a sign-out round-trip", () => {
     renderAt({ phase: "signed-out", afterSignOut: true });
     expect(screen.getByTestId("login-prompt")).toBeDefined();

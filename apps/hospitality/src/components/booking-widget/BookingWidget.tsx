@@ -4,7 +4,6 @@ import { usePublicApiClient } from "../../hooks/usePublicApiClient.js";
 import { Alert, EmptyState, Steps, Text } from "@mattbutlerengineering/rialto";
 import type { StepItem } from "@mattbutlerengineering/rialto";
 import { quoteDeposit } from "@mbe/cancellation-policy";
-import { addDays, venueDate } from "../../utils/service-day.js";
 import { manageReservationUrl } from "../../lib/host-brand.js";
 import { WidgetLocalePicker } from "./WidgetLocalePicker.js";
 import { DatePartySelector } from "./DatePartySelector";
@@ -124,12 +123,18 @@ export function BookingWidget({
   // create/confirm/release, hold-expiry timer), the venue deposit-config
   // fetch/mapping, and the server's deposit-required verdict behind this
   // seam — the widget below is render-by-state + action-forwarding only.
-  const { state, data, actions, stepKeys, currentStepIndex } = useBookingFlow({
+  // It also owns the date picker's bound (`bookableThrough`): the venue's own
+  // maxAdvanceBooking (days), run `leadDays` further for a verified member
+  // (#9627); an explicit `maxDate` prop still wins. The closed-dates feed
+  // asks for exactly that window (#9950).
+  const { state, data, actions, stepKeys, currentStepIndex, bookableThrough } = useBookingFlow({
     api,
     venueSlug,
     stripePublishableKey,
     onHoldChange,
     venueTimezone,
+    maxDate,
+    memberLeadDays: member.kind === "member" ? member.leadDays : 0,
   });
 
   // stepKeys/currentStepIndex come from useBookingFlow — the single source
@@ -150,23 +155,6 @@ export function BookingWidget({
     data.depositRequired ? data.depositConfig : null,
     data.partySize
   );
-
-  // The venue's own maxAdvanceBooking (days) bounds the date picker; an
-  // explicit `maxDate` prop still wins.
-  // A verified member's window runs `leadDays` further (#9627).
-  const publicAdvanceDays = data.venueConfig?.settings.maxAdvanceBooking;
-  const maxAdvanceDays =
-    publicAdvanceDays === undefined
-      ? undefined
-      : publicAdvanceDays + (member.kind === "member" ? member.leadDays : 0);
-  const effectiveMaxDate =
-    maxDate ??
-    (maxAdvanceDays === undefined
-      ? undefined
-      : addDays(
-          venueDate(new Date(), venueTimezone ?? data.venueConfig?.ianaTimezone),
-          maxAdvanceDays
-        ));
 
   const isWaitlistState = state === "waitlist-join" || state === "waitlist-confirmation";
 
@@ -255,7 +243,7 @@ export function BookingWidget({
           phone={phone}
           enableDateRange={enableDateRange}
           minDate={minDate}
-          maxDate={effectiveMaxDate}
+          maxDate={bookableThrough}
           venueTimezone={venueTimezone}
           closedDates={data.closures}
           fallbackOperatingHours={

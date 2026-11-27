@@ -95,7 +95,13 @@ function withDuration(
   return { ...snapshot, settings: { ...snapshot.settings, durationRules: [rule] } };
 }
 
-function toTimeSlot(slot: Slot): TimeSlot {
+/** Venue service id → current name. Empty for legacy venues: their service ids change on every read. */
+function serviceNames(loaded: LoadedSnapshot): ReadonlyMap<string, string> {
+  if (loaded.source !== "rows") return new Map();
+  return new Map(loaded.snapshot.config.venueServices.map((v) => [v.id, v.name]));
+}
+
+function toTimeSlot(slot: Slot, names: ReadonlyMap<string, string>): TimeSlot {
   const tables: AvailableTable[] = slot.tables.map((t) => ({
     id: t.id,
     name: t.name,
@@ -103,10 +109,12 @@ function toTimeSlot(slot: Slot): TimeSlot {
     minCovers: t.minCovers,
     maxCovers: t.maxCovers,
   }));
+  const name = names.get(slot.venueServiceId);
   return {
     time: slot.start.toISOString(),
     available: slot.available,
     tables: tables.length > 0 ? tables : undefined,
+    ...(name ? { service: { id: slot.venueServiceId, name } } : {}),
   };
 }
 
@@ -174,8 +182,9 @@ async function getDayAvailability(
   const refusals = seatings.flatMap((s): SeatingRefusal[] =>
     s.reason ? [{ minute: s.minute, reason: s.reason === "no_table" ? "tables" : "pacing" }] : []
   );
+  const names = serviceNames(loaded);
   return {
-    slots: offered.map(toTimeSlot),
+    slots: offered.map((slot) => toTimeSlot(slot, names)),
     ...noticesFor(loaded, date, seatings.length),
     demand: { hasSeatings: seatings.length > 0, refusals },
   };

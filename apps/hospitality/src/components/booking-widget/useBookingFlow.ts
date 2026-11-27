@@ -98,6 +98,8 @@ export interface BookingFlowData {
    * null until the fetch resolves, or if `venueSlug` was never provided.
    */
   venueConfig: PublicVenueConfig | null;
+  /** Whether the venue config fetch has finished, whether it succeeded or failed. */
+  venueConfigSettled: boolean;
   /**
    * The guest details form's fields, lifted here (not owned by
    * `GuestDetailsForm`'s local state) so `EXPIRE_HOLD` doesn't wipe what the
@@ -121,6 +123,7 @@ type BookingFlowAction =
   | { type: "GO_TO_DATE_PARTY" }
   | { type: "SET_SLOTS"; listing: SlotListing }
   | { type: "CLOSED_MID_BOOKING"; message: string }
+  | { type: "CLOSED_DATES_REQUESTED" }
   | { type: "SET_CLOSED_DATES"; closures: Record<string, string> }
   | { type: "SET_SLOTS_ERROR"; error: string }
   | { type: "HOLD_START"; slot: TimeSlot }
@@ -135,6 +138,7 @@ type BookingFlowAction =
   | { type: "RESET"; selectedDate: string }
   | { type: "SET_DEPOSIT_CONFIG"; config: DepositConfig | null; depositRequired: boolean }
   | { type: "SET_VENUE_CONFIG"; config: PublicVenueConfig }
+  | { type: "VENUE_CONFIG_FAILED" }
   | { type: "GO_TO_WAITLIST_JOIN" }
   | { type: "WAITLIST_JOINED"; result: WaitlistResult }
   | { type: "SET_GUEST_DETAILS"; details: GuestDetails };
@@ -163,6 +167,7 @@ const INITIAL_DATA: BookingFlowData = {
   depositPaymentIntentId: null,
   waitlistResult: null,
   venueConfig: null,
+  venueConfigSettled: false,
   guestDetails: { name: "", email: "", phone: "", notes: "" },
 };
 
@@ -281,6 +286,10 @@ function reducer(state: BookingFlowState, action: BookingFlowAction): BookingFlo
         },
       };
     }
+
+    case "CLOSED_DATES_REQUESTED":
+      // A new (wider) window is loading: the weekly fallback covers it until it lands.
+      return { ...state, data: { ...state.data, closedDatesLoaded: false } };
 
     case "SET_CLOSED_DATES":
       // What a listing already learned about a date wins over the upfront list.
@@ -427,8 +436,11 @@ function reducer(state: BookingFlowState, action: BookingFlowAction): BookingFlo
     case "SET_VENUE_CONFIG":
       return {
         ...state,
-        data: { ...state.data, venueConfig: action.config },
+        data: { ...state.data, venueConfig: action.config, venueConfigSettled: true },
       };
+
+    case "VENUE_CONFIG_FAILED":
+      return { ...state, data: { ...state.data, venueConfigSettled: true } };
 
     case "GO_TO_WAITLIST_JOIN":
       return { ...state, step: "waitlist-join" };
@@ -473,6 +485,12 @@ export interface BookingFlowResult {
   stepKeys: BookingStep[];
   /** Index of the current step within `stepKeys`; always valid since both step sets share it. */
   currentStepIndex: number;
+  /**
+   * The last date the calendar lets a guest pick, or undefined when unbounded.
+   * The closed-dates feed asks no further than this (capped at its lookahead),
+   * so it waits for the venue config unless `maxDate` is given (#9950).
+   */
+  bookableThrough?: string;
 }
 
 export interface UseBookingFlowDeps {
@@ -504,6 +522,10 @@ export interface UseBookingFlowDeps {
    * (#4981). Omit only when unknown; falls back to the device clock.
    */
   venueTimezone?: string;
+  /** An explicit last bookable date (YYYY-MM-DD); wins over the venue's `maxAdvanceBooking`. */
+  maxDate?: string;
+  /** Extra days a verified member may book beyond the public window (#9627). */
+  memberLeadDays?: number;
 }
 
 export function useBookingFlow({
@@ -512,8 +534,20 @@ export function useBookingFlow({
   stripePublishableKey,
   onHoldChange,
   venueTimezone,
+  maxDate,
+  memberLeadDays = 0,
 }: UseBookingFlowDeps): BookingFlowResult {
   const [flowState, dispatch] = useReducer(reducer, venueTimezone, createInitialState);
+  const { venueConfig } = flowState.data;
+  const advanceDays = venueConfig?.settings.maxAdvanceBooking;
+  const bookableThrough =
+    maxDate ??
+    (advanceDays === undefined
+      ? undefined
+      : addDays(
+          venueDate(new Date(), venueTimezone ?? venueConfig?.ianaTimezone),
+          advanceDays + memberLeadDays
+        ));
   // The i18n instance is stable, so callbacks reading it don't churn on a
   // language switch; each message is resolved in the locale active when it fires.
   const { i18n } = useTranslation();
@@ -610,6 +644,7 @@ export function useBookingFlow({
         }
       } catch {
         // Non-fatal — proceed without deposit
+        dispatch({ type: "VENUE_CONFIG_FAILED" });
       }
     };
 
@@ -620,20 +655,32 @@ export function useBookingFlow({
   // disable and name them before a guest picks one. A failure is non-fatal:
   // `closedDatesLoaded` stays false, so the calendar keeps disabling the
   // venue's weekly closed days (#9949), and the per-date listing still
-  // reports a closure when a date is opened.
+  // reports a closure when a date is opened. The window is the calendar's own
+  // (`bookableThrough`), so it waits for the venue config unless that is
+  // already known; until then the weekly fallback covers the calendar (#9950).
+  const closedDatesReady = bookableThrough !== undefined || flowState.data.venueConfigSettled;
   useEffect(() => {
-    if (!venueSlug) return;
+    if (!venueSlug || !closedDatesReady) return;
     const from = venueDate(new Date(), venueTimezone);
+    const cap = addDays(from, CLOSED_DATES_LOOKAHEAD_DAYS);
+    const through = bookableThrough ?? cap;
+    const to = through > cap ? cap : through < from ? from : through;
+    let cancelled = false;
+    dispatch({ type: "CLOSED_DATES_REQUESTED" });
     api.availability
-      .getClosedDates(venueSlug, { from, to: addDays(from, CLOSED_DATES_LOOKAHEAD_DAYS) })
-      .then((dates) =>
+      .getClosedDates(venueSlug, { from, to })
+      .then((dates) => {
+        if (cancelled) return;
         dispatch({
           type: "SET_CLOSED_DATES",
           closures: Object.fromEntries(dates.map(({ date, closure }) => [date, closure.message])),
-        })
-      )
+        });
+      })
       .catch(() => undefined);
-  }, [api, venueSlug, venueTimezone]);
+    return () => {
+      cancelled = true;
+    };
+  }, [api, venueSlug, venueTimezone, closedDatesReady, bookableThrough]);
 
   const goToTimeSlot = useCallback(() => {
     const holdId = flowState.data.hold?.id;
@@ -828,6 +875,7 @@ export function useBookingFlow({
     data: flowState.data,
     stepKeys,
     currentStepIndex,
+    bookableThrough,
     actions: {
       setSelectedDate,
       setSelectedEndDate,
