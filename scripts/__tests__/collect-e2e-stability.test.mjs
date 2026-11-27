@@ -333,6 +333,30 @@ describe("computeE2eStability ignores runs where no suite ran", () => {
     expect(suiteRanFromJobs([])).toBe(false);
   });
 
+  it("suiteRanFromJobs handles the real full and in-progress run shapes", () => {
+    // captured 2026-11-27: gh api repos/mattbutlerengineering/mattbutlerengineering/actions/runs/45943698753/jobs
+    const fullRun = [
+      { name: "Detect changed apps", conclusion: "success" },
+      { name: "Gen E2E", conclusion: "success" },
+      { name: "Hospitality E2E (shard 2)", conclusion: "success" },
+      { name: "Hospitality E2E (shard 1)", conclusion: "success" },
+      { name: "Marketing E2E", conclusion: "success" },
+      { name: "Hospitality E2E (shard 3)", conclusion: "success" },
+      { name: "Hospitality E2E", conclusion: "success" },
+    ];
+    expect(suiteRanFromJobs(fullRun)).toBe(true);
+    // captured 2026-11-27: run 45946277559 while Marketing E2E was still running
+    const inProgress = [
+      { name: "Detect changed apps", conclusion: "success" },
+      { name: "Marketing E2E", conclusion: null },
+      { name: "Gen E2E", conclusion: "skipped" },
+      { name: "Hospitality E2E", conclusion: "skipped" },
+      { name: "Hospitality E2E (shard ${{ matrix.shard }})", conclusion: "skipped" },
+    ];
+    expect(suiteRanFromJobs(inProgress)).toBe(true);
+    expect(suiteRanFromJobs([{ name: "Detect changed apps", conclusion: "failure" }])).toBe(false);
+  });
+
   it("E2E_SUITE_JOB_NAME matches every suite job name declared in e2e.yml", () => {
     const yml = readFileSync(new URL("../../.github/workflows/e2e.yml", import.meta.url), "utf8");
     const names = [...yml.matchAll(/^ {4}name: (.+)$/gm)].map((m) => m[1]);

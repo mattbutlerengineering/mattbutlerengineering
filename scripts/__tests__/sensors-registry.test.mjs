@@ -923,6 +923,30 @@ describe("sensors-registry", () => {
         expect(result).toEqual({ available: false, reason: "no_suite_runs" });
       });
 
+      it("reports no_classifiable_runs, not no_suite_runs, when every jobs fetch fails", () => {
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+        const result = sensor().collect({
+          root: process.cwd(),
+          ghClient: clientOf([row(1), row(2)]),
+          fetchCommitPaths: () => ["services/users/src/index.ts"],
+          fetchRunJobs: () => null,
+        });
+        expect(result).toEqual({ available: false, reason: "no_classifiable_runs" });
+        expect(warn).toHaveBeenCalledWith(expect.stringContaining("2 E2E run(s)"));
+        warn.mockRestore();
+      });
+
+      it('never fetches jobs for an in-progress run (gh run list conclusion "")', () => {
+        const fetchRunJobs = vi.fn(suiteJobs);
+        sensor().collect({
+          root: process.cwd(),
+          ghClient: clientOf([row(7, ""), row(1)]),
+          fetchCommitPaths: () => ["services/users/src/index.ts"],
+          fetchRunJobs,
+        });
+        expect(fetchRunJobs).not.toHaveBeenCalledWith(7);
+      });
+
       it("bounds jobs API calls and stops at the window size", () => {
         const many = Array.from({ length: 100 }, (_, i) => row(i + 1));
         const fetchRunJobs = vi.fn(suiteJobs);

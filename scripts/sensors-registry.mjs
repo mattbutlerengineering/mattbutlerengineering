@@ -262,20 +262,24 @@ export function fetchRunJobsViaApi(runId) {
  * Keep the newest `E2E_WINDOW_RUNS` completed runs whose suite jobs actually ran
  * (#9845), tagging each `suiteRan: true`. Skipped/cancelled runs never reach the
  * denominator (gotchas.md "Rate sensors"); a run whose jobs cannot be fetched is
- * dropped rather than guessed. `ghRuns` arrive newest first.
+ * dropped rather than guessed, and tallied as `unclassified` so the caller can
+ * warn and tell "could not classify" apart from "no suite ran". `ghRuns` arrive
+ * newest first.
  *
  * @param {Array<{ databaseId?: number; conclusion?: string }>} ghRuns
  * @param {(runId: number) => Array<{ name?: string; conclusion?: string | null }> | null} fetchRunJobs
  */
 export function selectSuiteRuns(ghRuns, fetchRunJobs) {
-  const selected = [];
+  const runs = [];
+  let unclassified = 0;
   for (const run of ghRuns.slice(0, E2E_RAW_RUN_CAP)) {
-    if (selected.length >= E2E_WINDOW_RUNS) break;
+    if (runs.length >= E2E_WINDOW_RUNS) break;
     if (run.conclusion !== "success" && run.conclusion !== "failure") continue;
     const jobs = fetchRunJobs(run.databaseId);
-    if (jobs && suiteRanFromJobs(jobs)) selected.push({ ...run, suiteRan: true });
+    if (jobs === null) unclassified++;
+    else if (suiteRanFromJobs(jobs)) runs.push({ ...run, suiteRan: true });
   }
-  return selected;
+  return { runs, unclassified };
 }
 
 /**
@@ -1140,8 +1144,20 @@ export const SENSORS = [
       }
 
       if (ghRuns.length > 0) {
-        ghRuns = selectSuiteRuns(ghRuns, fetchRunJobs);
-        if (ghRuns.length === 0) return { available: false, reason: "no_suite_runs" };
+        const { runs: suiteRuns, unclassified } = selectSuiteRuns(ghRuns, fetchRunJobs);
+        if (unclassified > 0) {
+          console.warn(
+            `[e2eStability] ${unclassified} E2E run(s) skipped: their jobs could not be fetched, ` +
+              "so the window and streak may be incomplete."
+          );
+        }
+        if (suiteRuns.length === 0) {
+          return {
+            available: false,
+            reason: unclassified > 0 ? "no_classifiable_runs" : "no_suite_runs",
+          };
+        }
+        ghRuns = suiteRuns;
       }
 
       // Resolve each run's changed paths locally, skipping (and tallying) any
