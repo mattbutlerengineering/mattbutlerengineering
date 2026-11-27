@@ -149,7 +149,10 @@ function mainMovesOn(fixture) {
 const isCleanTree = (dir) => git(dir, ["status", "--porcelain", "--untracked-files=no"]) === "";
 
 /** Fire 1's filed issue as routine step 6b's `search_issues` reports it. */
-const FILED_101 = { number: 101, title: titleFor(DEAD, 1), state: "open" };
+const RUBRIC_VERSION = JSON.parse(
+  readFileSync(new URL("../../docs/ui-quality/rubric.json", import.meta.url), "utf8")
+).rubric_version;
+const FILED_101 = { number: 101, title: titleFor(DEAD, RUBRIC_VERSION), state: "open" };
 
 function planIn(dir, labelled) {
   writeRel(dir, ".ui-quality/in/mechanical.json", JSON.stringify([DEAD]));
@@ -364,7 +367,11 @@ describe("two-fire simulation — negative: the unmerged branch is deleted", () 
     expect(code).toBe(0);
     expect(err).toContain("adopted #101");
     expect(plan.actions).toEqual([
-      expect.objectContaining({ key: findingKey(DEAD, 1), action: "skip", issue: 101 }),
+      expect.objectContaining({
+        key: findingKey(DEAD, RUBRIC_VERSION),
+        action: "skip",
+        issue: 101,
+      }),
     ]);
   });
 

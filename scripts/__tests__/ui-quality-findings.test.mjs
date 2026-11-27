@@ -8,7 +8,11 @@ import { ESCALATION_TITLE, titleFor } from "../ui-quality/findings-plan.mjs";
 import { hashTells } from "../ui-quality/rubric.mjs";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const REAL_RUBRIC = JSON.parse(readFileSync(join(REPO, "docs/ui-quality/rubric.json"), "utf8"));
+// Pinned to v1: fixtures key findings `r1`; a committed-rubric bump must not rewrite them.
+const REAL_RUBRIC = {
+  ...JSON.parse(readFileSync(join(REPO, "docs/ui-quality/rubric.json"), "utf8")),
+  rubric_version: 1,
+};
 const PLAN = ".ui-quality/findings.plan.json";
 const LEDGER = "metrics/ui-quality-findings.json";
 

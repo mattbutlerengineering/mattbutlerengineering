@@ -1,12 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import {
-  copyFileSync,
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  writeFileSync,
-} from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -20,7 +13,12 @@ import { judgedFindings } from "../ui-quality/detect-judged.mjs";
 import { joinEdgeTopology, readEdgeTopology } from "../ui-quality/edge-topology.mjs";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const RUBRIC = JSON.parse(readFileSync(join(REPO, "docs/ui-quality/rubric.json"), "utf8"));
+// Pinned to v1: fixtures are written at rubric v1; a committed-rubric bump must not rewrite them.
+const RUBRIC = {
+  ...JSON.parse(readFileSync(join(REPO, "docs/ui-quality/rubric.json"), "utf8")),
+  rubric_version: 1,
+};
+const copyRubric = (dest) => writeFileSync(dest, JSON.stringify(RUBRIC));
 
 const ledgerRow = (app, route, kind = "page") => ({
   route,
@@ -213,10 +211,7 @@ describe("detect.mjs mechanical CLI", () => {
     root = mkdtempSync(join(tmpdir(), "uiq-detect-"));
     mkdirSync(join(root, "metrics"));
     mkdirSync(join(root, "docs/ui-quality"), { recursive: true });
-    copyFileSync(
-      join(REPO, "docs/ui-quality/rubric.json"),
-      join(root, "docs/ui-quality/rubric.json")
-    );
+    copyRubric(join(root, "docs/ui-quality/rubric.json"));
     writeFileSync(
       join(root, "metrics/ui-quality-ledger.jsonl"),
       LEDGER.map((r) => JSON.stringify(r)).join("\n") + "\n"
@@ -256,10 +251,7 @@ describe("detect.mjs mechanical CLI", () => {
     const empty = mkdtempSync(join(tmpdir(), "uiq-detect-empty-"));
     mkdirSync(join(empty, "metrics"));
     mkdirSync(join(empty, "docs/ui-quality"), { recursive: true });
-    copyFileSync(
-      join(REPO, "docs/ui-quality/rubric.json"),
-      join(empty, "docs/ui-quality/rubric.json")
-    );
+    copyRubric(join(empty, "docs/ui-quality/rubric.json"));
     writeFileSync(join(empty, "metrics/ui-quality-ledger.jsonl"), "");
     expect(main(["mechanical", "--root", empty], io)).toBe(2);
   });
@@ -296,10 +288,7 @@ describe("dead-link ownership via the edge topology", () => {
     root = mkdtempSync(join(tmpdir(), "uiq-topology-"));
     mkdirSync(join(root, "metrics"));
     mkdirSync(join(root, "docs/ui-quality"), { recursive: true });
-    copyFileSync(
-      join(REPO, "docs/ui-quality/rubric.json"),
-      join(root, "docs/ui-quality/rubric.json")
-    );
+    copyRubric(join(root, "docs/ui-quality/rubric.json"));
     writeFileSync(
       join(root, "metrics/ui-quality-ledger.jsonl"),
       LEDGER.map((r) => JSON.stringify(r)).join("\n") + "\n"
@@ -427,10 +416,7 @@ describe("dead links: static assets + the page's own url", () => {
     const root = mkdtempSync(join(tmpdir(), "uiq-assets-"));
     mkdirSync(join(root, "metrics"));
     mkdirSync(join(root, "docs/ui-quality"), { recursive: true });
-    copyFileSync(
-      join(REPO, "docs/ui-quality/rubric.json"),
-      join(root, "docs/ui-quality/rubric.json")
-    );
+    copyRubric(join(root, "docs/ui-quality/rubric.json"));
     writeFileSync(
       join(root, "metrics/ui-quality-ledger.jsonl"),
       LEDGER.map((r) => JSON.stringify(r)).join("\n") + "\n"
@@ -629,10 +615,7 @@ describe("detect.mjs judged CLI + the ledger.mjs record round-trip", () => {
     root = mkdtempSync(join(tmpdir(), "uiq-judged-"));
     mkdirSync(join(root, "metrics"));
     mkdirSync(join(root, "docs/ui-quality"), { recursive: true });
-    copyFileSync(
-      join(REPO, "docs/ui-quality/rubric.json"),
-      join(root, "docs/ui-quality/rubric.json")
-    );
+    copyRubric(join(root, "docs/ui-quality/rubric.json"));
     writeJsonl(join(root, "metrics/ui-quality-ledger.jsonl"), [
       ledgerRow("marketing", "/"),
       ledgerRow("marketing", "acmm"),
@@ -739,10 +722,7 @@ describe("detect.mjs judged CLI + the ledger.mjs record round-trip", () => {
     expect(main(["judged", "--root", root], io)).toBe(2);
     const bare = mkdtempSync(join(tmpdir(), "uiq-judged-bare-"));
     mkdirSync(join(bare, "docs/ui-quality"), { recursive: true });
-    copyFileSync(
-      join(REPO, "docs/ui-quality/rubric.json"),
-      join(bare, "docs/ui-quality/rubric.json")
-    );
+    copyRubric(join(bare, "docs/ui-quality/rubric.json"));
     expect(main(["judged", "--root", bare], io)).toBe(2);
   });
 });
