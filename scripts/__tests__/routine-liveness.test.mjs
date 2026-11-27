@@ -437,6 +437,21 @@ describe("ROUTINE_MANIFEST coverage of docs/scheduled-tasks.md's catalog", () =>
 // titled "chore(meta): monthly meta-audit 2026-10-01 — guard unreachable mbe
 // CLI commands" (#5748) — its manifest entry now carries the real signature,
 // same graduation this file already pins for mbe-daily-issue below.
+// #10044: mbe-dev-speed fires Mon-Fri only, so periodDays is 3: Friday's
+// heartbeat is under 3 days old at Monday's fire and never reads as dark.
+describe("mbe-dev-speed liveness (#10044)", () => {
+  it("is a heartbeat routine whose period covers the weekend gap", () => {
+    const entry = ROUTINE_MANIFEST.find((candidate) => candidate.name === "mbe-dev-speed");
+    expect(entry.signature).toEqual({ type: "heartbeat" });
+    expect(entry.periodDays).toBe(3);
+  });
+
+  it("prompt posts the heartbeat line the sensor parses", () => {
+    const prompt = readFileSync(resolve(ROOT, "docs", "routines", "mbe-dev-speed.md"), "utf-8");
+    expect(prompt).toContain("heartbeat: mbe-dev-speed <YYYY-MM-DD> <ok|noop|error> [note]");
+  });
+});
+
 describe("PR-title signatures confirmed against a live routine run", () => {
   it("mbe-monthly-meta-audit matches the title its live trigger emits", () => {
     const entry = ROUTINE_MANIFEST.find((candidate) => candidate.name === "mbe-monthly-meta-audit");

@@ -209,3 +209,13 @@
     background: var(--rialto-overlay);
   }
 }
+
+/* The Availability rail, nested under its item (#9944). */
+.subnav:empty {
+  display: none;
+}
+
+.subnav {
+  padding-block: var(--rialto-space-xs);
+  padding-inline-start: var(--rialto-space-md);
+}

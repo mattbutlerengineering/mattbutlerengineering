@@ -6,8 +6,8 @@
  * `fileIssue()` — this module never restates skip/create/reopen. It adds the
  * carrier rules on top: every P1 → issue; more than P1_BURST_AGGREGATE_AT P1s
  * on one (app, tell) → one aggregate issue; P2 → issue while
- * MAX_P2_ISSUES_PER_FIRE new issues last, then seed; at most one non-visual,
- * single-file finding marked the fix-PR candidate; agent-built findings drop
+ * MAX_P2_ISSUES_PER_FIRE new issues last, then seed; at most
+ * MAX_FIX_PRS_PER_FIRE non-visual, single-file findings marked fix-PR candidates; agent-built findings drop
  * unless calibration passed.
  */
 
@@ -15,6 +15,7 @@ import { fileIssue } from "../lib/issue-filing.mjs";
 import {
   FIX_PR_EXCLUDED_PREFIXES,
   FIX_PR_TELLS,
+  MAX_FIX_PRS_PER_FIRE,
   MAX_P2_ISSUES_PER_FIRE,
   P1_BURST_AGGREGATE_AT,
   RUBRIC_URL,
@@ -375,7 +376,7 @@ function isFixCandidate(finding, record) {
  *   (captured and judged — `auditedRoutes`); an open seed on one of them whose
  *   tell no finding of this fire names is emitted as a `close` action. Absent
  *   means nothing was proven audited, so no seed closes.
- * @returns {{ actions: object[], seeds: object[], fix_pr_candidate: string|null, dropped: string[], reports: string[] }}
+ * @returns {{ actions: object[], seeds: object[], fix_pr_candidate: string|null, fix_pr_candidates: string[], dropped: string[], reports: string[] }}
  */
 export function planFindings({
   sources,
@@ -453,8 +454,10 @@ export function planFindings({
   }
 
   const findingOf = new Map(kept);
-  const candidate = actions.find(
-    (a) => a.carrier === "issue" && isFixCandidate(findingOf.get(a.key), ledger[a.key])
+  const candidates = new Set(
+    actions
+      .filter((a) => a.carrier === "issue" && isFixCandidate(findingOf.get(a.key), ledger[a.key]))
+      .slice(0, MAX_FIX_PRS_PER_FIRE)
   );
   const planned = new Set(actions.map((a) => a.key));
   const adoptions = [];
@@ -507,10 +510,11 @@ export function planFindings({
 
   return {
     actions: [...actions, ...adoptions, ...declines, ...closes, ...reconciled].map((a) =>
-      a === candidate ? { ...a, fix_pr_candidate: true } : a
+      candidates.has(a) ? { ...a, fix_pr_candidate: true } : a
     ),
     seeds,
-    fix_pr_candidate: candidate?.key ?? null,
+    fix_pr_candidate: [...candidates][0]?.key ?? null,
+    fix_pr_candidates: [...candidates].map((a) => a.key),
     dropped,
     reports: ctx.reports,
     issue_drift: {

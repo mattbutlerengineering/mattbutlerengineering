@@ -35,8 +35,20 @@ export const SENSOR = "sdlcSpeed";
 export const AUTHOR_CLASSES = ["human", "agent", "dependabot", "github-actions"];
 export const CLASS_P90_REGRESSION = 1.5;
 export const CI_P50_REGRESSION = 1.3;
-/** Per-run `jobs` calls are one request each; cap the sample. */
-const MAX_JOB_SAMPLES = 25;
+/**
+ * ADR-036: PR CI must reach `CI Gate` in at most this many minutes at p90, measured
+ * from the ci.yml run's `created_at` (queue included) to the `CI Gate` job's
+ * `completed_at`, over the rolling window's pull_request runs.
+ */
+export const CI_PUSH_TO_GATE_P90_MAX_MIN = 15;
+const GATE_JOB_NAME = "CI Gate";
+/**
+ * Per-run `jobs` calls are one request each, capped at this many. A busy week
+ * holds ~1000 PR runs, so the sample is spread evenly over the whole window
+ * (`selectGateSample`), never the newest N. 150 keeps the p90 meaningful and
+ * far under the 1000 req/h GITHUB_TOKEN budget alongside the other sensors.
+ */
+const MAX_JOB_SAMPLES = 150;
 /** Lockfile attribution needs 1-2 calls per run; sample the newest runs only. */
 const MAX_LOCKFILE_SAMPLES = 60;
 const LOCKFILE = "pnpm-lock.yaml";
@@ -107,6 +119,68 @@ export function normalizeCiRun(run, extras = {}) {
   return { id: run.id, wallMin: round1(wall), touchedLockfile: null, jobs: [], ...extras };
 }
 
+/**
+ * Runs to measure push -> CI Gate on: success/failure only (so cancelled runs use
+ * no slots) and first attempts only (a re-run keeps the first attempt's
+ * `created_at` while the jobs endpoint returns the latest attempt's CI Gate),
+ * then every ceil(n/max)-th run of the newest-first list, so the sample spans the
+ * whole window.
+ * @param {Array<{ conclusion?: string, run_attempt?: number }>} runs newest first
+ */
+export function selectGateSample(runs, max) {
+  const eligible = runs.filter(
+    (r) => (r.conclusion === "success" || r.conclusion === "failure") && (r.run_attempt ?? 1) <= 1
+  );
+  const step = Math.max(1, Math.ceil(eligible.length / max));
+  return eligible.filter((_, i) => i % step === 0);
+}
+
+/**
+ * Push -> CI Gate for one run (ADR-036): `CI Gate` completed_at minus the run's
+ * created_at, plus the share of that spent waiting for the first job to start.
+ * Null when CI Gate never completed (cancelled, skipped, in flight).
+ * @param {{ created_at: string }} run
+ * @param {Array<{ name: string, started_at?: string|null, completed_at?: string|null }>} jobs
+ */
+export function pushToGate(run, jobs) {
+  const gate = jobs.find((j) => j.name === GATE_JOB_NAME);
+  if (!gate?.completed_at) return null;
+  const gateMin = minutesBetween(run.created_at, gate.completed_at);
+  if (!Number.isFinite(gateMin) || gateMin <= 0) return null;
+  const starts = jobs.map((j) => Date.parse(j.started_at ?? "")).filter(Number.isFinite);
+  const queueMin = starts.length
+    ? (Math.min(...starts) - Date.parse(run.created_at)) / MS_PER_MIN
+    : 0;
+  return {
+    gateMin: round1(gateMin),
+    queueShare: Math.round(Math.min(1, Math.max(0, queueMin / gateMin)) * 100) / 100,
+  };
+}
+
+function summarizePushToGate(gateRuns, ciRuns) {
+  const measured = gateRuns.filter(Boolean);
+  const times = measured.map((g) => g.gateMin);
+  const shareSum = measured.reduce((sum, g) => sum + g.queueShare, 0);
+  const byName = new Map();
+  for (const run of ciRuns) {
+    for (const job of run.jobs ?? []) {
+      byName.set(job.name, [...(byName.get(job.name) ?? []), job.durationMin]);
+    }
+  }
+  const slowestJobs = [...byName]
+    .map(([name, d]) => ({ name, medianMin: percentile(d, 50) }))
+    .sort((a, b) => b.medianMin - a.medianMin || (a.name < b.name ? -1 : 1))
+    .slice(0, 3);
+  return {
+    runs: measured.length,
+    skipped: gateRuns.length - measured.length,
+    p50: percentile(times, 50),
+    p90: percentile(times, 90),
+    queueShare: measured.length ? Math.round((shareSum / measured.length) * 1000) / 1000 : 0,
+    slowestJobs,
+  };
+}
+
 function summarizeClass(prs) {
   const times = prs.map((p) => p.openToMergeMin);
   const slowest = [...prs]
@@ -147,7 +221,7 @@ function slowestJob(ciRuns) {
  *   ciRuns: Array<{wallMin:number,touchedLockfile:boolean|null,jobs:Array<{name:string,durationMin:number}>}>,
  *   protection: { strict?: boolean } | null }} input
  */
-export function summarizeSdlcSpeed({ prs, ciRuns, protection }) {
+export function summarizeSdlcSpeed({ prs, ciRuns, protection, gateRuns = [] }) {
   const byClass = Object.fromEntries(
     AUTHOR_CLASSES.map((c) => [c, summarizeClass(prs.filter((p) => p.authorClass === c))])
   );
@@ -155,6 +229,7 @@ export function summarizeSdlcSpeed({ prs, ciRuns, protection }) {
   // null = not sampled (resolving files costs API calls); excluded from the denominator.
   const sampled = ciRuns.filter((r) => r.touchedLockfile !== null);
   const locked = sampled.filter((r) => r.touchedLockfile).length;
+  const gateSummary = summarizePushToGate(gateRuns, ciRuns);
   return {
     prs: { total: prs.length, byClass },
     ci: {
@@ -164,6 +239,10 @@ export function summarizeSdlcSpeed({ prs, ciRuns, protection }) {
       slowestJob: slowestJob(ciRuns),
       lockfileShare: sampled.length ? Math.round((locked / sampled.length) * 100) / 100 : 0,
     },
+    pushToGate: gateSummary,
+    // Absolute ADR-036 rule, next to the relative regression rules; "max" means a
+    // p90 of exactly the ceiling still passes. An empty window never breaches.
+    absoluteBreach: gateSummary.runs > 0 && gateSummary.p90 > CI_PUSH_TO_GATE_P90_MAX_MIN,
     mainStrict: typeof protection?.strict === "boolean" ? protection.strict : null,
     // Branch protection needs Administration:read, which an Actions GITHUB_TOKEN
     // lacks — a null here is an explicit "could not read", never a guess.
@@ -334,7 +413,7 @@ function fetchCiRuns(days, now) {
   const path = `repos/{owner}/{repo}/actions/workflows/ci.yml/runs?event=pull_request&created=>=${since}`;
   const out = ghPaged(
     path,
-    ".workflow_runs[] | {id,conclusion,run_started_at,updated_at,sha:.head_sha,pr:(.pull_requests[0].number // null)}"
+    ".workflow_runs[] | {id,conclusion,run_attempt,created_at,run_started_at,updated_at,sha:.head_sha,pr:(.pull_requests[0].number // null)}"
   ).join("\n");
   const runs = lines(out);
   const fileCache = new Map();
@@ -358,24 +437,32 @@ function fetchCiRuns(days, now) {
     }
     return fileCache.get(n);
   };
-  return runs
+  const gateRuns = [];
+  const sampled = new Set(selectGateSample(runs, MAX_JOB_SAMPLES).map((r) => r.id));
+  const ciRuns = runs
     .map((run, i) => {
       const extras = i < MAX_LOCKFILE_SAMPLES ? { touchedLockfile: touchesLock(prFor(run)) } : {};
-      if (i < MAX_JOB_SAMPLES) {
-        const jobs = gh([
-          "api",
-          `repos/{owner}/{repo}/actions/runs/${run.id}/jobs?per_page=100`,
-          "--jq",
-          '.jobs[] | select(.conclusion=="success" or .conclusion=="failure") | {name,s:.started_at,c:.completed_at}',
-        ]);
-        extras.jobs = lines(jobs).map((j) => ({
-          name: j.name,
-          durationMin: round1(minutesBetween(j.s, j.c)),
-        }));
+      if (sampled.has(run.id)) {
+        const all = lines(
+          gh([
+            "api",
+            `repos/{owner}/{repo}/actions/runs/${run.id}/jobs?per_page=100`,
+            "--jq",
+            ".jobs[] | {name,conclusion,started_at,completed_at}",
+          ])
+        );
+        gateRuns.push(pushToGate(run, all));
+        extras.jobs = all
+          .filter((j) => j.conclusion === "success" || j.conclusion === "failure")
+          .map((j) => ({
+            name: j.name,
+            durationMin: round1(minutesBetween(j.started_at, j.completed_at)),
+          }));
       }
       return normalizeCiRun(run, extras);
     })
     .filter(Boolean);
+  return { ciRuns, gateRuns };
 }
 
 function fetchProtection() {
@@ -416,9 +503,11 @@ function main(argv) {
     return;
   }
 
+  const { ciRuns, gateRuns } = fetchCiRuns(days, now);
   const summary = summarizeSdlcSpeed({
     prs: fetchPrs(days, now),
-    ciRuns: fetchCiRuns(days, now),
+    ciRuns,
+    gateRuns,
     protection: fetchProtection(),
   });
   const prior = selectBaseline(readRows(path), date, days);

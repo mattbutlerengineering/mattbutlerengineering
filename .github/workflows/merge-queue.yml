@@ -19,6 +19,13 @@ permissions:
 
 jobs:
   auto-merge:
+    # decideAutoMergeAction only enables with has-pr and only disables on
+    # needs-review, so a PR event for a PR with neither label is a guaranteed
+    # skip: skip the job (no runner) instead (#10011). Cron/dispatch always run.
+    if: >-
+      github.event_name != 'pull_request_target' ||
+      contains(github.event.pull_request.labels.*.name, 'has-pr') ||
+      contains(github.event.pull_request.labels.*.name, 'needs-review')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

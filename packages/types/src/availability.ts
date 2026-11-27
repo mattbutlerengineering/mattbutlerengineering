@@ -4,6 +4,8 @@ export interface TimeSlot {
   time: string; // ISO 8601 datetime
   available: boolean;
   tables?: AvailableTable[];
+  /** The venue service the slot belongs to; absent for legacy-hours venues. See `TimeSlotSchema`. */
+  service?: { id: string; name: string };
 }
 
 export interface AvailableTable {

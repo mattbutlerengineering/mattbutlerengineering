@@ -17,7 +17,7 @@
     "test:a11y": "playwright test --config playwright.config.ts e2e/a11y.test.ts",
     "demo:serve": "VITE_AUTH_AUTHORITY=https://launch-demo.invalid VITE_AUTH_CLIENT_ID=launch-demo VITE_API_URL=http://localhost:3002 vite --port 3002 --strictPort",
     "size": "size-limit",
-    "size:check": "node scripts/check-chunk-coverage.mjs && node scripts/check-canvas-vendor-isolation.mjs && size-limit"
+    "size:check": "node scripts/check-chunk-coverage.mjs && node scripts/check-canvas-vendor-isolation.mjs && node scripts/check-landing-static-graph.mjs && size-limit"
   },
   "size-limit": [
     {
@@ -76,6 +76,11 @@
       "limit": "4.5 kB"
     },
     {
+      "name": "How availability works guide (lazy chunk: the page, its section lists and the worked-example data the page and its test share, #10034; 2.63 kB measured)",
+      "path": "dist/assets/AvailabilityGuidePage-*.js",
+      "limit": "3 kB"
+    },
+    {
       "name": "Edit dates of a repeating closure (SeriesEditDialog, a chunk of its own once the Closures page and the Special dates tab both load it, availability-hub L3.2; 3.42 kB (3,422 B) measured; +0.67 kB at #9686 for the decisions session the dialog now owns (use-decisions-session and use-series-growth-session, which Step 2 used to carry as its own state), 4.09 kB (4,087 B) measured; back to 3.51 kB (3,508 B) at #9690 once Add, Close and Tonight shared the session and rollup hoisted it out of the dialog's chunk)",
       "path": "dist/assets/SeriesEditDialog-*.js",
       "limit": "4 kB"
@@ -94,6 +99,21 @@
       "name": "Regular hours page (lazy chunk: the Starting field, the form's frame and first setup, availability-hub E4.4; 3.34 kB (3,340 B) measured)",
       "path": "dist/assets/AvailabilityHoursPage-*.js",
       "limit": "3.9 kB"
+    },
+    {
+      "name": "Seasonal hours editor page (lazy chunk: the page frame, the editor form and its save bar, availability-hub E4.6; 2.64 kB brotlied measured)",
+      "path": "dist/assets/AvailabilitySeasonalEditorPage-*.js",
+      "limit": "3.2 kB"
+    },
+    {
+      "name": "Schedule editor state (use-schedule-editor, shared by the Seasonal hours editor page and the schedule drawer, availability-hub E4.6; 3.28 kB brotlied measured)",
+      "path": "dist/assets/use-schedule-editor-*.js",
+      "limit": "3.9 kB"
+    },
+    {
+      "name": "Conflict review (use-conflict-review, shared by the schedule editors and the weekly form; its own chunk since E4.6 split the schedule editor state out of the drawer, 7.31 kB brotlied measured)",
+      "path": "dist/assets/use-conflict-review-*.js",
+      "limit": "8 kB"
     },
     {
       "name": "Weekly form editing (use-regular-week-edit with the conflict review, the draft preview and the date editor's draft changes; hoisted out of today's page at availability-hub E4.4; D5.1 folded draft-changes into it when the Add special dates sheet stopped importing it, 7.51 kB + 2.15 kB before, 8.8 kB measured)",
@@ -126,9 +146,9 @@
       "limit": "2.5 kB"
     },
     {
-      "name": "Availability layout (lazy chunk: the scope every Availability route reads, Undo, and since availability-hub C2.4 the Close and Pause host, which loads both dialogs only when an address names one; 2.06 kB (2,063 B) measured; 2.25 kB (2,254 B) once the layout became the one mount of the blocked-undo dialog, after the dialogs it hosts, and the phone's 44 px targets moved into a module both it and today's page compose)",
+      "name": "Availability layout (lazy chunk: the scope every Availability route reads, Undo, and since availability-hub C2.4 the Close and Pause host, which loads both dialogs only when an address names one; 2.06 kB (2,063 B) measured; 2.25 kB (2,254 B) once the layout became the one mount of the blocked-undo dialog, after the dialogs it hosts, and the phone's 44 px targets moved into a module both it and today's page compose; +1.29 kB at #9944 S1 for the Availability rail the layout portals into the sidebar: its tree model, the nested-link nav, the floor plans read that lists each plan, and the calendar and regular hours following a new address, 3.54 kB measured)",
       "path": "dist/assets/AvailabilityLayout-*.js",
-      "limit": "2.7 kB"
+      "limit": "3.9 kB"
     },
     {
       "name": "Quick-setup validation (its own chunk since availability-hub H1.6 moved its neighbours into the chunks the hub shares; 2.59 kB measured)",
@@ -184,6 +204,11 @@
       "name": "JSON Render Vendor (@json-render/react)",
       "path": "dist/assets/json-render-vendor-*.js",
       "limit": "42 kB"
+    },
+    {
+      "name": "Query client (@tanstack/react-query, the entry's QueryProvider; its own chunk since #9976 moved the venue hooks and api-client behind lazy imports, 4.84 kB measured)",
+      "path": "dist/assets/query-*.js",
+      "limit": "5.5 kB"
     },
     {
       "name": "Auth Vendor (@mbe/auth)",

@@ -46,6 +46,7 @@ import { LocalePicker } from "./LocalePicker/index.js";
 import { SystemHealthBadge } from "./SystemHealthBadge.js";
 import { availabilityPath } from "./availability/availability-address.js";
 import { OnlinePausedPill } from "./availability/OnlinePausedPill.js";
+import { SubnavSlotContext, type SubnavSlot } from "./availability/rail/subnav-slot.js";
 import { VenueSwitcher } from "./VenueSwitcher.js";
 import styles from "./DashboardLayout.module.css";
 
@@ -220,6 +221,13 @@ function DashboardLayoutInner() {
     setIsMobileMenuOpen((prev) => !prev);
   }, []);
 
+  // The element under the sidebar's Availability item that the Availability rail renders into.
+  const [subnavElement, setSubnavElement] = useState<HTMLElement | null>(null);
+  const subnav = useMemo<SubnavSlot>(
+    () => ({ slot: subnavElement, setSlot: setSubnavElement, onPick: handleMobileClose }),
+    [subnavElement, handleMobileClose]
+  );
+
   // Re-authenticate after a failed silent refresh, preserving the current
   // page (app-relative, so the post-login restore doesn't double-prefix the
   // /hospitality basename) through the OIDC round-trip.
@@ -341,139 +349,147 @@ function DashboardLayoutInner() {
   }
 
   return (
-    <div className={styles.root} data-testid="dashboard-layout">
-      <a href="#main-content" className={styles.skipLink}>
-        {t("shell.skipToContent")}
-      </a>
+    <SubnavSlotContext.Provider value={subnav}>
+      <div className={styles.root} data-testid="dashboard-layout">
+        <a href="#main-content" className={styles.skipLink}>
+          {t("shell.skipToContent")}
+        </a>
 
-      {/* ── Command palette ── */}
-      <CommandPalette
-        open={paletteOpen}
-        onOpenChange={setPaletteOpen}
-        items={paletteItems}
-        groups={paletteGroups}
-        placeholder={t("layout.searchPlaceholder")}
-      />
+        {/* ── Command palette ── */}
+        <CommandPalette
+          open={paletteOpen}
+          onOpenChange={setPaletteOpen}
+          items={paletteItems}
+          groups={paletteGroups}
+          placeholder={t("layout.searchPlaceholder")}
+        />
 
-      <div className={styles.body}>
-        <div className={styles.sidebarColumn}>
-          <DashboardSidebar
-            sections={sections}
-            activePath={activePath}
-            onAction={runAction}
-            isMobileOpen={isMobileMenuOpen}
-            onMobileClose={handleMobileClose}
-            headerSlot={<VenueSwitcher onNavigate={navigate} />}
-            footerSlot={
-              <>
-                <FeedbackControl />
-                <LocalePicker variant="sidebar" />
-              </>
-            }
-          />
-          <Button type="button" className={styles.commandHint} onClick={() => setPaletteOpen(true)}>
-            {/* No aria-label: the name is the visible "<modifier> K Search" (WCAG 2.5.3). The
+        <div className={styles.body}>
+          <div className={styles.sidebarColumn}>
+            <DashboardSidebar
+              sections={sections}
+              activePath={activePath}
+              onAction={runAction}
+              isMobileOpen={isMobileMenuOpen}
+              onMobileClose={handleMobileClose}
+              headerSlot={<VenueSwitcher onNavigate={navigate} />}
+              footerSlot={
+                <>
+                  <FeedbackControl />
+                  <LocalePicker variant="sidebar" />
+                </>
+              }
+            />
+            <Button
+              type="button"
+              className={styles.commandHint}
+              onClick={() => setPaletteOpen(true)}
+            >
+              {/* No aria-label: the name is the visible "<modifier> K Search" (WCAG 2.5.3). The
                 trailing spaces keep the words apart in the name; a trailing space in an
                 inline-flex keycap collapses, so nothing shifts visually. */}
-            <Kbd>{navigator.platform?.includes("Mac") ? "\u2318 " : `${t("layout.ctrlKey")} `}</Kbd>
-            <Kbd>{`${SEARCH_KEY} `}</Kbd>
-            <Text className={styles.commandHintLabel}>{t("layout.search")}</Text>
-          </Button>
-        </div>
-
-        <main id="main-content" tabIndex={-1} className={styles.content}>
-          {showRefreshBanner && (
-            <Banner
-              variant="warning"
-              dismissible
-              onDismiss={() => setDismissedRefreshError(refreshError)}
-              action={
-                <Button
-                  variant="secondary"
-                  onClick={handleSignInAgain}
-                  isLoading={activeNavigator === "signinRedirect"}
-                  loadingText={sessionCopy.actionBusy}
-                >
-                  {sessionCopy.action}
-                </Button>
-              }
-            >
-              {sessionCopy.refreshFailedLead} {sessionCopy.body}
-            </Banner>
-          )}
-          <div className={styles.breadcrumbBar}>
-            <Breadcrumb items={breadcrumbs} />
-            <SystemHealthBadge />
-            <OnlinePausedPill />
-            {/* In the bar rather than floating, so it never sits over the page (visible < 768px). */}
-            <Button
-              className={styles.mobileSidebarToggle}
-              onClick={handleMobileToggle}
-              aria-label={isMobileMenuOpen ? t("layout.closeSidebar") : t("layout.openSidebar")}
-              aria-expanded={isMobileMenuOpen}
-              type="button"
-            >
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <line x1="3" y1="6" x2="21" y2="6" />
-                <line x1="3" y1="12" x2="21" y2="12" />
-                <line x1="3" y1="18" x2="21" y2="18" />
-              </svg>
+              <Kbd>
+                {navigator.platform?.includes("Mac") ? "\u2318 " : `${t("layout.ctrlKey")} `}
+              </Kbd>
+              <Kbd>{`${SEARCH_KEY} `}</Kbd>
+              <Text className={styles.commandHintLabel}>{t("layout.search")}</Text>
             </Button>
           </div>
-          <ErrorBoundary
-            fallback={
-              <Stack
-                align="center"
-                justify="center"
-                gap="md"
-                style={{
-                  padding: "var(--rialto-space-xl)",
-                  textAlign: "center",
-                  minHeight: "400px",
-                }}
-              >
-                <Heading level={2}>{t("layout.errorHeading")}</Heading>
-                <Text color="secondary">{t("layout.errorBody")}</Text>
-                <Button variant="secondary" onClick={() => window.location.reload()}>
-                  {t("layout.reload")}
-                </Button>
-              </Stack>
-            }
-          >
-            <Outlet />
-          </ErrorBoundary>
-        </main>
-      </div>
 
-      {chatMounted && (
-        <div
-          data-chat-wrapper=""
-          style={{ display: chatOpen ? undefined : "none", zIndex: "var(--rialto-z-overlay)" }}
-        >
-          <ChatPanel
-            onClose={() => setChatOpen(false)}
-            api="/api/gen/agent"
-            stream={chatStream}
-            domainContext={HOSPITALITY_DOMAIN_CONTEXT}
-            getAccessToken={getAccessToken}
-            registry={registry}
-            requestContext={chatRequestContext}
-            suggestions={chatSuggestions}
-            describeAction={describeChatAction}
-          />
+          <main id="main-content" tabIndex={-1} className={styles.content}>
+            {showRefreshBanner && (
+              <Banner
+                variant="warning"
+                dismissible
+                onDismiss={() => setDismissedRefreshError(refreshError)}
+                action={
+                  <Button
+                    variant="secondary"
+                    onClick={handleSignInAgain}
+                    isLoading={activeNavigator === "signinRedirect"}
+                    loadingText={sessionCopy.actionBusy}
+                  >
+                    {sessionCopy.action}
+                  </Button>
+                }
+              >
+                {sessionCopy.refreshFailedLead} {sessionCopy.body}
+              </Banner>
+            )}
+            <div className={styles.breadcrumbBar}>
+              <Breadcrumb items={breadcrumbs} />
+              <SystemHealthBadge />
+              <OnlinePausedPill />
+              {/* In the bar rather than floating, so it never sits over the page (visible < 768px). */}
+              <Button
+                className={styles.mobileSidebarToggle}
+                onClick={handleMobileToggle}
+                aria-label={isMobileMenuOpen ? t("layout.closeSidebar") : t("layout.openSidebar")}
+                aria-expanded={isMobileMenuOpen}
+                type="button"
+              >
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <line x1="3" y1="6" x2="21" y2="6" />
+                  <line x1="3" y1="12" x2="21" y2="12" />
+                  <line x1="3" y1="18" x2="21" y2="18" />
+                </svg>
+              </Button>
+            </div>
+            <ErrorBoundary
+              fallback={
+                <Stack
+                  align="center"
+                  justify="center"
+                  gap="md"
+                  style={{
+                    padding: "var(--rialto-space-xl)",
+                    textAlign: "center",
+                    minHeight: "400px",
+                  }}
+                >
+                  <Heading level={2}>{t("layout.errorHeading")}</Heading>
+                  <Text color="secondary">{t("layout.errorBody")}</Text>
+                  <Button variant="secondary" onClick={() => window.location.reload()}>
+                    {t("layout.reload")}
+                  </Button>
+                </Stack>
+              }
+            >
+              <Outlet />
+            </ErrorBoundary>
+          </main>
         </div>
-      )}
-    </div>
+
+        {chatMounted && (
+          <div
+            data-chat-wrapper=""
+            style={{ display: chatOpen ? undefined : "none", zIndex: "var(--rialto-z-overlay)" }}
+          >
+            <ChatPanel
+              onClose={() => setChatOpen(false)}
+              api="/api/gen/agent"
+              stream={chatStream}
+              domainContext={HOSPITALITY_DOMAIN_CONTEXT}
+              getAccessToken={getAccessToken}
+              registry={registry}
+              requestContext={chatRequestContext}
+              suggestions={chatSuggestions}
+              describeAction={describeChatAction}
+            />
+          </div>
+        )}
+      </div>
+    </SubnavSlotContext.Provider>
   );
 }
 

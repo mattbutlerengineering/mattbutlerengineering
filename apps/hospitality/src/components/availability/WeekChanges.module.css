@@ -3,6 +3,8 @@
   display: flex;
   flex-direction: column;
   gap: var(--rialto-space-xs);
+  /* A phone's opened list takes a row of its own under the Today line it shares a row with. */
+  inline-size: 100%;
 }
 
 .week > h2 {
@@ -14,11 +16,9 @@
   outline: none;
 }
 
-/* A phone's one line: how many changes, and Show. */
+/* A phone's one button: how many changes are coming, which opens the list. */
 .collapsed {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--rialto-space-sm);
   align-items: center;
 }
 

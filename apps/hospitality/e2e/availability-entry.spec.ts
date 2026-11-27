@@ -24,15 +24,13 @@ test.describe("availability deep links", () => {
     await expect(weekPanel(page)).toHaveCount(0);
   });
 
-  test("?action=addSchedule opens the seeded schedule editor once, then leaves the URL", async ({
+  test("?action=addSchedule opens the new seasonal hours editor, then leaves the old param", async ({
     mockedPage: page,
   }) => {
     await mockAvailability(page);
     await page.goto("availability?tab=schedules&action=addSchedule");
-    await expect(
-      page.getByRole("dialog").getByRole("textbox", { name: /Schedule name/ })
-    ).toBeVisible();
-    await expect.poll(() => new URL(page.url()).searchParams.has("action")).toBe(false);
+    await expect(page).toHaveURL(/\/availability\/seasonal\/new$/);
+    await expect(page.getByRole("textbox", { name: /Schedule name/ })).toBeVisible();
   });
 
   test("garbage params render the landing page: the hub", async ({ mockedPage: page }) => {

@@ -2,10 +2,25 @@ import { describe, it, expect } from "vitest";
 import {
   ENGINEERING_PAGES,
   engineeringMenu,
+  globalNavProps,
   isEngineeringPageCurrent,
   siteCopyright,
   siteFooterColumns,
 } from "./site-nav.js";
+
+describe("globalNavProps", () => {
+  it("returns the Engineering menu and the current path", () => {
+    const props = globalNavProps("/shipped/story");
+    expect(props.currentPath).toBe("/shipped/story");
+    expect(props.menu).toEqual(engineeringMenu("/shipped/story"));
+    expect(props.menu.label).toBe("Engineering");
+  });
+
+  it("passes labels through only when given", () => {
+    expect("labels" in globalNavProps("/")).toBe(false);
+    expect(globalNavProps("/", { gen: "Generar" }).labels).toEqual({ gen: "Generar" });
+  });
+});
 
 describe("ENGINEERING_PAGES", () => {
   it("lists the five pages in the owner's order", () => {

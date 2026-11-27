@@ -100,17 +100,17 @@ describe("LocalePicker", () => {
     expect(trigger).not.toHaveTextContent("English");
   });
 
-  it("compact variant shows the short code", () => {
+  it("compact variant shows the language name", () => {
     const { runtime } = makeRuntime();
     renderPicker(runtime, { variant: "compact" });
-    expect(screen.getByRole("button", { name: /Language/ })).toHaveTextContent("EN-US");
+    expect(screen.getByRole("button", { name: /Language/ })).toHaveTextContent("English (US)");
   });
 
-  it("compact trigger's accessible name contains its visible code (WCAG 2.5.3)", () => {
+  it("compact trigger's accessible name contains its visible name (WCAG 2.5.3)", () => {
     const { runtime } = makeRuntime();
     renderPicker(runtime, { variant: "compact" });
     const trigger = screen.getByRole("button", { name: /Language/ });
-    expect(trigger.getAttribute("aria-label")).toContain("EN-US");
+    expect(trigger.getAttribute("aria-label")).toContain("English (US)");
   });
 
   it("switches and persists on selection", async () => {

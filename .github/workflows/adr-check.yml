@@ -5,9 +5,18 @@ name: ADR check
 # squash-merges, or fork PRs still get audited.
 # No untrusted input is used anywhere in this workflow.
 
+# Code PRs get check-adr from ci.yml's `architecture-audit` job. That job chains
+# to `prepare`, which is gated on has_code, so an ADR-only (markdown) PR gets no
+# audit there. PRs therefore trigger here only for check-adr's own inputs
+# (#10011); pushes to main are always audited.
 on:
   pull_request:
     branches: [main]
+    paths:
+      - "docs/adr/**"
+      - "tools/cli/src/check-adr.ts"
+      - "tools/cli/src/commands/adr*.ts"
+      - ".github/workflows/adr-check.yml"
   push:
     branches: [main]
 

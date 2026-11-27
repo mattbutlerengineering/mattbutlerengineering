@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+// Utilization fixtures below assume a 5-connection pool; the package default is 3 (#9963).
+vi.hoisted(() => vi.stubEnv("PRISMA_CONNECTION_LIMIT", "5"));
+
 // vi.hoisted runs before mock factories — use it for shared mutable state
 const { mockPoolProps, capturedHandlers, mockPrismaInstance, mockPoolInstance } = vi.hoisted(() => {
   const capturedHandlers: {

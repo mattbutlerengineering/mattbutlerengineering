@@ -7,7 +7,13 @@ export { BASE_TITLE } from "./use-document-title.js";
  * A component rather than a router hook so the layouts keep rendering under a
  * plain `MemoryRouter` in their tests.
  */
-export function DocumentTitle({ title }: { readonly title: string }) {
-  useDocumentTitle(title);
+export function DocumentTitle({
+  title,
+  description,
+}: {
+  readonly title: string;
+  readonly description?: string;
+}) {
+  useDocumentTitle(title, description);
   return null;
 }

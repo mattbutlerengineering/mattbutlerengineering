@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type Ref } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { Calendar, Input, Button } from "@mattbutlerengineering/rialto";
 import type { OperatingHours } from "@mbe/types";
@@ -15,6 +15,8 @@ export interface DatePartySelectorProps {
   onEndDateChange?: (date: string) => void;
   onPartySizeChange: (size: number) => void;
   onNext: () => void;
+  /** Attached to "Find Available Times", so Back from the time step can return focus to it (#9995). */
+  findTimesRef?: Ref<HTMLButtonElement>;
   minDate?: string;
   maxDate?: string;
   maxPartySize?: number;
@@ -53,6 +55,7 @@ export function DatePartySelector({
   onEndDateChange,
   onPartySizeChange,
   onNext,
+  findTimesRef,
   minDate,
   maxDate,
   maxPartySize = 8,
@@ -107,36 +110,40 @@ export function DatePartySelector({
         </>
       ) : (
         <div className={styles.field}>
-          <span className={styles.label}>{t("bookingWidget.dateParty.date")}</span>
-          <Calendar
-            value={selectedDate}
-            onChange={(value) => value && onDateChange(value)}
-            isDateDisabled={(iso) =>
-              iso < effectiveMinDate ||
-              iso > effectiveMaxDate ||
-              iso in closedDates ||
-              isWeeklyClosedDay(fallbackOperatingHours, iso)
-            }
-            getDateLabel={(iso) =>
-              iso in closedDates
-                ? t("bookingWidget.dateParty.dateClosedLabel", {
-                    date: format.formatLongDate(iso),
-                    message: closedDates[iso],
-                  })
-                : format.formatLongDate(iso)
-            }
-            onFocus={(e) => setFocusedDate(e.target.getAttribute("data-date"))}
-            // A tap or click names the day too: Safari and touch give a pressed day no focus, so a
-            // closed day's note would otherwise only ever reach keyboard users.
-            onClick={(e) => {
-              const day = (e.target as HTMLElement).closest("[data-date]");
-              if (day) setFocusedDate(day.getAttribute("data-date"));
-            }}
-            onBlur={(e) => {
-              // Focus moving to another day keeps the note; the next onFocus replaces it.
-              if (!e.currentTarget.contains(e.relatedTarget)) setFocusedDate(null);
-            }}
-          />
+          <span className={`${styles.label} ${styles.dateLabel}`}>
+            {t("bookingWidget.dateParty.date")}
+          </span>
+          <div className={styles.calendarWrap}>
+            <Calendar
+              value={selectedDate}
+              onChange={(value) => value && onDateChange(value)}
+              isDateDisabled={(iso) =>
+                iso < effectiveMinDate ||
+                iso > effectiveMaxDate ||
+                iso in closedDates ||
+                isWeeklyClosedDay(fallbackOperatingHours, iso)
+              }
+              getDateLabel={(iso) =>
+                iso in closedDates
+                  ? t("bookingWidget.dateParty.dateClosedLabel", {
+                      date: format.formatLongDate(iso),
+                      message: closedDates[iso],
+                    })
+                  : format.formatLongDate(iso)
+              }
+              onFocus={(e) => setFocusedDate(e.target.getAttribute("data-date"))}
+              // A tap or click names the day too: Safari and touch give a pressed day no focus, so a
+              // closed day's note would otherwise only ever reach keyboard users.
+              onClick={(e) => {
+                const day = (e.target as HTMLElement).closest("[data-date]");
+                if (day) setFocusedDate(day.getAttribute("data-date"));
+              }}
+              onBlur={(e) => {
+                // Focus moving to another day keeps the note; the next onFocus replaces it.
+                if (!e.currentTarget.contains(e.relatedTarget)) setFocusedDate(null);
+              }}
+            />
+          </div>
           <p role="status" className={styles.closureNote}>
             {focusedClosure}
           </p>
@@ -197,6 +204,7 @@ export function DatePartySelector({
       </div>
 
       <Button
+        ref={findTimesRef}
         variant="primary"
         onClick={onNext}
         disabled={!canProceed}

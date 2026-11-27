@@ -279,11 +279,21 @@ describe("docs/routines/mbe-ui-quality.md", () => {
     });
 
     it("opens the fix PR on a clean-tree switch from origin/main, then switches back", () => {
-      const fix = block.slice(at("Fix PR (at most one)"), at("P1 SLA"));
+      const fix = block.slice(at("Fix PRs (at most three)"), at("P1 SLA"));
       expect(fix.indexOf("clean tree")).toBeGreaterThan(-1);
       expect(fix.indexOf("clean tree")).toBeLessThan(fix.indexOf("ui-quality/fix-<issue>"));
       expect(fix).toContain("origin/main");
       expect(fix).toMatch(/switch back to `ui-quality\/ledger`|git switch ui-quality\/ledger/);
+    });
+
+    it("commits each fix-PR record before the next candidate's clean-tree check (#10001)", () => {
+      const fix = block.slice(at("Fix PRs (at most three)"), at("P1 SLA"));
+      const record = fix.indexOf("--executed .ui-quality/fix-pr.json");
+      expect(record).toBeGreaterThan(-1);
+      expect(fix.slice(record)).toMatch(
+        /commit the recorded ledger in place on `ui-quality\/ledger` before the next candidate/
+      );
+      expect(fix.slice(record)).toContain("metrics/ui-quality-findings.json");
     });
 
     it("7c commits in place, pushes without force, and opens a PR only when none is open", () => {

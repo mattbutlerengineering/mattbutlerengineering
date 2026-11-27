@@ -7,6 +7,7 @@ import {
   vibes,
   type VibeName,
 } from "@mattbutlerengineering/rialto";
+import { globalNavProps } from "@mbe/site-nav";
 import { useCookieConsent } from "../components/CookieConsent/useCookieConsent";
 import { useScrollToTop } from "../hooks/use-scroll-to-top.js";
 import { CookieBanner, CookiePreferencesDialog } from "../components/CookieConsent/CookieConsent";
@@ -194,6 +195,7 @@ export function DemoLayout() {
           currentApp="rialto"
           theme={demoTheme}
           onThemeToggle={() => handleDarkModeChange(!darkMode)}
+          {...globalNavProps("/rialto/")}
         />
         <section
           className={styles.floatingControls}

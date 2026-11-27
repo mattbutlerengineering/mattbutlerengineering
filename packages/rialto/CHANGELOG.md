@@ -1,5 +1,15 @@
 # @mattbutlerengineering/rialto
 
+## 3.1.16
+
+### Patch Changes
+
+- [#9954](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9954) [`fc568c1`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/fc568c140bcf07ee2418a951eca42a3fa27b2c9f) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - A Button marked `aria-disabled="true"` now looks disabled and no longer plays the tap animation, while staying focusable.
+
+- [#9916](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9916) [`7b53f05`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/7b53f0566b9772d7d6311e48c7feab9c0ae5bfff) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - perf(Hero): the subtitle settles into place without fading from opacity 0, so it paints on first frame. On mobile it is the LCP element and its fade delayed LCP ([#9915](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/9915)).
+
+- [#9872](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9872) [`5c4b3ed`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/5c4b3eda9eb28306119ff2e30c16b1631774d608) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - The shared glass surface is now opaque in both themes, so modals, menus, popovers, tooltips, toasts and the Card and AppBar glass variants no longer show page content through their background.
+
 ## 3.1.15
 
 ### Patch Changes

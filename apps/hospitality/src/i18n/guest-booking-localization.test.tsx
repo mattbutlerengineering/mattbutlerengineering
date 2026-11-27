@@ -106,7 +106,8 @@ describe.each([
     tag: "es-MX" as const,
     widgetTitle: "Haz una reserva",
     partySize: "Número de personas",
-    dinner: "Cena",
+    availableTimes: "Horarios disponibles",
+    dinnerTimes: "Horarios disponibles para Dinner",
     guests: "2 personas",
     complete: "Completar reserva",
     deposit: "Depósito requerido",
@@ -122,7 +123,8 @@ describe.each([
     tag: "fr-CA" as const,
     widgetTitle: "Faire une réservation",
     partySize: "Nombre de personnes",
-    dinner: "Souper",
+    availableTimes: "Heures disponibles",
+    dinnerTimes: "Heures disponibles pour Dinner",
     guests: "2 convives",
     complete: "Confirmer la réservation",
     deposit: "Dépôt requis",
@@ -156,8 +158,32 @@ describe.each([
         venueTimezone="UTC"
       />
     );
-    expect(await screen.findByText(c.dinner)).toBeInTheDocument();
+    expect(await screen.findByRole("listbox", { name: c.availableTimes })).toBeInTheDocument();
     expect(screen.getByText(c.guests)).toBeInTheDocument();
+  });
+
+  it("heads each service with the venue's name as typed, in the guest's locale around it", async () => {
+    const slots: TimeSlot[] = [
+      { ...SLOT, time: `${TOMORROW}T17:00:00.000Z`, service: { id: "vs_1", name: "Lunch" } },
+      { ...SLOT, service: { id: "vs_2", name: "Dinner" } },
+    ];
+    renderIn(
+      c.tag,
+      <TimeSlotPicker
+        slots={slots}
+        selectedSlot={null}
+        isLoading={false}
+        error={null}
+        onSelectSlot={vi.fn()}
+        onBack={vi.fn()}
+        date={TOMORROW}
+        partySize={2}
+        venueTimezone="UTC"
+      />
+    );
+    expect(await screen.findByRole("heading", { name: "Dinner" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Lunch" })).toBeInTheDocument();
+    expect(screen.getByRole("listbox", { name: c.dinnerTimes })).toBeInTheDocument();
   });
 
   it("translates the details step", async () => {

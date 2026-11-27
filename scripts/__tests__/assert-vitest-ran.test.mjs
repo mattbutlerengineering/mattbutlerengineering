@@ -122,7 +122,7 @@ describe("ci.yml — RLS integration job wiring (#5369)", () => {
     // (rialto's a11y run), and an unscoped match reads that one instead.
     const job = CI_WORKFLOW.slice(
       CI_WORKFLOW.indexOf("  rls-integration:"),
-      CI_WORKFLOW.indexOf("  ai-antipattern-ratchet:")
+      CI_WORKFLOW.indexOf("  report-health:")
     );
     const written = job.match(/--outputFile=(\S+)/)?.[1];
 

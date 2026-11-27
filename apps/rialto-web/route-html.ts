@@ -1,8 +1,11 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { readFileSync, readdirSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { Plugin } from "vite";
 import { derivePath } from "../../scripts/ui-quality/derive-path.mjs";
+import { extractLayoutDescription } from "./src/data/layout-description.js";
 import {
+  DEMOS_DESCRIPTION,
   DEMOS_TITLE,
   prerenderHeads,
   type CatalogEntry,
@@ -34,6 +37,8 @@ interface ParsedEntry {
   readonly label: string;
   readonly category: string;
   readonly heading?: string;
+  /** The entry's source text, for reading its explicit `load` import. */
+  readonly object: string;
 }
 
 const escapeHtml = (value: string): string =>
@@ -142,22 +147,79 @@ function parseRegistryEntries(source: string): ParsedEntry[] {
         `route-html: registry entry is missing id, label or category: ${object.slice(0, 120)}`
       );
     }
-    return heading ? { id, label, category, heading } : { id, label, category };
+    return heading ? { id, label, category, heading, object } : { id, label, category, object };
   });
 }
 
-export function catalogFromRegistrySource(source: string): CatalogEntry[] {
-  return parseRegistryEntries(source).map((entry) => ({
-    path: derivePath(entry),
-    label: entry.label,
-    ...(entry.heading ? { heading: entry.heading } : {}),
-  }));
+const DEFAULT_PAGES_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "src/pages");
+
+function listFiles(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((item) =>
+    item.isDirectory() ? listFiles(join(dir, item.name)) : [join(dir, item.name)]
+  );
+}
+
+function toPascalCase(label: string): string {
+  return label
+    .split(/[^a-zA-Z0-9]+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join("");
+}
+
+/**
+ * The page module for an entry: its explicit `load: () => import("../pages/...")`
+ * path, else the `{Label}Page` / `{Label}ExamplePage` file convention.
+ */
+function pageFileFor(entry: ParsedEntry, files: readonly string[], dir: string) {
+  const explicit = entry.object.match(/import\(\s*"\.\.\/pages\/([^"]+)"\s*\)/)?.[1];
+  if (explicit) return join(dir, `${explicit}.tsx`);
+  const suffix = entry.category === "Examples" ? "ExamplePage" : "Page";
+  return files.find((file) => file.endsWith(`/${toPascalCase(entry.label)}${suffix}.tsx`));
+}
+
+export function catalogFromRegistrySource(
+  source: string,
+  pagesDir: string = DEFAULT_PAGES_DIR
+): CatalogEntry[] {
+  const files = listFiles(pagesDir);
+  return parseRegistryEntries(source).map((entry) => {
+    const file = pageFileFor(entry, files, pagesDir);
+    const description = file ? extractLayoutDescription(readFileSync(file, "utf8")) : undefined;
+    return {
+      path: derivePath(entry),
+      label: entry.label,
+      ...(entry.heading ? { heading: entry.heading } : {}),
+      ...(description ? { description } : {}),
+    };
+  });
+}
+
+const DESCRIPTION_TAGS = [
+  ["name", "description"],
+  ["property", "og:description"],
+  ["name", "twitter:description"],
+] as const;
+
+/** The shell with description, og:description and twitter:description replaced. */
+function withDescription(shell: string, description: string): string {
+  const content = escapeHtml(description);
+  return DESCRIPTION_TAGS.reduce(
+    (html, [attribute, key]) =>
+      replaceOnce(
+        html,
+        new RegExp(`<meta\\s+${attribute}="${key}"\\s+content="[^"]*"\\s*/>`),
+        `<meta ${attribute}="${key}" content="${content}" />`,
+        key
+      ),
+    shell
+  );
 }
 
 /** The built shell with one route's title, social titles and URLs substituted. */
 export function renderRouteHtml(
   shell: string,
-  head: Pick<PrerenderHead, "title" | "url" | "robots">
+  head: Pick<PrerenderHead, "title" | "url" | "robots" | "description">
 ): string {
   const title = escapeHtml(head.title);
   const url = escapeHtml(head.url);
@@ -186,6 +248,7 @@ export function renderRouteHtml(
     `<meta property="og:url" content="${url}" />`,
     "og:url"
   );
+  if (head.description !== undefined) html = withDescription(html, head.description);
   if (head.robots === undefined) return html;
   return replaceOnce(
     html,
@@ -197,7 +260,11 @@ export function renderRouteHtml(
 
 /** The built shell with the demos index's title, social titles and URLs substituted. */
 export function renderDemosHtml(shell: string): string {
-  return renderRouteHtml(shell, { title: DEMOS_TITLE, url: DEMOS_URL });
+  return renderRouteHtml(shell, {
+    title: DEMOS_TITLE,
+    url: DEMOS_URL,
+    description: DEMOS_DESCRIPTION,
+  });
 }
 
 /** Vite build plugin: emits per-route HTML beside `index.html`. */

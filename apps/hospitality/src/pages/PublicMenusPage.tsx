@@ -2,6 +2,7 @@ import { useParams, Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { EmptyState, Text } from "@mattbutlerengineering/rialto";
+import { PageHeader } from "../components/PageHeader.js";
 import { WidgetLocaleScope } from "../components/booking-widget/index.js";
 import { usePublicApiClient } from "../hooks/usePublicApiClient.js";
 import { useDocumentTitle } from "../hooks/useDocumentTitle.js";
@@ -85,12 +86,7 @@ function PublicMenusPageContent() {
   return (
     <main className={styles.page}>
       <header className={styles.header}>
-        <Text variant="display" as="h1" align="center" color="primary">
-          {venue.name}
-        </Text>
-        <Text variant="body" color="secondary" align="center">
-          {t("publicMenu.menusHeading")}
-        </Text>
+        <PageHeader title={venue.name} description={t("publicMenu.menusHeading")} />
       </header>
 
       <div className={styles.content}>

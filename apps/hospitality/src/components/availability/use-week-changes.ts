@@ -8,7 +8,6 @@ import {
   useHolidayDecisions,
   useSetHolidayDecision,
 } from "../../hooks/useHolidayDecisions.js";
-import { useManagerAccess } from "../../hooks/useIsManager.js";
 import { useNow } from "../../hooks/useNow.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { currentServiceDate } from "../../utils/current-service-date.js";
@@ -25,10 +24,13 @@ export interface DecisionsRead {
   readonly error: unknown;
 }
 
-/** The week's rows: undefined holidays while they are unknown, so none is offered as undecided. */
-export function useWeekRows(venueId: string, config: AvailabilityConfig) {
+/**
+ * The week's rows: undefined holidays while they are unknown, so none is offered as undecided.
+ * `isManager` is the page's settled role. Reading Team here mounted a second observer on a failed
+ * Team read, which refetched it and sent the page back to pending (the load-failure banner left).
+ */
+export function useWeekRows(venueId: string, config: AvailabilityConfig, isManager: boolean) {
   const format = useVenueFormat();
-  const access = useManagerAccess();
   const country = useHolidayCountry();
   const now = useNow();
   const today = venueDate(now, format.timeZone);
@@ -40,7 +42,6 @@ export function useWeekRows(venueId: string, config: AvailabilityConfig) {
     from: today,
     to: addDays(today, HOLIDAY_HORIZON_DAYS),
   });
-  const isManager = access.isManager && !access.isPending;
   const view = useMemo(
     () =>
       weekChangeRows({

@@ -11,12 +11,24 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       {children}
     </button>
   ),
-  Input: ({ label, value, onChange, placeholder, type, error, hint, required, ref }: any) => (
+  Input: ({
+    label,
+    value,
+    onChange,
+    placeholder,
+    type,
+    error,
+    hint,
+    required,
+    ref,
+    autoComplete,
+  }: any) => (
     <div>
       <label>{label}</label>
       <input
         ref={ref}
         type={type ?? "text"}
+        autoComplete={autoComplete}
         value={value}
         onChange={onChange}
         placeholder={placeholder}
@@ -87,6 +99,12 @@ describe("WaitlistJoinView", () => {
   it("renders name input", () => {
     render(<WaitlistJoinView {...DEFAULT_PROPS} />);
     expect(screen.getByTestId("input-name")).toBeDefined();
+  });
+
+  it("tells autofill which guest field is which (WCAG 1.3.5)", () => {
+    render(<WaitlistJoinView {...DEFAULT_PROPS} />);
+    expect(screen.getByTestId("input-name").getAttribute("autocomplete")).toBe("name");
+    expect(screen.getByTestId("input-phone").getAttribute("autocomplete")).toBe("tel");
   });
 
   it("renders Join Waitlist button", () => {

@@ -56,7 +56,7 @@ If nothing is rotten: report that and end. Zero changes is a successful run — 
 
 ## Constraints
 
-- Never merge anything. Every change lands as a reviewable PR.
+- Never merge or enable auto-merge yourself. Review and hand off the rot-sweep PR as `docs/routines/fix-protocol.md` section 3 says (read it first): the `reviewer` subagent, the `reviewer-verdict:` comment, and on a pass the `reviewed-merge:` comment plus the `reviewed` label, so reviewed-merge.yml merges it on a green CI Gate. A PR that touches `docs/routines/**`, `.claude/**` or the root `CLAUDE.md`/`AGENTS.md` is held with `needs-review` instead, as the protocol says.
 - Never fetch live-site URLs — this cloud environment has no egress to production (issue #2920). Audit the repo, not the site.
 - Do not touch docs/adr/** (ADRs are historical records, not living docs) or CHANGELOG files.
 - Do not reformat or restructure docs that are merely ugly. Rot means WRONG, not unpolished.

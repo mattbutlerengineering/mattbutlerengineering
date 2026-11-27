@@ -23,6 +23,9 @@ export const DEMOS_TITLE = "Demos — Rialto Design System";
 /** Heading of the not-found page; its title is `${NOT_FOUND_STEM}${TITLE_SUFFIX}`. */
 export const NOT_FOUND_STEM = "Page not found";
 
+/** Meta description of the demos index; also the lede on `DemosIndexPage`. */
+export const DEMOS_DESCRIPTION = "Full-page demos built with Rialto components.";
+
 /** Appended to a page heading to form `document.title`. */
 export const TITLE_SUFFIX = " — Rialto";
 
@@ -36,10 +39,13 @@ export interface CatalogEntry {
   readonly path: string;
   readonly label: string;
   readonly heading?: string;
+  /** The page layout's one-line description, when the page has one. */
+  readonly description?: string;
 }
 
 export interface PrerenderHead {
   readonly title: string;
+  readonly description?: string;
   readonly url: string;
   readonly fileName: string;
   /** Set to keep the page out of search results; absent leaves the shell's `index, follow`. */
@@ -148,7 +154,12 @@ export function resolveHead(pathname: string, entries: readonly CatalogEntry[]):
 export function prerenderHeads(entries: readonly CatalogEntry[]): PrerenderHead[] {
   const catalog = entries.map((entry) => {
     const title = documentTitle(entry.heading ?? entry.label);
-    return { title, url: canonicalUrl(entry.path), fileName: routeHtmlFileName(entry.path) };
+    return {
+      title,
+      url: canonicalUrl(entry.path),
+      fileName: routeHtmlFileName(entry.path),
+      ...(entry.description ? { description: entry.description } : {}),
+    };
   });
   const extras = EXTRA_ROUTES.map((route) => ({
     title: documentTitle(route.stem),

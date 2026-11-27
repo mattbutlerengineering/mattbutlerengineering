@@ -627,6 +627,15 @@ describe("TimelineGrid", () => {
       );
     });
 
+    it("hands the now-line the header row's height, so its label centres in the header band (#10036)", () => {
+      const { today } = atLocal(19, 10);
+      render(<TimelineGrid {...defaultProps} date={today} />);
+      const header = screen.getByRole("grid").querySelector(".headerRow") as HTMLElement;
+      expect(
+        screen.getByTestId("now-line").style.getPropertyValue("--timeline-header-height")
+      ).toBe(header.style.height);
+    });
+
     it("does not render the now-line for another date, even at 20:00 local", () => {
       atLocal(20);
       render(<TimelineGrid {...defaultProps} date="2020-01-01" />);

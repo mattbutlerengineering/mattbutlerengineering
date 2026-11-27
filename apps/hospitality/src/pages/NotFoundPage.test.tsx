@@ -4,11 +4,10 @@ import { MemoryRouter } from "react-router";
 import { NotFoundPage } from "./NotFoundPage.js";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  Heading: ({ children, level }: { children: React.ReactNode; level: number }) => {
-    const Tag = `h${level}` as keyof React.JSX.IntrinsicElements;
-    return <Tag>{children}</Tag>;
+  Stack: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  Text: ({ children, as }: { children: React.ReactNode; as?: string }) => {
+    return as === "h1" ? <h1>{children}</h1> : <p>{children}</p>;
   },
-  Text: ({ children }: { children: React.ReactNode }) => <p>{children}</p>,
   Button: ({ children }: { children: React.ReactNode }) => <button>{children}</button>,
 }));
 

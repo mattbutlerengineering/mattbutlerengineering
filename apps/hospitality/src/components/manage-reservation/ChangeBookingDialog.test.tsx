@@ -127,6 +127,20 @@ describe("ChangeBookingDialog", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  it("groups the new times by venue service, as the booking widget does", async () => {
+    mockGetSlots.mockResolvedValue([
+      { time: "2099-06-16T19:00:00.000Z", available: true, service: { id: "s2", name: "Dinner" } },
+      { time: "2099-06-16T12:00:00.000Z", available: true, service: { id: "s1", name: "Lunch" } },
+    ]);
+    setup();
+    fireEvent.click(screen.getByRole("button", { name: /find available times/i }));
+    await screen.findByRole("listbox", { name: "Available Lunch times" });
+    expect(screen.getByRole("listbox", { name: "Available Dinner times" })).toBeDefined();
+    const headings = screen.getAllByRole("heading").map((h) => h.textContent);
+    expect(headings).toEqual(expect.arrayContaining(["Lunch", "Dinner"]));
+    expect(headings.indexOf("Lunch")).toBeLessThan(headings.indexOf("Dinner"));
+  });
+
   it.each([
     ["SLOT_UNAVAILABLE", /original booking is unchanged/i],
     ["HOLD_EXPIRED", /hold expired/i],

@@ -10,6 +10,7 @@ import {
   GuestSegmentSchema,
   FloorPlanSchema,
   PaginationSchema,
+  TimeSlotSchema,
 } from "@mbe/types/schemas";
 import { z } from "zod";
 
@@ -75,23 +76,13 @@ describe("E2E fixture validation against Zod schemas", () => {
     expect(walls.filter((w) => w.wallType !== "window").length).toBeGreaterThanOrEqual(2);
   });
 
-  it("availability-slots has valid shape", () => {
-    const TimeSlotSchema = z.object({
-      time: z.string(),
-      available: z.boolean(),
-      tables: z
-        .array(
-          z.object({
-            id: z.string(),
-            name: z.string(),
-            capacity: z.number(),
-            minCovers: z.number(),
-            maxCovers: z.number().nullable(),
-          })
-        )
-        .optional(),
-    });
+  it("availability-slots matches TimeSlot[] and spans two venue services", () => {
     const fixture = loadFixture("availability-slots");
-    expect(() => ApiResponseSchema(z.array(TimeSlotSchema)).parse(fixture)).not.toThrow();
+    const { data } = ApiResponseSchema(z.array(TimeSlotSchema)).parse(fixture);
+    // Every slot names its service, so the guest picker shows one headed section per service.
+    expect(data.every((slot) => slot.service !== undefined)).toBe(true);
+    expect(new Set(data.map((slot) => slot.service?.name))).toEqual(
+      new Set(["Early Seating", "Dinner"])
+    );
   });
 });

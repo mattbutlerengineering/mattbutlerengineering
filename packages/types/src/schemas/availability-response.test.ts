@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
+import type { z } from "zod";
+import type { TimeSlot } from "../availability.js";
 import {
   DateAvailabilitySchema,
   PublicAvailabilityResponseSchema,
+  TimeSlotSchema,
 } from "./availability-response.js";
 import { publicAvailabilityResponseJsonSchema } from "./json-schema.js";
 
@@ -37,6 +40,39 @@ describe("PublicAvailabilityResponseSchema", () => {
     const props = (publicAvailabilityResponseJsonSchema as { properties: Record<string, unknown> })
       .properties;
     expect(Object.keys(props).sort()).toEqual(["bookingPaused", "closure", "data"]);
+  });
+});
+
+describe("TimeSlotSchema service", () => {
+  const dinner = { id: "vs-dinner", name: "Dinner" };
+
+  it("accepts a slot labelled with its venue service", () => {
+    const body = { data: [{ ...slot, service: dinner }] };
+    expect(PublicAvailabilityResponseSchema.parse(body)).toEqual(body);
+  });
+
+  it("still accepts a slot with no service", () => {
+    expect(TimeSlotSchema.parse(slot)).not.toHaveProperty("service");
+  });
+
+  it("rejects a service without a name, or with an empty name", () => {
+    expect(TimeSlotSchema.safeParse({ ...slot, service: { id: "vs-dinner" } }).success).toBe(false);
+    expect(
+      TimeSlotSchema.safeParse({ ...slot, service: { id: "vs-dinner", name: "" } }).success
+    ).toBe(false);
+  });
+
+  it("lists service (id + name) in the response JSON schema, so Fastify does not strip it", () => {
+    type Obj = { properties: Record<string, Obj>; items: Obj };
+    const service = (publicAvailabilityResponseJsonSchema as unknown as Obj).properties.data!.items
+      .properties.service!;
+    expect(Object.keys(service.properties).sort()).toEqual(["id", "name"]);
+  });
+
+  it("types the interface and the schema identically", () => {
+    type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+    const same: Same<TimeSlot, z.infer<typeof TimeSlotSchema>> = true;
+    expect(same).toBe(true);
   });
 });
 

@@ -54,19 +54,42 @@ function jsonResponse(route: Route, fixtureName: string, status = 200): Promise<
   });
 }
 
-/**
- * Serves the availability-slots fixture re-dated to the next 17 May. The
- * booking widget drops slots already past, so a fixed 2026 date would
- * eventually be filtered out; the same month/day keeps the venue-timezone DST
- * offset (and so every rendered time) identical to the fixture's.
- */
-export function buildSlotsBody(now: Date): string {
+/** The service day the availability-slots fixture is written for. */
+const SLOTS_FIXTURE_DAY = "2026-05-17";
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+/** The next 17 May after `now` that is still at least a day out. */
+function nextSeventeenthOfMay(now: Date): string {
   const thisYear = new Date(Date.UTC(now.getUTCFullYear(), 4, 17, 23, 59));
   const year =
     thisYear.getTime() > now.getTime() + 24 * 60 * 60 * 1000
       ? now.getUTCFullYear()
       : now.getUTCFullYear() + 1;
-  return loadFixture("availability-slots").replaceAll("2026-05-17", `${year}-05-17`);
+  return `${year}-05-17`;
+}
+
+/**
+ * Serves the availability-slots fixture moved by whole days onto `day`. Each
+ * slot keeps its UTC offset from the start of the day, so one slot stays past
+ * the venue's midnight and both of the picker's lists render (ux.md F9.6).
+ *
+ * DST: shifting UTC instants moves the rendered *venue* wall clock by an hour
+ * across a DST boundary. The fixture venue is America/New_York, and 17 May is
+ * EDT, so the default day renders the fixture's own times (1:00 PM, 2:30 PM;
+ * change-booking.spec.ts asserts them). On an EST day every time renders an
+ * hour earlier. The past-midnight slot (05:15Z) is 1:15 AM EDT / 12:15 AM EST,
+ * past midnight either way. Assert exact times only on the default day.
+ */
+export function buildSlotsBody(now: Date, day: string = nextSeventeenthOfMay(now)): string {
+  const shiftMs = Date.parse(`${day}T00:00:00Z`) - Date.parse(`${SLOTS_FIXTURE_DAY}T00:00:00Z`);
+  const fixture = JSON.parse(loadFixture("availability-slots")) as {
+    data: Array<{ time: string }>;
+  };
+  const data = fixture.data.map((slot) => ({
+    ...slot,
+    time: new Date(Date.parse(slot.time) + shiftMs).toISOString(),
+  }));
+  return JSON.stringify({ ...fixture, data });
 }
 
 function slotsResponse(route: Route): Promise<void> {
@@ -74,6 +97,21 @@ function slotsResponse(route: Route): Promise<void> {
     status: 200,
     contentType: "application/json",
     body: buildSlotsBody(new Date()),
+  });
+}
+
+/**
+ * The guest's slots, on the day the guest picked (the request's `date`), so the
+ * same-day list renders, not just the after-midnight one. The staff route keeps
+ * `slotsResponse`'s fixed day.
+ */
+function publicSlotsResponse(route: Route): Promise<void> {
+  const requested = new URL(route.request().url()).searchParams.get("date");
+  const day = requested && ISO_DAY.test(requested) ? requested : localDay();
+  return route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: buildSlotsBody(new Date(), day),
   });
 }
 
@@ -1382,7 +1420,7 @@ export async function mockApi(page: Page): Promise<SseMock> {
   // tokenless, so it fetches slots from `/public/v1/venues/:slug/availability`
   // (the staff route above 401s for guests). The `**/public/v1/venues/*`
   // config glob below never reaches it (`*` never crosses `/`).
-  await page.route("**/public/v1/venues/*/availability*", slotsResponse);
+  await page.route("**/public/v1/venues/*/availability*", publicSlotsResponse);
   // Closed dates for the calendar. The glob above never reaches this path
   // (`*` does not cross `/`); no closures by default.
   await page.route("**/public/v1/venues/*/availability/dates*", (route) =>

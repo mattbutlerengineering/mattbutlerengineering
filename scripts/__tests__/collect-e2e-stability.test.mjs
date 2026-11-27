@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
+import { E2E_SUITE_FILTERS } from "../e2e-changed-suites.mjs";
 import {
   computeE2eStability,
   E2E_SUITE_JOB_NAME,
@@ -365,10 +366,10 @@ describe("computeE2eStability ignores runs where no suite ran", () => {
     for (const n of suiteNames) expect(E2E_SUITE_JOB_NAME.test(n)).toBe(true);
   });
 
-  it("matches the union of e2e.yml's changes-job filters", () => {
+  it("is the union of the filters e2e.yml's changes job applies (#10025)", () => {
     const yml = readFileSync(new URL("../../.github/workflows/e2e.yml", import.meta.url), "utf8");
-    const filters = yml.slice(yml.indexOf("filters: |"), yml.indexOf("- name: Set outputs"));
-    const globs = [...filters.matchAll(/^\s+- '([^']+)'/gm)].map((m) => m[1].replace(/\*\*$/, ""));
-    expect([...new Set(globs)].sort()).toEqual([...E2E_SUITE_PATHS].sort());
+    expect(yml).toContain("scripts/e2e-changed-suites.mjs diff");
+    const union = Object.values(E2E_SUITE_FILTERS).flat();
+    expect([...E2E_SUITE_PATHS].sort()).toEqual([...new Set(union)].sort());
   });
 });

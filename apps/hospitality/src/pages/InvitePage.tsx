@@ -6,14 +6,13 @@ import { Alert, Button, Card, EmptyState, Input, Stack, Text } from "@mattbutler
 import { ApiClientError, type InviteData, type InviteRsvp } from "@mbe/api-client";
 import { usePublicApiClient } from "../hooks/usePublicApiClient.js";
 import { useDocumentTitle } from "../hooks/useDocumentTitle.js";
+import { PageHeader } from "../components/PageHeader.js";
 import { WidgetLocaleScope, WidgetLocalePicker } from "../components/booking-widget/index.js";
 import { formatLocalTime, formatLongDateWithYear } from "../utils/format.js";
 import { buildReservationIcs, downloadIcsFile } from "../utils/ics.js";
-import { homeUrl } from "../lib/host-brand.js";
 import styles from "./InvitePage.module.css";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
-const FALLBACK_HOME_URL = homeUrl();
 
 /** The invite view carries no end time; the calendar entry assumes a two-hour sitting. */
 const ASSUMED_DURATION_MS = 2 * 60 * 60 * 1000;
@@ -53,7 +52,6 @@ function buildInviteIcs(invite: InviteData): string {
 }
 
 function EndedState({ heading, description }: { heading: string; description: string }) {
-  const { t } = useTranslation();
   return (
     <main>
       <Stack align="center" justify="center" style={{ minHeight: "100vh", padding: "2rem" }}>
@@ -62,11 +60,6 @@ function EndedState({ heading, description }: { heading: string; description: st
           headingLevel={1}
           heading={heading}
           description={description}
-          action={
-            <a className={styles.homeLink} href={FALLBACK_HOME_URL}>
-              {t("manageReservation.homeLink")}
-            </a>
-          }
         />
       </Stack>
     </main>
@@ -151,9 +144,7 @@ function InvitePageContent() {
     return (
       <main data-ref={ref || undefined}>
         <div role="status">
-          <Text as="h1" variant="body" color="secondary">
-            {t("invite.loading")}
-          </Text>
+          <PageHeader title={t("invite.loading")} />
         </div>
       </main>
     );
@@ -176,6 +167,8 @@ function InvitePageContent() {
           <WidgetLocalePicker />
         </Stack>
 
+        <PageHeader title={t("invite.heading")} />
+
         <Card
           className={styles.card}
           data-testid="invite-card"
@@ -184,9 +177,6 @@ function InvitePageContent() {
           aria-label={t("invite.cardLabel", { venue: data.venue.name })}
         >
           <Stack gap="sm" className={styles.cardInset}>
-            <Text as="h1" variant="label" color="secondary">
-              {t("invite.heading")}
-            </Text>
             <Text as="p" variant="display">
               {data.venue.name}
             </Text>

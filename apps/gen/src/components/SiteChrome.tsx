@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Footer, GlobalNav, Text, useTheme } from "@mattbutlerengineering/rialto";
-import { engineeringMenu, siteCopyright, siteFooterColumns } from "@mbe/site-nav";
+import { globalNavProps, siteCopyright, siteFooterColumns } from "@mbe/site-nav";
 import styles from "./SiteChrome.module.css";
 
 /**
@@ -20,7 +20,7 @@ export function SiteChrome({ children }: { readonly children: ReactNode }) {
         currentApp="gen"
         theme={theme}
         onThemeToggle={toggleTheme}
-        menu={engineeringMenu("/gen/")}
+        {...globalNavProps("/gen/")}
       />
       <div className={styles.body}>{children}</div>
       <Footer

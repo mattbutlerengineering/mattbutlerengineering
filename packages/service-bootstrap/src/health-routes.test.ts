@@ -224,6 +224,30 @@ describe("registerHealthRoutes", () => {
     expect(body.checks.pool.busy).toBe(1);
     expect(body.checks.pool.idle).toBe(4);
     expect(body.checks.pool.utilization).toBe(0.2);
+    expect(body.checks.pool.waiting).toBe(0);
+  });
+
+  it("returns degraded and reports waiting when callers are queued for a connection", async () => {
+    mockPrisma.$queryRaw.mockResolvedValueOnce([{ "?column?": 1 }]);
+    // Low utilization, but requests are queued: the pool is exhausted at the pooler.
+    mockDb.getPoolMetrics.mockReturnValueOnce({
+      total: 1,
+      busy: 0,
+      idle: 1,
+      waiting: 3,
+      utilization: 0,
+      isDegraded: false,
+    });
+    await app.register(registerHealthRoutes, createTestOptions());
+    await app.ready();
+
+    const response = await app.inject({ method: "GET", url: "/health" });
+    const body = JSON.parse(response.body);
+
+    expect(body.status).toBe("degraded");
+    expect(body.checks.pool.status).toBe("degraded");
+    expect(body.checks.pool.waiting).toBe(3);
+    expect(body.checks.pool.message).toContain("3 waiting");
   });
 
   it("includes error_rates in top-level response", async () => {

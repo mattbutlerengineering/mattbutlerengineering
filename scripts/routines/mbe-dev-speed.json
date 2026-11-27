@@ -1,0 +1,7 @@
+{
+  "name": "mbe-dev-speed",
+  "triggerId": "trig_01VrmRCQDPuMKjcrbuP7sj2t",
+  "periodDays": 3,
+  "activatedAt": "2026-11-30",
+  "signature": { "type": "heartbeat" }
+}

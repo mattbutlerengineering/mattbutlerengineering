@@ -5,6 +5,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ESCALATION_FILE, findingKey, main } from "../ui-quality/findings.mjs";
 import { ESCALATION_TITLE, titleFor } from "../ui-quality/findings-plan.mjs";
+import { MAX_FIX_PRS_PER_FIRE } from "../ui-quality/config.mjs";
 import { hashTells } from "../ui-quality/rubric.mjs";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -629,6 +630,20 @@ describe("findings.mjs plan — carrier rules", () => {
     expect(p.actions.filter((a) => a.fix_pr_candidate).map((a) => a.key)).toEqual([
       findingKey(alt, 1),
     ]);
+  });
+
+  it("marks at most MAX_FIX_PRS_PER_FIRE fix-PR candidates, in plan order (#10001)", () => {
+    const alts = ["a", "b", "c", "d"].map((route) =>
+      finding("marketing", route, "accessibility/non-descriptive-alt", "P1", {
+        evidence: { message: 'alt="image"', file: `apps/marketing/src/pages/${route}.tsx` },
+      })
+    );
+    const { plan: p } = plan([alts], {}, PASS);
+    const keys = alts.slice(0, MAX_FIX_PRS_PER_FIRE).map((f) => findingKey(f, 1));
+    expect(MAX_FIX_PRS_PER_FIRE).toBe(3);
+    expect(p.fix_pr_candidates).toEqual(keys);
+    expect(p.fix_pr_candidate).toBe(keys[0]);
+    expect(p.actions.filter((a) => a.fix_pr_candidate).map((a) => a.key)).toEqual(keys);
   });
 
   it("never marks a finding with no file or a rialto/.github file", () => {

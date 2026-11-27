@@ -235,13 +235,11 @@ test.describe("Setup hierarchy: the layered Availability page", () => {
     await expect(weekPanel(page)).toBeVisible();
     await expect(page.getByRole("dialog")).toHaveCount(0);
 
-    // Schedules: the schedule editor, seeded from the regular week, on the Schedules layer.
+    // Schedules: the new seasonal hours editor, seeded from the regular week.
     await page.goto("availability/map");
     await page.getByRole("button", { name: "Add a schedule…" }).first().click();
-    await expect(page).toHaveURL(/\/availability\/calendar\?tab=schedules/);
-    await expect(
-      page.getByRole("dialog").getByRole("textbox", { name: /Schedule name/ })
-    ).toBeVisible();
+    await expect(page).toHaveURL(/\/availability\/seasonal\/new/);
+    await expect(page.getByRole("textbox", { name: /Schedule name/ })).toBeVisible();
 
     // Special dates: the Special dates layer.
     await page.goto("availability/map");
@@ -426,7 +424,7 @@ test.describe("Setup hierarchy: the layered Availability page", () => {
         body: JSON.stringify({ data: { total: 0, offset: 0, items: [] } }),
       })
     );
-    await page.getByRole("link", { name: "History" }).click();
+    await page.getByTestId("hub-history").click();
     const history = page.getByRole("dialog", { name: "History" });
     await history.getByRole("button", { name: "Close" }).click();
     await expect(history).toHaveCount(0);

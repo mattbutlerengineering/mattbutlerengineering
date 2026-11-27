@@ -20,7 +20,7 @@ export function ExamplePageLayout({
   compositionNotes,
   children,
 }: ExamplePageLayoutProps) {
-  useDocumentTitle(name);
+  useDocumentTitle(name, description);
   const [copyLabel, setCopyLabel] = useState<"Copy JSX" | "Copied!">("Copy JSX");
 
   const handleCopy = async () => {

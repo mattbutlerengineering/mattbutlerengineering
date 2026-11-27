@@ -441,6 +441,12 @@ export function AiHealthPage() {
             View raw JSON
           </a>
         </Text>
+        <Text className={styles.statNote} data-testid="ai-health-freshness-note">
+          The sensor panels refresh with each report. PRs Merged (30d) is a weekly count with its
+          own date, so it can trail the report time above. There is no separate Review Coverage or
+          SDLC Speed panel. This page does not show a review coverage figure; the Eval Pass Rate is
+          on the <a href="/metrics">metrics page</a>.
+        </Text>
       </header>
 
       {isReportStale(report.generated_at) && (

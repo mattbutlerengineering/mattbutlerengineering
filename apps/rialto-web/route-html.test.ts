@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { prerenderHeads } from "./src/data/route-head-data.js";
+import { DEMOS_DESCRIPTION, prerenderHeads } from "./src/data/route-head-data.js";
 import {
   DEMOS_TITLE,
   catalogFromRegistrySource,
@@ -68,6 +68,42 @@ describe("renderRouteHtml", () => {
   });
 });
 
+describe("renderRouteHtml description", () => {
+  const description = 'Accordion "stacks" <sections> & more.';
+  const url = "https://mattbutlerengineering.com/rialto/components/accordion";
+
+  it("replaces description, og:description and twitter:description", () => {
+    const html = renderRouteHtml(shell, { title: "Accordion — Rialto", url, description });
+    const escaped = "Accordion &quot;stacks&quot; &lt;sections&gt; &amp; more.";
+    expect(html).toContain(`<meta name="description" content="${escaped}" />`);
+    expect(html).toContain(`<meta property="og:description" content="${escaped}" />`);
+    expect(html).toContain(`<meta name="twitter:description" content="${escaped}" />`);
+    expect(html).not.toContain("precision-crafted");
+  });
+
+  it("serves the demos index its own description", () => {
+    const html = renderDemosHtml(shell);
+    expect(html).toContain(`<meta name="description" content="${DEMOS_DESCRIPTION}" />`);
+  });
+
+  it("emits the Accordion description into the prerendered page", () => {
+    const source = readFileSync(resolve(__dirname, "src/data/page-registry.ts"), "utf8");
+    const entry = catalogFromRegistrySource(source).find(
+      (candidate) => candidate.path === "/components/accordion"
+    );
+    const head = prerenderHeads([entry!]).find((h) => h.fileName === "components/accordion.html");
+    const html = renderRouteHtml(shell, head!);
+    expect(entry?.description).toMatch(/accordion|expand|collaps/i);
+    for (const tag of [
+      `<meta name="description" content="${entry?.description}" />`,
+      `<meta property="og:description" content="${entry?.description}" />`,
+      `<meta name="twitter:description" content="${entry?.description}" />`,
+    ]) {
+      expect(html).toContain(tag);
+    }
+  });
+});
+
 describe("registry source parse", () => {
   const source = readFileSync(resolve(__dirname, "src/data/page-registry.ts"), "utf8");
   const catalog = catalogFromRegistrySource(source);
@@ -92,10 +128,18 @@ describe("registry source parse", () => {
     const invoice = prerenderHeads(catalog).find(
       (head) => head.fileName === "examples/invoice.html"
     );
-    expect(invoice).toEqual({
+    expect(invoice).toMatchObject({
       title: "Invoice — Rialto",
       url: "https://mattbutlerengineering.com/rialto/examples/invoice",
       fileName: "examples/invoice.html",
     });
+    expect(invoice?.description).toBeTruthy();
+  });
+
+  it("gives every non-coming-soon catalog page a description, none shared", () => {
+    const withoutDescription = catalog.filter((entry) => !entry.description).map((e) => e.path);
+    expect(withoutDescription).toEqual([]);
+    const texts = catalog.map((entry) => entry.description);
+    expect(new Set(texts).size).toBe(texts.length);
   });
 });

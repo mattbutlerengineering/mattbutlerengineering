@@ -22,7 +22,7 @@ export interface ComponentPageLayoutProps {
  * - Children (page-specific sections)
  */
 export function ComponentPageLayout({ name, description, children }: ComponentPageLayoutProps) {
-  useDocumentTitle(name);
+  useDocumentTitle(name, description);
 
   return (
     <div className={styles.page}>
