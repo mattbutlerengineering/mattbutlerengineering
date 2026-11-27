@@ -17,6 +17,8 @@ import {
   getTunableSensorDefaults,
   readQueueEfficiencyPrs,
   buildE2eRuns,
+  prNumberFromRunJson,
+  pathsFromPrFilesJson,
   resolveRunChangedPaths,
   buildFlakyTestRuns,
 } from "../sensors-registry.mjs";
@@ -34,6 +36,7 @@ const noopJobs = () => [
   { name: "Marketing E2E", conclusion: "skipped" },
   { name: "Gen E2E", conclusion: "skipped" },
 ];
+const noPr = () => ({ kind: "none" });
 const suiteJobs = () => [
   { name: "Detect changed apps", conclusion: "success" },
   { name: "Hospitality E2E (shard 1)", conclusion: "success" },
@@ -844,6 +847,7 @@ describe("sensors-registry", () => {
           root: process.cwd(),
           ghClient,
           fetchCommitPaths: () => null,
+          fetchRunPrPaths: noPr,
           fetchRunJobs: suiteJobs,
         })
       ).toEqual({
@@ -873,6 +877,7 @@ describe("sensors-registry", () => {
         root: process.cwd(),
         ghClient,
         fetchCommitPaths,
+        fetchRunPrPaths: noPr,
         fetchRunJobs: suiteJobs,
       });
 
@@ -896,6 +901,7 @@ describe("sensors-registry", () => {
           root: process.cwd(),
           ghClient: clientOf([row(1)]),
           fetchCommitPaths: () => ["docs/notes.md"],
+          fetchRunPrPaths: noPr,
           fetchRunJobs: suiteJobs,
         });
         expect(result).toMatchObject({ available: true, consecutive_failures: 1 });
@@ -908,6 +914,7 @@ describe("sensors-registry", () => {
           root: process.cwd(),
           ghClient: clientOf([...noops, row(1), row(2)]),
           fetchCommitPaths: () => ["services/users/src/index.ts"],
+          fetchRunPrPaths: noPr,
           fetchRunJobs,
         });
         expect(result).toMatchObject({ available: true, consecutive_failures: 2, total_runs: 2 });
@@ -918,6 +925,7 @@ describe("sensors-registry", () => {
           root: process.cwd(),
           ghClient: clientOf([row(1, "success"), row(2, "success")]),
           fetchCommitPaths: () => ["services/users/src/index.ts"],
+          fetchRunPrPaths: noPr,
           fetchRunJobs: noopJobs,
         });
         expect(result).toEqual({ available: false, reason: "no_suite_runs" });
@@ -929,6 +937,7 @@ describe("sensors-registry", () => {
           root: process.cwd(),
           ghClient: clientOf([row(1), row(2)]),
           fetchCommitPaths: () => ["services/users/src/index.ts"],
+          fetchRunPrPaths: noPr,
           fetchRunJobs: () => null,
         });
         expect(result).toEqual({ available: false, reason: "no_classifiable_runs" });
@@ -942,6 +951,7 @@ describe("sensors-registry", () => {
           root: process.cwd(),
           ghClient: clientOf([row(7, ""), row(1)]),
           fetchCommitPaths: () => ["services/users/src/index.ts"],
+          fetchRunPrPaths: noPr,
           fetchRunJobs,
         });
         expect(fetchRunJobs).not.toHaveBeenCalledWith(7);
@@ -954,6 +964,7 @@ describe("sensors-registry", () => {
           root: process.cwd(),
           ghClient: clientOf(many),
           fetchCommitPaths: () => ["services/users/src/index.ts"],
+          fetchRunPrPaths: noPr,
           fetchRunJobs,
         });
         expect(fetchRunJobs).toHaveBeenCalledTimes(30);
@@ -966,6 +977,7 @@ describe("sensors-registry", () => {
           root: process.cwd(),
           ghClient: clientOf([row(1, "cancelled")]),
           fetchCommitPaths: () => ["services/users/src/index.ts"],
+          fetchRunPrPaths: noPr,
           fetchRunJobs,
         });
         expect(fetchRunJobs).not.toHaveBeenCalled();
@@ -1606,6 +1618,7 @@ describe("sensors-registry", () => {
           conclusion: "success",
           changedPaths: ["services/agent/src/index.ts"],
           headRefName: "main",
+          pathSource: "head-commit",
           createdAt: "2026-07-02T00:00:00Z",
         },
       ]);
@@ -1616,7 +1629,7 @@ describe("sensors-registry", () => {
       expect(() => {
         result = buildE2eRuns(ghRuns, () => null);
       }).not.toThrow();
-      expect(result).toEqual({ runs: [], unresolved: 2 });
+      expect(result).toEqual({ runs: [], unresolved: 2, prFilesFailed: 0 });
     });
 
     it("buildE2eRuns leaves metrics unchanged when every SHA resolves", () => {
@@ -2063,5 +2076,60 @@ describe("queueEfficiency summary line — cost coverage (#6941)", () => {
     );
     expect(line).toContain("cost unknown (0/4)");
     expect(line).not.toContain("$null");
+  });
+});
+
+describe("e2eStability classifies from the PR's full file list (#9864)", () => {
+  const fx = (name) => JSON.parse(readFileSync(resolve(__dirname, "fixtures", name), "utf-8"));
+  const run = { databaseId: 1, headSha: "a".repeat(40), conclusion: "failure", suiteRan: true };
+
+  it("reads the PR number from a real actions/runs response", () => {
+    expect(prNumberFromRunJson(fx("actions-run-pr-9910.json"))).toBe(9910);
+    expect(prNumberFromRunJson(fx("actions-run-no-pr.json"))).toBeNull();
+  });
+
+  it("reads filenames from a real pulls/<n>/files response", () => {
+    const paths = pathsFromPrFilesJson(fx("pulls-files-9910.json"));
+    expect(paths).toContain("packages/rialto/package.json");
+    expect(paths).toContain(".changeset/forced-colors-focus-ring.md");
+  });
+
+  it("two-commit PR: frontend commit 1, backend head commit is classified frontend", () => {
+    const { runs } = buildE2eRuns(
+      [run],
+      () => ["services/users/src/index.ts"],
+      () => ({ kind: "pr", paths: ["apps/hospitality/src/a.tsx", "services/users/src/index.ts"] })
+    );
+    expect(runs[0].pathSource).toBe("pr");
+    expect(computeE2eStability(runs)).toEqual({ available: false, reason: "no_non_frontend_runs" });
+  });
+
+  it("backend-only PR is non-frontend", () => {
+    const { runs } = buildE2eRuns(
+      [run],
+      () => ["apps/hospitality/src/a.tsx"],
+      () => ({ kind: "pr", paths: ["services/users/src/index.ts"] })
+    );
+    expect(computeE2eStability(runs).total_non_frontend_runs).toBe(1);
+  });
+
+  it("non-PR run falls back to the head commit and records the source", () => {
+    const { runs } = buildE2eRuns(
+      [run],
+      () => ["services/users/src/index.ts"],
+      () => ({ kind: "none" })
+    );
+    expect(runs[0].pathSource).toBe("head-commit");
+    expect(runs[0].changedPaths).toEqual(["services/users/src/index.ts"]);
+  });
+
+  it("a files-fetch failure is tallied, never treated as non-frontend", () => {
+    const { runs, prFilesFailed } = buildE2eRuns(
+      [run],
+      () => ["services/users/src/index.ts"],
+      () => ({ kind: "error" })
+    );
+    expect(runs).toEqual([]);
+    expect(prFilesFailed).toBe(1);
   });
 });
