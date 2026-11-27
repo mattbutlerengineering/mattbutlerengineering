@@ -107,13 +107,23 @@ export type VenueAccess<E> =
   /** RLS context only; relies on `requireAuth` in the route's preHandler. */
   | "authenticated"
   /** ADR-020 ownership: the verified email equals `owner(entity)`. Admins pass. */
-  | { readonly owner: (entity: E) => string | null };
+  | {
+      readonly owner: (entity: E) => string | null;
+      /**
+       * Also admit a member of the entity's venue (ADR-020 membership, read per
+       * request). Staff are not the guest owner, so an owner-only route turns
+       * every venue operator away (#9866). A member gets `scope.isStaff`.
+       */
+      readonly orMember?: boolean;
+    };
 
 /** What the handler receives; built once per request, never mutated. */
 export interface VenueScope<E> {
   readonly venueId: string;
   readonly entity: E;
   readonly isAdmin: boolean;
+  /** Admin, or (on an `orMember` route) a member of the venue: staff semantics. */
+  readonly isStaff: boolean;
 }
 
 export interface VenueScopeSpec<RG extends RouteGenericInterface, E> {
@@ -225,8 +235,25 @@ export function venueScoped<
     request: FastifyRequest,
     reply: FastifyReply,
     venueId: string | null,
-    entity: E | null | undefined
+    entity: E | null | undefined,
+    state: { staffMember: boolean }
   ): Promise<boolean> {
+    if (
+      ownerAccess?.orMember &&
+      venueId !== null &&
+      request.user &&
+      !hasPermission(request.user, "admin")
+    ) {
+      // The verified guest owner needs no membership read, and must never be
+      // upgraded to staff semantics (fee-waived refund) by one.
+      const ownerEmail = entity == null ? null : ownerAccess.owner(entity);
+      const isOwner =
+        ownerEmail !== null && ownerEmail === (await resolveCurrentUserEmail(request));
+      if (!isOwner && (await request.server.venueMembershipLookup(request.user.id, venueId))) {
+        state.staffMember = true;
+        return true;
+      }
+    }
     if (ownerAccess) {
       await requireOwnershipOrAdmin(
         async () => (entity == null ? null : ownerAccess.owner(entity)),
@@ -245,6 +272,7 @@ export function venueScoped<
   }
 
   async function scopedHandler(request: FastifyRequest, reply: FastifyReply): Promise<unknown> {
+    const state = { staffMember: false };
     const isAdmin = hasPermission(request.user, "admin");
 
     let venueId: string | null;
@@ -267,7 +295,7 @@ export function venueScoped<
           ? sendProblem(reply, 400, direct.missing ?? `${direct.field} is required`)
           : sendProblem(reply, 404, notFound!);
       }
-      await decide(request, reply, null, null);
+      await decide(request, reply, null, null, state);
       return reply;
     }
 
@@ -280,7 +308,7 @@ export function venueScoped<
     if (problem) return reply.code(problem.status).send(problem);
 
     const membershipAccess = access === "member" || access === "manager";
-    if (membershipAccess && !(await decide(request, reply, venueId, null))) return reply;
+    if (membershipAccess && !(await decide(request, reply, venueId, null, state))) return reply;
 
     const resolvedVenueId = venueId;
     return runWithVenueContext(resolvedVenueId, async () => {
@@ -289,8 +317,14 @@ export function venueScoped<
         entity = await source.load(entityKey!);
         if (entity === null) return sendProblem(reply, 404, source.notFound);
       }
-      if (ownerAccess && !(await decide(request, reply, resolvedVenueId, entity))) return reply;
-      const scope: VenueScope<E> = { venueId: resolvedVenueId, entity: entity as E, isAdmin };
+      if (ownerAccess && !(await decide(request, reply, resolvedVenueId, entity, state)))
+        return reply;
+      const scope: VenueScope<E> = {
+        venueId: resolvedVenueId,
+        entity: entity as E,
+        isAdmin,
+        isStaff: isAdmin || state.staffMember,
+      };
       return handler(request as RequestOf<RG>, reply as ReplyOf<RG>, scope);
     });
   }
