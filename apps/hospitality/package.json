@@ -17,7 +17,7 @@
     "test:a11y": "playwright test --config playwright.config.ts e2e/a11y.test.ts",
     "demo:serve": "VITE_AUTH_AUTHORITY=https://launch-demo.invalid VITE_AUTH_CLIENT_ID=launch-demo VITE_API_URL=http://localhost:3002 vite --port 3002 --strictPort",
     "size": "size-limit",
-    "size:check": "node scripts/check-chunk-coverage.mjs && node scripts/check-canvas-vendor-isolation.mjs && size-limit"
+    "size:check": "node scripts/check-chunk-coverage.mjs && node scripts/check-canvas-vendor-isolation.mjs && node scripts/check-landing-static-graph.mjs && size-limit"
   },
   "size-limit": [
     {
@@ -184,6 +184,11 @@
       "name": "JSON Render Vendor (@json-render/react)",
       "path": "dist/assets/json-render-vendor-*.js",
       "limit": "42 kB"
+    },
+    {
+      "name": "Query client (@tanstack/react-query, the entry's QueryProvider; its own chunk since #9976 moved the venue hooks and api-client behind lazy imports, 4.84 kB measured)",
+      "path": "dist/assets/query-*.js",
+      "limit": "5.5 kB"
     },
     {
       "name": "Auth Vendor (@mbe/auth)",
