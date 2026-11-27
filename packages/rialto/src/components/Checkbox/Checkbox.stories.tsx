@@ -128,3 +128,46 @@ export const RadioGroupError: StoryObj<typeof RadioGroup> = {
     />
   ),
 };
+
+/**
+ * Focus must bring the whole option into view, not just the hidden input (#9852). The input
+ * used to be a 1px clipped box at the label's vertical middle: when that pixel was already
+ * visible, focusing it scrolled nothing and a tall label stayed cut off at the scroll edge.
+ */
+export const RadioFocusScrollsWholeLabel: StoryObj<typeof RadioGroup> = {
+  render: () => (
+    <div data-testid="scroller" style={{ height: 120, width: 260, overflowY: "auto" }}>
+      <div style={{ height: 200 }} />
+      <RadioGroup
+        label="When this date closes"
+        name="story-focus-scroll"
+        value=""
+        onChange={() => {}}
+        options={[
+          {
+            value: "cancel",
+            label: "Cancel, notify and refund",
+            description:
+              "Guests get up to 3 open times in the next 14 days to rebook, and deposits go back.",
+          },
+          { value: "keep", label: "Keep and notify" },
+        ]}
+      />
+      <div style={{ height: 200 }} />
+    </div>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const scroller = canvas.getByTestId("scroller");
+    const radio = canvas.getByRole("radio", { name: /Cancel, notify and refund/ });
+    const label = radio.closest("label")!;
+    // Scroll so only the top half of the option shows: its middle sits just inside the bottom edge.
+    const box = scroller.getBoundingClientRect();
+    const mid = label.getBoundingClientRect().top + label.offsetHeight / 2;
+    scroller.scrollTop += mid - (box.bottom - 4);
+    radio.focus();
+    const l = label.getBoundingClientRect();
+    await expect(l.top).toBeGreaterThanOrEqual(box.top - 1);
+    await expect(l.bottom).toBeLessThanOrEqual(box.bottom + 1);
+  },
+};

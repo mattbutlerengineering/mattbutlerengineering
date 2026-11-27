@@ -1,5 +1,6 @@
 /* ── Shared label wrapper ─────────────────────── */
 .label {
+  position: relative; /* containing block for .input, so focus scrolls the whole option */
   display: inline-flex;
   align-items: center;
   gap: var(--rialto-space-xs);
@@ -65,16 +66,21 @@
 }
 
 /* ── Hidden native input ─────────────────────── */
+/* Covers its whole label, transparent and click-through, instead of a 1px clipped box: focus
+   scrolls the focused element into view, and a 1px box whose pixel was already visible scrolled
+   nothing, leaving a tall label cut off at a scroll edge (#9852). Clicks still land on the
+   label, which toggles the input, and the circle keeps its hover. */
 .input {
   position: absolute;
-  width: 1px;
-  height: 1px;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
   padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
   border: 0;
+  appearance: none;
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* ── Checkbox box ────────────────────────────── */
