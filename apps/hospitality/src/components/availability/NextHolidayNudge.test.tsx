@@ -44,11 +44,17 @@ const decision = (serviceDate: string): HolidayDecision => ({
 const closure = (startsOn: string, endsOn = startsOn) =>
   ({ id: `c-${startsOn}`, kind: "closure", targetKind: "venue", startsOn, endsOn }) as DateRule;
 
-function renderNudge(rules: DateRule[] = [], today = "2026-11-08") {
+function renderNudge(rules: DateRule[] = [], today = "2026-11-08", serviceDate = today) {
   const onPlan = vi.fn();
   render(
     <VenueContext value={VENUE}>
-      <NextHolidayNudge venueId="venue-1" config={config(...rules)} today={today} onPlan={onPlan} />
+      <NextHolidayNudge
+        venueId="venue-1"
+        config={config(...rules)}
+        today={today}
+        serviceDate={serviceDate}
+        onPlan={onPlan}
+      />
     </VenueContext>
   );
   return onPlan;
@@ -108,6 +114,15 @@ describe("NextHolidayNudge", () => {
     expect(screen.getByText("Thanksgiving is Thu, Nov 26 and isn't planned yet.")).toBeTruthy();
   });
 
+  // After midnight in an overnight service the service date is yesterday, so Next 7 days (from
+  // the day after it) ends at today + 6: a holiday at today + 7 is the nudge's.
+  it("nudges for a holiday 7 days out while last night's service is still open", () => {
+    renderNudge([], "2026-11-19", "2026-11-18");
+    expect(screen.getByText("Thanksgiving is Thu, Nov 26 and isn't planned yet.")).toBeTruthy();
+    // The decisions are still read from the calendar date, the key Special dates shares.
+    expect(read.params).toEqual({ venueId: "venue-1", from: "2026-11-19", to: "2027-11-19" });
+  });
+
   it("nudges for a holiday 10 days out", () => {
     renderNudge([], "2026-11-16");
     expect(screen.getByText("Thanksgiving is Thu, Nov 26 and isn't planned yet.")).toBeTruthy();
@@ -117,7 +132,13 @@ describe("NextHolidayNudge", () => {
     read.decisions = undefined;
     const { unmount } = render(
       <VenueContext value={VENUE}>
-        <NextHolidayNudge venueId="venue-1" config={config()} today="2026-11-08" onPlan={vi.fn()} />
+        <NextHolidayNudge
+          venueId="venue-1"
+          config={config()}
+          today="2026-11-08"
+          serviceDate="2026-11-08"
+          onPlan={vi.fn()}
+        />
       </VenueContext>
     );
     expect(screen.queryByText(/isn't planned yet/)).toBeNull();

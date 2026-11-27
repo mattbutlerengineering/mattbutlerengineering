@@ -110,6 +110,30 @@ const withRules = (...dateRules: DateRule[]): AvailabilityConfig => ({
   dateRules,
 });
 
+/** Dinner 5:00 PM to 2:00 AM (next day) every day: the service date stays yesterday until 2:00 AM. */
+const overnightDinner = (): AvailabilityConfig => ({
+  schedules: [{ id: "regular", name: "Regular week", kind: "regular", isRegular: true }],
+  venueServices: [{ id: "vs-dinner", name: "Dinner", position: 0 }],
+  scheduleServices: [
+    {
+      id: "ss-dinner",
+      scheduleId: "regular",
+      venueServiceId: "vs-dinner",
+      opensAt: 1020,
+      lastSeatingAt: 1440,
+      closesAt: 1560,
+      seating: { version: 1, interval: 15 },
+      bookingTypes: ["online", "phone"],
+      weekdays: [],
+      dayHours: { version: 1, sets: [] },
+    },
+  ],
+  assignments: [
+    { id: "as-regular", scheduleId: "regular", weekdays: [0, 1, 2, 3, 4, 5, 6], precedence: 0 },
+  ],
+  dateRules: [],
+});
+
 const week = () => screen.getByRole("region", { name: "Next 7 days" });
 
 describe("AvailabilityPage: Next 7 days", () => {
@@ -168,6 +192,18 @@ describe("AvailabilityPage: Next 7 days", () => {
     renderPage();
     fireEvent.click(within(week()).getByRole("button", { name: "Plan holidays" }));
     expect(screen.getByRole("radio", { name: "Special dates" })).toBeChecked();
+  });
+
+  it("hands a holiday 7 days out to the calendar's nudge at 00:30 in an overnight service", () => {
+    // 00:30 on Thu Nov 19 in Los Angeles, Dinner runs to 2:00 AM: the service date is Nov 18,
+    // so Next 7 days is Nov 19 to 25 and Thanksgiving (Nov 26) is the nudge's.
+    vi.setSystemTime(new Date("2026-11-19T08:30:00Z"));
+    read.config = overnightDinner();
+    renderPage("/availability?tab=calendar");
+    expect(
+      screen.getByText("Thanksgiving is Thu, Nov 26 and isn't planned yet.")
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Next 7 days" })).not.toBeInTheDocument();
   });
 
   it("is not shown while the viewer's role is still being read", () => {

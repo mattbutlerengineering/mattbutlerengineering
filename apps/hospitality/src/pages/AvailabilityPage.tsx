@@ -565,6 +565,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         venueId={selectedVenueId}
         config={config.data.config}
         today={today}
+        serviceDate={serviceDate}
         onPlan={() => changeTab({ tab: "special" })}
       />
     ) : null;
