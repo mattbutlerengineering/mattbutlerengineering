@@ -76,6 +76,7 @@ import { routeTree } from "./routes";
 import { DocumentTitle } from "./document-title";
 import { DEMO_ROUTES } from "./data/demo-routes";
 import { DEMO_PAGES } from "./data/nav-sections";
+import { NotFoundPage } from "./pages/NotFoundPage";
 import { SignIn } from "./pages/auth/SignIn";
 import { SignUp } from "./pages/auth/SignUp";
 import { DriverList } from "./pages/drivers/DriverList";
@@ -186,6 +187,14 @@ describe("demo pages emit in-demos cross-links", () => {
     const href = rowLink!.getAttribute("href")!;
     expect(href.startsWith(`${BASENAME}/demos/drivers/`)).toBe(true);
     expect(leafFor(href)).toBe("drivers/:id");
+  });
+});
+
+describe("unknown URLs (#9989)", () => {
+  it("/no-such-page renders the not-found page, not a redirect to home", () => {
+    const route = matchRoutes(routeTree, `${BASENAME}/no-such-page`, BASENAME)?.at(-1)?.route;
+    expect(route?.path).toBe("*");
+    expect(isValidElement(route?.element) && route.element.type).toBe(NotFoundPage);
   });
 });
 
