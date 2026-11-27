@@ -18,6 +18,7 @@ import {
 } from "../components/floor-plan/floor-plan-geometry.js";
 import { RehearsalFloorPlan } from "../components/rehearsal/RehearsalFloorPlan.js";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
+import { PageHeader } from "../components/PageHeader.js";
 import {
   useFloorPlan,
   useActivateFloorPlan,
@@ -317,7 +318,9 @@ function LiveFloorPlanEditorPage() {
               />
             </svg>
           </Button>
-          <Heading className={styles.floorPlanTitle}>{floorPlan.name}</Heading>
+          <div className={styles.floorPlanTitle}>
+            <PageHeader title={floorPlan.name} />
+          </div>
           {floorPlan.isActive && (
             <Text className={styles.activeBadge}>{t("floorPlan.editor.active")}</Text>
           )}
@@ -535,7 +538,9 @@ function RehearsalFloorPlanPage() {
   return (
     <div className={styles.root}>
       <div className={styles.header}>
-        <Heading className={styles.floorPlanTitle}>{floorPlan.name}</Heading>
+        <div className={styles.floorPlanTitle}>
+          <PageHeader title={floorPlan.name} />
+        </div>
       </div>
       <div className={styles.content}>
         <div className={styles.canvasArea}>
