@@ -24,6 +24,7 @@ import {
   brandedErrorPage,
 } from "./response-formatter.js";
 import { isKnownMarketingPath } from "./marketing-routes.js";
+import { isKnownRialtoPath } from "./rialto-routes.js";
 import { inviteTokenFrom, injectInviteMeta } from "./invite-og.js";
 import { handleHealthSystem } from "./health/system.js";
 import { handleHealthUptime } from "./health/uptime.js";
@@ -331,11 +332,14 @@ export default {
     // Soft-404 fix (#9977): the marketing Worker answers unknown paths with the
     // SPA shell and 200. Keep the body (the not-found page renders) but tell
     // crawlers the truth. Only HTML pages; assets keep their own status.
+    // Same for /rialto/* (#10000), against the generated rialto route list.
+    const isUnknownPage =
+      (routeName === "marketing" && !isKnownMarketingPath(url.pathname)) ||
+      (routeName === "rialto" && !isKnownRialtoPath(url.pathname));
     if (
-      routeName === "marketing" &&
+      isUnknownPage &&
       response.status === 200 &&
-      (response.headers.get("Content-Type") ?? "").includes("text/html") &&
-      !isKnownMarketingPath(url.pathname)
+      (response.headers.get("Content-Type") ?? "").includes("text/html")
     ) {
       response = new Response(response.body, {
         status: 404,
