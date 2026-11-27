@@ -133,9 +133,9 @@
   --rialto-card-sheen: white;
 
   /* Glass */
-  --rialto-card-glass-bg: rgb(253 252 250 / 0.7);
+  --rialto-card-glass-bg: var(--rialto-surface-elevated);
   --rialto-card-glass-border: rgb(255 255 255 / 0.15);
-  --rialto-card-glass-backdrop: blur(20px);
+  --rialto-card-glass-backdrop: none;
 
   /* Flat */
   --rialto-card-flat-bg: var(--rialto-surface);
