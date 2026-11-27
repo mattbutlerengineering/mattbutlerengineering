@@ -122,6 +122,9 @@ export const routeTree: RouteObject[] = [
           // demo pages themselves stay full-page under DemoLayout.
           { path: "demos", element: titled("Demos", <DemosIndexPage />) },
           ...componentRoutes,
+          // Catch-all: unknown URLs get a not-found page inside the shell (sidebar =
+          // the component index); the title comes from RouteHead.
+          { path: "*", element: <NotFoundPage /> },
         ],
       },
       // Demo pages — explicit "demos" path prefix avoids pathless layout ambiguity
@@ -164,8 +167,6 @@ export const routeTree: RouteObject[] = [
       },
       // Privacy policy
       { path: "privacy", element: titled("Privacy Policy", <PrivacyPage />) },
-      // Catch-all: unknown URLs get a not-found page (title comes from RouteHead)
-      { path: "*", element: <NotFoundPage /> },
     ],
   },
 ];

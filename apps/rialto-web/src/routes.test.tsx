@@ -196,6 +196,15 @@ describe("unknown URLs (#9989)", () => {
     expect(route?.path).toBe("*");
     expect(isValidElement(route?.element) && route.element.type).toBe(NotFoundPage);
   });
+
+  it("renders inside the showcase shell so it gets the sidebar, header and skip link", () => {
+    const matches = matchRoutes(routeTree, `${BASENAME}/no-such-page`, BASENAME);
+    const shell = matches?.find((match) => {
+      const element = match.route.element as { type?: { name?: string } } | undefined;
+      return element?.type?.name === "ShowcaseLayout";
+    });
+    expect(shell).toBeTruthy();
+  });
 });
 
 describe("demos index route (#8535)", () => {
