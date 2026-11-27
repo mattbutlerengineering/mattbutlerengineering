@@ -22,7 +22,7 @@ import { runCheck } from "./lib/fitness-check.mjs";
 const READY_LABEL = "ready";
 const READY_FOR_HUMAN_LABEL = "ready-for-human";
 const NEEDS_HUMAN_LABEL = "needs-human";
-const HUMAN_BLOCKING_LABELS = [READY_FOR_HUMAN_LABEL, NEEDS_HUMAN_LABEL];
+export const HUMAN_BLOCKING_LABELS = [READY_FOR_HUMAN_LABEL, NEEDS_HUMAN_LABEL];
 
 const names = (issue) => (issue?.labels ?? []).map((l) => (typeof l === "string" ? l : l?.name));
 

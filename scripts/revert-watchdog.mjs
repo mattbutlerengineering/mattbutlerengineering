@@ -57,6 +57,7 @@ import { fileURLToPath } from "node:url";
 import { createGhClient, COORDINATION_LABELS } from "@mbe/gh-client";
 import { fileIssueViaGhClient } from "./lib/issue-filing.mjs";
 import { AUTOMATION_MARKER } from "./lib/automation-marker.mjs";
+import { HUMAN_BLOCKING_LABELS } from "./check-ready-label-exclusive.mjs";
 
 /** Pure: builds the original watchdog issue title (format unchanged, #2958). */
 export function buildBrokenMainTitle(sha) {
@@ -667,7 +668,7 @@ const REVERT_TITLE_CULPRIT_PATTERN = /^revert: #(\d+) /;
  *   revertPr: {number:number, merged:boolean, title:string},
  *   getCulpritPr: (n:number) => Promise<{number:number, body:string, merge_commit_sha:string|null}>,
  *   getIssue: (n:number) => Promise<{number:number, state:string, state_reason:string|null, closedByCommit:string|null}|null>,
- *   reopenIssue: (n:number, comment:string) => Promise<void>,
+ *   reopenIssue: (n:number, comment:string, opts:{markReady:boolean}) => Promise<void>,
  * }} deps
  * @returns {Promise<number[]>} the issue numbers reopened
  */
@@ -683,7 +684,12 @@ export async function runReopenOnRevertMerge({ revertPr, getCulpritPr, getIssue,
   }
   const toReopen = planIssueReopens({ issues, culpritMergeSha: culprit?.merge_commit_sha });
   const comment = buildReopenComment(revertPr.number, culpritNumber);
-  for (const n of toReopen) await reopenIssue(n, comment);
+  for (const n of toReopen) {
+    // An Owner-only issue is reopened but never re-queued for the drain (#9885).
+    const labels = issues.find((i) => i.number === n)?.labels ?? [];
+    const humanBlocked = HUMAN_BLOCKING_LABELS.some((l) => labels.includes(l));
+    await reopenIssue(n, comment, { markReady: !humanBlocked });
+  }
   return toReopen;
 }
 
@@ -1131,12 +1137,13 @@ async function reopenCulpritIssues(args) {
           state: issue.state,
           state_reason: issue.state_reason ?? null,
           closedByCommit: closedEvent?.commit_id ?? null,
+          labels: (issue.labels ?? []).map((l) => (typeof l === "string" ? l : l.name)),
         };
       } catch {
         return null;
       }
     },
-    reopenIssue: async (n, comment) => {
+    reopenIssue: async (n, comment, { markReady }) => {
       execFileSync(
         "gh",
         [
@@ -1149,11 +1156,13 @@ async function reopenCulpritIssues(args) {
         ],
         { stdio: "ignore" }
       );
-      execFileSync(
-        "gh",
-        ["api", "-X", "POST", `repos/{owner}/{repo}/issues/${n}/labels`, "-f", "labels[]=ready"],
-        { stdio: "ignore" }
-      );
+      if (markReady) {
+        execFileSync(
+          "gh",
+          ["api", "-X", "POST", `repos/{owner}/{repo}/issues/${n}/labels`, "-f", "labels[]=ready"],
+          { stdio: "ignore" }
+        );
+      }
       execFileSync(
         "gh",
         ["api", "-X", "PATCH", `repos/{owner}/{repo}/issues/${n}`, "-f", "state=open"],
