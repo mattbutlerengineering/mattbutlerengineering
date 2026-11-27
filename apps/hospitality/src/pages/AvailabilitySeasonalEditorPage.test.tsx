@@ -1,5 +1,6 @@
+import { useEffect, useState } from "react";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { createMemoryRouter, Outlet, RouterProvider } from "react-router";
 import type { AvailabilityConfig, AvailabilityConfigChanges } from "@mbe/types";
 
@@ -28,17 +29,15 @@ const TODAY = "2026-10-25";
 /** The regular week (Fridays) plus Weeknight (Mon-Thu), which also runs Dinner. */
 function twoSchedules(): AvailabilityConfig {
   const base = fixtureConfig();
-  const dinner = base.scheduleServices.find((s) => s.id === "ss-dinner")!;
+  // Weeknight runs both services, as the e2e's does: the regular week's rows, copied.
+  const copies = base.scheduleServices.map((s) => ({ ...s, id: `${s.id}-wk`, scheduleId: "wk" }));
   return {
     ...base,
     schedules: [
       ...base.schedules,
       { id: "wk", name: "Weeknight", kind: "alternate", isRegular: false },
     ],
-    scheduleServices: [
-      ...base.scheduleServices,
-      { ...dinner, id: "ss-dinner-wk", scheduleId: "wk", closesAt: 1320, lastSeatingAt: 1260 },
-    ],
+    scheduleServices: [...base.scheduleServices, ...copies],
     assignments: [
       ...base.assignments,
       { id: "as-wk", scheduleId: "wk", weekdays: [1, 2, 3, 4], precedence: 1 },
@@ -67,11 +66,21 @@ function scopeOf(rest: Partial<AvailabilityScope> = {}): AvailabilityScope {
   };
 }
 
+/** What the layout does: hands its children the latest scope, which a test can replace. */
+let replaceScope: (next: AvailabilityScope) => void = () => {};
+function ScopeOutlet({ initial }: { readonly initial: AvailabilityScope }) {
+  const [scope, setScope] = useState(initial);
+  useEffect(() => {
+    replaceScope = setScope;
+  }, []);
+  return <Outlet context={scope} />;
+}
+
 function renderPage(entry: string, scope: AvailabilityScope = scopeOf()) {
   const routes = [
     {
       path: "availability",
-      element: <Outlet context={scope} />,
+      element: <ScopeOutlet initial={scope} />,
       children: [
         { index: true, element: <div>Hub page</div> },
         { path: "seasonal", element: <div>Seasonal list</div> },
@@ -91,10 +100,10 @@ function renderPage(entry: string, scope: AvailabilityScope = scopeOf()) {
 
 const nameField = () => screen.getByRole("textbox", { name: /Schedule name/ });
 
-/** Weeknight's Dinner is its only service: close it at 11:30 PM. */
-function closeDinnerLater() {
+/** Lunch is the open service (3:00 PM close): close it at 4:00 PM, clear of Dinner at 5:00 PM. */
+function closeLunchLater() {
   fireEvent.click(screen.getByLabelText("Closes"));
-  fireEvent.click(screen.getByRole("option", { name: "11:30 PM" }));
+  fireEvent.click(screen.getByRole("option", { name: "4:00 PM" }));
 }
 
 describe("AvailabilitySeasonalEditorPage", () => {
@@ -153,8 +162,8 @@ describe("AvailabilitySeasonalEditorPage", () => {
   it("offers Also apply to under a changed service, saves it and goes back to the list", async () => {
     renderPage("/availability/seasonal/wk");
     expect(screen.queryByRole("group", { name: /Also apply to/ })).not.toBeInTheDocument();
-    closeDinnerLater();
-    const group = screen.getByRole("group", { name: "Also apply to Dinner in:" });
+    closeLunchLater();
+    const group = screen.getByRole("group", { name: "Also apply to Lunch in:" });
     fireEvent.click(within(group).getAllByRole("checkbox")[0]!);
     fireEvent.click(screen.getByRole("button", { name: /^Save/ }));
     await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
@@ -180,5 +189,48 @@ describe("AvailabilitySeasonalEditorPage", () => {
     renderPage("/availability/seasonal/wk");
     fireEvent.click(screen.getByRole("link", { name: "Back to seasonal hours" }));
     await waitFor(() => expect(screen.getByText("Seasonal list")).toBeVisible());
+  });
+  it("stays open when the set is deleted mid-edit, and the conflict review says so", async () => {
+    save.mockRejectedValue(
+      Object.assign(new Error("conflict"), {
+        problemDetails: {
+          type: "about:blank",
+          title: "Conflict",
+          status: 409,
+          detail: "x",
+          code: "version-conflict",
+        },
+      })
+    );
+    renderPage("/availability/seasonal/wk");
+    fireEvent.change(nameField(), { target: { value: "Weeknights" } });
+    fireEvent.click(screen.getByRole("button", { name: /^Save/ }));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    // The reload that follows the 409 finds Weeknight gone.
+    const config = twoSchedules();
+    act(() =>
+      replaceScope(
+        scopeOf({
+          state: {
+            config: {
+              ...config,
+              schedules: config.schedules.filter((s) => s.id !== "wk"),
+              scheduleServices: config.scheduleServices.filter((s) => s.scheduleId !== "wk"),
+              assignments: config.assignments.filter((a) => a.scheduleId !== "wk"),
+            },
+            version: 8,
+            source: "rows",
+          },
+        })
+      )
+    );
+    expect(screen.queryByText(/no longer there/)).not.toBeInTheDocument();
+    expect(nameField()).toHaveValue("Weeknights");
+    fireEvent.click(await screen.findByRole("button", { name: "Review their change" }));
+    expect(await screen.findByText(/This schedule was deleted/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reapply my changes" })).toBeDisabled();
+    // Start over is the way out: it leaves for the list with nothing left to save.
+    fireEvent.click(screen.getByRole("button", { name: "Start over" }));
+    await waitFor(() => expect(screen.getByText("Seasonal list")).toBeInTheDocument());
   });
 });

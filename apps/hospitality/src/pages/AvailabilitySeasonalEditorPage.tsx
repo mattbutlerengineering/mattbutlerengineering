@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation, useNavigate, useParams } from "react-router";
 import { Skeleton, Text } from "@mattbutlerengineering/rialto";
@@ -21,6 +21,8 @@ import styles from "./AvailabilitySeasonalListPage.module.css";
 interface Opening {
   readonly mode: ScheduleEditorMode;
   readonly sourceScheduleId?: string;
+  /** The set being edited, for the title once a colleague has deleted it. */
+  readonly name?: string;
 }
 
 /** A schedule a Manager can edit or copy: seasonal hours, never the regular week or a retired set. */
@@ -39,7 +41,8 @@ function openingFor(
   copy: string | null
 ): Opening | null {
   if (scheduleId) {
-    return findSet(state, scheduleId) ? { mode: "edit", sourceScheduleId: scheduleId } : null;
+    const set = findSet(state, scheduleId);
+    return set ? { mode: "edit", sourceScheduleId: scheduleId, name: set.name } : null;
   }
   const source = findSet(state, copy);
   return source ? { mode: "duplicate", sourceScheduleId: source.id } : { mode: "new" };
@@ -63,12 +66,16 @@ export function AvailabilitySeasonalEditorPage() {
   const config = useAvailabilityConfig({ venueId: scope.venueId });
   const refreshError = config.data && config.error ? describeApiError(config.error).detail : null;
   const copy = readSeasonalCopy(location);
-  const opening = scope.state ? openingFor(scope.state, scheduleId, copy) : null;
+  const scheduleKey = `${scope.venueId}:${scheduleId ?? copy ?? "new"}`;
+  const found = scope.state ? openingFor(scope.state, scheduleId, copy) : null;
+  // Once the editor has opened it stays open: a set a colleague deletes mid-edit is the editor's
+  // to say (its conflict review), with the draft still there. "Not found" is for the first load.
+  const [latched, setLatched] = useState<{ key: string; opening: Opening } | null>(null);
+  if (found && latched?.key !== scheduleKey) setLatched({ key: scheduleKey, opening: found });
+  const opening = latched?.key === scheduleKey ? latched.opening : found;
   const title =
     opening?.mode === "edit"
-      ? t("availabilitySchedules.editTitle", {
-          name: findSet(scope.state, opening.sourceScheduleId ?? null)?.name ?? "",
-        })
+      ? t("availabilitySchedules.editTitle", { name: opening.name ?? "" })
       : opening?.mode === "duplicate"
         ? t("availabilityHub.seasonalEditor.duplicateTitle")
         : t("availabilityHub.seasonalEditor.newTitle");
@@ -89,7 +96,7 @@ export function AvailabilitySeasonalEditorPage() {
         scope={scope}
         opening={opening}
         list={list}
-        scheduleKey={scheduleId ?? copy ?? "new"}
+        scheduleKey={scheduleKey}
         refreshError={refreshError}
       />
     </div>
@@ -144,7 +151,7 @@ function EditorBody({ scope, opening, list, scheduleKey, refreshError }: BodyPro
   return (
     <SeasonalHoursEditor
       // A new set, a copy and an edit each start fresh, and so does another venue.
-      key={`${venueId}:${scheduleKey}`}
+      key={scheduleKey}
       venueId={venueId}
       state={state}
       timezone={timezone}

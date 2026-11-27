@@ -1,7 +1,7 @@
 import type { Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { test, expect } from "./fixtures.js";
-import { buildAvailabilityConfigFixture } from "./api-mocks.js";
+import { buildAvailabilityConfigFixture, buildVenueTeamFixture } from "./api-mocks.js";
 import type { AvailabilityConfig } from "@mbe/types";
 import { countInteractions } from "./helpers/interaction-counter.js";
 import { createSharedConfig, serveSharedConfig } from "./helpers/shared-config-mock.js";
@@ -59,7 +59,28 @@ async function serveVenue(page: Page, specialDate: string) {
   return store;
 }
 
+async function viewAsHost(page: Page): Promise<void> {
+  await page.route(/\/api\/v1\/venues\/[^/?]+\/team$/, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ data: { ...buildVenueTeamFixture(), viewerRole: "host" } }),
+    })
+  );
+}
+
 test.describe("Availability hub: Seasonal hours editor (E4.6)", () => {
+  test("a Host sent to either editor address lands on the hub", async ({ mockedPage: page }) => {
+    await serveVenue(page, dayOfNextMonth(10));
+    await viewAsHost(page);
+    await page.setViewportSize(DESKTOP);
+    for (const address of ["availability/seasonal/new", "availability/seasonal/wk"]) {
+      await page.goto(address);
+      await expect(page).toHaveURL(/\/availability$/);
+      await expect(page.getByRole("heading", { level: 2, name: "Your rules" })).toBeVisible();
+    }
+  });
+
   test("walkthrough 2: summer hours over a special date in at most 10 steps, with Keep theirs preselected", async ({
     mockedPage: page,
   }) => {
@@ -79,7 +100,10 @@ test.describe("Availability hub: Seasonal hours editor (E4.6)", () => {
     await ending.press("Enter");
     await steps.page.getByRole("button", { name: /^Use / }).click();
     await steps.page.getByRole("combobox", { name: "Closes" }).click();
-    await steps.page.getByRole("option", { name: "11:00 PM", exact: true }).click();
+    // The open service is Lunch (3:00 PM close); 4:00 PM still ends before Dinner opens at 5:00 PM,
+    // so the draft is valid. Count: Add (1) + start (2) + end (2) + suggestion (1) + close (2)
+    // + Save (1) = 9.
+    await steps.page.getByRole("option", { name: "4:00 PM", exact: true }).click();
 
     const bar = page.getByTestId("editor-save-bar");
     await expect(bar.getByText(/already ha(s|ve) special hours/)).toBeVisible();
@@ -122,7 +146,8 @@ test.describe("Availability hub: Seasonal hours editor (E4.6)", () => {
     await expect(page.getByRole("group", { name: /^Also apply to / })).toHaveCount(0);
 
     await page.getByRole("combobox", { name: "Closes" }).click();
-    await page.getByRole("option", { name: "11:30 PM", exact: true }).click();
+    // Lunch is the open service; closing it at 4:00 PM stays clear of Dinner at 5:00 PM.
+    await page.getByRole("option", { name: "4:00 PM", exact: true }).click();
     await expect(page.getByRole("group", { name: /^Also apply to .* in:$/ })).toBeVisible();
   });
 

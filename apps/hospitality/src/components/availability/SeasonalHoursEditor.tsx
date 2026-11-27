@@ -38,7 +38,7 @@ export function SeasonalHoursEditor(props: SeasonalHoursEditorProps) {
   const format = useVenueFormat();
   const scopeId = useId();
   // The leave prompt's Save: its route change goes ahead by itself, so no return to the list.
-  const viaPrompt = useRef(false);
+  const viaPromptRef = useRef(false);
   const [leaving, setLeaving] = useState(false);
   // Nothing is left to lose (saved, or discarded for a schedule that is gone).
   const [done, setDone] = useState(false);
@@ -51,7 +51,7 @@ export function SeasonalHoursEditor(props: SeasonalHoursEditorProps) {
   }, [finished]);
   const finish = () => {
     setDone(true);
-    if (!viaPrompt.current) setFinished(true);
+    if (!viaPromptRef.current) setFinished(true);
   };
   const e = useScheduleEditor({ ...props, onClose: finish });
   const { editing, review, saver, draft, issues } = e;
@@ -71,10 +71,10 @@ export function SeasonalHoursEditor(props: SeasonalHoursEditorProps) {
       if (hasProblem) refuse();
       return false;
     }
-    viaPrompt.current = true;
+    viaPromptRef.current = true;
     setLeaving(true);
     const saved = await e.submit();
-    viaPrompt.current = false;
+    viaPromptRef.current = false;
     if (!saved) setLeaving(false);
     return saved;
   };
