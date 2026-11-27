@@ -7,6 +7,7 @@ import {
   formatPercent,
   formatRatio,
   formatTimestamp,
+  formatTimestampWithZone,
   isReportStale,
 } from "../utils/formatters.js";
 import {
@@ -100,7 +101,9 @@ function QueueEfficiencyPanel({ queueEfficiency }: { queueEfficiency: QueueEffic
             }
           >
             {queueEfficiency.costPerIssue == null
-              ? "No PR cost data matched this window"
+              ? queueEfficiency.costCoverage === 0
+                ? "Not instrumented yet (#5627)"
+                : "No PR cost data matched this window"
               : formatUsd(queueEfficiency.costPerIssue)}
           </Text>
         </Card>
@@ -432,7 +435,7 @@ export function AiHealthPage() {
         </Text>
         <DashboardPurpose current="/ai-health" />
         <Text className={styles.meta}>
-          As of {formatTimestamp(metrics.timestamp)}
+          As of {formatTimestampWithZone(metrics.timestamp)}
           {" · "}
           <a href="/sensor-report.json" className={styles.jsonLink}>
             View raw JSON
@@ -563,9 +566,9 @@ export function AiHealthPage() {
         </div>
       </section>
 
-      {metrics.regressionLabels.length > 0 && (
-        <section className={styles.section}>
-          <Heading level={2}>Active Regressions</Heading>
+      <section className={styles.section}>
+        <Heading level={2}>Active Regressions</Heading>
+        {metrics.regressionLabels.length > 0 ? (
           <div className={styles.sensorGrid}>
             {metrics.regressionLabels.map((label) => (
               <div key={label} className={styles.sensorRow}>
@@ -573,8 +576,10 @@ export function AiHealthPage() {
               </div>
             ))}
           </div>
-        </section>
-      )}
+        ) : (
+          <Text className={styles.statNote}>No active regressions since last run</Text>
+        )}
+      </section>
     </div>
   );
 }

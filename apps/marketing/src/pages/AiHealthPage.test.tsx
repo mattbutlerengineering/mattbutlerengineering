@@ -262,6 +262,26 @@ describe("AiHealthPage", () => {
     });
   });
 
+  it("renders As of with time and timezone, deterministic near midnight UTC (#9814)", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ ...MOCK_REPORT, generated_at: "2026-11-26T23:58:00.000Z" }),
+    });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText(/As of November 26, 2026.*11:58 PM UTC/)).toBeInTheDocument();
+    });
+  });
+
+  it("renders an empty state when there are no active regressions (#9814)", async () => {
+    mockFetch.mockResolvedValue({ ok: true, json: async () => MOCK_REPORT });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Active Regressions")).toBeInTheDocument();
+    });
+    expect(screen.getByText("No active regressions since last run")).toBeInTheDocument();
+  });
+
   it("renders link to raw JSON", async () => {
     mockFetch.mockResolvedValue({ ok: true, json: async () => MOCK_REPORT });
     renderPage();
@@ -400,6 +420,31 @@ describe("AiHealthPage", () => {
       expect(
         within(costCard as HTMLElement).getByText(/no PR cost data matched this window/i)
       ).toBeInTheDocument();
+    });
+
+    it("says Cost / Issue is not instrumented yet when cost coverage is 0 (#9814)", async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          ...MOCK_REPORT,
+          sensors: {
+            ...MOCK_REPORT.sensors,
+            queueEfficiency: {
+              ...MOCK_REPORT.sensors.queueEfficiency,
+              sub_metrics: {
+                ...MOCK_REPORT.sensors.queueEfficiency.sub_metrics,
+                cost_per_issue_usd: null,
+                cost_coverage_n: 0,
+              },
+            },
+          },
+        }),
+      });
+      renderPage();
+      const costLabel = await screen.findByText("Cost / Issue");
+      const costCard = costLabel.closest(".statCard") as HTMLElement;
+      expect(within(costCard).getByText("Not instrumented yet (#5627)")).toBeInTheDocument();
+      expect(within(costCard).queryByText(/no PR cost data matched/i)).not.toBeInTheDocument();
     });
 
     it("renders a graceful not-available state when the sensor is missing", async () => {
