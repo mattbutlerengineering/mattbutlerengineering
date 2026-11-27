@@ -391,6 +391,12 @@ jobs:
     # `architecture-audit` either: it builds the CLI on its own runner and
     # hands this job nothing; CI Gate still requires it.
     needs: [prepare]
+    # #9924: `issues: read` lets repo-audit's check-ready-label-exclusive query
+    # live labels. A job-level block replaces the workflow default, so
+    # `contents: read` is restated.
+    permissions:
+      contents: read
+      issues: read
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
@@ -443,6 +449,8 @@ jobs:
 
       - name: Run Full Repository Audit
         run: pnpm repo-audit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run pnpm audit (network-resilient)
         # #4993: `pnpm audit --audit-level=high` lives in its own step, not
