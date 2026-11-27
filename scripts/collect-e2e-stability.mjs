@@ -74,6 +74,26 @@ function ranASuite(changedPaths) {
 }
 
 /**
+ * Display names of the suite jobs in e2e.yml (`Hospitality E2E (shard N)` and
+ * its `Hospitality E2E` aggregate, `Marketing E2E`, `Gen E2E`). A skipped matrix
+ * job keeps its unexpanded name, so match on the prefix. Pinned to e2e.yml by
+ * collect-e2e-stability.test.mjs.
+ */
+export const E2E_SUITE_JOB_NAME = /^(Hospitality|Marketing|Gen) E2E\b/;
+
+/**
+ * True when at least one suite job of an `E2E Tests` run executed (any
+ * conclusion but `skipped`). Authoritative: the `changes` job's paths-filter
+ * diffs the whole PR, which the head commit's files cannot reproduce.
+ *
+ * @param {Array<{ name?: string, conclusion?: string | null }>} jobs
+ * @returns {boolean}
+ */
+export function suiteRanFromJobs(jobs) {
+  return jobs.some((j) => E2E_SUITE_JOB_NAME.test(j.name ?? "") && j.conclusion !== "skipped");
+}
+
+/**
  * Count consecutive E2E failures in non-frontend runs, from most recent backward.
  * Runs with conclusion "cancelled" or "skipped" (or null) are skipped — they do
  * not reset the streak nor contribute to it.
@@ -93,7 +113,9 @@ export function computeE2eStability(runs) {
 
   // Filter to non-frontend runs.
   const nonFrontend = sorted.filter(
-    (r) => !isFrontendRun(r.changedPaths) && ranASuite(r.changedPaths)
+    (r) =>
+      !isFrontendRun(r.changedPaths) &&
+      (typeof r.suiteRan === "boolean" ? r.suiteRan : ranASuite(r.changedPaths))
   );
 
   if (nonFrontend.length === 0) {

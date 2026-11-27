@@ -25,6 +25,23 @@ import { GhAuthError } from "@mbe/gh-client";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+// Job shapes of `gh api repos/.../actions/runs/<id>/jobs` for e2e.yml: a no-op
+// run keeps the suite jobs with conclusion "skipped" (matrix name unexpanded).
+const noopJobs = () => [
+  { name: "Detect changed apps", conclusion: "success" },
+  { name: "Hospitality E2E (shard ${{ matrix.shard }})", conclusion: "skipped" },
+  { name: "Hospitality E2E", conclusion: "skipped" },
+  { name: "Marketing E2E", conclusion: "skipped" },
+  { name: "Gen E2E", conclusion: "skipped" },
+];
+const suiteJobs = () => [
+  { name: "Detect changed apps", conclusion: "success" },
+  { name: "Hospitality E2E (shard 1)", conclusion: "success" },
+  { name: "Hospitality E2E", conclusion: "success" },
+  { name: "Marketing E2E", conclusion: "skipped" },
+  { name: "Gen E2E", conclusion: "skipped" },
+];
+
 describe("sensors-registry", () => {
   it("exports a SENSORS array with at least one entry per known sensor", () => {
     const ids = SENSORS.map((s) => s.id);
@@ -754,21 +771,22 @@ describe("sensors-registry", () => {
               // the injected client was used and the result is well-formed —
               // the skip/classification behaviour is covered in the #3172 block.
               headSha: "HEAD",
+              databaseId: 1,
             },
           ]),
         },
       };
       const sensor = SENSORS.find((s) => s.id === "e2eStability");
 
-      const result = sensor.collect({ root: process.cwd(), ghClient });
+      const result = sensor.collect({ root: process.cwd(), ghClient, fetchRunJobs: suiteJobs });
 
       expect(ghClient.workflow.runs).toHaveBeenCalledWith([
         "--limit",
-        "30",
+        "100",
         "--workflow",
         "E2E Tests",
         "--json",
-        "conclusion,createdAt,headBranch,headSha",
+        "conclusion,createdAt,databaseId,headBranch,headSha",
       ]);
       expect(typeof result.available).toBe("boolean");
       expect(result).not.toEqual({ available: false, reason: "no_runs" });
@@ -813,6 +831,7 @@ describe("sensors-registry", () => {
               createdAt: "2026-10-01T00:00:00Z",
               headBranch: "main",
               headSha: "0000000000000000000000000000000000000000",
+              databaseId: 1,
             },
           ]),
         },
@@ -821,7 +840,12 @@ describe("sensors-registry", () => {
       const sensor = SENSORS.find((s) => s.id === "e2eStability");
 
       expect(
-        sensor.collect({ root: process.cwd(), ghClient, fetchCommitPaths: () => null })
+        sensor.collect({
+          root: process.cwd(),
+          ghClient,
+          fetchCommitPaths: () => null,
+          fetchRunJobs: suiteJobs,
+        })
       ).toEqual({
         available: false,
         reason: "no_resolvable_runs",
@@ -837,6 +861,7 @@ describe("sensors-registry", () => {
               createdAt: "2026-10-01T00:00:00Z",
               headBranch: "fix/backend",
               headSha: "0000000000000000000000000000000000000000",
+              databaseId: 1,
             },
           ]),
         },
@@ -844,10 +869,107 @@ describe("sensors-registry", () => {
       const fetchCommitPaths = vi.fn().mockReturnValue(["services/users/src/index.ts"]);
       const sensor = SENSORS.find((s) => s.id === "e2eStability");
 
-      const result = sensor.collect({ root: process.cwd(), ghClient, fetchCommitPaths });
+      const result = sensor.collect({
+        root: process.cwd(),
+        ghClient,
+        fetchCommitPaths,
+        fetchRunJobs: suiteJobs,
+      });
 
       expect(fetchCommitPaths).toHaveBeenCalledWith("0000000000000000000000000000000000000000");
       expect(result).toMatchObject({ available: true, consecutive_failures: 1 });
+    });
+
+    describe("e2eStability classifies runs by job conclusions (#9845)", () => {
+      const sensor = () => SENSORS.find((s) => s.id === "e2eStability");
+      const clientOf = (rows) => ({ workflow: { runs: vi.fn().mockReturnValue(rows) } });
+      const row = (id, conclusion = "failure") => ({
+        databaseId: id,
+        conclusion,
+        createdAt: `2026-11-${String(30 - (id % 30)).padStart(2, "0")}T00:00:00Z`,
+        headBranch: "feat/x",
+        headSha: "1".repeat(40),
+      });
+
+      it("counts a run whose head commit is docs-only but whose suite job ran", () => {
+        const result = sensor().collect({
+          root: process.cwd(),
+          ghClient: clientOf([row(1)]),
+          fetchCommitPaths: () => ["docs/notes.md"],
+          fetchRunJobs: suiteJobs,
+        });
+        expect(result).toMatchObject({ available: true, consecutive_failures: 1 });
+      });
+
+      it("stays available when 30 newer no-op runs precede the suite-running ones", () => {
+        const noops = Array.from({ length: 30 }, (_, i) => row(100 + i, "success"));
+        const fetchRunJobs = (id) => (id >= 100 ? noopJobs() : suiteJobs());
+        const result = sensor().collect({
+          root: process.cwd(),
+          ghClient: clientOf([...noops, row(1), row(2)]),
+          fetchCommitPaths: () => ["services/users/src/index.ts"],
+          fetchRunJobs,
+        });
+        expect(result).toMatchObject({ available: true, consecutive_failures: 2, total_runs: 2 });
+      });
+
+      it("excludes skipped-suite runs and reports no_suite_runs when all are skipped", () => {
+        const result = sensor().collect({
+          root: process.cwd(),
+          ghClient: clientOf([row(1, "success"), row(2, "success")]),
+          fetchCommitPaths: () => ["services/users/src/index.ts"],
+          fetchRunJobs: noopJobs,
+        });
+        expect(result).toEqual({ available: false, reason: "no_suite_runs" });
+      });
+
+      it("reports no_classifiable_runs, not no_suite_runs, when every jobs fetch fails", () => {
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+        const result = sensor().collect({
+          root: process.cwd(),
+          ghClient: clientOf([row(1), row(2)]),
+          fetchCommitPaths: () => ["services/users/src/index.ts"],
+          fetchRunJobs: () => null,
+        });
+        expect(result).toEqual({ available: false, reason: "no_classifiable_runs" });
+        expect(warn).toHaveBeenCalledWith(expect.stringContaining("2 E2E run(s)"));
+        warn.mockRestore();
+      });
+
+      it('never fetches jobs for an in-progress run (gh run list conclusion "")', () => {
+        const fetchRunJobs = vi.fn(suiteJobs);
+        sensor().collect({
+          root: process.cwd(),
+          ghClient: clientOf([row(7, ""), row(1)]),
+          fetchCommitPaths: () => ["services/users/src/index.ts"],
+          fetchRunJobs,
+        });
+        expect(fetchRunJobs).not.toHaveBeenCalledWith(7);
+      });
+
+      it("bounds jobs API calls and stops at the window size", () => {
+        const many = Array.from({ length: 100 }, (_, i) => row(i + 1));
+        const fetchRunJobs = vi.fn(suiteJobs);
+        const result = sensor().collect({
+          root: process.cwd(),
+          ghClient: clientOf(many),
+          fetchCommitPaths: () => ["services/users/src/index.ts"],
+          fetchRunJobs,
+        });
+        expect(fetchRunJobs).toHaveBeenCalledTimes(30);
+        expect(result).toMatchObject({ total_runs: 30 });
+      });
+
+      it("drops cancelled runs without fetching their jobs", () => {
+        const fetchRunJobs = vi.fn(suiteJobs);
+        sensor().collect({
+          root: process.cwd(),
+          ghClient: clientOf([row(1, "cancelled")]),
+          fetchCommitPaths: () => ["services/users/src/index.ts"],
+          fetchRunJobs,
+        });
+        expect(fetchRunJobs).not.toHaveBeenCalled();
+      });
     });
 
     it("lighthouse sensor names the missing committed summary", () => {
