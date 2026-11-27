@@ -209,6 +209,14 @@ describe("App", () => {
     expect(robotsContent()).toBe("noindex, nofollow");
   });
 
+  it("marks the signed-in dashboard noindex, nofollow at the root and on a deep link", () => {
+    const { unmount } = renderAt({ phase: "ready" });
+    expect(robotsContent()).toBe("noindex, nofollow");
+    unmount();
+    renderAt({ phase: "ready" }, DEEP_LINK);
+    expect(robotsContent()).toBe("noindex, nofollow");
+  });
+
   it("keeps the plain gate at the root after a sign-out round-trip", () => {
     renderAt({ phase: "signed-out", afterSignOut: true });
     expect(screen.getByTestId("login-prompt")).toBeDefined();
