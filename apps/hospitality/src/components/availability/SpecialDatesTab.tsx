@@ -95,7 +95,10 @@ function hoursRange(rule: SpecialDateRule, format: VenueFormat, t: TFunction): s
     .join(", ");
 }
 
-/** "Closed · From 10:00 PM", or "Online booking paused": what a closure really closes, and from when. */
+/**
+ * "Closing early · 10:00 PM", "Patio closed · Closing early · 9:00 PM", or "Online booking paused ·
+ * From 6:00 PM": what a closure really closes, and from when.
+ */
 function closureDetail(
   rule: SpecialDateRule,
   format: VenueFormat,
@@ -103,6 +106,7 @@ function closureDetail(
   sectionNames?: ReadonlyMap<string, string>
 ): string {
   const closes = closureKindOf(rule, sectionNames);
+  const pause = isOnlinePauseRule(rule) || closes.kind === "booking";
   const what = isOnlinePauseRule(rule)
     ? t("availability.paused.banner")
     : closes.kind === "booking"
@@ -114,12 +118,12 @@ function closureDetail(
       : closes.kind === "section"
         ? t("availabilitySpecial.kind.sectionClosed", { section: closes.section })
         : t("availabilitySpecial.kind.closure");
-  return rule.window
-    ? [
-        what,
-        t("availability.close.window.from", { time: minuteText(rule.window.from, t, format) }),
-      ].join(" · ")
-    : what;
+  if (!rule.window) return what;
+  const time = minuteText(rule.window.from, t, format);
+  if (pause) return [what, t("availability.close.window.from", { time })].join(" · ");
+  const closingEarly = t("availability.close.window.closingEarly", { time });
+  // A venue closing early needs no "Closed" before it; a section names itself first.
+  return closes.kind === "section" ? [what, closingEarly].join(" · ") : closingEarly;
 }
 
 interface RowProps {

@@ -235,7 +235,7 @@ describe("SpecialDatesTab", () => {
     expect(screen.queryByText("Online booking paused")).toBeNull();
   });
 
-  it("names a closure's start time (#8032)", () => {
+  it("names a venue closure from a time as closing early, without a Closed prefix (#9930)", () => {
     const fromTen: DateRule = {
       id: "late",
       kind: "closure",
@@ -246,7 +246,38 @@ describe("SpecialDatesTab", () => {
     };
     renderTab(true, { ...STATE, config: { ...STATE.config, dateRules: [fromTen] } });
     // Dec 24: the row names the holiday first.
-    expect(screen.getByText("Christmas Eve · Closed · From 10:00 PM")).toBeTruthy();
+    expect(screen.getByText("Christmas Eve · Closing early · 10:00 PM")).toBeTruthy();
+  });
+
+  it("names a section closure from a time as the section closing early (#9930)", () => {
+    const patio = {
+      id: "patio",
+      kind: "closure",
+      targetKind: "tables",
+      sectionId: "sec-patio",
+      tableIds: ["t1"],
+      startsOn: "2026-12-10",
+      endsOn: "2026-12-10",
+      window: { version: 1, from: 21 * 60, to: 2880 },
+    } as DateRule;
+    render(
+      <VenueContext.Provider value={VENUE}>
+        <ToastProvider>
+          <main>
+            <SpecialDatesTab
+              venueId="venue-1"
+              state={{ ...STATE, config: { ...STATE.config, dateRules: [patio] } }}
+              timezone="America/Los_Angeles"
+              today="2026-12-01"
+              onStale={vi.fn()}
+              isManager
+              sectionNames={new Map([["sec-patio", "Patio"]])}
+            />
+          </main>
+        </ToastProvider>
+      </VenueContext.Provider>
+    );
+    expect(screen.getByText("Patio closed · Closing early · 9:00 PM")).toBeTruthy();
   });
 
   it("names each closure row's buttons with its date", () => {
