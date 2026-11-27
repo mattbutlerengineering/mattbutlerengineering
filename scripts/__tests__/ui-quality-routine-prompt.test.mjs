@@ -286,6 +286,16 @@ describe("docs/routines/mbe-ui-quality.md", () => {
       expect(fix).toMatch(/switch back to `ui-quality\/ledger`|git switch ui-quality\/ledger/);
     });
 
+    it("commits each fix-PR record before the next candidate's clean-tree check (#10001)", () => {
+      const fix = block.slice(at("Fix PRs (at most three)"), at("P1 SLA"));
+      const record = fix.indexOf("--executed .ui-quality/fix-pr.json");
+      expect(record).toBeGreaterThan(-1);
+      expect(fix.slice(record)).toMatch(
+        /commit the recorded ledger in place on `ui-quality\/ledger` before the next candidate/
+      );
+      expect(fix.slice(record)).toContain("metrics/ui-quality-findings.json");
+    });
+
     it("7c commits in place, pushes without force, and opens a PR only when none is open", () => {
       const seven = block.slice(at("(7) Record"));
       expect(seven).toContain("chore(ui-quality): ledger <YYYY-MM-DD>");
