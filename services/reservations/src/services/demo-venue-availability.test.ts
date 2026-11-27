@@ -47,6 +47,7 @@ async function seededRows() {
         return {};
       }),
     },
+    menu: { count: vi.fn().mockResolvedValue(1), create: vi.fn() },
   };
   const db = { $transaction: (fn: (t: typeof tx) => unknown) => fn(tx) } as unknown as PrismaClient;
   await ensureDemoVenue(db);
