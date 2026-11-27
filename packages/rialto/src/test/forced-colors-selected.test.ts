@@ -131,8 +131,8 @@ const FOCUS_UNDER_NONE: Record<string, string[]> = {
 function forcedRuleBodies(rel: string, selector: string): string[] {
   const rules = forcedColors(rel).matchAll(/([^{}]+)\{([^{}]*)\}/g);
   return [...rules]
-    .filter(([, sel]) => sel.split(",").some((part) => part.trim() === selector))
-    .map(([, , body]) => body);
+    .filter((m) => (m[1] ?? "").split(",").some((part) => part.trim() === selector))
+    .map((m) => m[2] ?? "");
 }
 
 describe("rialto forced-colors focus ring on adjusted fills", () => {
