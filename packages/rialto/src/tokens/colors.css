@@ -18,7 +18,7 @@
   --rialto-surface-matte: #d8d4cd;
   /* Heavy separators, decorative dark accents */
   --rialto-surface-deep: #a8a49d;
-  /* Parchment band (smoked brass in dark): page bands, Tabs track, grouped regions. Pair with data-surface="tinted" */
+  /* Parchment band (the recessed surface in dark: dark tinted is not a signature surface): page bands, Tabs track, grouped regions. Pair with data-surface="tinted" */
   --rialto-surface-tinted: #e9dfcf;
   /* Plum velvet band: signature bands with ivory text. Pair with data-surface="velvet" */
   --rialto-surface-velvet: #4a3a5c;
@@ -115,7 +115,7 @@
   --rialto-surface-recessed: #141312;
   --rialto-surface-matte: #3a3633;
   --rialto-surface-deep: #4a4643;
-  --rialto-surface-tinted: #3b3022;
+  --rialto-surface-tinted: #141312;
   --rialto-surface-velvet: #3b2f4a;
 
   /* ── Text ─────────────────────────────────────── */
@@ -188,7 +188,7 @@
   --rialto-surface-matte: #d8d4cd;
   /* Heavy separators, decorative dark accents */
   --rialto-surface-deep: #a8a49d;
-  /* Parchment band (smoked brass in dark): page bands, Tabs track, grouped regions. Pair with data-surface="tinted" */
+  /* Parchment band (the recessed surface in dark: dark tinted is not a signature surface): page bands, Tabs track, grouped regions. Pair with data-surface="tinted" */
   --rialto-surface-tinted: #e9dfcf;
   /* Plum velvet band: signature bands with ivory text. Pair with data-surface="velvet" */
   --rialto-surface-velvet: #4a3a5c;
@@ -294,18 +294,6 @@
   --rialto-focus-ring: #8f6a14;
 }
 
-[data-theme="dark"] [data-surface="tinted"] {
-  --rialto-surface: #3b3022;
-  --rialto-focus-gap: #3b3022;
-  --rialto-text-primary: rgb(253 252 250 / 0.92);
-  --rialto-text-secondary: rgb(253 252 250 / 0.6);
-  /* 55%, not the base 50%, which fails on the band */
-  --rialto-text-tertiary: rgb(253 252 250 / 0.55);
-  --rialto-border: rgb(255 255 255 / 0.4);
-  --rialto-border-strong: rgb(255 255 255 / 0.6);
-  --rialto-focus-ring: #d4a23a;
-}
-
 [data-theme="dark"] [data-theme="light"] [data-surface="tinted"] {
   --rialto-surface: #e9dfcf;
   --rialto-focus-gap: #e9dfcf;
@@ -328,6 +316,8 @@
   --rialto-border: rgb(246 239 226 / 0.45);
   --rialto-border-strong: rgb(246 239 226 / 0.6);
   --rialto-focus-ring: #d4a23a;
+  /* Velvet error red: the base #b84a3c is under 3:1 on velvet */
+  --rialto-error: #ff9a8a;
 }
 
 [data-theme="dark"] [data-surface="velvet"] {
@@ -339,6 +329,7 @@
   --rialto-border: rgb(255 255 255 / 0.4);
   --rialto-border-strong: rgb(255 255 255 / 0.6);
   --rialto-focus-ring: #d4a23a;
+  --rialto-error: #ff9a8a;
 }
 
 [data-theme="dark"] [data-theme="light"] [data-surface="velvet"] {
@@ -351,4 +342,6 @@
   --rialto-border: rgb(246 239 226 / 0.45);
   --rialto-border-strong: rgb(246 239 226 / 0.6);
   --rialto-focus-ring: #d4a23a;
+  /* Velvet error red: the base #b84a3c is under 3:1 on velvet */
+  --rialto-error: #ff9a8a;
 }

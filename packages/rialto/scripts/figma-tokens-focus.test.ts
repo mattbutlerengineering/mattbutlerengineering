@@ -1,7 +1,7 @@
 // @vitest-environment node
 /**
  * The focus shadow lives in a shared multi-selector rule in shadows.css
- * (`:root, [data-theme="dark"], [data-surface], [data-palette]`, ADR-035), not
+ * (`:root, [data-theme], [data-surface], [data-palette]`, ADR-035), not
  * in the per-theme blocks the Figma generator parses. This pins that the
  * Figma export still carries it in both modes. `pnpm regen --check` keeps the
  * committed file equal to the generator's output.

@@ -104,11 +104,9 @@
 /* Focus-visible state for all interactive elements. A 2px gap in the focus-gap
    colour, then a 2px ring: both default to the surface and accent, and a
    data-surface band re-declares them (ADR-035). Declared on every scope
-   element so the shadow re-resolves against the scope's own gap and ring;
-   [data-theme="dark"] keeps today's behaviour for a dark element under a
-   light root until [data-theme] joins with the palette promotion. */
+   element so the shadow re-resolves against the scope's own gap and ring. */
 :root,
-[data-theme="dark"],
+[data-theme],
 [data-surface],
 [data-palette] {
   --rialto-shadow-focus:

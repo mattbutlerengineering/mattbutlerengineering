@@ -95,6 +95,13 @@ describe("data-surface scopes", () => {
     } as const;
 
     for (const [mode, selector] of Object.entries(selectors)) {
+      // Dark tinted (brown) is not a signature surface: it keeps the dark theme's values.
+      if (scope === "tinted" && mode === "dark") {
+        it("tinted (dark) declares no scope block", () => {
+          expect(tokensCss).not.toContain(`${selector} {`);
+        });
+        continue;
+      }
       it(`${scope} (${mode}) re-declares the on-surface tokens`, () => {
         const scoped = declarations(selector);
         for (const name of SCOPE_TOKENS) {
@@ -109,10 +116,34 @@ describe("data-surface scopes", () => {
       expect(declarations(selectors.light).get("--rialto-surface")).toBe(
         ROOT.get(`--rialto-surface-${scope}`)
       );
-      expect(declarations(selectors.dark).get("--rialto-surface")).toBe(
-        DARK.get(`--rialto-surface-${scope}`)
-      );
+      if (scope !== "tinted") {
+        expect(declarations(selectors.dark).get("--rialto-surface")).toBe(
+          DARK.get(`--rialto-surface-${scope}`)
+        );
+      }
       expect(declarations(selectors.nestedLight)).toEqual(declarations(selectors.light));
     });
   }
+});
+
+describe("velvet error red", () => {
+  it("re-declares --rialto-error on velvet in light, dark and a nested light island", () => {
+    for (const selector of [
+      '[data-surface="velvet"]',
+      '[data-theme="dark"] [data-surface="velvet"]',
+      '[data-theme="dark"] [data-theme="light"] [data-surface="velvet"]',
+    ]) {
+      expect(declarations(selector).has("--rialto-error"), selector).toBe(true);
+    }
+  });
+
+  it("is not re-declared on tinted", () => {
+    expect(declarations('[data-surface="tinted"]').has("--rialto-error")).toBe(false);
+  });
+});
+
+describe("dark tinted surface", () => {
+  it("is no longer the brown signature band: it equals the dark recessed surface", () => {
+    expect(DARK.get("--rialto-surface-tinted")).toBe(DARK.get("--rialto-surface-recessed"));
+  });
 });

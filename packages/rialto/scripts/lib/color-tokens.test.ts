@@ -44,4 +44,24 @@ describe("assertSurfaceScopeParity", () => {
     };
     expect(() => assertSurfaceScopeParity(file)).toThrow(/velvet/);
   });
+
+  it("accepts a scope whose dark group is empty: it keeps the dark theme's values", () => {
+    expect(() => assertSurfaceScopeParity(scopes({}))).not.toThrow();
+  });
+
+  it("accepts an error key on one scope without the others declaring it", () => {
+    const file: TokenGroup = {
+      "surface-scope": {
+        tinted: {
+          light: { surface: token("#e9dfcf") },
+          dark: {},
+        },
+        velvet: {
+          light: { surface: token("#4a3a5c"), error: token("#ff9a8a") },
+          dark: { surface: token("#3b2f4a"), error: token("#ff9a8a") },
+        },
+      },
+    };
+    expect(() => assertSurfaceScopeParity(file)).not.toThrow();
+  });
 });

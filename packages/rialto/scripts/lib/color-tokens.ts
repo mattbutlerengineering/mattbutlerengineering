@@ -92,6 +92,12 @@ export function assertTokenParity(light: TokenGroup, dark: TokenGroup): void {
   }
 }
 
+/**
+ * Keys a scope may declare without the others following. `error` re-declares
+ * --rialto-error where the base red fails contrast (velvet).
+ */
+export const OPTIONAL_SCOPE_KEYS: ReadonlySet<string> = new Set(["error"]);
+
 /** Themes every surface scope declares, in emission order. */
 export const SURFACE_SCOPE_THEMES = ["light", "dark"] as const;
 
@@ -99,8 +105,9 @@ export const SURFACE_SCOPE_THEMES = ["light", "dark"] as const;
  * The `surface-scope` group of colors.surfaces.json (ADR-035), checked: one
  * entry per scope, each with a light and a dark token group. Throws when a
  * scope lacks a theme, when a scope's light and dark keys differ, or when two
- * scopes declare different keys — any of which would leave a band reading
- * its parent's value for one token in one theme.
+ * scopes declare different keys (beyond OPTIONAL_SCOPE_KEYS) — any of which
+ * would leave a band reading its parent's value for one token in one theme.
+ * An empty dark group is allowed: the scope keeps the dark theme's values.
  */
 export function assertSurfaceScopeParity(file: TokenGroup): void {
   const scopes = file["surface-scope"];
@@ -120,7 +127,7 @@ export function assertSurfaceScopeParity(file: TokenGroup): void {
       }
       return new Set(walkTokens(group).map((entry) => entry.path.join(".")));
     }) as [Set<string>, Set<string>];
-    const missing = [...lightKeys].filter((key) => !darkKeys.has(key));
+    const missing = darkKeys.size === 0 ? [] : [...lightKeys].filter((key) => !darkKeys.has(key));
     const extra = [...darkKeys].filter((key) => !lightKeys.has(key));
     if (missing.length > 0 || extra.length > 0) {
       throw new Error(
@@ -129,7 +136,10 @@ export function assertSurfaceScopeParity(file: TokenGroup): void {
           (extra.length > 0 ? ` Extra in dark: ${extra.join(", ")}.` : "")
       );
     }
-    const keys = [...lightKeys].sort().join(",");
+    const keys = [...lightKeys]
+      .filter((key) => !OPTIONAL_SCOPE_KEYS.has(key))
+      .sort()
+      .join(",");
     if (reference === undefined) {
       reference = { scope, keys };
     } else if (reference.keys !== keys) {

@@ -23,7 +23,6 @@ export const BOARD_COLUMNS: readonly BoardColumn[] = [
   { id: "light-tinted", label: "Light tinted", theme: "light", surface: "tinted" },
   { id: "velvet", label: "Velvet", theme: "light", surface: "velvet" },
   { id: "dark-canvas", label: "Dark canvas", theme: "dark", surface: null },
-  { id: "dark-tinted", label: "Dark tinted", theme: "dark", surface: "tinted" },
 ];
 
 export const BOARD_ROWS = ["Button", "Input", "Select", "Card", "Tabs"] as const;
@@ -54,6 +53,7 @@ function columnTokens(column: BoardColumn): Readonly<Record<string, string>> {
     "text-primary": c.text.primary.$value,
     "text-secondary": c.text.secondary.$value,
     "text-tertiary": c.text.tertiary.$value,
+    error: c.semantic.error.default.$value,
     plum: c.plum.default.$value,
     "plum-muted": c.plum.muted.$value,
     "focus-ring": c.focus.ring.$value,
@@ -87,7 +87,13 @@ function specs(row: BoardRow, column: BoardColumn): PairSpec[] {
       ];
     case "Input":
     case "Select":
-      return [{ label: "text on well", fg: "text-primary", bg: well, min: 4.5 }, focus];
+      return [
+        { label: "text on well", fg: "text-primary", bg: well, min: 4.5 },
+        ...(row === "Input" && column.surface === "velvet"
+          ? [{ label: "error text", fg: "error", bg: well, min: 4.5 } as const]
+          : []),
+        focus,
+      ];
     case "Card": {
       const sheet = column.surface === "velvet" ? "surface" : "surface-elevated";
       return [
