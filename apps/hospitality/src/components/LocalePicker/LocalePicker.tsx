@@ -7,7 +7,7 @@ import { MACHINE_TRANSLATION_TAGS } from "./machine-translation-tags.js";
 import styles from "./LocalePicker.module.css";
 
 export interface LocalePickerProps {
-  /** `sidebar`: globe + endonym menu (icon-only when `collapsed`); `settings`: labelled select with MT note; `compact`: short-code menu for headers. */
+  /** `sidebar`: globe + endonym menu (icon-only when `collapsed`); `settings`: labelled select with MT note; `compact`: language-name menu for headers. */
   variant: "sidebar" | "settings" | "compact";
   /** Sidebar only: show just the globe. The accessible name still carries the current locale. */
   collapsed?: boolean;
@@ -51,9 +51,8 @@ export function LocalePicker({
   const currentLocale = SUPPORTED_LOCALES.find((l) => l.tag === current);
   const localizedName = t("localePicker.triggerName", { locale: currentEndonym });
   // WCAG 2.5.3 (axe label-content-name-mismatch): the compact trigger's visible text is the
-  // short code, so the accessible name must start with it.
-  const triggerName =
-    variant === "compact" ? `${current.toUpperCase()}, ${localizedName}` : localizedName;
+  // language name, so the accessible name must start with it.
+  const triggerName = variant === "compact" ? `${currentEndonym}, ${localizedName}` : localizedName;
 
   return (
     <div className={styles.root} data-variant={variant} aria-busy={pending !== null || undefined}>
@@ -83,16 +82,10 @@ export function LocalePicker({
                 <Text as="span" aria-hidden>
                   🌐
                 </Text>
-                {variant === "compact" ? (
+                {!collapsed && (
                   <Text as="span" aria-hidden lang={current}>
-                    {current.toUpperCase()}
+                    {currentEndonym}
                   </Text>
-                ) : (
-                  !collapsed && (
-                    <Text as="span" aria-hidden lang={current}>
-                      {currentEndonym}
-                    </Text>
-                  )
                 )}
               </Button>
             }
