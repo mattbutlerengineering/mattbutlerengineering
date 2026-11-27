@@ -2,7 +2,9 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useThemeServerHydration } from "./hooks/use-theme.js";
+import { useCurrentUser } from "./hooks/useUsers.js";
 import { MemoryRouter } from "react-router";
 import { useAuth, useAuthGate } from "@mbe/auth/react";
 import type { AuthGate } from "@mbe/auth/react";
@@ -273,6 +275,19 @@ describe("App", () => {
     const wrapper = screen.getByTestId("auth-layout");
     expect(wrapper.className).toContain("authLayout");
     expect(container.querySelector("footer")).toBeNull();
+  });
+
+  it("hydrates the theme from the saved preference once signed in (lazy ThemeServerSync, #9976)", async () => {
+    vi.mocked(useCurrentUser).mockReturnValue({
+      data: { preferences: { theme: "dark" } } as NonNullable<
+        ReturnType<typeof useCurrentUser>["data"]
+      >,
+      isLoading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+    renderAt({ phase: "ready" });
+    await waitFor(() => expect(useThemeServerHydration).toHaveBeenCalledWith("dark"));
   });
 
   describe("document title", () => {
