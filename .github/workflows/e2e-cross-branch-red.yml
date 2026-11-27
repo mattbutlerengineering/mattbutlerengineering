@@ -1,0 +1,36 @@
+name: E2E Cross-Branch Red
+
+# Files a ci-fix issue when one hospitality E2E test is red on 3+ distinct PR
+# branches within 48h. e2e.yml is advisory and never runs on main, so a test
+# broken for everyone otherwise shows up only as red on unrelated PRs (#9829).
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  actions: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
+
+      - uses: ./.github/actions/setup-workspace
+
+      - name: Build gh-client
+        run: pnpm build --filter @mbe/gh-client
+
+      - name: Scan failed E2E runs for cross-branch red tests
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -o pipefail
+          node scripts/e2e-cross-branch-red.mjs scan

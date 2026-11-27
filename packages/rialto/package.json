@@ -1,6 +1,6 @@
 {
   "name": "@mattbutlerengineering/rialto",
-  "version": "3.1.10",
+  "version": "3.1.13",
   "type": "module",
   "main": "./dist/lib/rialto.js",
   "module": "./dist/lib/rialto.js",
@@ -548,12 +548,12 @@
     {
       "name": "Locale es-MX (subpath)",
       "path": "dist/lib/i18n/locales/es-MX.js",
-      "limit": "2.4 kB"
+      "limit": "2.75 kB"
     },
     {
       "name": "Locale fr-CA (subpath)",
       "path": "dist/lib/i18n/locales/fr-CA.js",
-      "limit": "2.55 kB"
+      "limit": "2.9 kB"
     },
     {
       "name": "Button (subpath)",

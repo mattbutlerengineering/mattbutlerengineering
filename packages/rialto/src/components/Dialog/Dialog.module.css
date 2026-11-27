@@ -129,3 +129,10 @@
     margin-top: var(--rialto-space-sm);
   }
 }
+
+/* Forced colors strip box-shadow: draw an edge. */
+@media (forced-colors: active) {
+  .panel {
+    border: 1px solid CanvasText;
+  }
+}

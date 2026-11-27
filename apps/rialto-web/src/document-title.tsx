@@ -1,7 +1,6 @@
-import { useEffect } from "react";
+import { useDocumentTitle } from "./use-document-title.js";
 
-/** The title `index.html` ships with; every route without its own falls back to it. */
-export const BASE_TITLE = "Rialto — Design System";
+export { BASE_TITLE } from "./use-document-title.js";
 
 /**
  * Titles the tab for one route and restores `BASE_TITLE` when it unmounts.
@@ -9,11 +8,6 @@ export const BASE_TITLE = "Rialto — Design System";
  * plain `MemoryRouter` in their tests.
  */
 export function DocumentTitle({ title }: { readonly title: string }) {
-  useEffect(() => {
-    document.title = `${title} — Rialto`;
-    return () => {
-      document.title = BASE_TITLE;
-    };
-  }, [title]);
+  useDocumentTitle(title);
   return null;
 }

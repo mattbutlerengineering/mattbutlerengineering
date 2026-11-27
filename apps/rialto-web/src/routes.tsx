@@ -8,6 +8,7 @@ import { PrivacyPage } from "./pages/PrivacyPage";
 import { DemosIndexPage } from "./pages/DemosIndexPage";
 import { PAGE_REGISTRY } from "./data/page-registry";
 import { DocumentTitle } from "./document-title";
+import { RouteHead } from "./route-head";
 
 /* ── Lazy-loaded demo pages ──────────────────────── */
 const SignIn = lazy(() => import("./pages/auth/SignIn").then((m) => ({ default: m.SignIn })));
@@ -104,59 +105,67 @@ const componentRoutes: RouteObject[] = PAGE_REGISTRY.map((entry) => {
  * Route tree for createBrowserRouter.
  * Uses the v7 data router API which correctly handles basename on deep links.
  *
- * Only ONE pathless layout route (ShowcaseLayout) exists at the top level.
- * DemoLayout uses an explicit `path: "demos"` to avoid ambiguous route matching
- * in React Router v7 when multiple pathless layouts compete at the same level.
+ * RouteHead is the only top-level pathless layout. ShowcaseLayout is the only
+ * pathless route among its siblings; DemoLayout uses an explicit `path: "demos"`
+ * so two pathless layouts never compete at the same level (React Router v7).
  */
 export const routeTree: RouteObject[] = [
-  // Showcase shell (sidebar + header) — eagerly imported to avoid double lazy-load waterfall on /rialto
   {
-    element: <ShowcaseLayout />,
+    element: <RouteHead />,
     children: [
-      { index: true, element: <OverviewPage /> },
-      // Demos index lives in the showcase shell (sidebar + footer, #8641); the
-      // demo pages themselves stay full-page under DemoLayout.
-      { path: "demos", element: titled("Demos", <DemosIndexPage />) },
-      ...componentRoutes,
-    ],
-  },
-  // Demo pages — explicit "demos" path prefix avoids pathless layout ambiguity
-  {
-    path: "demos",
-    element: suspended(DemoLayout),
-    children: [
-      { path: "login", element: titled("Sign In", suspended(SignIn)) },
-      { path: "signup", element: titled("Sign Up", suspended(SignUp)) },
-      { path: "session-expired", element: titled("Session Expired", suspended(SessionExpired)) },
-      { path: "dashboard", element: titled("Pit Wall", suspended(Dashboard)) },
-      { path: "teams/new", element: titled("Team Create", suspended(TeamCreate)) },
-      { path: "layouts", element: titled("Layout Demo", suspended(LayoutDemo)) },
-      { path: "telemetry", element: titled("Telemetry HUD", suspended(Telemetry)) },
-      { path: "auth-flow", element: titled("Auth Flow", suspended(AuthFlowPage)) },
-      { path: "visual-test", element: titled("Visual Test", suspended(VisualTest)) },
+      // Showcase shell (sidebar + header) — eagerly imported to avoid double lazy-load waterfall on /rialto
       {
-        element: suspended(DriverProvider),
+        element: <ShowcaseLayout />,
         children: [
-          { path: "drivers", element: titled("Drivers CRUD", suspended(DriverList)) },
-          { path: "drivers/new", element: titled("New Driver", suspended(DriverCreate)) },
-          { path: "drivers/:id", element: titled("Driver", suspended(DriverRead)) },
-          { path: "drivers/:id/edit", element: titled("Edit Driver", suspended(DriverUpdate)) },
+          { index: true, element: <OverviewPage /> },
+          // Demos index lives in the showcase shell (sidebar + footer, #8641); the
+          // demo pages themselves stay full-page under DemoLayout.
+          { path: "demos", element: titled("Demos", <DemosIndexPage />) },
+          ...componentRoutes,
         ],
       },
+      // Demo pages — explicit "demos" path prefix avoids pathless layout ambiguity
+      {
+        path: "demos",
+        element: suspended(DemoLayout),
+        children: [
+          { path: "login", element: titled("Sign In", suspended(SignIn)) },
+          { path: "signup", element: titled("Sign Up", suspended(SignUp)) },
+          {
+            path: "session-expired",
+            element: titled("Session Expired", suspended(SessionExpired)),
+          },
+          { path: "dashboard", element: titled("Pit Wall", suspended(Dashboard)) },
+          { path: "teams/new", element: titled("Team Create", suspended(TeamCreate)) },
+          { path: "layouts", element: titled("Layout Demo", suspended(LayoutDemo)) },
+          { path: "telemetry", element: titled("Telemetry HUD", suspended(Telemetry)) },
+          { path: "auth-flow", element: titled("Auth Flow", suspended(AuthFlowPage)) },
+          { path: "visual-test", element: titled("Visual Test", suspended(VisualTest)) },
+          {
+            element: suspended(DriverProvider),
+            children: [
+              { path: "drivers", element: titled("Drivers CRUD", suspended(DriverList)) },
+              { path: "drivers/new", element: titled("New Driver", suspended(DriverCreate)) },
+              { path: "drivers/:id", element: titled("Driver", suspended(DriverRead)) },
+              { path: "drivers/:id/edit", element: titled("Edit Driver", suspended(DriverUpdate)) },
+            ],
+          },
+        ],
+      },
+      // Standalone visual-test
+      {
+        path: "visual-test",
+        element: (
+          <main>
+            <DocumentTitle title="Visual Test" />
+            {suspended(VisualTest)}
+          </main>
+        ),
+      },
+      // Privacy policy
+      { path: "privacy", element: titled("Privacy Policy", <PrivacyPage />) },
+      // Catch-all
+      { path: "*", element: <Navigate to="/" replace /> },
     ],
   },
-  // Standalone visual-test
-  {
-    path: "visual-test",
-    element: (
-      <main>
-        <DocumentTitle title="Visual Test" />
-        {suspended(VisualTest)}
-      </main>
-    ),
-  },
-  // Privacy policy
-  { path: "privacy", element: titled("Privacy Policy", <PrivacyPage />) },
-  // Catch-all
-  { path: "*", element: <Navigate to="/" replace /> },
 ];

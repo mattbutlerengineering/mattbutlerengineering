@@ -11,14 +11,13 @@ concurrency:
 permissions:
   contents: write
   pull-requests: write
-  packages: write
   # Required for the "Dispatch CI" step below -- GITHUB_TOKEN needs
   # actions:write to call the workflow-dispatch API.
   actions: write
 
 jobs:
   release:
-    name: Release @mattbutlerengineering/rialto
+    name: Version Packages
     runs-on: ubuntu-latest
 
     steps:
@@ -33,64 +32,35 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          registry-url: https://npm.pkg.github.com
-          scope: "@mattbutlerengineering"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build rialto
-        # Runs on every push, before the action below decides whether to
-        # open/update a Version PR or publish. Harmless when there's nothing
-        # to release; required when there is, since `publish-script:` needs
-        # dist/ already built. changesets/action never runs `version-script`
-        # and `publish-script` in the same invocation (see the step
-        # comment), so there is no "built at the wrong version" hazard from
-        # building first.
-        run: pnpm --filter @mattbutlerengineering/rialto build
-
-      - name: Create Version Packages PR or publish to GitHub Packages
+      - name: Create Version Packages PR
         id: changesets
-        # Standard changesets "Version PR" flow (#3322, replacing the old
-        # direct-push-to-main flow that #5713 exposed as broken -- see PR
-        # body for the "Invalid tree" history). On a push to main with
+        # Version-only changesets flow (#3322, #9698). On a push to main with
         # pending changesets, this opens/updates a `changeset-release/main`
-        # PR running `version-script:`. Once that PR is reviewed and merged
-        # (no changesets left), the next run on main has nothing to version
-        # and runs `publish-script:` instead.
-        #
-        # publish-script auth: @mattbutlerengineering/rialto was hand-
-        # published in April with no `repository` field, so GitHub Packages
-        # never linked it to this repo -- GITHUB_TOKEN can only reach
-        # packages linked to the repo that's running it, so `changeset
-        # publish` 403s (`E403 permission_denied: read_package`, runs
-        # 35961368353 attempts 1-3). NODE_AUTH_TOKEN is RIALTO_PACKAGES_TOKEN
-        # instead: a classic PAT (write:packages scope) that authenticates as
-        # a real identity with explicit access to the orphaned package.
-        # version-script keeps GITHUB_TOKEN below -- it only opens/updates a
-        # PR via the GitHub API and never touches the registry.
+        # PR running `version-script:`. Nothing is published: rialto is
+        # versioned with changesets but published to no registry (#9698), so
+        # there is no `publish-script` and no registry auth. When no
+        # changesets remain the action does nothing.
         #
         # Input/output names are v2 (verified against the pinned SHA's real
         # action.yml, not assumed from v1 memory -- #5721 review, round 3):
-        # `version-script`/`publish-script`/`commit-message`/`pr-title`, and
-        # the output is `pr-number`, not `pullRequestNumber`.
+        # `version-script`/`commit-message`/`pr-title`, and the output is
+        # `pr-number`, not `pullRequestNumber`.
         uses: changesets/action@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
         with:
           commit-message: "chore: version packages"
           pr-title: "chore: version packages"
-          # v2's version-script/publish-script inputs run through
-          # @actions/exec's exec()/getExecOutput() with no `args` array,
-          # which tokenizes the command STRING itself (argv splitting) --
-          # it does not spawn a shell. An inline multi-line block with `#`
-          # comments, `$(...)`, `if`/`fi`, and a redirect can't run that
-          # way. scripts/release-version.sh and scripts/release-publish.sh
-          # check the same logic into real files so `bash` -- not the
-          # tokenizer -- interprets them.
+          # v2's version-script input runs through @actions/exec's
+          # exec()/getExecOutput() with no `args` array, which tokenizes the
+          # command STRING itself (argv splitting) -- it does not spawn a
+          # shell. scripts/release-version.sh checks the logic into a real
+          # file so `bash` -- not the tokenizer -- interprets it.
           version-script: bash scripts/release-version.sh
-          publish-script: bash scripts/release-publish.sh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.RIALTO_PACKAGES_TOKEN }}
 
       - name: Dispatch CI on the Version Packages PR branch
         # The PR above is opened/updated with GITHUB_TOKEN, so its

@@ -29,7 +29,7 @@ import {
 } from "./collect-code-churn.mjs";
 import { computePrCategoryMetrics } from "./collect-pr-metrics.mjs";
 import { computeFlakyTests } from "./collect-flaky-tests.mjs";
-import { computeE2eStability } from "./collect-e2e-stability.mjs";
+import { computeE2eStability, suiteRanFromJobs } from "./collect-e2e-stability.mjs";
 import {
   collectQueueEfficiency,
   QUEUE_EFFICIENCY_COMPOSITE_DROP,
@@ -230,6 +230,58 @@ export function fetchCommitPathsViaApi(sha) {
   }
 }
 
+/** Suite-running `E2E Tests` runs the stability window holds (#9845). */
+export const E2E_WINDOW_RUNS = 30;
+/** Hard cap on raw runs listed, and so on per-run `jobs` API calls (#9845). */
+export const E2E_RAW_RUN_CAP = 100;
+
+/**
+ * Jobs of a workflow run from the GitHub API (`gh api`, REST only). Real shape:
+ * `{ total_count, jobs: [{ name, conclusion, ... }] }`. Returns `null` on any
+ * failure so the caller can treat the run as unclassified.
+ *
+ * @param {number} runId
+ * @returns {Array<{ name: string, conclusion: string | null }> | null}
+ */
+export function fetchRunJobsViaApi(runId) {
+  if (!Number.isInteger(runId)) return null;
+  try {
+    const out = execFileSync(
+      "gh",
+      ["api", `repos/:owner/:repo/actions/runs/${runId}/jobs?per_page=100`],
+      { encoding: "utf-8", timeout: 15000, stdio: ["ignore", "pipe", "pipe"] }
+    );
+    const jobs = JSON.parse(out).jobs;
+    return Array.isArray(jobs) ? jobs : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Keep the newest `E2E_WINDOW_RUNS` completed runs whose suite jobs actually ran
+ * (#9845), tagging each `suiteRan: true`. Skipped/cancelled runs never reach the
+ * denominator (gotchas.md "Rate sensors"); a run whose jobs cannot be fetched is
+ * dropped rather than guessed, and tallied as `unclassified` so the caller can
+ * warn and tell "could not classify" apart from "no suite ran". `ghRuns` arrive
+ * newest first.
+ *
+ * @param {Array<{ databaseId?: number; conclusion?: string }>} ghRuns
+ * @param {(runId: number) => Array<{ name?: string; conclusion?: string | null }> | null} fetchRunJobs
+ */
+export function selectSuiteRuns(ghRuns, fetchRunJobs) {
+  const runs = [];
+  let unclassified = 0;
+  for (const run of ghRuns.slice(0, E2E_RAW_RUN_CAP)) {
+    if (runs.length >= E2E_WINDOW_RUNS) break;
+    if (run.conclusion !== "success" && run.conclusion !== "failure") continue;
+    const jobs = fetchRunJobs(run.databaseId);
+    if (jobs === null) unclassified++;
+    else if (suiteRanFromJobs(jobs)) runs.push({ ...run, suiteRan: true });
+  }
+  return { runs, unclassified };
+}
+
 /**
  * Map raw workflow-run rows into the shape `computeE2eStability` expects,
  * dropping runs whose head SHA cannot be resolved in the local git object
@@ -254,6 +306,7 @@ export function buildE2eRuns(ghRuns, resolveChangedPaths) {
       continue;
     }
     runs.push({
+      ...(typeof run.suiteRan === "boolean" ? { suiteRan: run.suiteRan } : {}),
       sha: run.headSha ?? "",
       conclusion: run.conclusion,
       changedPaths,
@@ -1041,7 +1094,12 @@ export const SENSORS = [
   {
     id: "e2eStability",
     category: "availability",
-    collect: ({ root, ghClient, fetchCommitPaths = fetchCommitPathsViaApi }) => {
+    collect: ({
+      root,
+      ghClient,
+      fetchCommitPaths = fetchCommitPathsViaApi,
+      fetchRunJobs = fetchRunJobsViaApi,
+    }) => {
       let ghRuns;
       try {
         // #5005: scoped to the real E2E workflow only — the same class of
@@ -1067,18 +1125,39 @@ export const SENSORS = [
         // real signal is the PR runs. Their head SHAs are PR-branch commits
         // missing from a scheduled checkout, which made every run
         // unresolvable; changed paths now fall back to the GitHub API.
+        //
+        // #9845: no-op runs (every suite job skipped) now dominate the list,
+        // so fetch up to E2E_RAW_RUN_CAP and keep the newest E2E_WINDOW_RUNS
+        // that actually ran a suite, judged by job conclusions.
         ghRuns = ghClient.workflow.runs([
           "--limit",
-          "30",
+          String(E2E_RAW_RUN_CAP),
           "--workflow",
           "E2E Tests",
           "--json",
-          "conclusion,createdAt,headBranch,headSha",
+          "conclusion,createdAt,databaseId,headBranch,headSha",
         ]);
       } catch (err) {
         // Distinguishable from "no runs yet" (#3937) — a thrown error (e.g.
         // auth failure) is a query failure, not an empty-but-valid result.
         return { available: false, error: describeGhError(err) };
+      }
+
+      if (ghRuns.length > 0) {
+        const { runs: suiteRuns, unclassified } = selectSuiteRuns(ghRuns, fetchRunJobs);
+        if (unclassified > 0) {
+          console.warn(
+            `[e2eStability] ${unclassified} E2E run(s) skipped: their jobs could not be fetched, ` +
+              "so the window and streak may be incomplete."
+          );
+        }
+        if (suiteRuns.length === 0) {
+          return {
+            available: false,
+            reason: unclassified > 0 ? "no_classifiable_runs" : "no_suite_runs",
+          };
+        }
+        ghRuns = suiteRuns;
       }
 
       // Resolve each run's changed paths locally, skipping (and tallying) any

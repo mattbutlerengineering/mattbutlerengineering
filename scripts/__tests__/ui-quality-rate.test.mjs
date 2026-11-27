@@ -17,7 +17,12 @@ import { buildPairs, main, positionOf, scoreOf } from "../ui-quality/rate.mjs";
 import { calibrationPairs, validateCalibrationSet } from "../ui-quality/calibration.mjs";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const RUBRIC = JSON.parse(readFileSync(join(REPO, "docs/ui-quality/rubric.json"), "utf8"));
+// Pinned to v1: these fixtures are about the rater's mechanics, not the committed
+// rubric's version (a bump of rubric.json must not rewrite every fixture).
+const RUBRIC = {
+  ...JSON.parse(readFileSync(join(REPO, "docs/ui-quality/rubric.json"), "utf8")),
+  rubric_version: 1,
+};
 
 const SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
@@ -81,6 +86,9 @@ function makeRoot({ routineModel = "claude-opus-5" } = {}) {
   for (const [app, rows] of Object.entries(MANIFESTS)) {
     const dir = join(root, ".ui-quality/captures", app);
     mkdirSync(dir, { recursive: true });
+    for (const r of rows) {
+      if (r.fold) writeFileSync(join(dir, r.fold.file), png(1280, 720, `${app}|${r.route}`));
+    }
     writeFileSync(
       join(dir, "manifest.jsonl"),
       rows.map((r) => JSON.stringify(r)).join("\n") + "\n"
@@ -670,13 +678,22 @@ describe("record stamps calibration status from the latest record with the fire'
   });
 });
 
-describe("committed calibration.json placeholder", () => {
-  const placeholder = JSON.parse(
-    readFileSync(join(REPO, "docs/ui-quality/calibration.json"), "utf8")
-  );
+const PLACEHOLDER = { labelled_at: null, labelled_by: null, pairs: [] };
 
-  it("ships labelled_at: null and pairs: [] and validates against the schema", () => {
-    expect(placeholder).toEqual({ labelled_at: null, labelled_by: null, pairs: [] });
+describe("committed calibration.json", () => {
+  it("is the Owner's labelled set and validates in full against the committed images (#9700)", () => {
+    const committed = JSON.parse(
+      readFileSync(join(REPO, "docs/ui-quality/calibration.json"), "utf8")
+    );
+    expect(committed.labelled_by).toBe("Matt");
+    expect(validateCalibrationSet(committed, { root: REPO, rubric: RUBRIC })).toEqual([]);
+  });
+});
+
+describe("unlabelled calibration.json placeholder", () => {
+  const placeholder = PLACEHOLDER;
+
+  it("validates against the schema with allowEmpty", () => {
     expect(
       validateCalibrationSet(placeholder, { root: REPO, rubric: RUBRIC, allowEmpty: true })
     ).toEqual([]);
@@ -799,8 +816,7 @@ describe("rate.mjs calibration-status --model-id <id>", () => {
   });
 
   it("the unlabelled placeholder (pairs: []) reads stale (exit 3), never bad input", () => {
-    const placeholder = readFileSync(join(REPO, "docs/ui-quality/calibration.json"));
-    writeFileSync(join(root, "docs/ui-quality/calibration.json"), placeholder);
+    writeFileSync(join(root, "docs/ui-quality/calibration.json"), JSON.stringify(PLACEHOLDER));
     expect(status().code).toBe(3);
   });
 
@@ -845,5 +861,44 @@ describe("rate.mjs calibration-status --model-id <id>", () => {
       const { key: _key, ...queried } = parsed(status(modelId));
       expect(stampedBy(modelId)).toEqual(queried);
     });
+  });
+});
+
+describe("judge view — the judging pass is blind to which side is ours", () => {
+  const JUDGE_VIEW = ".ui-quality/judge-pairs.json";
+  const ORIGIN_MARKER =
+    /ours|reference|position|captures|calibration|shadcn|mantine|medusa|tremor|chakra/i;
+
+  /** Every image a judge view names must exist, under a neutral path. */
+  function expectBlind(root, plan) {
+    const view = JSON.parse(readFileSync(join(root, JUDGE_VIEW), "utf8"));
+    expect(view.pairs.map((p) => p.pair_id)).toEqual(plan.pairs.map((p) => p.id));
+    expect(JSON.stringify(view)).not.toMatch(ORIGIN_MARKER);
+    for (const p of view.pairs) {
+      expect(Object.keys(p).sort()).toEqual(["a", "b", "pair_id"]);
+      expect(existsSync(join(root, p.a))).toBe(true);
+      expect(existsSync(join(root, p.b))).toBe(true);
+    }
+  }
+
+  it("pairs writes a judge view with no origin marker, same A/B images as the plan", () => {
+    const root = makeRoot();
+    expect(run(root, ["pairs"]).code).toBe(0);
+    const plan = readPlan(root);
+    expectBlind(root, plan);
+    const view = JSON.parse(readFileSync(join(root, JUDGE_VIEW), "utf8"));
+    expect(readFileSync(join(root, view.pairs[0].a))).toEqual(
+      readFileSync(join(root, plan.pairs[0].a.path))
+    );
+  });
+
+  it("pairs --calibration writes the same blind view", () => {
+    const root = makeRoot();
+    labelled(root);
+    expect(run(root, ["pairs", "--calibration"]).code).toBe(0);
+    expectBlind(
+      root,
+      JSON.parse(readFileSync(join(root, ".ui-quality/calibration-plan.json"), "utf8"))
+    );
   });
 });

@@ -508,7 +508,7 @@ describe("MetricsPage", () => {
     await waitFor(() => {
       expect(screen.getByText("80.0%")).toBeInTheDocument();
     });
-    expect(screen.getByText(`Last measured ${formatDate(lastRun)}`)).toBeInTheDocument();
+    expect(screen.getByText(`Last measured ${formatDate(lastRun)} (weekly)`)).toBeInTheDocument();
   });
 
   it("renders a count gate as a count, not a percentage (auto-qa-tuning-history)", async () => {

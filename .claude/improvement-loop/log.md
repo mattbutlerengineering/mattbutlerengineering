@@ -1,132 +1,3 @@
-## 2026-11-12
-
-**queueEfficiency:** composite 0.921 (baseline n/a) — healthy
-**Difficulty distribution:** size:l:10, size:xs:18, size:s:24, size:m:17, size:xl:7
-**Issues filed:** 0
-
-## 2026-11-12 — mbe-evening (progress-tracker)
-
-### Metrics (7d; `audit`+`ci-fix` labels, REST issue search sorted by `created_at`/`closed_at`, exact)
-
-| Metric                 | Value                                                                                                                                                                                     | Status                                                                                 |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| Created (7d)           | 61 (audit + ci-fix)                                                                                                                                                                       | -                                                                                      |
-| Closed (7d)            | 48                                                                                                                                                                                        | -                                                                                      |
-| Closure Rate           | 48/61 = 78.7%                                                                                                                                                                             | 🟡 Yellow (50-80%, just under the 80% Green line)                                      |
-| Time-to-Close          | mean 23.9h                                                                                                                                                                                | 🟡 Yellow (right at the 24h Green/Yellow line)                                         |
-| Agent Success          | has-pr/(has-pr+failed), open snapshot = 2/(2+6) = 25%                                                                                                                                     | 🔴 Red (<40%) — but see Patterns: this is a snapshot artifact, not a real failure rate |
-| CI Pass                | 7/7 = 100% (last 20 main-branch runs, `skipped`/`cancelled`/in-progress excluded per gotchas.md's rate-sensor rule)                                                                       | 🟢 Green (>95%)                                                                        |
-| Queue (ready)          | 6 open                                                                                                                                                                                    | 🟡 Yellow (5-10) — but see Patterns: effectively 1 actionable                          |
-| Stale (ready>7d)       | 0                                                                                                                                                                                         | 🟢 Green                                                                               |
-| Blocked (agent-failed) | 6                                                                                                                                                                                         | 🔴 Red (target 0) — see Patterns                                                       |
-| Skipped (agent-skip)   | 0                                                                                                                                                                                         | 🟢 Green                                                                               |
-| Daily Spend            | $0 attributed `recordSpend` sessions today; this run's 2 implement-queue workers (139,690 tokens combined) carried no `cost_usd` in their `<usage>` payload — reported as unknown, not $0 | n/a                                                                                    |
-| 7d Spend               | $1.54 attributed (3 `recordSpend` sessions) + 6 queue-worker sessions this window, 1,269,421 tokens, cost unconverted (74 rows with no usage)                                             | n/a                                                                                    |
-| Cost/Issue             | unknown — denominator mismatch (attributed spend tracks `agent-core` sessions, not audit/ci-fix issue closures)                                                                           | n/a                                                                                    |
-
-### Patterns
-
-- **3 of 6 open `audit`-labelled issues claimed as `ready` this run (#8686, #8687, #8691) are self-declared decompose-only epics mis-tagged `ready`.** Each one's own body ends with an identical `## Handling` footer: _"Epic-sized on purpose: run `/decompose` on this issue to produce the ordered child issues. ... Not labelled `ready`."_ — yet all three currently carry the `ready` label. This session's compose step (`scripts/issue-zone.mjs`, zone-spread under `strictMain: true`) claimed #8687 into this run's batch; the dispatched worker re-read the full body (per its brief's step 2) and correctly refused to force a single-PR fix onto a self-scoped epic rather than invent an undersized slice that would prematurely close a 6-acceptance-criteria, 9+ file, i18n-touching tracking issue. Reverted #8687 to `agent-failed` with a comment explaining the drift and naming the two siblings; no code change, no PR. **This is the main driver of today's red Agent Success (2/8) and Blocked (6) numbers** — 1 of the 6 `agent-failed` issues is this session's own correctly-declined claim, not a worker failure. Recommend: a human (or `/decompose` itself) strips `ready` from #8686/#8687/#8691 and runs `/decompose` on each; until then this queue will keep re-claiming them every iteration it has a free zone slot. Not filing a `meta-improvement` for the mislabeling itself yet (first observed occurrence in this log) — will file if it recurs on the next audit batch.
-- **#8714 (ci-fix, "could not confirm the deploy") was a real false alarm with a real root cause, not propagation lag.** The dispatched worker found `post-deploy-check.yml` polls a single app's (marketing) build-id for every commit regardless of which static app `deploy-static.yml` actually redeployed; commit `501f6af` only touched `apps/hospitality` (marketing deploy correctly `skipped`), so marketing's build-id could never match and the poll exhausted its budget on an app that was never going to change. The actual deploy (hospitality) landed and verified cleanly. Evidence comment posted, #8714 moved to `needs-review` (not `agent-failed` — a repo cause was found, just not one this iteration's sanctioned fix path covered), and a scoped follow-up filed as [#8720](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/8720) (`ci-fix`, `ready`) with the concrete fix: scope the poll to the app(s) that actually redeployed.
-- **Two existing `agent-failed` issues (#8684, #8685) claim this very routine (`mbe-evening`) and `mbe-daily-issue` are "dark — no expected artifact observed."** Worth a human look: either the routine-liveness detector has a false-positive on these two routines specifically, or a recent night's fire genuinely produced nothing (this run itself is clearly producing artifacts — PR #8722, issue #8720, 2 worker dispatches). Not re-diagnosing in this pass (out of scope for progress-tracker's read-only queries); flagging because it's about the automation's own heartbeat, not ordinary backlog content.
-- **This run's Queue (ready)=6 is mostly not real backlog.** Of the 6: 3 are the mislabeled epics above, 2 (#8668, #8669) are feature-decompose children blocked on open or just-shipped dependencies (#8668's dependency closed this window but it still carries an explicit `deferred` label — left alone, not auto-unblocked), 1 (#8653) is blocked on an open dependency (#8650), and 1 (#8720) is the fresh follow-up this run filed. Effectively 0 freely-actionable ready issues existed at claim time; the raw count overstates queue health risk.
-
-### Recommendations
-
-- Strip `ready` from #8686/#8687/#8691 and run `/decompose` on each (see Patterns) — until then, implement-queue will keep spending a batch slot on them whenever `apps/hospitality`'s zone is free.
-- #8720 is ready to drain on the next implement-queue iteration — concrete fix, concrete files, concrete acceptance criteria.
-- Someone should check why #8684/#8685 think `mbe-evening`/`mbe-daily-issue` are dark, given tonight's run clearly isn't.
-- No threshold or automation changes otherwise.
-
-### Skipped Issues
-
-0 `agent-skip` issues open — nothing to review.
-
-## 2026-11-12 — mbe-ui-quality
-
-**State:** `state.mjs checkout` source `branch` (head c3fe83da, `merged_main` 890c469e, 1 conflict resolved by rule in `metrics/ui-quality-ledger.jsonl`). All three app builds succeeded, so no rows were recorded `unreachable:build`.
-
-**Routes:** 40 due / 40 captured / 40 audited — 39 `rialto-web` (`components/*`) and 1 `hospitality` (`i/:token`). Marketing had 0 routes due, so its capture run skipped with "no marketing routes planned". 20 hospitality rows `unreachable:auth`, 0 `unreachable:build`. Unjudged 0, dropped tells 0.
-
-**Findings:** 2 mechanical, 0 judged.
-
-- Mechanical, both on `hospitality i/:token`: `accessibility/axe-moderate` (page-has-heading-one, 1 node, selector `html`) and `bugs/failed-request` (4 failed requests to `/public/v1/invites/ui-quality-invite` — 2x HTTP 502, 2x `net::ERR_ABORTED`; the invites API is not running behind the local `vite preview`, so this is a local-fixture artefact rather than a shipped-route defect, but the detector decides and it was filed as written).
-- Judged: all 40 routes judged clean against rubric v1's judged tells (the 7 agent-built and 3 semantic-accessibility tells). The rialto-web component docs pages hold up — token surfaces rather than decorative gradients, the rialto display face rather than Inter, domain-specific prose, and section headings that title their sections. `components/icon-vocabulary` is a grid of icon cards but shows the real icon set rather than filler, so it is not `agent-built/icon-card-grid`; `components/master-override`'s three variant cards are the component's actual variants, not a `three-feature-card-row`.
-
-**Calibration:** stamp `stale`. `calibration-status --model-id claude-opus-5` returned exit 3; `rate.mjs pairs --calibration` exited 2 — `docs/ui-quality/calibration.json` still carries no labelled pairs (the Verify-stage task of labelling >= 10 pairs remains unowned by this routine). Not retried. Re-queried after: still `stale`. Fourth consecutive fire in this condition (2026-11-05, 2026-11-08, 2026-11-11, today). No judged findings were produced this fire, so the suppression changed nothing in practice.
-
-**Rating:** 8 pairs over 2 apps rated and recorded — rialto-web 5, hospitality 0. Ours won 5 of 8. The three rialto-web pages (`components/page-header`, `components/neon-sign`, `components/meter`) beat both Mantine's and Chakra's Button docs on restraint, type and the absence of promo chrome (Chakra still fronts its page with a two-hue purple gradient banner). Both `hospitality i/:token` pairs were lost, correctly: the page paints nothing but an unstyled "Loading invitation..." line against two dense, finished dashboards (shadcn-dashboard-01, tremor-overview).
-
-**Filing:** plan exit 0 — 2 `create`, 5 ledger-internal `close` actions (`carrier: seed`, `issue: null`, `state_reason: not_observed`, for `components/aspect-ratio`, `components/breadcrumb`, `components/pagination` and two on `components/scroll-area`), 0 seeds, 0 `reopen`/`comment`/`adopt`/`skip`. **2 issues created:** #8762 (`accessibility/axe-moderate`) and #8763 (`bugs/failed-request`), both on `hospitality i/:token`; each verified to carry the `ui-quality` label after creation, so filing continued. 0 reopened, 0 commented, 0 seeds. All 35 issue numbers in the findings ledger resolved; 37 `ui-quality`-labelled issues read across one complete page (`hasNextPage: false`), none unknown to the plan beyond the two closed escalation issues (#7477, #7908). No escalation file written. No rubric migration — every ledger key is `r1` and the rubric is at v1. Checkpoint commit `336a1f867` pushed before step g as required.
-
-**Fix PR:** none — the plan carried no `fix_pr_candidate`.
-
-**P1 SLA:** 0 open `ui-quality:p1` issues, 0 breaches, 0 escalated.
-
-**Coverage before this fire:** 99.2% (136/137 reachable rows covered, not provisional). `coverage.mjs --json` exited 1 — a coverage breach, with one uncovered row: `hospitality i/:token`. That row was captured and judged this fire, so the next fire should read 100%.
-
-**Notes:** no blocker, no stopped filing, no pipeline bug. `mcp__github__search_issues` is not exposed in this sandbox, so both issue searches used `mcp__github__list_issues` with the same label filters, paginated to completion (`totalCount` 37 and 0). Issue states for the 35 ledger issues were taken from that complete single-page label listing rather than 35 individual `issue_read` calls — every ledger issue appeared in it, so the listing is an authoritative read of all 35 and no number needed `missing`.
-
-Three defects were seen that rubric v1 has no tell for, so none could be filed (recording them here rather than losing them):
-
-1. **Several rialto-web routes truncate their content and paint a long blank tail at both viewports** — `components/letterboard` (content ends mid "MENU BOARD", ~1.2k blank px below, header repeated at the bottom), `components/master-override` (ends mid "SIZES", ~2.9k blank px at 1280 and ~4.7k at 375) and to a lesser degree `components/odometer`, `components/pin-input` and `components/page-header`. The pages are not blank — `detect.mjs mechanical` correctly saw text and painted ratio 1 — but a reader scrolls into dead space. No judged tell covers a layout/overflow fault.
-2. **`components/navbar` at 375x812 renders its demo navbar outside its container**, over the top of the page: the page title and intro are pushed off-screen, the demo sits above the "FULL NAVBAR (CONTAINED)" label, and the bordered box beneath it is empty.
-3. **`components/input-group` does not demonstrate its own documented behaviour** in the "SELECT + INPUT" example: the select and the input are separated by a visible gap and the input sits a few px proud of the select, while the caption beneath reads "borders collapse at the join".
-
-All three are candidates for a human-owned `meta-improvement` issue proposing a rubric v2 tell (a layout/overflow face, which 2026-11-11's note also asked for); this routine does not file those itself.
-
-## 2026-11-12 — mbe-learning-loop
-
-**Sensors:** 17/18 available (e2eStability not available). Status: ✅ Healthy. acmm L5 (73/84), ciHealth 100% (25/25), mutationScore 99.07% PASS (107/389 killed), flakyTests 0 (71630 runs, 4 SHAs), metricsFreshness 0 unhealthy (all 9 watched metrics fresh), queueEfficiency composite 0.916 (fps 0.874, ttm 0.5h, no baseline yet).
-**Sentry triage:** skipped — stored Sentry MCP token rejected (`whoami` → "Authorization Expired"); no human available in this scheduled run to re-authorize. Same as 2026-11-09 and 2026-11-11.
-**Regressions:** 0 detected, 0 issues created.
-**Verifications:** 5 closed issues checked (48h window) — #8739, #8734, #8729 (ci-fix, "Broken Main"), #8728 (ci-fix, marketing visual baseline), #8720 (ci-fix, post-deploy-check) all skipped, no success/failure CI runs found after closure to verify against. 0 verified, 0 failed, 5 skipped.
-**AI issue feedback:** 7 categories collected, 0 unhealthy (>40% rejected) — feature 1% (72 total), ci-fix 11% (63 total), audit 3% (29 total), meta-improvement 0% (16 total), acmm 25% (4 total), sentry 0% (13 total), dependencies 0% (3 total). All budgets stay at default 3. One linked-PR lookup failed on a blocked GraphQL call (known sandbox limitation); did not affect the category rates above.
-**Skill proposals:** 0 (Thursday — Friday-only).
-**Threshold notes:** last-30-days verifications.jsonl: 127 records, 116 `skip` (no automated verifier available), 7 verified / 4 not-verified among the 11 non-skip → fix-effectiveness 63.6% (>50%, healthy, no review needed). False-positive proxy (category rejection rates above, all ≤25%) stays well under the 30% loosen-threshold trigger. Auto-tuner applied 1 adjustment this run: acmm 1.604 → 1.634 (headroom).
-
-## 2026-11-13 — mbe-evening (progress-tracker)
-
-### Metrics
-
-| Metric                                                    | Value                                                                | Band                        |
-| --------------------------------------------------------- | -------------------------------------------------------------------- | --------------------------- |
-| Created (7d, audit+ci-fix)                                | 69 (24 audit + 45 ci-fix)                                            | —                           |
-| Closed (7d, audit+ci-fix)                                 | 60 (19 audit + 41 ci-fix)                                            | —                           |
-| Closure Rate                                              | 87.0%                                                                | Green (>80%)                |
-| Time-to-Close (mean)                                      | 12.8h                                                                | Green (<24h)                |
-| Agent Success (has-pr/(has-pr+failed), snapshot)          | 2/5 = 40%                                                            | Yellow (40-70%, lower edge) |
-| CI Pass (main, last 20 runs, skipped excluded)            | 6/6 completed non-skipped = 100%                                     | Green, but see note         |
-| Queue (ready, open)                                       | 6                                                                    | Yellow (5-10)               |
-| Stale (ready>7d)                                          | 0                                                                    | Green                       |
-| Blocked (agent-failed, open)                              | 1 (was 3; 2 auto-retried this run)                                   | Non-zero                    |
-| Skipped (agent-skip, open)                                | 0                                                                    | Green                       |
-| Daily/7d Spend (attributed, `agent-spend/sessions.jsonl`) | $0 — no `mbe agent run`/`eval` sessions today                        | Green, but see note         |
-| Queue worker usage (7d, `queue-telemetry.jsonl`)          | 4 sessions, 900,434 tokens, **cost unknown** (71 rows missing usage) | not $0 — unattributed       |
-| Cost/Issue                                                | unknown (no attributed $ to divide)                                  | —                           |
-
-Note on CI Pass: the last-20-runs sample was dominated by this session's own just-pushed activity (PR #8812/#8813 CI), not a representative 7-day main-push sample — treat the 100% read as noisy, not a trend signal.
-
-### Patterns
-
-- **Same job, recurring:** `.github/workflows/apps-visual.yml` ("Apps Visual Regression") is the dominant unstable CI job — #8781 (51.5% failure rate over 99 runs) and #8780 (3 consecutive main-push failures) are both open `ci-fix` issues against it, and it independently failed on today's unrelated PR #8813 (confirmed not caused by that PR's diff: failing snapshots were on routes `briefing`/`profile`, outside the diff). Systemic, not a one-off flake.
-- **Batch bottleneck, one iteration's evidence only:** today's implement-queue batch could only claim 2 of a possible 3 workers because 5 of the day's 7 `ready` ci-fix/audit candidates (including all 3 `apps-visual.yml`/`deploy-services.yml`/`sentry-heartbeat.yml` ci-fix issues) resolve to the same `null`/global merge-train zone (no conventional-commit scope in title, no resolvable workspace path in body), and `strictMain` admits only one global-zone issue per batch. Worth watching for `/optimize-implement-queue` — single-session observation, not yet a confirmed 3-day pattern, so no `meta-improvement` issue filed for it this run.
-- **Agent-failed cluster:** the 3 open `agent-failed` issues were all performance/process-metrics work (`api-failures` p95 latency, `sdlc-speed` regression) — harder, investigation-heavy issues, consistent with why they stalled past one attempt. 2 of the 3 (#8549, #8564) were eligible for the 3+ day auto-retry (capped at 2/run) and were re-queued to `ready` this run via `scripts/auto-retry-stale.mjs`; #8566 was not yet eligible.
-
-### Recommendations
-
-- No code or `required_check` fix landed for the Apps Visual Regression flake this run — it's already tracked (#8781/#8780) and keeps surfacing as collateral noise on unrelated PRs; consider raising its priority the next time a batch is composed, since it is blocking visibility into real regressions on hospitality PRs.
-- If the same-zone batching cap on ci-fix/workflow issues recurs over the next few days, it is meta-improvement material (e.g. teaching `issue-zone.mjs` to resolve `.github/workflows/<file>` paths to their own zone instead of global) — tracked here as an observation, not filed, pending repetition.
-- `metrics/queue-telemetry.jsonl`'s 71 rows without usage data mean queue-worker cost stays permanently unknown; wiring real `cost_usd` into that sink (as `#5885` already flags) would let Cost/Issue be computed instead of reported as "unknown" every run.
-
-### Skipped Issues
-
-0 open `agent-skip` issues — nothing to review.
-
-### Auto-retry
-
-Re-queued 2 stale `agent-failed` issues (3+ days, capped at 2/run) back to `ready`: #8549, #8564.
-
 ## 2026-11-13
 
 **queueEfficiency:** composite 0.915 (baseline n/a) — 1 regression(s) detected
@@ -1244,3 +1115,65 @@ Phase 4: worktree reaper ran live (0 eligible — the one remaining worktree is 
 **Coverage before this fire:** 96.5% (141/146), `coverage.mjs` exit 1 — a breach on five never-audited rialto-web component routes (`file-upload`, `listbox`, `tags-input`, `toolbar`, `visually-hidden`). All five were captured and judged this fire; coverage after is 100% (146/146).
 
 **Blockers / pipeline bugs:** none. Browser resolved (`chrome-headless-shell`), all three capture runs passed first try.
+
+## 2026-11-26 — mbe-learning-loop
+
+**Sensors:** 19/19 available — ✅ Healthy (acmm L5 73/83, ciHealth 100% (22/22), mutationScore 98.21% PASS, 0 flaky, metricsFreshness 0 unhealthy).
+**Regressions:** 0 detected, 0 issues created.
+**Sentry triage:** skipped — MCP token expired (`whoami` returned Authorization Expired).
+**Verifications:** 5 checked, 1 verified (#9810 ci-fix, CI back to 100%), 0 failed/reopened, 4 skipped (3 `audit` issues need a fresh Lighthouse/site-audit inventory; 1 `meta-improvement` issue needs a manual `cors-audit.mjs` re-run — no automated verifier).
+**AI issue feedback:** budgets refreshed, all categories default budget=3 except `agent-failed` (halved to 1; 100% rejected on n=1).
+**Skill proposals:** 0 (not Friday).
+**Threshold notes:** false positive rate (rejected+wontfix)/total over all-time feedback = 32.5% (51 wontfix + 14 rejected / 200) — over the 30% loosen-threshold line; driven by `audit` (20% rejected) and `wontfix` volume generally, not a single runaway category. Fix effectiveness (last 30d, non-skip verifications) = 80% (12/15) — healthy, no action. `verify-fixes.mjs`'s own auto-tuner applied 2 headroom adjustments this run: `acmm` 1.918→1.945, `ci-fix` 1.258→1.288.
+
+## 2026-11-27 — mbe-evening (implement-queue + progress-tracker)
+
+### Implement-queue iteration
+
+Phase 0: main green (`CI Gate` success on `8011e7c`), every hook present, 0 open PRs of this queue (or any other) at pre-flight, base fresh (0 commits behind `origin/main`), main strictness `strict: true`. Backlog leaks: 0 stateless-unmerged, 0 has-pr-merged, 0 has-pr-no-PR; 1 stateless issue (`#8781`, "Apps Visual Regression flapping 51.5%") verified against the last 30 non-cancelled/skipped `apps-visual.yml` runs on main — 0 failures, already resolved — closed with an evidence comment rather than promoted.
+
+Phase 1: 2 `ready` issues existed; both skipped on judgment, not mechanically: `#9488` carries both `ready` and `ready-for-human` (a docs/demo/flip-the-flag deliverable, not TDD-able) and `#9315` explicitly says in its own body "the interface is not designed yet — do not start implementation from this issue alone" (also carries `rollback` from a prior reverted attempt). 0 issues claimed.
+
+Phase 2/3: no-ops — no workers dispatched, no PRs opened, no reviewer dispatch, no merge train. Circuit breaker: not triggered (0 consecutive failures; nothing attempted).
+
+Phase 4: no worktrees to reap. Telemetry push (`node scripts/metrics-data.mjs push -m "chore(metrics): queue telemetry 2026-11-27"`) → "Nothing to push" (correct — no worker ran, no row to append). Stopped after this one iteration per the routine's instruction. Issues claimed: 0. PRs opened: 0. Failures: 0.
+
+**Needs Owner attention:** `#9488`'s conflicting `ready`/`ready-for-human` labels should be resolved one way or the other; `#9315` should probably have `ready` removed until its design questions are settled — as written it isn't mechanically implementable. With both set aside, the `ready` backlog is effectively empty.
+
+### Metrics (7d; `audit`+`ci-fix` labels unless noted)
+
+| Metric                 | Value                                                                                                                                                                                                                                                              | Status                                                                                                                                                  |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Created (7d)           | 20 (7 audit + 13 ci-fix)                                                                                                                                                                                                                                           | -                                                                                                                                                       |
+| Closed (7d)            | 28 (10 audit + 18 ci-fix)                                                                                                                                                                                                                                          | -                                                                                                                                                       |
+| Closure Rate           | 28/20 = 140%                                                                                                                                                                                                                                                       | 🟢 Green (clearing backlog faster than it grows)                                                                                                        |
+| Time-to-Close          | mean 140.7h (~5.9d)                                                                                                                                                                                                                                                | 🔴 Red (>72h) — consistent with prior entries' note: backlog-clearing noise from older long-open items closing this window, not a flow-speed regression |
+| Agent Success          | has-pr/(has-pr+agent-failed), open snapshot = 0/(0+0) — undefined, no open has-pr or agent-failed issues this cycle                                                                                                                                                | n/a — empty snapshot, not a failure signal                                                                                                              |
+| CI Pass                | 14/14 = 100% (last 20 main runs, 6 skipped excluded)                                                                                                                                                                                                               | 🟢 Green                                                                                                                                                |
+| Queue (ready)          | 2 open (#9488, #9315) — both set aside this cycle, see above                                                                                                                                                                                                       | 🟢 Green (<5)                                                                                                                                           |
+| Stale (ready>7d)       | 0 (oldest is `#9315`, 6 days old)                                                                                                                                                                                                                                  | 🟢 Green                                                                                                                                                |
+| Blocked (agent-failed) | 0                                                                                                                                                                                                                                                                  | 🟢 Green                                                                                                                                                |
+| Skipped (agent-skip)   | 0                                                                                                                                                                                                                                                                  | 🟢 Green                                                                                                                                                |
+| Reverts (7d)           | 0                                                                                                                                                                                                                                                                  | 🟢 Green (<3/week)                                                                                                                                      |
+| Daily/7d Spend         | agentCost sensor: $2.00 (7d, 5 `mbe agent run` sessions) + 6 queue-worker sessions / 832,949 tokens, 119 rows without usage — queue-worker cost portion is **unknown**, not $0; $0 attributed today (no agent-core or queue-worker sessions ran before this entry) | n/a — see Patterns                                                                                                                                      |
+
+### Patterns
+
+- **Ready backlog is now effectively empty and both remaining items are non-actionable by this skill** — `#9488` (label conflict) and `#9315` (undesigned) aren't failures of the queue; they're backlog-hygiene gaps upstream of it. Not a new pattern of agent failure, but worth flagging since "Queue 0 for 3d → reduce audit or expand" is the documented trigger if this persists.
+- Queue-worker cost attribution remains a known, accepted gap (#5885) — 119/119 telemetry rows this window carry no usable `cost_usd`. Not re-filing.
+
+### Recommendations
+
+- No circuit-breaker action needed — nothing was attempted, nothing failed.
+- Owner: resolve `#9488`'s `ready`/`ready-for-human` conflict and reconsider `#9315`'s `ready` label (needs a design pass first). Until then the queue has 0 mechanically-claimable issues.
+- If the backlog stays empty for 3 more days, treat per "Queue Adjust": expand sourcing (audit/decompose) rather than leaving the loop idle.
+
+### Skipped Issues
+
+0 (`agent-skip` label: empty).
+
+## 2026-11-27
+
+**queueEfficiency:** composite 0.889 (baseline n/a) — healthy
+**Difficulty distribution:** size:xs:37, size:s:53, size:xl:10, size:l:19, size:m:32
+**Issues filed:** 0

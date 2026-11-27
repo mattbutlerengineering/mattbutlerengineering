@@ -134,3 +134,48 @@ describe("FileUpload", () => {
     expect(getByRole("button", { name: "Choose files" })).toBeTruthy();
   });
 });
+
+describe("Listbox", () => {
+  const spec = {
+    root: "l",
+    elements: {
+      l: {
+        type: "Listbox",
+        props: {
+          "aria-label": "Section",
+          options: [
+            { value: "bar", label: "Bar" },
+            { value: "patio", label: "Patio" },
+          ],
+        },
+      },
+    },
+  } as const;
+
+  it("renders its options from the spec", () => {
+    const { getByRole, getByText } = renderSpec(spec);
+    expect(getByRole("listbox", { name: "Section" })).toBeTruthy();
+    expect(getByText("Patio")).toBeTruthy();
+  });
+
+  it("moves the selection with the arrow keys", () => {
+    const { getByRole } = renderSpec(spec);
+    const box = getByRole("listbox");
+    fireEvent.focus(box);
+    fireEvent.keyDown(box, { key: "ArrowDown" });
+    expect(getByRole("option", { name: "Patio" }).getAttribute("aria-selected")).toBe("true");
+  });
+
+  it('emits "change" when the selection moves', () => {
+    const emit = vi.fn();
+    const Adapter = registry.Listbox as unknown as (ctx: {
+      element: unknown;
+      emit: (event: string) => void;
+    }) => React.ReactElement;
+    const { getByRole } = render(<Adapter element={spec.elements.l} emit={emit} />);
+    const box = getByRole("listbox");
+    fireEvent.focus(box);
+    fireEvent.keyDown(box, { key: "ArrowDown" });
+    expect(emit).toHaveBeenCalledWith("change");
+  });
+});

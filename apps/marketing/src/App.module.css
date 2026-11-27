@@ -5,6 +5,10 @@
 }
 
 .main {
+  /* Reserve a viewport so the footer starts below the fold; late content then
+     cannot shove it out of view as layout shift (#9878). */
+  min-height: 100vh;
+  min-height: 100dvh;
   flex: 1;
   outline: none;
 }

@@ -43,6 +43,57 @@ function isFrontendRun(changedPaths) {
 }
 
 /**
+ * Path prefixes (or exact files) that un-skip at least one E2E suite: the union
+ * of the `changes` job's filters in .github/workflows/e2e.yml, pinned by
+ * collect-e2e-stability.test.mjs. e2e.yml starts on every PR (#9834), so a run
+ * touching none of these skipped every suite and concluded `success` having
+ * tested nothing.
+ */
+export const E2E_SUITE_PATHS = Object.freeze([
+  "apps/hospitality/",
+  "apps/marketing/",
+  "apps/gen/",
+  "packages/rialto/",
+  "packages/rialto-catalog/",
+  "packages/api-client/",
+  "packages/auth/",
+  "services/reservations/",
+  "services/users/",
+  "packages/database/",
+  ".github/workflows/e2e.yml",
+  "scripts/e2e-auth-preflight.mjs",
+  "scripts/e2e-failure-rate.mjs",
+  "scripts/e2e-cross-branch-red.mjs",
+  "scripts/check-endpoint.mjs",
+]);
+
+function ranASuite(changedPaths) {
+  return changedPaths.some((path) =>
+    E2E_SUITE_PATHS.some((p) => (p.endsWith("/") ? path.startsWith(p) : path === p))
+  );
+}
+
+/**
+ * Display names of the suite jobs in e2e.yml (`Hospitality E2E (shard N)` and
+ * its `Hospitality E2E` aggregate, `Marketing E2E`, `Gen E2E`). A skipped matrix
+ * job keeps its unexpanded name, so match on the prefix. Pinned to e2e.yml by
+ * collect-e2e-stability.test.mjs.
+ */
+export const E2E_SUITE_JOB_NAME = /^(Hospitality|Marketing|Gen) E2E\b/;
+
+/**
+ * True when at least one suite job of an `E2E Tests` run executed (any
+ * conclusion but `skipped`). Authoritative: the `changes` job's paths-filter
+ * diffs the whole PR, which the head commit's files cannot reproduce.
+ *
+ * @param {Array<{ name?: string, conclusion?: string | null }>} jobs
+ * @returns {boolean}
+ */
+export function suiteRanFromJobs(jobs) {
+  return jobs.some((j) => E2E_SUITE_JOB_NAME.test(j.name ?? "") && j.conclusion !== "skipped");
+}
+
+/**
  * Count consecutive E2E failures in non-frontend runs, from most recent backward.
  * Runs with conclusion "cancelled" or "skipped" (or null) are skipped — they do
  * not reset the streak nor contribute to it.
@@ -61,7 +112,11 @@ export function computeE2eStability(runs) {
   );
 
   // Filter to non-frontend runs.
-  const nonFrontend = sorted.filter((r) => !isFrontendRun(r.changedPaths));
+  const nonFrontend = sorted.filter(
+    (r) =>
+      !isFrontendRun(r.changedPaths) &&
+      (typeof r.suiteRan === "boolean" ? r.suiteRan : ranASuite(r.changedPaths))
+  );
 
   if (nonFrontend.length === 0) {
     return { available: false, reason: "no_non_frontend_runs" };

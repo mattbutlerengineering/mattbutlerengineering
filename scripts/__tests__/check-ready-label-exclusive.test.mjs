@@ -16,6 +16,11 @@ describe("findConflictingIssues", () => {
     expect(findings).toEqual(["#1 t1"]);
   });
 
+  it("reports an open issue carrying ready and needs-human (#9884)", () => {
+    const { findings } = findConflictingIssues([issue(9, ["ready", "needs-human"])]);
+    expect(findings).toEqual(["#9 t9"]);
+  });
+
   it("passes issues carrying either label alone", () => {
     const { findings } = findConflictingIssues([
       issue(1, ["ready"]),

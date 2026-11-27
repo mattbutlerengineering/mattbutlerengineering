@@ -9,6 +9,7 @@ import {
   CreateFloorPlanSectionRequestSchema,
   UpdateFloorPlanSectionRequestSchema,
 } from "@mbe/types";
+import { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 import { toTable } from "./serializers.js";
 import {
@@ -133,12 +134,13 @@ export const floorPlanSectionService = {
         where: { id: { in: ids }, floorPlanId, venueId },
       });
       if (owned !== ids.length) return null;
-      for (const [displayOrder, id] of ids.entries()) {
-        await tx.floorPlanSection.updateMany({
-          where: { id, floorPlanId, venueId },
-          data: { displayOrder },
-        });
-      }
+      const order = Prisma.join(ids.map((id, i) => Prisma.sql`(${id}, ${i}::int)`));
+      await tx.$executeRaw`
+        UPDATE "floor_plan_sections" AS s
+        SET display_order = v.display_order, updated_at = now()
+        FROM (VALUES ${order}) AS v(id, display_order)
+        WHERE s.id = v.id AND s.floor_plan_id = ${floorPlanId} AND s.venue_id = ${venueId}
+      `;
       const sections = await tx.floorPlanSection.findMany({
         where: { floorPlanId, venueId },
         orderBy: BY_ORDER,

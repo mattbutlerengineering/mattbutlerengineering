@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useLocation } from "react-router";
 import { Footer, GlobalNav, Skeleton, Text } from "@mattbutlerengineering/rialto";
 import { engineeringMenu, siteCopyright, siteFooterColumns } from "@mbe/site-nav";
 import { routeFallbackProps, useMainContentFocus } from "./main-content-focus";
+import { useScrollToTop } from "./use-scroll-to-top";
 import { useRouteMeta } from "./utils/route-meta";
 import styles from "./App.module.css";
 
@@ -58,6 +59,7 @@ function RouteFallback() {
 
 export function App({ theme, onThemeToggle }: AppProps) {
   useRouteMeta();
+  useScrollToTop();
   const { pathname, hash } = useLocation();
   // Not on the initial load. Focusing <main> while the lazy route is still
   // the skeleton above makes the next Tab the footer, ahead of the skip link.

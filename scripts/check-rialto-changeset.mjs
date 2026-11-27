@@ -6,8 +6,9 @@
  * Commit e4c30808 shipped a public `classifyOverlap` prop, an `overlap`
  * field on every positioned bar, and a row-height behavior change in
  * `packages/rialto` with no `.changeset/` entry — so the next
- * `pnpm release` would have published all of it undocumented, under six
- * unrelated changelog entries. The gap was found by hand while writing an
+ * rialto version bump would have shipped all of it undocumented, under six
+ * unrelated changelog entries (rialto is versioned with changesets but no
+ * longer published to any registry, #9698). The gap was found by hand while writing an
  * unrelated ship record, which is not a detection mechanism. This check is
  * the detection mechanism (docs/backlog.md, maintenance:e2e-behind-edge-csp).
  *

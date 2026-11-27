@@ -61,7 +61,7 @@ describe("docs/routines/mbe-ui-quality.md", () => {
       trigger_id: "trig_01DYzgRBp66dxwQ828y9x1jV",
       environment_id: "env_012GDG167Tpz55u8MEpDkL2y",
       cron: "CRON_TZ=America/Los_Angeles 23 0 * * *",
-      model: "claude-opus-5",
+      model: "claude-opus-5-5",
       cadence: "Daily 12:23am PT",
     });
     expect(block.length).toBeGreaterThan(0);

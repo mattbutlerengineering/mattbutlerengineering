@@ -90,4 +90,23 @@ test.describe("Connect an AI assistant (#9665)", () => {
       .click();
     await expect(mockedPage.getByRole("listitem", { name: "Claude Desktop" })).toHaveCount(0);
   });
+
+  test("a token minted with 'make changes' ticked is listed as can make changes", async ({
+    mockedPage,
+  }) => {
+    await mockedPage.goto("settings");
+    const box = mockedPage.getByRole("checkbox", { name: /^Allow this token to make changes/ });
+    await expect(box).not.toBeChecked();
+
+    await mockedPage.getByLabel("Token name").fill("Writer");
+    await box.check({ force: true });
+    await mockedPage.getByRole("button", { name: "Create token" }).click();
+    await mockedPage.getByRole("button", { name: "Done" }).click();
+
+    const row = mockedPage.getByRole("listitem", { name: "Writer" });
+    await expect(row.getByText("Can make changes")).toBeVisible();
+    await expect(
+      mockedPage.getByRole("listitem", { name: "Claude Desktop" }).getByText("Read only")
+    ).toBeVisible();
+  });
 });

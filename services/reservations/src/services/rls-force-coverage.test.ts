@@ -151,6 +151,20 @@ describe("committed reservations migrations (ADR-026 / #5369)", () => {
     ]);
   });
 
+  it("keeps access_token_write_audit append-only: no DELETE, UPDATE only on status_code (#9780)", () => {
+    const sql = readFileSync(
+      join(MIGRATIONS_DIR, "20261126010000_add_access_token_write_audit", "migration.sql"),
+      "utf8"
+    );
+    const grants = sqlStatements(sql)
+      .filter((stmt) => /^grant\b/i.test(stmt) && stmt.includes('"access_token_write_audit"'))
+      .map((stmt) => stmt.replace(/\s+/g, " "));
+    expect(grants).toEqual([
+      'GRANT SELECT, INSERT ON TABLE "access_token_write_audit" TO app_reservations',
+      'GRANT UPDATE ("status_code") ON TABLE "access_token_write_audit" TO app_reservations',
+    ]);
+  });
+
   it("leaves no RLS-enabled table silently unforced and unacknowledged", () => {
     // The guard this whole module exists for. `ENABLE ROW LEVEL SECURITY` alone does
     // NOT apply to a table's OWNER, and `services/reservations` connects with the same

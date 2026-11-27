@@ -6,13 +6,18 @@ import { tableRoutes } from "./routes/tables.js";
 import { reservationRoutes } from "./routes/reservations.js";
 import { venueRoutes } from "./routes/venues.js";
 import { venueTeamRoutes } from "./routes/venue-team.js";
-import { accessTokenRoutes } from "./routes/access-tokens.js";
+import { accessTokenRoutes, currentAccessTokenRoutes } from "./routes/access-tokens.js";
 import { availabilityConfigRoutes } from "./routes/availability-config.js";
 import { availabilityChangesRoutes } from "./routes/availability-changes.js";
 import { holidayDecisionRoutes } from "./routes/holiday-decisions.js";
 import { closureRoutes } from "./routes/closures.js";
 import { tonightRoutes } from "./routes/tonight.js";
-import { ACCESS_TOKENS_PREFIX, AVAILABILITY_CONFIG_PREFIX, GUESTS_PREFIX } from "@mbe/types";
+import {
+  ACCESS_TOKENS_PREFIX,
+  AVAILABILITY_CONFIG_PREFIX,
+  CURRENT_ACCESS_TOKEN_PATH,
+  GUESTS_PREFIX,
+} from "@mbe/types";
 import { availabilityRoutes } from "./routes/availability.js";
 import { holdRoutes } from "./routes/holds.js";
 import { eventRoutes } from "./routes/events.js";
@@ -65,6 +70,8 @@ import {
 import { createPrismaClosureRefundStore } from "./services/closure-refund-store.js";
 import { defaultDomainServices, type DomainServices } from "./services/domain-services.js";
 import { generateManageToken } from "./routes/public-reservations.js";
+import type { PrismaClient } from "./generated/prisma/index.js";
+import { runSeedDemoVenue } from "./scripts/seed-demo-venue.js";
 import { db, prisma } from "./services/database.js";
 import { venueScopeOf } from "./routes/venue-scope.js";
 import {
@@ -89,6 +96,7 @@ import { allOutboundLive } from "./transitions/venue-policy.js";
 import type { JobsPort, PaymentsPort } from "./transitions/ports.js";
 import { StripeService } from "./services/stripe.js";
 import { DepositService } from "./services/deposit.js";
+import { registerPatWriteAudit } from "./middleware/pat-audit.js";
 import { createPatAwareVerifier, registerPatReadOnlyGuard } from "./middleware/pat-auth.js";
 import { resolveManageBaseUrl } from "./config/manage-base-url.js";
 import { createHostBrandResolver } from "./config/host-brand.js";
@@ -119,6 +127,11 @@ export interface ReservationsAppOptions extends AppOptions {
    * `fastify.services` decoration, so an override here is the single seam.
    */
   services?: Partial<DomainServices>;
+  /**
+   * Seeds the public demo venue on production start (#9877). Defaults to
+   * {@link runSeedDemoVenue}; tests inject a stub. Never runs outside production.
+   */
+  seedDemoVenue?: (prisma: PrismaClient) => Promise<unknown>;
 }
 
 /** A view of `map` with no mutators, so callers cannot rewrite the registry. */
@@ -188,6 +201,7 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   );
 
   registerPatReadOnlyGuard(fastify);
+  registerPatWriteAudit(fastify);
 
   // Venue-scope registry (docs/fixes/venue-scoped-routes/architecture.md):
   // records every route's `venueScoped` descriptor, or null, keyed
@@ -332,6 +346,7 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   await fastify.register(venueRoutes, { prefix: venuesPrefix });
   await fastify.register(venueTeamRoutes, { prefix: venuesPrefix });
   await fastify.register(accessTokenRoutes, { prefix: ACCESS_TOKENS_PREFIX });
+  await fastify.register(currentAccessTokenRoutes, { prefix: CURRENT_ACCESS_TOKEN_PATH });
   await fastify.register(availabilityConfigRoutes, { prefix: AVAILABILITY_CONFIG_PREFIX });
   await fastify.register(availabilityChangesRoutes, { prefix: AVAILABILITY_CONFIG_PREFIX });
   await fastify.register(holidayDecisionRoutes, { prefix: AVAILABILITY_CONFIG_PREFIX });
@@ -439,6 +454,32 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
       fastify.addHook("onReady", async () => closureOutcomeSweeper.start());
       fastify.addHook("onClose", async () => closureOutcomeSweeper.stop());
     }
+  }
+
+  // Self-heal the public demo venue (#9877). Production only: NODE_ENV=production is
+  // baked into the image (node.Dockerfile / services/reservations/Dockerfile) and set
+  // by the Pulumi DO spec, while vitest runs with NODE_ENV=test. Fire-and-forget so
+  // readiness never waits on or fails because of seeding; failures are logged.
+  if (process.env.NODE_ENV === "production") {
+    const seedDemoVenue =
+      options.seedDemoVenue ??
+      ((client: PrismaClient) => runSeedDemoVenue(client, () => undefined));
+    fastify.addHook("onReady", async () => {
+      void seedDemoVenue(prisma).then(
+        (result) => {
+          const failure = result as { ok?: boolean; slug?: string; message?: string } | undefined;
+          if (failure?.ok === false) {
+            fastify.log.error(
+              { slug: failure.slug, message: failure.message },
+              "demo venue seed failed"
+            );
+          } else {
+            fastify.log.info({ result }, "demo venue seed complete");
+          }
+        },
+        (error: unknown) => fastify.log.error({ err: error }, "demo venue seed failed")
+      );
+    });
   }
 
   // AppError serialization is handled centrally by errorHandlerPlugin →

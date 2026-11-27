@@ -10,12 +10,49 @@ import {
   mintedAccessTokenResponseJsonSchema,
 } from "@mbe/types";
 import { requireAuth } from "@mbe/auth/fastify";
+import { isPatRequest, isWriteScopedPatRequest } from "../middleware/pat-auth.js";
 import { TooManyAccessTokensError } from "../services/access-token.js";
 
 const idParams = {
   type: "object",
   properties: { id: { type: "string" } },
   required: ["id"],
+};
+
+/**
+ * `GET /api/v1/me/access-token` (#9781): lets a remote MCP server learn whether
+ * the bearer it was handed carries the write scope, so it can offer write
+ * tools. It answers only `{ write }` for the caller's own token (never the
+ * secret, an id, or another user's token) and 404 for a session caller. It sits
+ * outside the blocked tokens prefix on purpose.
+ */
+export const currentAccessTokenRoutes: FastifyPluginAsync = async (fastify) => {
+  fastify.get<{ Reply: { data: { write: boolean } } | ProblemDetails }>(
+    "/",
+    {
+      preHandler: requireAuth,
+      schema: {
+        summary: "Whether the presented personal access token carries the write scope",
+        tags: ["Access tokens"],
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              data: { type: "object", properties: { write: { type: "boolean" } } },
+            },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      if (!isPatRequest(request)) {
+        return reply
+          .code(404)
+          .send(createProblemDetails(404, "Not Found", "This is not a personal access token."));
+      }
+      return { data: { write: isWriteScopedPatRequest(request) } };
+    }
+  );
 };
 
 /**

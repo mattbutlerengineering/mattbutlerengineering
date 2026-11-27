@@ -79,3 +79,18 @@
   outline: var(--rialto-focus-ring-width) solid transparent;
   box-shadow: var(--rialto-shadow-focus);
 }
+
+/* Forced colors flatten backgrounds: a checked track fills with Highlight. */
+@media (forced-colors: active) {
+  .track[data-checked="true"] {
+    background: Highlight;
+    border-color: Highlight;
+    forced-color-adjust: none;
+  }
+
+  /* forced-color-adjust: none above stops the UA repainting the transparent
+     focus outline; restore it in the system text colour (#9857). */
+  .input:focus-visible + .track {
+    outline-color: CanvasText;
+  }
+}

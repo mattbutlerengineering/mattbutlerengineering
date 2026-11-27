@@ -20,7 +20,7 @@
 
 .lastChecked {
   font-size: 0.875rem;
-  opacity: 0.6;
+  color: var(--rialto-text-secondary);
 }
 
 .section {
@@ -61,7 +61,7 @@
 .meta {
   margin-top: 0.5rem;
   font-size: 0.8125rem;
-  opacity: 0.6;
+  color: var(--rialto-text-secondary);
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -77,5 +77,5 @@
 .signalNote {
   margin-top: 0.5rem;
   font-size: 0.8125rem;
-  opacity: 0.6;
+  color: var(--rialto-text-secondary);
 }

@@ -4099,7 +4099,13 @@
     },
     "accessTokens": {
       "title": "Connecter un assistant IA",
-      "description": "Laissez un assistant IA comme Claude consulter des informations pour vous. Un jeton est en lecture seule et couvre tous les établissements auxquels vous appartenez. Traitez-le comme un mot de passe.",
+      "description": "Laissez un assistant IA comme Claude consulter des informations pour vous. Un jeton est en lecture seule, à moins que vous n'autorisiez les modifications, et couvre tous les établissements auxquels vous appartenez. Traitez-le comme un mot de passe.",
+      "writeLabel": "Autoriser ce jeton à effectuer des modifications",
+      "writeWarning": "L'assistant peut déplacer une réservation (date, heure, table ou taille du groupe) et mettre des tables en pause ou les reprendre. Il ne peut rien faire d'autre. Chaque modification est consignée.",
+      "scope": {
+        "readOnly": "Lecture seule",
+        "write": "Peut effectuer des modifications"
+      },
       "nameLabel": "Nom du jeton",
       "nameRequired": "Donnez un nom au jeton, par exemple celui de l'assistant concerné.",
       "expiryLabel": "Expire",

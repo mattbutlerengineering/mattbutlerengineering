@@ -81,24 +81,32 @@
   padding: var(--rialto-space-lg) 0;
 }
 
-/* ── Signature palette (@internal kill test) ──
-   Reads the Tier-3 tokens that component-tokens.css re-points under
-   data-palette="signature". Scoped to that attribute, so nothing outside the
-   kill-test board changes. Promoted or deleted after the go/no-go. */
-:global([data-palette="signature"]) .tabList {
+/* ── Signature palette ──
+   Reads the Tier-3 tokens that component-tokens.css re-points for the
+   signature palette. */
+.tabList {
   background: var(--rialto-tabs-track-bg);
   border-radius: var(--rialto-radius-default) var(--rialto-radius-default) 0 0;
 }
 
-:global([data-palette="signature"]) .tab {
+.tab {
   color: var(--rialto-tabs-text-inactive);
 }
 
-:global([data-palette="signature"]) .tab:hover {
+.tab:hover {
   color: var(--rialto-tabs-text-hover);
 }
 
-:global([data-palette="signature"]) .tabActive,
-:global([data-palette="signature"]) .tabActive:hover {
+.tabActive,
+.tabActive:hover {
   color: var(--rialto-tabs-text-active);
+}
+
+/* Forced colors flatten colour differences: the active tab gets an underline edge. */
+@media (forced-colors: active) {
+  .tabActive,
+  .tabActive:hover {
+    color: Highlight;
+    border-bottom: 2px solid Highlight;
+  }
 }

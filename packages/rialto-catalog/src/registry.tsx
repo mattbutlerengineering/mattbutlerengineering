@@ -65,6 +65,7 @@ import {
   HoverCard,
   IconButton,
   ImageUpload,
+  Listbox,
   Input,
   Kbd,
   MasterOverride,
@@ -1079,6 +1080,12 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
           onSelect={() => emit("select")}
         />
       )),
+
+      Listbox: typed(
+        ({ props, emit }: AdapterArgs<Omit<ComponentProps<typeof Listbox>, "onValueChange">>) => (
+          <Listbox {...props} onValueChange={() => emit("change")} />
+        )
+      ),
 
       InputGroup: ({ children }: { children?: ReactNode }) => <InputGroup>{children}</InputGroup>,
 

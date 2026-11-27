@@ -1,6 +1,17 @@
 import { z } from "zod";
-import type { AccessToken, CreateAccessTokenRequest, MintedAccessToken } from "@mbe/types";
-import { ACCESS_TOKENS_PREFIX, AccessTokenSchema, MintedAccessTokenSchema } from "@mbe/types";
+import type {
+  AccessToken,
+  CreateAccessTokenRequest,
+  CurrentAccessToken,
+  MintedAccessToken,
+} from "@mbe/types";
+import {
+  ACCESS_TOKENS_PREFIX,
+  CURRENT_ACCESS_TOKEN_PATH,
+  AccessTokenSchema,
+  CurrentAccessTokenSchema,
+  MintedAccessTokenSchema,
+} from "@mbe/types";
 import type { ApiClient } from "./client.js";
 
 const TOKENS_PATH = ACCESS_TOKENS_PREFIX;
@@ -23,5 +34,14 @@ export class AccessTokensClient {
 
   async revoke(id: string): Promise<void> {
     await this.client.delete(`${TOKENS_PATH}/${encodeURIComponent(id)}`);
+  }
+
+  /** The scope of the personal access token this client presents (404 for a session caller). */
+  async current(): Promise<CurrentAccessToken> {
+    return this.client.getOne<CurrentAccessToken>(
+      CURRENT_ACCESS_TOKEN_PATH,
+      undefined,
+      CurrentAccessTokenSchema
+    );
   }
 }

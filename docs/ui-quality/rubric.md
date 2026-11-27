@@ -1,4 +1,4 @@
-# UI-quality rubric — v1
+# UI-quality rubric — v2
 
 The fixed bar every page in `apps/hospitality`, `apps/marketing` and
 `apps/rialto-web` is held to by the daily `mbe-ui-quality` routine. This file is
@@ -24,6 +24,33 @@ propose a bump through a `meta-improvement` issue; it never edits this file.
   never omitted and never `tells: []`, which means _judged clean_.
 - Pages under `visual-test` are test harnesses: their bugs still count, their
   taste does not.
+
+## Pairwise preference (calibration and the taste rater)
+
+When you are shown two images, A and B, and asked which is better, you are
+not told which came from where. Do not guess; judge the pixels.
+
+- **Judge overall craft and brand identity first.** Which fold looks designed
+  by a team with a point of view — a distinct voice, deliberate hierarchy and
+  spacing, type and colour that belong together, content that fills the fold
+  with purpose — and which looks like a template? That whole-page impression
+  decides the verdict.
+- **The agent-built tells below are evidence, not a score.** Count a tell only
+  when it is the page's dominant impression. One tell on an otherwise
+  well-crafted, distinctive page does not lose the pair; several small ones on
+  a page with no identity do.
+- **A brand-distinct treatment is not a tell.** Stat cards, a dashboard with
+  its own palette, atmosphere or typography, a card grid that shows real data
+  or the real product: these are the page's identity when they are
+  consistently executed. Penalise them only when they are generic filler
+  (icon-in-circle plus one empty sentence).
+- **Do not penalise what a fold cannot show.** A widget that starts lower on
+  the page, a hero with no product shot yet but a clear, specific headline,
+  or a promo or announcement banner (especially on an established
+  documentation or marketing site) is ordinary composition, not a defect.
+  Judge what is there; never mark a side down for what it might hold below.
+- **Tie only when you truly cannot separate them.** A visible difference in
+  craft or identity is a preference, even a slight one.
 
 ## Agent-built face (judged, P2)
 

@@ -4,6 +4,7 @@ import {
   Alert,
   Button,
   Card,
+  Checkbox,
   ConfirmDialog,
   Divider,
   Input,
@@ -55,6 +56,11 @@ function TokenRow({ token, onRevoke }: TokenRowProps) {
             prefix: token.prefix,
             date: date(token.createdAt),
           })}
+        </Text>
+        <Text variant="caption" color="secondary">
+          {token.write
+            ? t("settings.accessTokens.scope.write")
+            : t("settings.accessTokens.scope.readOnly")}
         </Text>
         <Text variant="caption" color="secondary">
           {token.lastUsedAt
@@ -128,8 +134,8 @@ function MintedSecret({ minted, onDone }: MintedSecretProps) {
 
 /**
  * Settings → Connect an AI assistant (#9665): mint, list and revoke the
- * personal access tokens remote MCP clients use. Read-only, every venue the
- * user belongs to. The plaintext is shown once and kept out of query caches.
+ * personal access tokens remote MCP clients use. Read-only unless the user
+ * opts in to the write scope (#9779); every venue the user belongs to. The plaintext is shown once and kept out of query caches.
  */
 export function AccessTokensCard() {
   const { t } = useTranslation();
@@ -139,6 +145,7 @@ export function AccessTokensCard() {
 
   const [name, setName] = useState("");
   const [expiry, setExpiry] = useState<ExpiryChoice>("90");
+  const [allowWrite, setAllowWrite] = useState(false);
   const [isMinting, setIsMinting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [minted, setMinted] = useState<MintedAccessToken | null>(null);
@@ -157,9 +164,11 @@ export function AccessTokensCard() {
         await mint({
           name: trimmed,
           ...(expiry === "never" ? {} : { expiresInDays: Number(expiry) }),
+          write: allowWrite,
         })
       );
       setName("");
+      setAllowWrite(false);
     } catch (err) {
       setActionError(
         statusOf(err) === CONFLICT_STATUS
@@ -246,6 +255,13 @@ export function AccessTokensCard() {
               options={expiryOptions}
               value={expiry}
               onChange={(value) => setExpiry(value as ExpiryChoice)}
+              disabled={isMinting}
+            />
+            <Checkbox
+              label={t("settings.accessTokens.writeLabel")}
+              description={t("settings.accessTokens.writeWarning")}
+              checked={allowWrite}
+              onCheckedChange={setAllowWrite}
               disabled={isMinting}
             />
             <Button type="submit" variant="primary" disabled={isMinting}>

@@ -49,7 +49,7 @@
  *          [--verdicts <file>] [--model-id <id>] [--root <dir>]
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { append, resolvePath } from "../metrics-store.mjs";
@@ -75,6 +75,8 @@ const DEFAULT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", ".."
 export const RATINGS_METRIC = "ui-quality-ratings";
 export const RATING_PLAN_FILE = "rating-plan.json";
 export const CALIBRATION_PLAN_FILE = "calibration-plan.json";
+const JUDGE_VIEW_FILE = "judge-pairs.json";
+const JUDGE_DIR = "judge";
 export const CALIBRATIONS_METRIC = "ui-quality-calibrations";
 export const ROUTINE_DOC = "docs/routines/mbe-ui-quality.md";
 /** A model id that is not one: never calibrated, so always `stale`. */
@@ -252,11 +254,36 @@ function loadCalibrationSet(root, rubric) {
   return doc;
 }
 
+/**
+ * The only file the judge reads: per pair, `{ pair_id, a, b }` with each image
+ * copied to a neutral `.ui-quality/judge/<id>-<side>.png`. The plan names the
+ * origin of each side (`ours`, `reference`, `position`, capture and reference
+ * paths); a judge that can see it is not blind. Which side is ours stays in the
+ * plan, which only `record` / `calibrate` read.
+ */
+function writeJudgeView(root, work, pairs) {
+  const dir = join(work, JUDGE_DIR);
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+  const neutral = (id, side, from) => {
+    const rel = `${WORK_DIR}/${JUDGE_DIR}/${id}-${side}.png`;
+    copyFileSync(join(root, from), join(root, rel));
+    return rel;
+  };
+  const view = pairs.map((p) => ({
+    pair_id: p.id,
+    a: neutral(p.id, "a", p.a.path),
+    b: neutral(p.id, "b", p.b.path),
+  }));
+  writeFileSync(join(work, JUDGE_VIEW_FILE), JSON.stringify({ pairs: view }, null, 2) + "\n");
+}
+
 function calibrationPlanCommand(ctx, rubric, work) {
   const pairs = calibrationPairs(loadCalibrationSet(ctx.root, rubric), rubric);
   mkdirSync(work, { recursive: true });
   const plan = { rubric_version: rubric.rubric_version, pairs };
   writeFileSync(join(work, CALIBRATION_PLAN_FILE), JSON.stringify(plan, null, 2) + "\n");
+  writeJudgeView(ctx.root, work, pairs);
   ctx.stdout(
     `rate.mjs pairs --calibration: ${pairs.length} pairs → ${WORK_DIR}/${CALIBRATION_PLAN_FILE}\n`
   );
@@ -286,6 +313,7 @@ function pairsCommand(ctx) {
   mkdirSync(work, { recursive: true });
   const plan = { rubric_version: rubric.rubric_version, pairs };
   writeFileSync(join(work, RATING_PLAN_FILE), JSON.stringify(plan, null, 2) + "\n");
+  writeJudgeView(ctx.root, work, pairs);
   const apps = new Set(pairs.map((p) => p.app)).size;
   ctx.stdout(
     `rate.mjs pairs: ${pairs.length} pairs over ${apps} apps → ${WORK_DIR}/${RATING_PLAN_FILE}\n`

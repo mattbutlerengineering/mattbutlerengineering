@@ -3,26 +3,10 @@ name: E2E Tests
 on:
   pull_request:
     types: [opened, synchronize, reopened]
-    paths:
-      - "apps/hospitality/**"
-      - "apps/marketing/**"
-      - "apps/gen/**"
-      - "packages/rialto/**"
-      - "packages/rialto-catalog/**"
-      - "packages/api-client/**"
-      - "packages/auth/**"
-      - "services/reservations/**"
-      - "services/users/**"
-      - "packages/database/**"
-      - ".github/workflows/e2e.yml"
-      # The hospitality job's own helper scripts. Without these, a PR editing
-      # e.g. the auth preflight — a hard gate that fails the whole suite —
-      # gets zero E2E validation, and the breakage lands on the NEXT
-      # unrelated hospitality PR instead (the class
-      # scripts/check-workflow-paths-coverage.mjs exists to catch).
-      - "scripts/e2e-auth-preflight.mjs"
-      - "scripts/e2e-failure-rate.mjs"
-      - "scripts/check-endpoint.mjs"
+    # No workflow-level `paths:` filter (#9834): a PR outside it would get no
+    # `Hospitality E2E` check at all, and a required check that never reports
+    # blocks the PR forever. The `changes` job below skips the suites instead;
+    # a skipped job still reports. Pinned by e2e-hospitality-shards.test.mjs.
   workflow_dispatch:
 
 concurrency:
@@ -60,11 +44,11 @@ jobs:
               - 'services/users/**'
               - 'packages/database/**'
               - '.github/workflows/e2e.yml'
-              # Keep in step with the trigger paths above: all three helper
-              # scripts run inside the hospitality job, so a change to them
-              # must not only start the workflow but also un-skip this suite.
+              # The helper scripts run inside the hospitality job, so a change
+              # to them must un-skip this suite.
               - 'scripts/e2e-auth-preflight.mjs'
               - 'scripts/e2e-failure-rate.mjs'
+              - 'scripts/e2e-cross-branch-red.mjs'
               - 'scripts/check-endpoint.mjs'
             marketing:
               - 'apps/marketing/**'
@@ -355,6 +339,27 @@ jobs:
           path: |
             apps/hospitality/e2e/test-results/
             apps/hospitality/playwright-report/
+          retention-days: 7
+
+      # Small per-shard record of tests that failed after retries, read by
+      # e2e-cross-branch-red.yml to spot a test red on 3+ unrelated PR branches (#9829).
+      - name: Write failed-tests record
+        if: failure()
+        env:
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -o pipefail
+          mkdir -p e2e-failed-tests
+          node scripts/e2e-cross-branch-red.mjs write-record apps/hospitality/playwright-results.json e2e-failed-tests/failed-tests.json
+
+      - name: Upload failed-tests record
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-failed-tests-shard-${{ matrix.shard }}
+          path: e2e-failed-tests/failed-tests.json
           retention-days: 7
 
       # ── Environment diagnostics (runs on failure, gated by failure rate) ──────

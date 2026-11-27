@@ -4,6 +4,7 @@ import {
   getSensorColor,
   formatPercent,
   formatTimestamp,
+  describeSensorGap,
   normalizeSensorReport,
   type SensorReport,
 } from "./ai-health.js";
@@ -557,5 +558,19 @@ describe("normalizeSensorReport — productionHealth", () => {
     expect(metrics.productionHealth.endpoints).toEqual([
       { name: "api", status: "healthy", httpCode: null, latencyMs: null },
     ]);
+  });
+});
+
+describe("describeSensorGap e2eStability suite-run reasons (#9861)", () => {
+  it("explains no_suite_runs", () => {
+    expect(describeSensorGap({ available: false, reason: "no_suite_runs" })).toBe(
+      "Recent E2E runs all skipped every suite job, so there is nothing to measure."
+    );
+  });
+
+  it("explains no_classifiable_runs", () => {
+    expect(describeSensorGap({ available: false, reason: "no_classifiable_runs" })).toBe(
+      "E2E runs were found, but their job results could not be fetched, so they could not be classified."
+    );
   });
 });

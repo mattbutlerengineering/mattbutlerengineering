@@ -3983,7 +3983,13 @@
     },
     "accessTokens": {
       "title": "Connect an AI assistant",
-      "description": "Let an AI assistant such as Claude look things up for you. A token is read-only and reaches every venue you belong to. Treat it like a password.",
+      "description": "Let an AI assistant such as Claude look things up for you. A token is read-only unless you allow changes, and reaches every venue you belong to. Treat it like a password.",
+      "writeLabel": "Allow this token to make changes",
+      "writeWarning": "The assistant can move a booking (date, time, table or party size) and pause or resume tables. It can do nothing else. Every change is logged.",
+      "scope": {
+        "readOnly": "Read only",
+        "write": "Can make changes"
+      },
       "nameLabel": "Token name",
       "nameRequired": "Give the token a name, such as the assistant it is for.",
       "expiryLabel": "Expires",

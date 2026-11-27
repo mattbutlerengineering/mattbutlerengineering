@@ -18,6 +18,26 @@ const LOCALE_SWEEP = new URL("../../apps/hospitality/e2e/locale-sweep.spec.ts", 
  * minutes: room for a full shard to finish and report, while a hung run still ends.
  * When a shard's tests near 20 minutes again, add a shard rather than more time.
  */
+/**
+ * `Hospitality E2E` is to become a required check (#9834). A workflow-level
+ * `paths:` filter means a PR outside it gets no check at all, and a required
+ * check that never reports leaves the PR blocked forever. The `changes` job
+ * decides instead: a skipped job still reports, and a skipped check passes.
+ */
+describe("e2e.yml always reports Hospitality E2E", () => {
+  it("starts on every pull request, with no workflow-level paths filter", () => {
+    const pr = WORKFLOW.on.pull_request;
+    expect(pr.paths).toBeUndefined();
+    expect(pr["paths-ignore"]).toBeUndefined();
+  });
+
+  it("skips the result job, rather than leaving it out, when the shards skip", () => {
+    const result = getJob(WORKFLOW, "hospitality-e2e-result");
+    expect(result.name).toBe("Hospitality E2E");
+    expect(result.if).toContain("needs.hospitality-e2e.result != 'skipped'");
+  });
+});
+
 describe("e2e.yml hospitality shards", () => {
   const shard = getJob(WORKFLOW, "hospitality-e2e");
   const result = getJob(WORKFLOW, "hospitality-e2e-result");

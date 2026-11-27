@@ -1,0 +1,55 @@
+/*
+ * prefers-contrast: more — stronger text and border tokens (#9741).
+ * Hand-written, loaded after the generated colors.css so each scope's own
+ * text-primary / border-strong wins. No new colour values: only remaps.
+ */
+
+@media (prefers-contrast: more) {
+  :root {
+    --rialto-text-secondary: var(--rialto-text-primary);
+    --rialto-text-tertiary: var(--rialto-text-primary);
+    --rialto-border: var(--rialto-border-strong);
+  }
+
+  [data-theme="dark"] {
+    --rialto-text-secondary: var(--rialto-text-primary);
+    --rialto-text-tertiary: var(--rialto-text-primary);
+    --rialto-border: var(--rialto-border-strong);
+  }
+
+  [data-theme="dark"] [data-theme="light"] {
+    --rialto-text-secondary: var(--rialto-text-primary);
+    --rialto-text-tertiary: var(--rialto-text-primary);
+    --rialto-border: var(--rialto-border-strong);
+  }
+
+  [data-surface="tinted"] {
+    --rialto-text-secondary: var(--rialto-text-primary);
+    --rialto-text-tertiary: var(--rialto-text-primary);
+    --rialto-border: var(--rialto-border-strong);
+  }
+
+  [data-theme="dark"] [data-theme="light"] [data-surface="tinted"] {
+    --rialto-text-secondary: var(--rialto-text-primary);
+    --rialto-text-tertiary: var(--rialto-text-primary);
+    --rialto-border: var(--rialto-border-strong);
+  }
+
+  [data-surface="velvet"] {
+    --rialto-text-secondary: var(--rialto-text-primary);
+    --rialto-text-tertiary: var(--rialto-text-primary);
+    --rialto-border: var(--rialto-border-strong);
+  }
+
+  [data-theme="dark"] [data-surface="velvet"] {
+    --rialto-text-secondary: var(--rialto-text-primary);
+    --rialto-text-tertiary: var(--rialto-text-primary);
+    --rialto-border: var(--rialto-border-strong);
+  }
+
+  [data-theme="dark"] [data-theme="light"] [data-surface="velvet"] {
+    --rialto-text-secondary: var(--rialto-text-primary);
+    --rialto-text-tertiary: var(--rialto-text-primary);
+    --rialto-border: var(--rialto-border-strong);
+  }
+}

@@ -638,6 +638,7 @@ export async function mockApi(page: Page): Promise<SseMock> {
       createdAt: "2026-11-01T10:00:00.000Z",
       lastUsedAt: null,
       expiresAt: null,
+      write: false,
     },
   ];
   await page.route(/\/api\/v1\/me\/tokens(\/[^/?]+)?$/, (route) => {
@@ -649,7 +650,7 @@ export async function mockApi(page: Page): Promise<SseMock> {
       return route.fulfill({ status: 204 });
     }
     if (request.method() === "POST") {
-      const body = (request.postDataJSON() ?? {}) as { name?: string };
+      const body = (request.postDataJSON() ?? {}) as { name?: string; write?: boolean };
       const token = {
         id: `tok_e2e_${accessTokens.length + 2}`,
         name: body.name ?? "token",
@@ -657,6 +658,7 @@ export async function mockApi(page: Page): Promise<SseMock> {
         createdAt: new Date().toISOString(),
         lastUsedAt: null,
         expiresAt: null,
+        write: body.write === true,
       };
       accessTokens.push(token);
       return route.fulfill({

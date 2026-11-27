@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 
 /**
- * Fails when any open issue carries both `ready` and `ready-for-human` (#9426).
+ * Fails when any open issue carries `ready` together with `ready-for-human`
+ * (#9426) or `needs-human` (#9884).
  *
  * `ready` means an agent can pick the issue up now; `ready-for-human` means an
  * agent cannot proceed. They are mutually exclusive by design, but nothing
@@ -20,6 +21,8 @@ import { runCheck } from "./lib/fitness-check.mjs";
 
 const READY_LABEL = "ready";
 const READY_FOR_HUMAN_LABEL = "ready-for-human";
+const NEEDS_HUMAN_LABEL = "needs-human";
+const HUMAN_BLOCKING_LABELS = [READY_FOR_HUMAN_LABEL, NEEDS_HUMAN_LABEL];
 
 const names = (issue) => (issue?.labels ?? []).map((l) => (typeof l === "string" ? l : l?.name));
 
@@ -32,13 +35,14 @@ const names = (issue) => (issue?.labels ?? []).map((l) => (typeof l === "string"
 export function findConflictingIssues(issues) {
   const findings = (issues ?? [])
     .filter((i) => String(i?.state ?? "OPEN").toUpperCase() === "OPEN")
-    .filter((i) => names(i).includes(READY_LABEL) && names(i).includes(READY_FOR_HUMAN_LABEL))
+    .filter((i) => names(i).includes(READY_LABEL))
+    .filter((i) => HUMAN_BLOCKING_LABELS.some((l) => names(i).includes(l)))
     .map((i) => `#${i.number}${i.title ? ` ${i.title}` : ""}`);
   return { findings };
 }
 
-/** @returns {Array} open issues carrying both labels, straight from `gh` (repeated --label ANDs). */
-function listBothLabelIssues() {
+/** @returns {Array} open `ready` issues, straight from `gh`; the pure check filters for the human-blocking labels. */
+function listReadyIssues() {
   const raw = execFileSync(
     "gh",
     [
@@ -48,8 +52,6 @@ function listBothLabelIssues() {
       "open",
       "--label",
       READY_LABEL,
-      "--label",
-      READY_FOR_HUMAN_LABEL,
       "--json",
       "number,title,state,labels",
       "--limit",
@@ -64,7 +66,7 @@ function listBothLabelIssues() {
 if (process.argv[1] && process.argv[1].endsWith("check-ready-label-exclusive.mjs")) {
   let issues;
   try {
-    issues = listBothLabelIssues();
+    issues = listReadyIssues();
   } catch (error) {
     const reason = String(error.message).split("\n")[0];
     process.stdout.write(
@@ -75,10 +77,10 @@ if (process.argv[1] && process.argv[1].endsWith("check-ready-label-exclusive.mjs
   const { findings } = findConflictingIssues(issues);
   process.exit(
     runCheck({
-      name: "ready / ready-for-human exclusivity",
+      name: "ready / human-blocked exclusivity",
       findings,
       formatFinding: (line) => line,
-      failMessage: `FAIL: open issues carry both \`${READY_LABEL}\` and \`${READY_FOR_HUMAN_LABEL}\` (mutually exclusive). Remove \`${READY_LABEL}\`:`,
+      failMessage: `FAIL: open issues carry \`${READY_LABEL}\` with \`${READY_FOR_HUMAN_LABEL}\` or \`${NEEDS_HUMAN_LABEL}\` (mutually exclusive). Remove \`${READY_LABEL}\`:`,
     })
   );
 }

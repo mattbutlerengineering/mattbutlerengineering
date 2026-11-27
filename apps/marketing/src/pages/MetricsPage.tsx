@@ -222,7 +222,7 @@ export function MetricsPage() {
               metrics.behavioral.evalsLastRun &&
               !isStale(metrics.behavioral.evalsLastRun) && (
                 <Text className={styles.statLabel}>
-                  Last measured {formatDate(metrics.behavioral.evalsLastRun)}
+                  Last measured {formatDate(metrics.behavioral.evalsLastRun)} (weekly)
                 </Text>
               )}
           </Card>

@@ -1,5 +1,5 @@
 /**
- * Kill-test board (rialto-signature-pass Milestone 1, ux.md § Kill-test board).
+ * Signature board (rialto-signature-pass, ux.md § Kill-test board).
  *
  * Five primitive rows, each before and after, across five columns. After cells
  * sit inside the signature palette scope; band cells carry data-surface. Each
@@ -15,7 +15,7 @@ import { contrastRatio, resolveOn } from "../test/contrast";
 import { SignatureBoard } from "./SignaturePalette.stories";
 
 const ROWS = ["Button", "Input", "Select", "Card", "Tabs"];
-const COLUMNS = ["light-canvas", "light-tinted", "velvet", "dark-canvas", "dark-tinted"];
+const COLUMNS = ["light-canvas", "light-tinted", "velvet", "dark-canvas"];
 
 type Flat = Record<string, string>;
 
@@ -32,12 +32,13 @@ function columnTokens(column: string): Flat {
     "text-primary": c.text.primary.$value,
     "text-secondary": c.text.secondary.$value,
     "text-tertiary": c.text.tertiary.$value,
+    error: c.semantic.error.default.$value,
     plum: c.plum.default.$value,
     "plum-muted": c.plum.muted.$value,
     "focus-ring": c.focus.ring.$value,
     "focus-gap": c.focus.gap.$value,
   };
-  const scope = column.endsWith("tinted") ? "tinted" : column === "velvet" ? "velvet" : undefined;
+  const scope = column === "light-tinted" ? "tinted" : column === "velvet" ? "velvet" : undefined;
   if (scope === undefined) return base;
   const scoped = (
     surfaces["surface-scope"] as Record<string, Record<string, Record<string, { $value: string }>>>
@@ -46,41 +47,34 @@ function columnTokens(column: string): Flat {
 }
 
 describe("SignatureBoard", () => {
-  it("renders five rows, each before and after across five columns", () => {
-    render(<SignatureBoard />);
+  it("renders five rows across four columns, with no scope attribute", () => {
+    const { container } = render(<SignatureBoard />);
     const rows = screen.getAllByTestId(/^row-/);
     expect(rows.map((r) => r.dataset.row)).toEqual(ROWS);
     for (const row of rows) {
-      for (const variant of ["before", "after"]) {
-        const cells = within(row).getAllByTestId(new RegExp(`^cell-${variant}-`));
-        expect(cells.map((cell) => cell.dataset.column)).toEqual(COLUMNS);
-      }
+      const cells = within(row).getAllByTestId(/^cell-/);
+      expect(cells.map((cell) => cell.dataset.column)).toEqual(COLUMNS);
     }
+    expect(container.querySelector("[data-palette]")).toBeNull();
   });
 
-  it("puts every after cell inside the signature palette and every band cell on its surface", () => {
+  it("puts every band cell on its surface", () => {
     render(<SignatureBoard />);
-    const after = screen.getAllByTestId(/^cell-after-/);
-    expect(after).toHaveLength(ROWS.length * COLUMNS.length);
-    for (const cell of after) {
-      expect(cell.querySelector('[data-palette="signature"]'), cell.dataset.column).not.toBeNull();
+    const cells = screen.getAllByTestId(/^cell-/);
+    expect(cells).toHaveLength(ROWS.length * COLUMNS.length);
+    for (const cell of cells) {
       const column = cell.dataset.column as string;
-      const expectedSurface = column.endsWith("tinted")
-        ? "tinted"
-        : column === "velvet"
-          ? "velvet"
-          : null;
+      const expectedSurface =
+        column === "light-tinted" ? "tinted" : column === "velvet" ? "velvet" : null;
       const band = cell.querySelector("[data-surface]");
       expect(band?.getAttribute("data-surface") ?? null, column).toBe(expectedSurface);
     }
   });
 
-  it("keeps before cells out of the signature palette, with no new surface", () => {
+  it("shows an invalid Input on velvet, legible through the velvet error red", () => {
     render(<SignatureBoard />);
-    for (const cell of screen.getAllByTestId(/^cell-before-/)) {
-      expect(cell.querySelector("[data-palette]")).toBeNull();
-      expect(cell.querySelector("[data-surface]")).toBeNull();
-    }
+    const cell = within(screen.getByTestId("row-Input")).getByTestId("cell-velvet");
+    expect(within(cell).getByText("Too short")).toBeTruthy();
   });
 
   it("captions each row's contrast-critical pairs with ratios computed from the token JSON", () => {
@@ -98,7 +92,7 @@ describe("SignatureBoard", () => {
       const bgHex = resolveOn(bgValue as string, tokens["surface"] as string);
       const ratio = contrastRatio(resolveOn(fgValue as string, bgHex), bgHex);
       expect(pair.textContent).toContain(`${ratio.toFixed(2)}:1`);
-      expect(ratio).toBeGreaterThanOrEqual(Number(min));
+      expect(ratio, `${column} ${fg}/${bg}`).toBeGreaterThanOrEqual(Number(min));
     }
   });
 

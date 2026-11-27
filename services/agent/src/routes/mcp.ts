@@ -10,13 +10,15 @@ import { z } from "zod";
 import { createAgentTools } from "./gen-agent-tools.js";
 import { agentApiOrigin } from "./gen-agent.js";
 import { refusalOf, type ApiClient } from "./gen-tool-support.js";
+import { registerWriteTools } from "./mcp-write-tools.js";
 
 /**
- * Remote MCP endpoint (#9666): the same read-only venue tools the in-app chat
- * uses, for an external client's own model. Read-only by construction: only the
- * names below are registered, so no write tool can be reached from here.
- * Authenticated by the user's personal access token, which is forwarded to the
- * reservations API; that API's venue-membership check is the authority.
+ * Remote MCP endpoint (#9666): the same venue tools the in-app chat uses, for
+ * an external client's own model. A read-only token (the default) sees only the
+ * read tools below; a write-scoped one (#9778) also sees the three confirmed
+ * write tools (#9781, `mcp-write-tools.ts`). Authenticated by the user's
+ * personal access token, which is forwarded to the reservations API; that API's
+ * venue-membership check and write allowlist are the authority.
  */
 const VENUE_TOOL_NAMES = [
   "check_availability",
@@ -27,7 +29,8 @@ const VENUE_TOOL_NAMES = [
 
 export const MCP_TOOL_NAMES = ["list_venues", ...VENUE_TOOL_NAMES] as const;
 
-export type McpApiFactory = (token: string) => ApiClient;
+/** `headers` ride on every call of the returned client (the audit's `Mbe-Tool`, `Mbe-Confirm-Nonce`). */
+export type McpApiFactory = (token: string, headers?: Record<string, string>) => ApiClient;
 
 export interface McpRoutesOptions {
   /** Builds the reservations API client for a token (tests inject a mock). */
@@ -40,10 +43,11 @@ export const MCP_PATH = "/api/gen/mcp";
 const WWW_AUTHENTICATE = 'Bearer realm="mbe-mcp"';
 const SILENT_LOG = { info() {}, error() {}, warn() {}, debug() {} } as unknown as FastifyBaseLogger;
 
-const defaultCreateApi: McpApiFactory = (token) =>
+const defaultCreateApi: McpApiFactory = (token, headers) =>
   createApiClient({
     baseUrl: agentApiOrigin(process.env.API_BASE_URL),
     getAccessToken: () => token,
+    ...(headers ? { defaultHeaders: headers } : {}),
   });
 
 function text(value: unknown, isError = false) {
@@ -53,8 +57,12 @@ function text(value: unknown, isError = false) {
   };
 }
 
-/** A fresh MCP server over `api`, with exactly the five read tools. */
-function createMcpServer(api: ApiClient, log: FastifyBaseLogger): McpServer {
+/** A fresh MCP server over `api`: the five read tools, plus the write tools when `write` is given. */
+function createMcpServer(
+  api: ApiClient,
+  log: FastifyBaseLogger,
+  write?: { readonly token: string; readonly createApi: McpApiFactory }
+): McpServer {
   const server = new McpServer({ name: "mbe-venues", version: "1.0.0" });
 
   server.registerTool(
@@ -105,7 +113,24 @@ function createMcpServer(api: ApiClient, log: FastifyBaseLogger): McpServer {
       }
     );
   }
+  if (write) {
+    registerWriteTools(server, {
+      accessToken: write.token,
+      createApi: (headers) => write.createApi(write.token, headers),
+      api,
+      log,
+    });
+  }
   return server;
+}
+
+/** Whether the token carries the write scope. Anything unreadable counts as read-only. */
+async function isWriteScoped(api: ApiClient): Promise<boolean> {
+  try {
+    return (await api.accessTokens.current()).write === true;
+  } catch {
+    return false;
+  }
 }
 
 const unauthorized = (reply: FastifyReply, detail: string) =>
@@ -163,7 +188,8 @@ export const mcpRoutes: FastifyPluginAsync<McpRoutesOptions> = async (fastify, o
     }
 
     // Stateless: a fresh server and transport per request, answered as plain JSON.
-    const server = createMcpServer(api, request.log);
+    const write = (await isWriteScoped(api)) ? { token, createApi } : undefined;
+    const server = createMcpServer(api, request.log, write);
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: undefined,
       enableJsonResponse: true,

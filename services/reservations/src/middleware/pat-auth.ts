@@ -12,8 +12,13 @@ import { isBookingMove, isTablePauseResume, isTablePauseSave } from "./pat-write
 const PAT_CLAIM = "mbePat";
 /** Claim set, alongside `PAT_CLAIM`, when that token carries the write scope (#9778). */
 const PAT_WRITE_CLAIM = "mbePatWrite";
+/** Claim carrying the token's id (never the token itself), for the write audit (#9780). */
+const PAT_ID_CLAIM = "mbePatId";
 const TOKEN_READ_ONLY_PROBLEM = "urn:mbe:problem:token-read-only";
 const READ_METHODS = new Set(["GET", "HEAD"]);
+
+/** The reservation route a booking move goes through; the audit resolves its venue (#9780). */
+export const RESERVATION_ROUTE = "/api/v1/reservations/:id";
 
 const routeKey = (method: string, url: string): string => `${method} ${url}`;
 
@@ -28,7 +33,7 @@ type BodyCheck = ((body: unknown) => boolean) | null;
  * read-only.
  */
 const PAT_WRITE_ROUTES: ReadonlyMap<string, BodyCheck> = new Map<string, BodyCheck>([
-  [routeKey("PATCH", "/api/v1/reservations/:id"), isBookingMove],
+  [routeKey("PATCH", RESERVATION_ROUTE), isBookingMove],
   [routeKey("POST", availabilityConfigEndpoints.createClosure.path), isTablePauseSave],
   [routeKey("DELETE", availabilityConfigEndpoints.reopenClosure.path), isTablePauseResume],
   [routeKey("POST", availabilityConfigEndpoints.closureImpact.path), null],
@@ -37,6 +42,10 @@ const PAT_WRITE_ROUTES: ReadonlyMap<string, BodyCheck> = new Map<string, BodyChe
 /** True when the request was authenticated by a personal access token. */
 export const isPatRequest = (request: FastifyRequest): boolean =>
   request.user?.raw[PAT_CLAIM] === true;
+
+/** True when the request's personal access token carries the write scope (#9778). */
+export const isWriteScopedPatRequest = (request: FastifyRequest): boolean =>
+  isPatRequest(request) && request.user?.raw[PAT_WRITE_CLAIM] === true;
 
 type Authenticate = (token: string) => Promise<AuthenticatedAccessToken | null>;
 
@@ -54,7 +63,12 @@ export function createPatAwareVerifier(
     if (!isAccessToken(token)) return fallback(token);
     const found = await authenticate(token);
     if (!found) throw new Error("Invalid personal access token");
-    return { sub: found.userSub, [PAT_CLAIM]: true, [PAT_WRITE_CLAIM]: found.write };
+    return {
+      sub: found.userSub,
+      [PAT_CLAIM]: true,
+      [PAT_WRITE_CLAIM]: found.write,
+      [PAT_ID_CLAIM]: found.id,
+    };
   };
 }
 

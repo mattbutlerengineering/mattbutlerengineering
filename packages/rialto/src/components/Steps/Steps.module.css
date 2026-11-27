@@ -269,3 +269,12 @@
 .vertical.compact .step {
   padding-bottom: var(--rialto-space-md);
 }
+
+/* Forced colors strip box-shadow: the current node keeps a Highlight ring. */
+@media (forced-colors: active) {
+  .current .node {
+    border-color: Highlight;
+    border-width: 2px;
+    color: Highlight;
+  }
+}

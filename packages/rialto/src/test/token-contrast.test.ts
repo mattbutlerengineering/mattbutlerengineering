@@ -282,6 +282,13 @@ const surfaceScopes = surfaces["surface-scope"] as Record<
 describe.each(Object.keys(surfaceScopes))("Surface scope %s", (scope) => {
   describe.each(["light", "dark"] as const)("%s", (theme) => {
     const t = surfaceScopes[scope]![theme];
+    // An empty group keeps the dark theme's values; nothing to check here.
+    if (Object.keys(t).length === 0) {
+      it("declares nothing and keeps the theme's values", () => {
+        expect(theme).toBe("dark");
+      });
+      return;
+    }
     const value = (key: string): string => {
       const token = t[key];
       if (token === undefined) throw new Error(`${scope}.${theme} has no "${key}"`);
@@ -300,6 +307,15 @@ describe.each(Object.keys(surfaceScopes))("Surface scope %s", (scope) => {
       expect(contrastRatio(resolveOn(value(key), band), band)).toBeGreaterThanOrEqual(3);
     });
 
+    if (t["error"] !== undefined) {
+      it("error text on the band (4.5:1)", () => {
+        expect(contrastRatio(resolveOn(value("error"), band), band)).toBeGreaterThanOrEqual(4.5);
+      });
+      it("error border on the band (3:1)", () => {
+        expect(contrastRatio(resolveOn(value("error"), band), band)).toBeGreaterThanOrEqual(3);
+      });
+    }
+
     it("focus ring against the focus gap (3:1)", () => {
       const gap = value("focus-gap");
       expect(contrastRatio(resolveOn(value("focus-ring"), gap), gap)).toBeGreaterThanOrEqual(3);
@@ -315,4 +331,9 @@ describe.each(Object.keys(surfaceScopes))("Surface scope %s", (scope) => {
       expect(band).toBe(surfaceGroup[scope]?.$value);
     });
   });
+});
+
+it("velvet declares an error red in both themes", () => {
+  expect(surfaceScopes["velvet"]!.light["error"]).toBeDefined();
+  expect(surfaceScopes["velvet"]!.dark["error"]).toBeDefined();
 });

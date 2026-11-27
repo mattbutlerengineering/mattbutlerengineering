@@ -33,7 +33,7 @@ import {
 
 const TABLES_LIMIT = 100;
 
-const UntilField = z
+export const UntilField = z
   .string()
   .min(1)
   .describe(
@@ -63,7 +63,10 @@ const onlinePauses = (config: AvailabilityConfig, today: string): ClosureRule[] 
   );
 
 /** `endsOn` of a pause: null when it has no end, else a real date that is not in the past. */
-function checkUntil(until: string, today: string): { endsOn: string | null } | { error: string } {
+export function checkUntil(
+  until: string,
+  today: string
+): { endsOn: string | null } | { error: string } {
   if (until.trim() === UNTIL_REOPENED) return { endsOn: null };
   const end = dayNumber(until);
   if (end === undefined) {
@@ -198,7 +201,7 @@ function resumeOnlineBooking(ctx: ToolContext) {
   });
 }
 
-async function namedTableIds(
+export async function namedTableIds(
   api: ApiClient,
   venueId: string,
   names: readonly string[]
@@ -213,7 +216,22 @@ async function namedTableIds(
   return { ids: [...found.keys()], names: [...found.values()] };
 }
 
-const TablesField = z
+/** The rule a table pause saves: these tables, whole service days, from `today`. */
+export const tablePauseRule = (
+  tableIds: readonly string[],
+  today: string,
+  endsOn: string | null
+): ClosureRule => ({
+  id: randomUUID(),
+  kind: "closure",
+  targetKind: "tables",
+  tableIds: [...tableIds],
+  startsOn: today,
+  endsOn,
+  window: null,
+});
+
+export const TablesField = z
   .array(z.string().min(1))
   .min(1)
   .describe("The tables' names or numbers, as staff call them");
@@ -234,15 +252,7 @@ function pauseTables(ctx: ToolContext) {
         const named = await namedTableIds(api, venueId, tables);
         if ("error" in named) return notExecuted(named);
         const state = await api.availability.getConfig(venueId);
-        const rule: ClosureRule = {
-          id: randomUUID(),
-          kind: "closure",
-          targetKind: "tables",
-          tableIds: named.ids,
-          startsOn: today,
-          endsOn: end.endsOn,
-          window: null,
-        };
+        const rule = tablePauseRule(named.ids, today, end.endsOn);
         const outcome = await saveIfNoBookings(api, venueId, rule, state.version);
         if (!("saved" in outcome)) return outcome;
         return {
@@ -259,6 +269,34 @@ function pauseTables(ctx: ToolContext) {
   });
 }
 
+/** The one table pause that holds exactly `tables`, or why there is not exactly one. */
+export async function findTablePause(
+  api: ApiClient,
+  venueId: string,
+  tables: readonly string[],
+  timeZone: string | undefined
+) {
+  const named = await namedTableIds(api, venueId, tables);
+  if ("error" in named) return named;
+  const state = await api.availability.getConfig(venueId);
+  const wanted = [...named.ids].sort().join(",");
+  const matches = closureRules(state.config, todayIn(timeZone)).filter(
+    (r) =>
+      r.targetKind === "tables" &&
+      !r.sectionId &&
+      [...(r.tableIds ?? [])].sort().join(",") === wanted
+  );
+  if (matches.length !== 1) {
+    return {
+      error:
+        matches.length === 0
+          ? "Those tables aren't paused together by a table pause. Check list_closures, and name exactly the tables that were paused. Nothing was changed."
+          : "More than one pause holds those tables, so they can't be told apart here. Use the Availability page. Nothing was changed.",
+    };
+  }
+  return { state, named, rule: matches[0]! };
+}
+
 function resumeTables(ctx: ToolContext) {
   const { log, api, venueId, timeZone } = ctx;
   return tool({
@@ -269,25 +307,10 @@ function resumeTables(ctx: ToolContext) {
       if (!venueId) return notExecuted(NO_VENUE);
       log.info({ venueId }, "resume_tables tool called");
       try {
-        const named = await namedTableIds(api, venueId, tables);
-        if ("error" in named) return notExecuted(named);
-        const state = await api.availability.getConfig(venueId);
-        const wanted = [...named.ids].sort().join(",");
-        const matches = closureRules(state.config, todayIn(timeZone)).filter(
-          (r) =>
-            r.targetKind === "tables" &&
-            !r.sectionId &&
-            [...(r.tableIds ?? [])].sort().join(",") === wanted
-        );
-        if (matches.length !== 1) {
-          return notExecuted({
-            error:
-              matches.length === 0
-                ? "Those tables aren't paused together by a table pause. Check list_closures, and name exactly the tables that were paused. Nothing was changed."
-                : "More than one pause holds those tables, so they can't be told apart here. Use the Availability page. Nothing was changed.",
-          });
-        }
-        return await resumeRule(ctx, state.config, matches[0]!, { tables: named.names });
+        const found = await findTablePause(api, venueId, tables, timeZone);
+        if ("error" in found) return notExecuted(found);
+        const { state, named, rule } = found;
+        return await resumeRule(ctx, state.config, rule, { tables: named.names });
       } catch (err) {
         log.error({ ...failureLog(err), venueId }, "resume_tables failed to read");
         return notExecuted(closureFailure(err, "Couldn't read the pauses. Nothing was changed."));

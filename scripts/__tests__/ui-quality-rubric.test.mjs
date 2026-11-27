@@ -18,11 +18,11 @@ const md = readFileSync(join(REPO, "docs/ui-quality/rubric.md"), "utf8");
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
 
-describe("committed rubric v1", () => {
-  it("is version 1 and validates clean", () => {
-    expect(json.rubric_version).toBe(1);
+describe("committed rubric v2", () => {
+  it("is version 2 and validates clean", () => {
+    expect(json.rubric_version).toBe(2);
     expect(validateRubric(json)).toEqual([]);
-    expect(loadRubric(REPO).rubric_version).toBe(1);
+    expect(loadRubric(REPO).rubric_version).toBe(2);
   });
 
   it("has one `### <tell-id>` heading in rubric.md per tell in rubric.json, and no others", () => {

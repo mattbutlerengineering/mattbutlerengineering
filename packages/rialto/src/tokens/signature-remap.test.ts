@@ -1,13 +1,9 @@
 /**
- * Kill-test signature remap (rialto-signature-pass Milestone 1, ux.md §
- * Kill-test mapping). Under `[data-palette="signature"]` the five kill-test
- * primitives repaint through Tier-3 tokens: plum for the voice, plum-muted
- * for highlight and hover tints, tinted for the Tabs track. The gold rule
- * holds: primary, focus and selected stay gold.
- *
- * Outside the scope nothing changes: the base Tier-3 values are today's, and
- * every component rule that reads a remapped token is itself scoped to
- * `[data-palette="signature"]`, so no rule matches outside it.
+ * Signature palette promotion (rialto-signature-pass Milestone 2). The
+ * kill-test remap (ux.md § Kill-test mapping) is the default: Tier-3 tokens
+ * re-point at `:root` to plum, plum-muted and tinted, with no scope attribute.
+ * The gold rule holds: primary, focus and selected stay gold. Component rules
+ * that read a remapped token carry no `[data-palette]` prefix.
  */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -44,75 +40,53 @@ function rule(selectors: readonly string[]): Rule {
   return found;
 }
 
-const BASE = rule([":root", "[data-surface]", "[data-palette]"]);
-const SIGNATURE = rule(['[data-palette="signature"]', '[data-palette="signature"] [data-surface]']);
+const BASE = rule([":root", "[data-theme]", "[data-surface]", "[data-palette]"]);
 
-/** Remapped token → [value inside the scope, today's value outside it]. */
-const REMAP: Record<string, readonly [string, string]> = {
-  "--rialto-button-secondary-bg": [
-    "var(--rialto-surface-elevated)",
-    "var(--rialto-surface-elevated)",
-  ],
-  "--rialto-button-secondary-text": ["var(--rialto-plum)", "var(--rialto-text-primary)"],
-  "--rialto-button-secondary-border": ["var(--rialto-plum)", "var(--rialto-border)"],
-  "--rialto-button-secondary-bg-hover": [
-    "var(--rialto-plum-muted)",
-    "var(--rialto-surface-recessed)",
-  ],
-  "--rialto-button-ghost-bg-hover": ["var(--rialto-plum-muted)", "var(--rialto-surface-recessed)"],
-  "--rialto-input-caret": ["var(--rialto-plum)", "auto"],
-  "--rialto-input-selection-bg": ["var(--rialto-plum)", "Highlight"],
-  "--rialto-input-selection-text": ["var(--rialto-plum-text-on)", "HighlightText"],
-  "--rialto-input-border-hover": ["var(--rialto-plum)", "var(--rialto-border-strong)"],
-  "--rialto-select-option-highlight-bg": ["var(--rialto-plum-muted)", "var(--rialto-accent-muted)"],
-  "--rialto-tabs-track-bg": ["var(--rialto-surface-tinted)", "transparent"],
-  "--rialto-tabs-text-inactive": ["var(--rialto-text-primary)", "var(--rialto-text-secondary)"],
-  "--rialto-tabs-text-hover": ["var(--rialto-plum)", "var(--rialto-text-primary)"],
+/** Signature remap tokens and the semantic token each now resolves to at :root. */
+const REMAP: Record<string, string> = {
+  "--rialto-button-secondary-bg": "var(--rialto-surface-elevated)",
+  "--rialto-button-secondary-text": "var(--rialto-plum)",
+  "--rialto-button-secondary-border": "var(--rialto-plum)",
+  "--rialto-button-secondary-bg-hover": "var(--rialto-plum-muted)",
+  "--rialto-button-ghost-bg-hover": "var(--rialto-plum-muted)",
+  "--rialto-input-caret": "var(--rialto-plum)",
+  "--rialto-input-selection-bg": "var(--rialto-plum)",
+  "--rialto-input-selection-text": "var(--rialto-plum-text-on)",
+  "--rialto-input-border-hover": "var(--rialto-plum)",
+  "--rialto-select-option-highlight-bg": "var(--rialto-plum-muted)",
+  "--rialto-tabs-track-bg": "var(--rialto-surface-tinted)",
+  "--rialto-tabs-text-inactive": "var(--rialto-text-primary)",
+  "--rialto-tabs-text-hover": "var(--rialto-plum)",
 };
 
 describe("signature remap tokens", () => {
-  it.each(Object.entries(REMAP))("%s re-points inside the scope", (token, [inside]) => {
-    expect(SIGNATURE.declarations.get(token)).toBe(inside);
+  it.each(Object.entries(REMAP))("%s resolves to the signature value at :root", (token, value) => {
+    expect(BASE.declarations.get(token)).toBe(value);
   });
 
-  it.each(Object.entries(REMAP))("%s keeps today's value outside the scope", (token, [, today]) => {
-    expect(BASE.declarations.get(token)).toBe(today);
+  it('leaves no [data-palette="signature"] selector in the token sheet', () => {
+    const selectors = tokenRules.flatMap((r) => r.selectors);
+    expect(selectors.filter((s) => s.includes('[data-palette="signature"]'))).toEqual([]);
   });
 
-  it("re-points only the mapped tokens", () => {
-    expect([...SIGNATURE.declarations.keys()].sort()).toEqual(Object.keys(REMAP).sort());
-  });
-
-  it("never remaps a gold-rule token (primary, focus, selected)", () => {
-    const goldRule = [...BASE.declarations]
-      .filter(([, value]) => /var\(--rialto-accent(-hover)?\)/.test(value))
-      .map(([token]) => token);
-    expect(goldRule).toEqual(
-      expect.arrayContaining([
-        "--rialto-button-primary-bg",
-        "--rialto-input-border-focus",
-        "--rialto-tabs-indicator-color",
-      ])
-    );
-    const scoped = tokenRules
-      .filter((r) => r.selectors.some((s) => s.includes('[data-palette="signature"]')))
-      .flatMap((r) => [...r.declarations.keys()]);
-    for (const token of goldRule) expect(scoped, token).not.toContain(token);
+  it("never remaps a gold-rule token (primary, focus, selected) away from the accent", () => {
+    for (const token of [
+      "--rialto-button-primary-bg",
+      "--rialto-input-border-focus",
+      "--rialto-tabs-indicator-color",
+    ]) {
+      expect(BASE.declarations.get(token), token).toMatch(/var\(--rialto-accent(-hover)?\)/);
+    }
   });
 
   it("deepens the Input well to elevated on a tinted band", () => {
-    const tinted = rule([
-      '[data-palette="signature"] [data-surface="tinted"]',
-      '[data-palette="signature"][data-surface="tinted"]',
-    ]);
-    expect(tinted.declarations.get("--rialto-input-bg")).toBe("var(--rialto-surface-elevated)");
+    expect(rule(['[data-surface="tinted"]']).declarations.get("--rialto-input-bg")).toBe(
+      "var(--rialto-surface-elevated)"
+    );
   });
 
   it("keeps ivory content legible on a velvet band", () => {
-    const velvet = rule([
-      '[data-palette="signature"] [data-surface="velvet"]',
-      '[data-palette="signature"][data-surface="velvet"]',
-    ]);
+    const velvet = rule(['[data-surface="velvet"]']);
     // Card and wells take the band; plum, which is dark, never sits on velvet as text.
     expect(velvet.declarations.get("--rialto-card-elevated-bg")).toBe("var(--rialto-surface)");
     expect(velvet.declarations.get("--rialto-tabs-track-bg")).toBe("transparent");
@@ -131,32 +105,19 @@ const COMPONENT_SHEETS = ["Button", "Input", "Select", "Card", "Tabs"].map((name
   ),
 }));
 
-const SCOPE_PREFIX = ':global([data-palette="signature"])';
-const HOOKS = new Set([
-  ...Object.keys(REMAP),
-  "--rialto-input-bg",
-  "--rialto-input-text",
-  "--rialto-card-elevated-bg",
-  "--rialto-card-sheen",
-]);
-
 describe.each(COMPONENT_SHEETS)("$name.module.css", ({ rules: componentRules }) => {
-  it("reads the signature tokens inside the scope", () => {
-    const scoped = componentRules.filter((r) =>
-      r.selectors.every((s) => s.startsWith(SCOPE_PREFIX))
-    );
-    const reads = scoped.flatMap((r) => [...r.declarations.values()]).join(" ");
-    expect([...HOOKS].some((hook) => reads.includes(`var(${hook})`))).toBe(true);
+  it("has no rule scoped to data-palette", () => {
+    for (const r of componentRules)
+      for (const selector of r.selectors) expect(selector).not.toContain("data-palette");
   });
+});
 
-  it("reads a remapped token only from a rule scoped to the signature palette", () => {
-    for (const r of componentRules) {
-      const readsHook = [...r.declarations.values()].some((value) =>
-        [...HOOKS].some((hook) => value.includes(`var(${hook})`))
-      );
-      if (!readsHook) continue;
-      for (const selector of r.selectors)
-        expect(selector.startsWith(SCOPE_PREFIX), selector).toBe(true);
-    }
+describe("Button ghost press", () => {
+  it("keeps the press tint: no .ghost:hover rule sits after .ghost:active", () => {
+    const button = COMPONENT_SHEETS.find((sheet) => sheet.name === "Button")!.rules;
+    const order = button.flatMap((r) => r.selectors);
+    const active = order.indexOf(".ghost:active");
+    expect(active).toBeGreaterThan(-1);
+    expect(order.lastIndexOf(".ghost:hover")).toBeLessThan(active);
   });
 });

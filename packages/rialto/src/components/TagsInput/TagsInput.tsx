@@ -69,7 +69,12 @@ export const TagsInput = forwardRef<HTMLInputElement, TagsInputProps>(
 
     const [internal, setInternal] = useState<string[]>(defaultValue ?? []);
     const [draft, setDraft] = useState("");
-    const [announcement, setAnnouncement] = useState("");
+    const [announcement, setAnnouncement] = useState({ text: "", flip: false });
+    // Same text twice must still change the live region's content to be re-read.
+    const announce = useCallback(
+      (text: string) => setAnnouncement((a) => ({ text, flip: !a.flip })),
+      []
+    );
     const tags = value ?? internal;
     const atLimit = maxTags !== undefined && tags.length >= maxTags;
 
@@ -100,17 +105,17 @@ export const TagsInput = forwardRef<HTMLInputElement, TagsInputProps>(
           notes.push(messages.tagAdded(text));
         }
         if (next !== tags) update(next);
-        if (notes.length) setAnnouncement(notes.join(". "));
+        if (notes.length) announce(notes.join(". "));
         setDraft("");
       },
-      [tags, maxTags, allowDuplicates, messages, update]
+      [tags, maxTags, allowDuplicates, messages, update, announce]
     );
 
     const removeAt = (index: number) => {
       const removed = tags[index];
       if (removed === undefined) return;
       update(tags.filter((_, i) => i !== index));
-      setAnnouncement(messages.tagRemoved(removed));
+      announce(messages.tagRemoved(removed));
       inputRef.current?.focus();
     };
 
@@ -130,6 +135,15 @@ export const TagsInput = forwardRef<HTMLInputElement, TagsInputProps>(
       commit(`${draft}${text}`.split(/[,\n]/));
     };
 
+    // Key by text plus occurrence among equal tags, so removing a chip never re-keys later ones.
+    const seen = new Map<string, number>();
+    const chipKeys = tags.map((tag) => {
+      const lower = tag.toLowerCase();
+      const n = seen.get(lower) ?? 0;
+      seen.set(lower, n + 1);
+      return `${lower}#${n}`;
+    });
+
     return (
       <div className={cn(styles.wrapper, error && styles.error, className)}>
         <label {...field.labelProps} className={styles.label}>
@@ -143,7 +157,7 @@ export const TagsInput = forwardRef<HTMLInputElement, TagsInputProps>(
               <AnimatePresence initial={false}>
                 {tags.map((tag, i) => (
                   <motion.li
-                    key={tag.toLowerCase() + i}
+                    key={chipKeys[i]}
                     className={styles.item}
                     initial={motionPreset.reduced ? { opacity: 0 } : { opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
@@ -174,15 +188,18 @@ export const TagsInput = forwardRef<HTMLInputElement, TagsInputProps>(
         </div>
         {hint &&
           (error ? (
-            <span {...field.errorProps} className={styles.hint}>
+            <span key="error" {...field.errorProps} className={styles.hint}>
               {hint}
             </span>
           ) : (
-            <span {...field.descriptionProps} className={styles.hint}>
+            <span key="hint" {...field.descriptionProps} className={styles.hint}>
               {hint}
             </span>
           ))}
-        <span {...field.liveRegionProps}>{announcement}</span>
+        <span {...field.liveRegionProps}>
+          {announcement.text}
+          {announcement.flip ? "\u00a0" : ""}
+        </span>
       </div>
     );
   }

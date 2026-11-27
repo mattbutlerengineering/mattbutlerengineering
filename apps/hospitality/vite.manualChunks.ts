@@ -17,7 +17,12 @@ export function manualChunks(id: string): string | undefined {
     // node_modules package segment (not a bare "/react/" substring) so a
     // scoped package merely *named* react (@sentry/react, @json-render/react)
     // can't collide with the actual react/react-dom npm packages (#5730).
-    if (id.includes("/node_modules/react-dom/") || id.includes("/node_modules/react/")) {
+    // `scheduler` is react-dom's dependency and belongs with it.
+    if (
+      id.includes("/node_modules/react-dom/") ||
+      id.includes("/node_modules/react/") ||
+      id.includes("/node_modules/scheduler/")
+    ) {
       return "react-vendor";
     }
     // Routing — separate from page code
@@ -53,3 +58,21 @@ export function manualChunks(id: string): string | undefined {
   }
   return undefined;
 }
+
+/**
+ * Rolldown pulls a group's module dependencies into that group. With only the
+ * single `manualChunks` group, the konva module claimed react-dom and
+ * `scheduler` (react-konva's deps) into canvas-vendor before react-vendor
+ * could, so the entry's react-vendor imported canvas-vendor and every page,
+ * including the public booking page, downloaded konva (#9891). A dedicated
+ * react group with a higher priority claims them first.
+ */
+export const reactVendorGroup = {
+  name: "react-vendor",
+  test: (id: string) => manualChunks(id) === "react-vendor",
+  priority: 10,
+};
+
+export const codeSplitting = {
+  groups: [reactVendorGroup, { name: manualChunks, debugName: "manual-chunks" }],
+};

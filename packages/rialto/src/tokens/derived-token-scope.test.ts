@@ -30,8 +30,8 @@ function rules(css: string): Rule[] {
   }));
 }
 
-/** The kill-test PR ships the surface and palette scopes; `[data-theme]` lands with the promotion. */
-const SCOPE_SELECTORS = [":root", "[data-surface]", "[data-palette]"];
+/** Every element that re-declares the semantic tokens the Tier-3 tokens read. */
+const SCOPE_SELECTORS = [":root", "[data-theme]", "[data-surface]", "[data-palette]"];
 
 describe("component-tokens.css", () => {
   it("declares the Tier-3 tokens on :root and on every surface and palette scope", () => {
@@ -40,6 +40,18 @@ describe("component-tokens.css", () => {
     );
     expect(tokenRules).toHaveLength(1);
     expect(tokenRules[0]?.selectors).toEqual(SCOPE_SELECTORS);
+  });
+});
+
+describe("nested light island", () => {
+  it("re-resolves the Tier-3 focus border from the island's light accent", () => {
+    // `[data-theme]` matches the island, so it re-substitutes
+    // --rialto-input-border-focus from the light --rialto-accent it declares.
+    const base = rules(sheet("component-tokens.css")).find((rule) =>
+      rule.body.includes("--rialto-input-border-focus")
+    );
+    expect(base?.selectors).toContain("[data-theme]");
+    expect(base?.body).toMatch(/--rialto-input-border-focus:\s*var\(--rialto-accent\)/);
   });
 });
 
@@ -52,15 +64,8 @@ describe("shadows.css focus shadow", () => {
     expect(focusRules).toHaveLength(1);
   });
 
-  it("is declared on :root, every surface and palette scope, and the dark theme", () => {
-    // `[data-theme="dark"]` keeps today's behaviour for a dark element under a
-    // light root, where the old dark-only copy re-resolved the shadow.
-    expect(focusRules[0]?.selectors).toEqual([
-      ":root",
-      '[data-theme="dark"]',
-      "[data-surface]",
-      "[data-palette]",
-    ]);
+  it("is declared on :root and every theme, surface and palette scope", () => {
+    expect(focusRules[0]?.selectors).toEqual(SCOPE_SELECTORS);
   });
 
   it("is composed from the focus gap and focus ring tokens", () => {

@@ -298,7 +298,7 @@ function readShadowTokens(tokensDir: string): {
   // The focus shadow is declared once, on a shared rule that both themes and
   // every surface scope match (ADR-035), so it sits outside the two blocks
   // parsed above. Its value is var-based by design; emit it in both modes.
-  const sharedRule = css.match(/:root,\s*\[data-theme="dark"\][^{]*\{/);
+  const sharedRule = css.match(/:root,\s*\[data-theme(?:="dark")?\][^{]*\{/);
   if (sharedRule?.index !== undefined) {
     const sharedProps = parseCssProperties(extractCssBlock(css.slice(sharedRule.index), "{"));
     for (const prop of sharedProps) {

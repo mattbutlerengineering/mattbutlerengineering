@@ -50,7 +50,7 @@
     {
       "name": "index (subpath)",
       "path": "dist/index.js",
-      "limit": "120 B"
+      "limit": "135 B"
     },
     {
       "name": "catalog (subpath)",
