@@ -627,7 +627,7 @@ describe("TimelineGrid", () => {
       );
     });
 
-    it("hands the now-line the header row's height, so its label sits below the hour headings (#10036)", () => {
+    it("hands the now-line the header row's height, so its label centres in the header band (#10036)", () => {
       const { today } = atLocal(19, 10);
       render(<TimelineGrid {...defaultProps} date={today} />);
       const header = screen.getByRole("grid").querySelector(".headerRow") as HTMLElement;

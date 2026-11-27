@@ -77,10 +77,16 @@ describe("reservation block text contrast (#10036)", () => {
 describe("now label placement and contrast (#10036)", () => {
   const rules = parseRules("TimelineGrid.module.css");
 
-  it("sits below the hour header band, so it never covers an hour heading", () => {
-    expect(rule(rules, ".currentTimeLabel").get("inset-block-start")).toMatch(
-      /^calc\(var\(--timeline-header-height\) \+ var\(--rialto-space-[a-z0-9]+\)\)$/
-    );
+  it("is centred in the header band, clear of the first table row", () => {
+    const declarations = rule(rules, ".currentTimeLabel");
+    expect(declarations.get("inset-block-start")).toBe("calc(var(--timeline-header-height) / 2)");
+    expect(declarations.get("transform")).toBe("translateY(-50%)");
+  });
+
+  it("is layered above the sticky header, so it covers an hour heading instead of mixing with it", () => {
+    const indicator = Number(rule(rules, ".currentTimeIndicator").get("z-index"));
+    const header = Number(rule(rules, ".headerRow").get("z-index"));
+    expect(indicator).toBeGreaterThan(header);
   });
 
   it("is a solid accent chip with the on-accent text token", () => {
