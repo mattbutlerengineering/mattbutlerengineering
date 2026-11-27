@@ -99,7 +99,10 @@ function ReservationBlockComponent({
   const spokenLabel = [
     visibleRun,
     t("timeline.partyOf", { count: reservation.partySize }),
-    t(RESERVATION_STATUS_KEYS[reservation.status]).toLocaleLowerCase(fmt.locale),
+    // A status shown as a visible word is already spoken in the visible run.
+    statusWord === null
+      ? t(RESERVATION_STATUS_KEYS[reservation.status]).toLocaleLowerCase(fmt.locale)
+      : null,
     isSeated ? t("timeline.block.seatedWord") : null,
     guestSignalBadge ? lateLabel : null,
     overrideReason ? t("timeline.block.overrideLabel", { reason: overrideReason }) : null,

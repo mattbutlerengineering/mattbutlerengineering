@@ -76,7 +76,10 @@ describe("ReservationBlock", () => {
     const cue = screen.getByTestId("reservation-block-status-word");
     expect(cue.textContent).toBe(word);
     // WCAG 2.5.3: the accessible name opens with what is on screen.
-    expect(screen.getByRole("button").getAttribute("aria-label")).toContain(word);
+    // ...and says the status once: the visible word, not a trailing repeat.
+    expect(screen.getByRole("button").getAttribute("aria-label")).toMatch(
+      new RegExp(`^Jane Doe ${word} 4 · \\d{1,2}:\\d{2} [AP]M, party of 4$`)
+    );
   });
 
   it.each(["CONFIRMED", "COMPLETED"] as const)("shows no status word for %s", (status) => {
