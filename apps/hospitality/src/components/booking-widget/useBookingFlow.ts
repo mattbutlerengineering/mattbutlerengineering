@@ -135,7 +135,7 @@ type BookingFlowAction =
   | { type: "CONFIRM_ERROR"; error: string }
   | { type: "DEPOSIT_SUCCESS"; paymentIntentId: string }
   | { type: "EXPIRE_HOLD"; error: string }
-  | { type: "RESET"; selectedDate: string }
+  | { type: "RESET"; selectedDate: string; depositRequired: boolean }
   | { type: "SET_DEPOSIT_CONFIG"; config: DepositConfig | null; depositRequired: boolean }
   | { type: "SET_VENUE_CONFIG"; config: PublicVenueConfig }
   | { type: "VENUE_CONFIG_FAILED" }
@@ -415,7 +415,24 @@ function reducer(state: BookingFlowState, action: BookingFlowAction): BookingFlo
       };
 
     case "RESET":
-      return { step: "date-party", data: { ...INITIAL_DATA, selectedDate: action.selectedDate } };
+      // Clears the guest's booking draft but keeps what is true of the venue:
+      // its config, deposit policy and closed dates are fetched once per mount
+      // and nothing re-fetches them (#9970). `depositRequired` goes back to
+      // the provisional verdict, since CONFIRM_SUCCESS_* overwrote it with
+      // the last guest's outcome.
+      return {
+        step: "date-party",
+        data: {
+          ...INITIAL_DATA,
+          selectedDate: action.selectedDate,
+          depositRequired: action.depositRequired,
+          depositConfig: state.data.depositConfig,
+          venueConfig: state.data.venueConfig,
+          venueConfigSettled: state.data.venueConfigSettled,
+          closures: state.data.closures,
+          closedDatesLoaded: state.data.closedDatesLoaded,
+        },
+      };
 
     case "SET_DEPOSIT_CONFIG":
       // Provisional pre-confirm guess (risk isn't known yet); CONFIRM_SUCCESS_*
@@ -815,8 +832,16 @@ export function useBookingFlow({
   }, []);
 
   const resetFlow = useCallback(() => {
-    dispatch({ type: "RESET", selectedDate: venueDate(new Date(), venueTimezone) });
-  }, [venueTimezone]);
+    dispatch({
+      type: "RESET",
+      selectedDate: venueDate(new Date(), venueTimezone),
+      depositRequired: provisionalDepositRequired(
+        flowState.data.depositConfig,
+        venueSlug,
+        stripePublishableKey
+      ),
+    });
+  }, [venueTimezone, flowState.data.depositConfig, venueSlug, stripePublishableKey]);
 
   const goToWaitlistJoin = useCallback(() => {
     dispatch({ type: "GO_TO_WAITLIST_JOIN" });
