@@ -10,11 +10,9 @@ import { PageHeader } from "../components/PageHeader.js";
 import { WidgetLocaleScope, WidgetLocalePicker } from "../components/booking-widget/index.js";
 import { formatLocalTime, formatLongDateWithYear } from "../utils/format.js";
 import { buildReservationIcs, downloadIcsFile } from "../utils/ics.js";
-import { homeUrl } from "../lib/host-brand.js";
 import styles from "./InvitePage.module.css";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
-const FALLBACK_HOME_URL = homeUrl();
 
 /** The invite view carries no end time; the calendar entry assumes a two-hour sitting. */
 const ASSUMED_DURATION_MS = 2 * 60 * 60 * 1000;
@@ -54,7 +52,6 @@ function buildInviteIcs(invite: InviteData): string {
 }
 
 function EndedState({ heading, description }: { heading: string; description: string }) {
-  const { t } = useTranslation();
   return (
     <main>
       <Stack align="center" justify="center" style={{ minHeight: "100vh", padding: "2rem" }}>
@@ -63,11 +60,6 @@ function EndedState({ heading, description }: { heading: string; description: st
           headingLevel={1}
           heading={heading}
           description={description}
-          action={
-            <a className={styles.homeLink} href={FALLBACK_HOME_URL}>
-              {t("manageReservation.homeLink")}
-            </a>
-          }
         />
       </Stack>
     </main>

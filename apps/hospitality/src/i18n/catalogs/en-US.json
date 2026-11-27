@@ -1588,7 +1588,6 @@
     "documentTitle": "Your reservation — Hospitality",
     "venueDocumentTitle": "{{venue}} — Your reservation",
     "supportLine": "Need help? Contact the venue directly using the details in your confirmation email.",
-    "homeLink": "Back to {{brand}}",
     "noLinkHeading": "Open your reservation from your email",
     "noLinkDescription": "Use the link in your confirmation email to manage your reservation, or contact the restaurant.",
     "loading": "Loading reservation...",
@@ -1704,9 +1703,9 @@
     "full": "This invitation has no spots left.",
     "error": "Something went wrong. Please try again.",
     "endedHeading": "This invitation has ended",
-    "endedDescription": "The reservation was cancelled or has already passed.",
+    "endedDescription": "The reservation was cancelled or has already passed. Ask the person who invited you for the details.",
     "notFoundHeading": "Invitation not found",
-    "notFoundDescription": "Check the link you were sent."
+    "notFoundDescription": "Check the link you were sent, or ask the person who invited you to send it again."
   },
   "offlineBanner": {
     "cached": "Showing cached data from last sync",

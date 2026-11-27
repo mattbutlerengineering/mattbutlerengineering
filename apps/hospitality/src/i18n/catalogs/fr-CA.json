@@ -1626,7 +1626,6 @@
     "documentTitle": "Votre réservation — Hospitality",
     "venueDocumentTitle": "{{venue}} — Votre réservation",
     "supportLine": "Besoin d’aide? Communiquez directement avec l’établissement à l’aide des coordonnées de votre courriel de confirmation.",
-    "homeLink": "Retour à {{brand}}",
     "noLinkHeading": "Ouvrez votre réservation depuis votre courriel",
     "noLinkDescription": "Utilisez le lien de votre courriel de confirmation pour gérer votre réservation, ou communiquez avec le restaurant.",
     "loading": "Chargement de la réservation...",
@@ -1743,9 +1742,9 @@
     "full": "Il ne reste plus de places pour cette invitation.",
     "error": "Une erreur s'est produite. Veuillez réessayer.",
     "endedHeading": "Cette invitation est terminée",
-    "endedDescription": "La réservation a été annulée ou est déjà passée.",
+    "endedDescription": "La réservation a été annulée ou est déjà passée. Demandez les détails à la personne qui vous a invité.",
     "notFoundHeading": "Invitation introuvable",
-    "notFoundDescription": "Vérifiez le lien que vous avez reçu."
+    "notFoundDescription": "Vérifiez le lien que vous avez reçu ou demandez à la personne qui vous a invité de vous le renvoyer."
   },
   "offlineBanner": {
     "cached": "Affichage des données en cache de la dernière synchronisation",

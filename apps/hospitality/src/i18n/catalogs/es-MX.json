@@ -1626,7 +1626,6 @@
     "documentTitle": "Tu reserva — Hospitality",
     "venueDocumentTitle": "{{venue}} — Tu reserva",
     "supportLine": "¿Necesitas ayuda? Comunícate directamente con el restaurante con los datos de tu correo de confirmación.",
-    "homeLink": "Volver a {{brand}}",
     "noLinkHeading": "Abre tu reservación desde tu correo",
     "noLinkDescription": "Usa el enlace de tu correo de confirmación para administrar tu reservación, o comunícate con el restaurante.",
     "loading": "Cargando reserva...",
@@ -1743,9 +1742,9 @@
     "full": "Esta invitación ya no tiene lugares disponibles.",
     "error": "Algo salió mal. Inténtalo de nuevo.",
     "endedHeading": "Esta invitación ha terminado",
-    "endedDescription": "La reservación fue cancelada o ya pasó.",
+    "endedDescription": "La reservación fue cancelada o ya pasó. Pregunta a la persona que te invitó para más detalles.",
     "notFoundHeading": "Invitación no encontrada",
-    "notFoundDescription": "Revisa el enlace que recibiste."
+    "notFoundDescription": "Revisa el enlace que recibiste o pide a la persona que te invitó que te lo envíe de nuevo."
   },
   "offlineBanner": {
     "cached": "Mostrando datos en caché de la última sincronización",
