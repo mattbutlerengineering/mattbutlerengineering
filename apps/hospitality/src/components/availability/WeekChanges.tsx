@@ -176,7 +176,13 @@ export function WeekChanges(props: WeekChangesProps) {
   if (onPhone && !opened && rows.length > 0) {
     return (
       <section aria-label={title} className={styles.collapsed}>
-        <Button variant="ghost" size="sm" onClick={() => setOpened(true)}>
+        <Button
+          variant="ghost"
+          size="sm"
+          // Starts with the visible count (WCAG 2.5.3) and says what it opens.
+          aria-label={t("availability.weekChanges.collapsedLabel", { count: rows.length })}
+          onClick={() => setOpened(true)}
+        >
           {t("availability.weekChanges.collapsed", { count: rows.length })}
         </Button>
       </section>

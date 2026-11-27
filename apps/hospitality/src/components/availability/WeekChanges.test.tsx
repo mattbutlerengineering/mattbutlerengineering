@@ -286,7 +286,9 @@ describe("WeekChanges", () => {
     renderWeek(config({ dateRules: [closure("c1", "2026-11-25")] }));
     expect(within(section()).queryByText("Wed, Nov 25 · Closed")).toBeNull();
     // Short enough to share the Today line's row on a 375 px phone (availability-phone.spec.ts).
-    fireEvent.click(within(section()).getByRole("button", { name: "2 coming up" }));
+    const count = within(section()).getByRole("button", { name: "2 changes in the next 7 days" });
+    expect(count).toHaveTextContent(/^2 changes$/);
+    fireEvent.click(count);
     expect(within(section()).getByText("Wed, Nov 25 · Closed")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Next 7 days" })).toHaveFocus();
   });
