@@ -2,7 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { sentryVitePlugin } from "@sentry/vite-plugin";
 import { resolve } from "path";
-import { manualChunks } from "./vite.manualChunks.js";
+import { codeSplitting } from "./vite.manualChunks.js";
 
 export default defineConfig({
   plugins: [
@@ -24,7 +24,7 @@ export default defineConfig({
     sourcemap: true,
     rollupOptions: {
       output: {
-        manualChunks,
+        codeSplitting,
       },
     },
   },
