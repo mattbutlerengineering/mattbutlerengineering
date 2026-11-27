@@ -1,5 +1,15 @@
 # @mattbutlerengineering/rialto
 
+## 3.1.14
+
+### Patch Changes
+
+- [#9859](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9859) [`720197f`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/720197f4b2db3465b45a7596dcd5a17bf6853cf1) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Under forced colours, a checked Checkbox or Radio, a checked Toggle, and selected Calendar and DateRange days show a visible focus ring again (system text colour). Their selected fill had stopped the browser repainting the outline.
+
+- [#9854](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9854) [`38a3c19`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/38a3c19cd21aaa00ead8253385bef7a19aa903ff) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Focusing a Radio or Checkbox now scrolls its whole label into view. The hidden native input covers its label (transparent and click-through) instead of sitting as a 1px clipped box, so a tall option inside a scrolling container is no longer left cut off at the edge when it takes keyboard focus.
+
+- [#9849](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9849) [`f5e3b2f`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/f5e3b2f15d113dfd3fda41f4509157e6f3b3583d) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Selected states, shadow-only boundaries and text/border tokens now hold up under forced-colors and prefers-contrast: more.
+
 ## 3.1.13
 
 ### Patch Changes
