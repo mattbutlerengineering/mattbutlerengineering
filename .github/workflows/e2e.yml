@@ -357,6 +357,27 @@ jobs:
             apps/hospitality/playwright-report/
           retention-days: 7
 
+      # Small per-shard record of tests that failed after retries, read by
+      # e2e-cross-branch-red.yml to spot a test red on 3+ unrelated PR branches (#9829).
+      - name: Write failed-tests record
+        if: failure()
+        env:
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -o pipefail
+          mkdir -p e2e-failed-tests
+          node scripts/e2e-cross-branch-red.mjs write-record apps/hospitality/playwright-results.json e2e-failed-tests/failed-tests.json
+
+      - name: Upload failed-tests record
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-failed-tests-shard-${{ matrix.shard }}
+          path: e2e-failed-tests/failed-tests.json
+          retention-days: 7
+
       # ── Environment diagnostics (runs on failure, gated by failure rate) ──────
       #
       # When a high fraction of tests fail (>E2E_FAILURE_THRESHOLD %, default 20%)
