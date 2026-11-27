@@ -14,6 +14,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { REPO_AUDIT_CHECKS, runAllChecks, formatSummary, exitCodeFor } from "../run-repo-audit.mjs";
 import { BLOCKED_EXIT_CODES } from "../check-rialto-changeset.mjs";
+import { UNVERIFIED_EXIT_CODES } from "../check-ready-label-exclusive.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
@@ -141,6 +142,69 @@ describe("blocked checks", () => {
   it("wires check-rialto-changeset's blocked codes into the audit", () => {
     const check = REPO_AUDIT_CHECKS.find((c) => c.name === "check-rialto-changeset");
     expect(check.blocked[BLOCKED_EXIT_CODES.shallow]).toBe("shallow clone — base unresolvable");
+  });
+});
+
+// ── UNVERIFIED (#9922): a check that could not reach its input is not a pass ──
+// `check-ready-label-exclusive` reads live GitHub state and used to exit 0 when
+// `gh` could not answer, so the summary printed `PASS` for a gate that never
+// ran — the normal outcome in CCR sessions (GraphQL blocked) and in CI's Build
+// job (no token). UNVERIFIED is a third outcome: not a pass, not a violation.
+describe("unverified checks", () => {
+  const UNVERIFIED = { 13: "gh unreachable — exclusivity not verified" };
+  const verifiable = {
+    name: "alpha",
+    command: "node",
+    args: ["alpha.mjs"],
+    unverified: UNVERIFIED,
+  };
+
+  it("maps a declared unverified exit code to UNVERIFIED, not a pass", () => {
+    const [result] = runAllChecks([verifiable], () => ({ ok: false, detail: "exit 13" }));
+
+    expect(result).toEqual({
+      name: "alpha",
+      ok: true,
+      unverified: true,
+      detail: "gh unreachable — exclusivity not verified",
+    });
+  });
+
+  it("leaves an undeclared exit code as a plain failure", () => {
+    const [result] = runAllChecks([verifiable], () => ({ ok: false, detail: "exit 1" }));
+
+    expect(result).toEqual({ name: "alpha", ok: false, detail: "exit 1" });
+  });
+
+  it("labels it UNVERIFIED and never PASS, without reddening the run", () => {
+    const results = [
+      { name: "alpha", ok: true, unverified: true, detail: "gh unreachable" },
+      { name: "beta", ok: true, detail: "" },
+    ];
+    const summary = formatSummary(results);
+
+    expect(summary).toContain("UNVERIFIED  alpha (gh unreachable)");
+    expect(summary).not.toContain("PASS  alpha");
+    expect(summary.split("\n").at(-1)).toBe("1 of 2 checks verified: 1 unverified (alpha)");
+    expect(exitCodeFor(results)).toBe(0);
+  });
+
+  it("names the unverified check alongside real failures rather than masking them", () => {
+    const results = [
+      { name: "alpha", ok: true, unverified: true, detail: "gh unreachable" },
+      { name: "beta", ok: false, detail: "exit 1" },
+    ];
+
+    expect(formatSummary(results).split("\n").at(-1)).toBe(
+      "1 of 2 checks failed: beta; 1 unverified (alpha)"
+    );
+    expect(exitCodeFor(results)).toBe(1);
+  });
+
+  it("wires check-ready-label-exclusive's unverified code into the audit", () => {
+    const check = REPO_AUDIT_CHECKS.find((c) => c.name === "check-ready-label-exclusive");
+
+    expect(check.unverified?.[UNVERIFIED_EXIT_CODES["github-unreachable"]]).toBeTruthy();
   });
 });
 
