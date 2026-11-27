@@ -496,6 +496,9 @@ importers:
       '@mbe/sentry':
         specifier: workspace:*
         version: link:../../packages/sentry
+      '@mbe/site-nav':
+        specifier: workspace:*
+        version: link:../../packages/site-nav
       framer-motion:
         specifier: 'catalog:'
         version: 14.14.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
