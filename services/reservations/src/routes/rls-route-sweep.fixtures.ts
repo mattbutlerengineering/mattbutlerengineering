@@ -1991,14 +1991,14 @@ const guestFixtures: Record<string, RouteFixture> = {
  * by construction — a diner's bookings span whatever venues they visited) and
  * is now RESOLVED (#5369 PR 6) via a per-venue fan-out over
  * `app_reservation_venue_ids_for_user()`. `/:id` (GET/PATCH/DELETE) is item 2 via `requireReservationOwnerOrAdmin`'s
- * own unscoped lookup — admin-only here, since the guard's non-admin path is
- * ownership (guest-email match), a different axis than the staff-membership
- * identity this sweep's "member" represents. `POST /` and `/walk-in` are
+ * own unscoped lookup: owner, admin, or a member of the reservation's own venue
+ * (#9866). `POST /` and `/walk-in` are
  * body-scoped (ok); `POST /` is intentionally open to non-members too (no
  * `requireVenueAccess` at all — anyone may book), so it gets one smoke
  * assertion rather than the 4-way matrix.
  */
 const RESERVATIONS_LIST = "/api/v1/reservations";
+const reservationUrl = (id: string) => `${RESERVATIONS_LIST}/${id}`;
 
 const reservationFixtures: Record<string, RouteFixture> = {
   "GET /api/v1/reservations": ok(async (ctx) => {
@@ -2100,9 +2100,11 @@ const reservationFixtures: Record<string, RouteFixture> = {
   // identical former `loadInVenueContext` wrap — the actual non-admin path (#5369
   // PR 5 carry-forward). The diner-owner leg does: `asDiner` authenticates as
   // the guest whose verified email matches `reservationA`'s `guestEmail`, a
-  // genuine non-admin owner. The non-owner-member leg proves the opposite —
-  // a venue STAFF member who is not the guest is still refused, the same
-  // result as before this PR, now actually asserted rather than assumed.
+  // genuine non-admin owner. The member legs: venue STAFF of the reservation's
+  // own venue may read, seat/update and cancel it (#9866, the Owner's call on
+  // #9886: the timeline seats and cancels as staff), while a member of another
+  // venue is still refused. Member legs use disposable reservations so a
+  // cancel cannot leak into later fixtures (the reminder job reads reservationA).
   "GET /api/v1/reservations/:id": ok(async (ctx) => {
     for (const [id, label] of [
       [ctx.reservationA, "admin venue A"],
@@ -2114,9 +2116,13 @@ const reservationFixtures: Record<string, RouteFixture> = {
       await asDiner(ctx, { method: "GET", url: `/api/v1/reservations/${ctx.reservationA}` }),
       "diner (owner)"
     );
+    expectOk(
+      await asMember(ctx, { method: "GET", url: reservationUrl(ctx.reservationA) }),
+      "member of the reservation's venue (not the owner)"
+    );
     expectDenied(
-      await asMember(ctx, { method: "GET", url: `/api/v1/reservations/${ctx.reservationA}` }),
-      "member (not the owner, not admin)"
+      await asMember(ctx, { method: "GET", url: reservationUrl(ctx.reservationB) }),
+      "member of another venue"
     );
   }),
   "PATCH /api/v1/reservations/:id": ok(async (ctx) => {
@@ -2144,13 +2150,23 @@ const reservationFixtures: Record<string, RouteFixture> = {
       }),
       "diner (owner)"
     );
+    const memberVenueRes = await createDisposableReservation(ctx, ctx.venueA.id);
+    expectOk(
+      await asMember(ctx, {
+        method: "PATCH",
+        url: reservationUrl(memberVenueRes),
+        payload: { notes: "sweep (member)" },
+      }),
+      "member of the reservation's venue (not the owner)"
+    );
+    const otherVenueRes = await createDisposableReservation(ctx, ctx.venueB.id);
     expectDenied(
       await asMember(ctx, {
         method: "PATCH",
-        url: `/api/v1/reservations/${ctx.reservationA}`,
+        url: reservationUrl(otherVenueRes),
         payload: { notes: "should not apply" },
       }),
-      "member (not the owner, not admin)"
+      "member of another venue"
     );
   }),
   "DELETE /api/v1/reservations/:id": ok(async (ctx) => {
@@ -2170,9 +2186,15 @@ const reservationFixtures: Record<string, RouteFixture> = {
       await asDiner(ctx, { method: "DELETE", url: `/api/v1/reservations/${dinerOwned}` }),
       "diner (owner)"
     );
+    const memberVenueRes = await createDisposableReservation(ctx, ctx.venueA.id);
+    expectOk(
+      await asMember(ctx, { method: "DELETE", url: reservationUrl(memberVenueRes) }),
+      "member of the reservation's venue (not the owner)"
+    );
+    const otherVenueRes = await createDisposableReservation(ctx, ctx.venueB.id);
     expectDenied(
-      await asMember(ctx, { method: "DELETE", url: `/api/v1/reservations/${ctx.reservationA}` }),
-      "member (not the owner, not admin)"
+      await asMember(ctx, { method: "DELETE", url: reservationUrl(otherVenueRes) }),
+      "member of another venue"
     );
   }),
   "POST /api/v1/reservations": ok(async (ctx) => {
