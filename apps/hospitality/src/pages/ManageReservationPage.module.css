@@ -16,6 +16,13 @@
   text-decoration: underline;
 }
 
+/* "Need help?" sits clear of the card above and the viewport edges */
+.supportLine {
+  margin-block-start: var(--rialto-space-lg);
+  padding-inline: var(--rialto-space-md);
+  text-align: center;
+}
+
 .calendarActions {
   display: flex;
   flex-wrap: wrap;

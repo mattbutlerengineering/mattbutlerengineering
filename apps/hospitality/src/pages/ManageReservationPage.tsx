@@ -59,7 +59,16 @@ const manageParamsSchema = z.object({
 const MANAGE_DEFAULTS = manageParamsSchema.parse({});
 
 /** No-dead-end error surface: every failure state offers a way out, not just prose (#4980). */
-function DeadEndRescue({ heading, description }: { heading: string; description: string }) {
+function DeadEndRescue({
+  heading,
+  description,
+  withHomeLink = true,
+}: {
+  heading: string;
+  description: string;
+  /** False when the guest has no reason to go to the vendor site (no manage link at all, #9951). */
+  withHomeLink?: boolean;
+}) {
   const { t } = useTranslation();
   return (
     <main>
@@ -70,14 +79,18 @@ function DeadEndRescue({ heading, description }: { heading: string; description:
           heading={heading}
           description={description}
           action={
-            <a className={styles.homeLink} href={FALLBACK_HOME_URL}>
-              {t("manageReservation.homeLink")}
-            </a>
+            withHomeLink ? (
+              <a className={styles.homeLink} href={FALLBACK_HOME_URL}>
+                {t("manageReservation.homeLink")}
+              </a>
+            ) : undefined
           }
         />
-        <Text variant="caption" color="secondary">
-          {t("manageReservation.supportLine")}
-        </Text>
+        <div className={styles.supportLine}>
+          <Text variant="caption" color="secondary">
+            {t("manageReservation.supportLine")}
+          </Text>
+        </div>
       </Stack>
     </main>
   );
@@ -168,6 +181,7 @@ function ManageReservationPageContent() {
       <DeadEndRescue
         heading={t("manageReservation.noLinkHeading")}
         description={t("manageReservation.noLinkDescription")}
+        withHomeLink={false}
       />
     );
   }

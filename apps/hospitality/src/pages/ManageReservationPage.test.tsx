@@ -151,11 +151,16 @@ describe("ManageReservationPage", () => {
   });
 
   describe("no-access-link state (#4980)", () => {
-    it("shows the message and an actionable link out (no dead end)", () => {
+    it("tells the guest to open the link from their email, without sending them to the vendor (#9951)", () => {
       renderPage();
-      expect(screen.getByText("No Access Link")).toBeDefined();
-      expect(screen.getByText("Please check the link in your confirmation email.")).toBeDefined();
-      expect(screen.getByRole("link", { name: /matt butler engineering/i })).toBeDefined();
+      expect(
+        screen.getByRole("heading", { level: 1, name: "Open your reservation from your email" })
+      ).toBeDefined();
+      expect(
+        screen.getByText(/use the link in your confirmation email.*contact the restaurant/i)
+      ).toBeDefined();
+      expect(screen.queryByRole("link")).toBeNull();
+      expect(screen.queryByText(/matt butler engineering/i)).toBeNull();
     });
   });
 
