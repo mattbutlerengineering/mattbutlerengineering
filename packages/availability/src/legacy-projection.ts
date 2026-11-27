@@ -36,11 +36,17 @@ export function projectLegacyOperatingHours(config: AvailabilityConfig): LegacyO
   const liveServices = new Map(
     config.venueServices.filter((s) => !s.archivedAt).map((s) => [s.id, s])
   );
-  // The regular week is every open-ended assignment. "Change regular week" gives the new week a
-  // start date and the old one an end date, so requiring no start date read every day closed after
-  // one such save (#9875). A dated period always has an end date, so it stays out.
+  // The regular week is every undated assignment, plus an open-ended one of a regular-kind
+  // schedule. "Change regular week" gives the new week a start date and the old one an end date,
+  // so requiring no start date read every day closed after one such save (#9875). An alternate
+  // with a start date stays out even when open-ended: it outranks the regular week, and would
+  // project its hours long before it begins.
+  const regularKind = new Set(
+    config.schedules.filter((s) => s.kind === "regular").map((s) => s.id)
+  );
   const regularWeek = config.assignments.filter(
-    (a) => !a.endsOn && liveSchedules.has(a.scheduleId)
+    (a) =>
+      !a.endsOn && liveSchedules.has(a.scheduleId) && (!a.startsOn || regularKind.has(a.scheduleId))
   );
   const dayHours = (day: Weekday): LegacyDayHours => {
     const stored = (WEEKDAYS.indexOf(day) + 1) % 7;

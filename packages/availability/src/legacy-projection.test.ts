@@ -98,6 +98,21 @@ describe("projectLegacyOperatingHours after a dated regular-week change", () => 
     const withAlt = { ...changed, assignments: [...changed.assignments, alt] };
     expect(projectLegacyOperatingHours(withAlt).saturday).toMatchObject({ closed: true });
   });
+
+  it("keeps an open-ended alternate with a start date out, even at a higher precedence", () => {
+    const patio = {
+      id: "as-patio",
+      scheduleId: "sch-alt",
+      weekdays: [5],
+      precedence: 2,
+      startsOn: "2027-05-01",
+    };
+    const withPatio = { ...changed, assignments: [...changed.assignments, patio] };
+    expect(projectLegacyOperatingHours(withPatio).friday).toEqual({
+      open: "17:00",
+      close: "20:00",
+    });
+  });
 });
 
 /** The projection as it was before day scope: every row of the covering schedule, base hours. Kept as the oracle. */
