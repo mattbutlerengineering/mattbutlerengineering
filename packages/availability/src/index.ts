@@ -103,6 +103,7 @@ export {
   type SoftLimit,
   type Verdict,
 } from "./slots.js";
+export { WEEK_CHANGES_DAYS, weekChanges, type WeekChange } from "./week-changes.js";
 export {
   MAX_REBOOK_OFFERS,
   REBOOK_WINDOW_DAYS,
