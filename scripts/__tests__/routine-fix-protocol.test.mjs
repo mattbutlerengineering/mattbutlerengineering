@@ -55,7 +55,9 @@ describe("fix protocol (#9947)", () => {
     expect(hold, "hold section").not.toBeNull();
     expect(hold[1]).toContain("`needs-review`");
     expect(hold[1]).toMatch(/security/);
-    expect(hold[1]).toContain(".github/workflows/**");
+    for (const path of [".github/**", ".claude/**", "scripts/reviewed-merge.mjs", "CLAUDE.md"]) {
+      expect(hold[1]).toContain(path);
+    }
   });
 
   it("files an issue only when the cause or the decision is out of reach", () => {

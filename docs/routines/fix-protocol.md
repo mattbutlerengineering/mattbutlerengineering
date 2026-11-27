@@ -79,9 +79,13 @@ treat the finding under section 4, with what you learned in the issue body.
 
 - fixes a security problem;
 - encodes a product or policy decision;
-- changes the automation's own guardrails: `.github/workflows/**`,
-  `.claude/settings.json`, `.claude/hooks/**`, `docs/routines/**` or
-  `.claude/rules/**`.
+- changes the automation's own guardrails, meaning anything that instructs
+  agents or decides whether a PR is reviewed or merged: `.github/**`,
+  `.claude/**` (settings, hooks, rules, agents, skills), `docs/routines/**`,
+  the root `CLAUDE.md` or `AGENTS.md`, `scripts/reviewed-merge.mjs`,
+  `scripts/fast-path-decision.mjs`, `scripts/merge-queue-eligibility.mjs` or
+  `packages/agent-core/src/pr-risk-classifier.ts`. A reviewer must never be
+  the only check on an edit to its own rules.
 
 `reviewed-merge.yml` already holds every PR that touches a gate path
 (`docs/adr/**`, `docs/design/**`, any `prd.md` or `architecture.md`), so those
@@ -98,7 +102,8 @@ File an issue only when one of these is true:
 - You could not establish the root cause this fire.
 - The fix needs a human: a credential, account access, spending money, or a
   product or policy decision.
-- The gates could not go green, or the reviewer flagged the fix twice.
+- The gates could not go green. (A fix the reviewer flagged twice stays open
+  as a `needs-review` PR, per section 3; do not also file an issue.)
 - The fix is larger than the routine's per-fire cap allows.
 
 Deduplicate first: search open and recently closed issues, and skip anything
