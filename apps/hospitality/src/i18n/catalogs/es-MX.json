@@ -1572,6 +1572,8 @@
       "phone": "Teléfono",
       "phoneHint": "Necesario para avisarte por SMS cuando tu mesa esté lista.",
       "invalidPhone": "Ingresa un número de teléfono válido.",
+      "nameRequired": "Escribe tu nombre para que el restaurante sepa a quién esperar.",
+      "phoneRequired": "Escribe un número de teléfono para avisarte por mensaje cuando tu mesa esté lista.",
       "joining": "Uniéndote...",
       "join": "Unirse a la lista de espera",
       "added": "Agregado a la lista de espera",

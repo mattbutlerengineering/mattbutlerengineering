@@ -1534,6 +1534,8 @@
       "phone": "Phone",
       "phoneHint": "Required for SMS notifications when your table is ready.",
       "invalidPhone": "Please enter a valid phone number.",
+      "nameRequired": "Enter your name so the venue knows who to expect.",
+      "phoneRequired": "Enter a phone number so we can text you when your table is ready.",
       "joining": "Joining...",
       "join": "Join Waitlist",
       "added": "Added to Waitlist",
