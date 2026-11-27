@@ -42,7 +42,7 @@ Verify every claim against the actual source before changing a doc. A confidentl
 
 ## 3. Dedup — mandatory
 
-The `mbe-auditor` routine's FRIDAY lens is also docs freshness. It is read-only and files at most 3 issues. Before filing anything, search open issues labeled `audit` and `ready` for the same finding, and skip anything already covered or labeled `vetoed`/`deferred`/`wontfix`. If mbe-auditor already filed an issue for a rot you can simply fix, FIX IT in your PR and reference the issue with `Closes #N` rather than filing a duplicate.
+The `mbe-auditor` routine's FRIDAY lens is also docs freshness, and it runs earlier the same day. It fixes what it can in PRs whose titles end with `(mbe-auditor)` and files issues for the rest. Before changing a file, list open PRs and leave alone any file an open PR already changes. Before filing anything, search open issues labeled `audit` and `ready` for the same finding, and skip anything already covered or labeled `vetoed`/`deferred`/`wontfix`. If mbe-auditor already filed an issue for a rot you can simply fix, FIX IT in your PR and reference the issue with `Closes #N` rather than filing a duplicate.
 
 ## 4. Output
 
