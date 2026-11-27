@@ -3055,11 +3055,13 @@
         "endOptionalLabel": "Fecha de fin (opcional)"
       },
       "window": {
-        "label": "Desde las",
+        "label": "Hora",
         "allDay": "Todo el día",
         "from": "Desde {{time}}",
+        "closeEarly": "Cierre anticipado · {{time}}",
+        "closingEarly": "Cierre anticipado · {{time}}",
         "reset": "Esa hora es anterior a la apertura en un día que pasa de la medianoche, así que esto cierra todo el día.",
-        "hostNote": "Un cierre de emergencia abarca todo el día. Solo un gerente puede cerrar desde una hora determinada."
+        "hostNote": "Un cierre de emergencia abarca todo el día. Solo un gerente puede cerrar antes."
       },
       "replaces": "El {{date}} tiene horario especial; el cierre lo reemplaza.",
       "impactLabel": "Reservas en este cierre",

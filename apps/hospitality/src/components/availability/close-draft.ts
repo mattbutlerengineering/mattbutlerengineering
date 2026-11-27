@@ -310,7 +310,7 @@ function servicesOn(config: AvailabilityConfig, timezone: string, dates: readonl
 }
 
 /**
- * The start times "Starting at" offers across `dates`: half hours from the first opening to the
+ * The start times the Time select offers across `dates`: half hours from the first opening to the
  * half hour before the last close (shown as "next day" past midnight), and none before the
  * earliest opening on a day that runs past midnight: a plain "1:00 AM" reads as after midnight
  * but closes that whole evening. A date with no hours offers the whole day. `nowMinute`, passed
@@ -329,7 +329,7 @@ export function startMinutes(
   const firstOpen = services.reduce((min, s) => Math.min(min, s.opensAt), MINUTES_PER_DAY);
   const opening = hasHours ? floorToHalfHour(firstOpen) : 0;
   const afterNow = nowMinute === undefined ? 0 : floorToHalfHour(nowMinute) + HALF_HOUR;
-  // Starting at the close itself closes nothing, so the last option is the half hour before it.
+  // Closing early at the close itself closes nothing, so the last option is the half hour before it.
   const stop = Math.min(hasHours ? lastCloseOf(services) : MINUTES_PER_DAY, END_OF_SERVICE_DAY);
   const options: number[] = [];
   for (let m = Math.max(opening, afterNow); m < stop; m += HALF_HOUR) {

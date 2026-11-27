@@ -83,7 +83,7 @@ export interface CloseStepOneProps {
   readonly dateLocked?: boolean;
   /** An edit of a saved closure: it stays one date, a range or open-ended, so no Tonight, Several dates or Repeats. */
   readonly closureEdit?: boolean;
-  /** The start times "Starting at" offers, including after midnight on an overnight day. */
+  /** The start times the Time select offers, including after midnight on an overnight day. */
   readonly startOptions: readonly number[];
   /** The last edit turned a time before opening into All day. */
   readonly startReset: boolean;
@@ -446,7 +446,13 @@ export function CloseStepOne(props: CloseStepOneProps) {
             { value: ALL_DAY, label: t("availability.close.window.allDay") },
             ...props.startOptions.map((m) => ({
               value: String(m),
-              label: t("availability.close.window.from", { time: minuteText(m, t, format) }),
+              // A booking pause stops booking from a time; anything else closes early.
+              label: t(
+                what.kind === "booking"
+                  ? "availability.close.window.from"
+                  : "availability.close.window.closeEarly",
+                { time: minuteText(m, t, format) }
+              ),
             })),
           ]}
           onChange={(v) => patch({ fromMinute: v === ALL_DAY ? null : Number(v) })}

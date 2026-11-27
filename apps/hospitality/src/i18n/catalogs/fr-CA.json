@@ -3055,11 +3055,13 @@
         "endOptionalLabel": "Date de fin (facultatif)"
       },
       "window": {
-        "label": "À partir de",
+        "label": "Heure",
         "allDay": "Toute la journée",
         "from": "À partir de {{time}}",
+        "closeEarly": "Fermer plus tôt à {{time}}",
+        "closingEarly": "Fermeture hâtive · {{time}}",
         "reset": "Cette heure précède l'ouverture d'une journée qui se termine après minuit : la fermeture dure donc toute la journée.",
-        "hostNote": "Une fermeture d'urgence couvre toute la journée. Seul un gérant peut fermer à partir d'une heure précise."
+        "hostNote": "Une fermeture d'urgence couvre toute la journée. Seul un gérant peut fermer plus tôt."
       },
       "replaces": "Le {{date}} a des heures spéciales; la fermeture les remplace.",
       "impactLabel": "Réservations touchées par cette fermeture",
