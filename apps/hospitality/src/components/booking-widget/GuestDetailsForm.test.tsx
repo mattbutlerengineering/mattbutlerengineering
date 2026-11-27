@@ -394,6 +394,45 @@ describe("GuestDetailsForm", () => {
       expect(document.activeElement).toBe(emailInput);
     });
 
+    // A type="email" input sanitizes surrounding whitespace out of its value
+    // (in jsdom and browsers), so these cases reach state through
+    // `initialDetails`, the details lifted out before a hold expired, which
+    // seeds the field directly.
+    it("submits a whitespace-only email as no email when a phone is given", () => {
+      render(
+        <GuestDetailsForm
+          {...defaultProps}
+          initialDetails={{ name: "John", email: "   ", phone: "555-123-4567", notes: "" }}
+        />
+      );
+      fireEvent.click(screen.getByTestId("submit-button"));
+      expect(defaultProps.onSubmit).toHaveBeenCalledWith({
+        name: "John",
+        email: "",
+        phone: "555-123-4567",
+        notes: "",
+      });
+    });
+
+    it("accepts an address with surrounding spaces and submits it trimmed", () => {
+      render(
+        <GuestDetailsForm
+          {...defaultProps}
+          initialDetails={{ name: "Jane", email: "jane@example.com ", phone: "", notes: "" }}
+        />
+      );
+      const emailInput = screen.getByTestId("email");
+      fireEvent.blur(emailInput);
+      expect(emailInput.getAttribute("aria-invalid")).toBeNull();
+      fireEvent.click(screen.getByTestId("submit-button"));
+      expect(defaultProps.onSubmit).toHaveBeenCalledWith({
+        name: "Jane",
+        email: "jane@example.com",
+        phone: "",
+        notes: "",
+      });
+    });
+
     it("does not call recognize for a malformed address", async () => {
       render(<GuestDetailsForm {...defaultProps} venueSlug="the-grill" />);
       await triggerRecognition(screen.getByTestId("email"), "not-an-email");

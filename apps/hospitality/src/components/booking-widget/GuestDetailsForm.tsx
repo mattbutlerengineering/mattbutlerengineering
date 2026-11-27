@@ -144,10 +144,13 @@ export function GuestDetailsForm({
 
   // Errors show only after a submit attempt, then track the fields live.
   const nameError = submitAttempted && name.trim().length === 0;
-  const contactError = submitAttempted && email.trim().length === 0 && phone.trim().length === 0;
+  // The address is validated and sent trimmed: the API rejects surrounding
+  // whitespace, and a whitespace-only email means no email.
+  const trimmedEmail = email.trim();
+  const contactError = submitAttempted && trimmedEmail.length === 0 && phone.trim().length === 0;
   // A malformed address is flagged once the guest leaves the field (or
   // submits), never mid-keystroke, and clears as soon as it is fixed.
-  const emailMalformed = email.trim().length > 0 && !isValidGuestEmail(email);
+  const emailMalformed = trimmedEmail.length > 0 && !isValidGuestEmail(trimmedEmail);
   const emailFormatError = (emailBlurred || submitAttempted) && emailMalformed;
   const emailHint = contactError
     ? t("bookingWidget.details.contactHint")
@@ -163,13 +166,13 @@ export function GuestDetailsForm({
         nameRef.current?.focus();
         return;
       }
-      if ((email.trim().length === 0 && phone.trim().length === 0) || emailMalformed) {
+      if ((trimmedEmail.length === 0 && phone.trim().length === 0) || emailMalformed) {
         emailRef.current?.focus();
         return;
       }
-      onSubmit({ name, email, phone, notes });
+      onSubmit({ name, email: trimmedEmail, phone, notes });
     },
-    [name, email, phone, notes, emailMalformed, onSubmit]
+    [name, trimmedEmail, phone, notes, emailMalformed, onSubmit]
   );
 
   const handleEmailBlur = useCallback(
@@ -177,7 +180,8 @@ export function GuestDetailsForm({
       setEmailBlurred(true);
       // The server rejects a malformed address, so asking it to recognize one
       // only produces a 400.
-      if (isValidGuestEmail(e.target.value)) recognize(e.target.value);
+      const value = e.target.value.trim();
+      if (isValidGuestEmail(value)) recognize(value);
     },
     [recognize]
   );
