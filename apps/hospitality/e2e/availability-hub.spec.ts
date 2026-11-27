@@ -145,10 +145,8 @@ test.describe("Availability hub", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Regular hours" })).toBeVisible();
     await back();
     await edit(2, "Add Seasonal hours").click();
-    await expect(
-      page.getByRole("dialog").getByRole("textbox", { name: /Schedule name/ })
-    ).toBeVisible();
-    // Today's page spends `action` with a replace, so one Back still returns to the hub.
+    await expect(page).toHaveURL(/\/availability\/seasonal\/new$/);
+    await expect(page.getByRole("textbox", { name: /Schedule name/ })).toBeVisible();
     await back();
     await edit(3, "Edit Special dates and holidays").click();
     await expect(layer("Special dates")).toBeChecked();

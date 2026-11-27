@@ -172,17 +172,14 @@ test.describe("Venue Setup hub", () => {
     await expect(dialog.getByText("One section: Bar", { exact: true })).toBeVisible();
   });
 
-  test("the Schedules node's one link opens the schedule editor on the Schedules tab", async ({
+  test("the Schedules node's one link opens the new seasonal hours editor", async ({
     mockedPage: page,
   }) => {
     await page.goto("availability/map");
     const schedules = page.getByRole("listitem", { name: /Schedules/ }).first();
     await schedules.getByRole("button", { name: "Add a schedule…" }).first().click();
-    await expect(page).toHaveURL(/\/availability\/calendar\?tab=schedules/);
-    await expect(page.getByRole("radio", { name: "Schedules" })).toBeChecked();
-    await expect(
-      page.getByRole("dialog").getByRole("textbox", { name: /Schedule name/ })
-    ).toBeVisible();
+    await expect(page).toHaveURL(/\/availability\/seasonal\/new/);
+    await expect(page.getByRole("textbox", { name: /Schedule name/ })).toBeVisible();
   });
 
   for (const viewport of [

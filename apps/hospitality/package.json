@@ -96,6 +96,21 @@
       "limit": "3.9 kB"
     },
     {
+      "name": "Seasonal hours editor page (lazy chunk: the page frame, the editor form and its save bar, availability-hub E4.6; 2.64 kB brotlied measured)",
+      "path": "dist/assets/AvailabilitySeasonalEditorPage-*.js",
+      "limit": "3.2 kB"
+    },
+    {
+      "name": "Schedule editor state (use-schedule-editor, shared by the Seasonal hours editor page and the schedule drawer, availability-hub E4.6; 3.28 kB brotlied measured)",
+      "path": "dist/assets/use-schedule-editor-*.js",
+      "limit": "3.9 kB"
+    },
+    {
+      "name": "Conflict review (use-conflict-review, shared by the schedule editors and the weekly form; its own chunk since E4.6 split the schedule editor state out of the drawer, 7.31 kB brotlied measured)",
+      "path": "dist/assets/use-conflict-review-*.js",
+      "limit": "8 kB"
+    },
+    {
       "name": "Weekly form editing (use-regular-week-edit with the conflict review, the draft preview and the date editor's draft changes; hoisted out of today's page at availability-hub E4.4; D5.1 folded draft-changes into it when the Add special dates sheet stopped importing it, 7.51 kB + 2.15 kB before, 8.8 kB measured)",
       "path": "dist/assets/use-regular-week-edit-*.js",
       "limit": "10.3 kB"

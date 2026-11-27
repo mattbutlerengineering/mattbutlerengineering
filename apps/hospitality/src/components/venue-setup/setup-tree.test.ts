@@ -372,10 +372,10 @@ describe("buildSetupTree: schedules and services", () => {
       kind: "link",
       to: "/availability/hours?from=setup",
     });
-    // Add a schedule… opens the seeded editor there.
+    // Add a schedule… opens the new seasonal hours editor, seeded from the regular week.
     expect(find(open, "schedules").actions[0]?.target).toEqual({
       kind: "link",
-      to: "/availability/calendar?tab=schedules&action=addSchedule&from=setup",
+      to: "/availability/seasonal/new?from=setup",
     });
   });
 });

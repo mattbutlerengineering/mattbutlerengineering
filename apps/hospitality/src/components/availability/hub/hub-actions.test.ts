@@ -14,7 +14,7 @@ describe("hubActions", () => {
     const [, seasonalAction] = hubActions(rowsOf(venue()), true);
     expect(seasonalAction).toEqual({
       kind: "add",
-      to: "/availability/calendar?tab=schedules&action=addSchedule",
+      to: "/availability/seasonal/new",
     });
   });
 

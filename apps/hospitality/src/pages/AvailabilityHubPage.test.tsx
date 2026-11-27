@@ -93,6 +93,7 @@ function renderHub(scope: AvailabilityScope, url = "/availability") {
           { index: true, element: <AvailabilityHubPage /> },
           { path: "calendar", element: <div>Today&apos;s page</div> },
           { path: "hours", element: <div>Regular hours page</div> },
+          { path: "seasonal/new", element: <div>New seasonal hours page</div> },
         ],
       },
     ],
@@ -207,7 +208,7 @@ describe("AvailabilityHubPage", () => {
       /^\/availability\/hours\?service=./
     );
     expect(hrefOf(within(row(2)).getByRole("link", { name: "Add Seasonal hours" }))).toBe(
-      "/availability/calendar?tab=schedules&action=addSchedule"
+      "/availability/seasonal/new"
     );
     expect(
       hrefOf(within(row(3)).getByRole("link", { name: "Edit Special dates and holidays" }))
@@ -487,16 +488,13 @@ describe("AvailabilityHubPage", () => {
 
   describe("the index's addresses", () => {
     it.each([
-      ["/availability?tab=special", "/availability/calendar?tab=special"],
-      [
-        "/availability?action=addSchedule",
-        "/availability/calendar?tab=schedules&action=addSchedule",
-      ],
-    ])("sends the old address %s to %s with a replace", async (old, next) => {
+      ["/availability?tab=special", "/availability/calendar?tab=special", "Today's page"],
+      ["/availability?action=addSchedule", "/availability/seasonal/new", "New seasonal hours page"],
+    ])("sends the old address %s to %s with a replace", async (old, next, page) => {
       const router = renderHub(scopeOf(), old);
       await waitFor(() => expect(address(router)).toBe(next));
       expect(router.state.historyAction).toBe("REPLACE");
-      expect(screen.getByText("Today's page")).toBeInTheDocument();
+      expect(screen.getByText(page)).toBeInTheDocument();
     });
 
     it("sends the old Schedules address to regular hours, with a replace", async () => {
