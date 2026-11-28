@@ -264,6 +264,7 @@ export function ReservationsPage() {
             size="sm"
           />
           <Input
+            className={styles.search}
             aria-label={t("reservations.search.label")}
             placeholder={t("reservations.search.placeholder")}
             value={searchQuery}
