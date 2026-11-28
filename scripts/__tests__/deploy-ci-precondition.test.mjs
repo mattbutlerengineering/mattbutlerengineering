@@ -214,8 +214,16 @@ describe("CLI --after-rerun", () => {
     ).toEqual({ state: "running", failFast: false });
   });
 
-  it("reports no failFast for an empty or unparseable rerun query", () => {
+  it("reports no failFast for an empty rerun query", () => {
     expect(cli(["--after-rerun", "[]"])).toEqual({ state: "absent", failFast: false });
+  });
+
+  it("reports no failFast for an unparseable rerun query", () => {
+    // Pins the try/catch around JSON.parse. Without it node throws, `set -e`
+    // kills the (continue-on-error) assess step, and no verdict is emitted —
+    // which still falls through to the normal wait, but by accident rather
+    // than by design.
+    expect(cli(["--after-rerun", "not json"])).toEqual({ state: "absent", failFast: false });
   });
 });
 
@@ -422,6 +430,18 @@ describe("deploy-services workflow wiring", () => {
     expect(block).toContain("RERUN_VERDICT");
     expect(block).toMatch(/exit 1/);
     expect(block).not.toContain("continue-on-error");
+  });
+
+  it("leaves the wait as soon as the rerun starts, so the budget is spent instead of the wait", () => {
+    // Load-bearing for the budget's justification: a rerun that reaches
+    // `in_progress` is out of the pending slot the cancellation comes from,
+    // so polling it further would add up to the whole budget to the recovery
+    // path rather than spending it instead of the wait below.
+    const assess = DEPLOY_WORKFLOW_CODE.slice(
+      DEPLOY_WORKFLOW_CODE.indexOf("gh run rerun"),
+      DEPLOY_WORKFLOW_CODE.indexOf("lewagon/wait-on-check-action")
+    );
+    expect(assess).toMatch(/in_progress[\s\S]{0,80}?break/);
   });
 
   it("bounds the rerun verification so it cannot become a new stall", () => {
