@@ -1,0 +1,66 @@
+/* Relationship diagram: theme tokens only, so it reads in light and dark. */
+.diagram {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-md);
+}
+
+.lead,
+.prose {
+  max-inline-size: 65ch;
+  overflow-wrap: anywhere;
+}
+
+/* Below the diagram's natural width it scrolls sideways; its labels never shrink. */
+.scroller {
+  overflow-x: auto;
+  max-inline-size: 100%;
+  border-radius: var(--rialto-radius-default);
+  background: var(--rialto-surface-recessed);
+}
+
+.scroller:focus-visible {
+  outline: none;
+  box-shadow: var(--rialto-shadow-focus);
+}
+
+.svg {
+  display: block;
+  margin-inline: auto;
+  max-inline-size: none;
+  font-family: var(--rialto-font-sans);
+}
+
+.node {
+  fill: var(--rialto-surface-elevated);
+  stroke: var(--rialto-border-strong);
+  stroke-width: 1;
+}
+
+.label {
+  fill: var(--rialto-text-primary);
+  font-size: var(--rialto-text-sm);
+}
+
+.edge,
+.edgeOptional {
+  stroke: var(--rialto-text-secondary);
+  stroke-width: 1.25;
+  fill: none;
+}
+
+.edgeOptional {
+  stroke-dasharray: 4 3;
+}
+
+.arrowHead {
+  fill: var(--rialto-text-secondary);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-sm);
+  margin: 0;
+  padding-inline-start: var(--rialto-space-lg);
+}

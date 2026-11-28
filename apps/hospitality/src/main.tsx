@@ -123,6 +123,9 @@ const AvailabilityExplainPage = lazy(() =>
 const AvailabilityGuidePage = lazy(() =>
   import("./pages/AvailabilityGuidePage.js").then((m) => ({ default: m.AvailabilityGuidePage }))
 );
+const TerminologyPage = lazy(() =>
+  import("./pages/TerminologyPage.js").then((m) => ({ default: m.TerminologyPage }))
+);
 const ProfilePage = lazy(() =>
   import("./pages/ProfilePage.js").then((m) => ({ default: m.ProfilePage }))
 );
@@ -499,6 +502,15 @@ const router = createBrowserRouter(
               element: (
                 <Suspense fallback={<LoadingPage />}>
                   <AvailabilityGuidePage />
+                </Suspense>
+              ),
+            },
+            {
+              // What the dashboard's words mean, built from the glossary modules (#10031).
+              path: "terminology",
+              element: (
+                <Suspense fallback={<LoadingPage />}>
+                  <TerminologyPage />
                 </Suspense>
               ),
             },
