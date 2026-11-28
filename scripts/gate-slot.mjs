@@ -26,7 +26,10 @@ export const GATE_SLOT_MAX = 3;
 
 const WORKTREE_RE = /\/\.claude\/worktrees\/([^/\s'"]+)/;
 
-const OPTS = String.raw`(?:\s+--?[\w-]+(?:[ =][^\s;&|]+)?)*`;
+// Unambiguous on purpose (#10128): the dash run is one or two dashes then a word character, and
+// a space-separated value never starts with "-", so each flag parses one way. The earlier
+// `--?[\w-]+(?:[ =]…)?` could split "--x" two ways and backtracked exponentially (30 flags: 234 s).
+const OPTS = String.raw`(?:\s+--?\w[\w-]*(?:=[^\s;&|]+|\s+(?!-)[^\s;&|]+)?)*`;
 const GATE_BIN = String.raw`(?:tsc|vitest|eslint)(?=\s|$)|turbo\s+run\b`;
 // Each pattern is tested at the start of one shell segment (command position).
 const GATE_SEGMENT_RES = [
