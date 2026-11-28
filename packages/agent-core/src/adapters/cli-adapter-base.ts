@@ -74,6 +74,14 @@ export abstract class CliAdapterBase implements AgentAdapter, CliAdapterContract
     return undefined;
   }
 
+  /**
+   * Recover the agent's final summary from the CLI's stdout, for backends that
+   * emit one in machine-readable form. Base implementation reports none.
+   */
+  protected parseResultText(_stdout: string): string | undefined {
+    return undefined;
+  }
+
   // ── Public AgentAdapter implementation ──────────────────────────
 
   /**
@@ -119,6 +127,7 @@ export abstract class CliAdapterBase implements AgentAdapter, CliAdapterContract
     const hasChanges = await this.checkForChanges(config.worktreePath);
     const durationMs = Date.now() - startTime;
     const usage = this.parseUsage(stdout);
+    const resultText = this.parseResultText(stdout);
 
     return {
       success: exitedSuccessfully,
@@ -126,6 +135,7 @@ export abstract class CliAdapterBase implements AgentAdapter, CliAdapterContract
       durationMs,
       rateLimited,
       ...usage,
+      ...(resultText ? { resultText } : {}),
       ...(exitedSuccessfully
         ? {}
         : {

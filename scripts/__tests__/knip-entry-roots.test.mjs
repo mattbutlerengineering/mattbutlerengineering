@@ -103,9 +103,14 @@ describe("knip root workspace Claude entries", () => {
           .map((f) => `${dir}/${f}`)
       : [];
   const hooks = onDisk(".claude/hooks", ".mjs");
-  const skillScripts = readdirSync(`${REPO_ROOT}.claude/skills`).flatMap((skill) =>
-    onDisk(`.claude/skills/${skill}/scripts`, ".mjs")
-  );
+  // A script a workflow runs is already an entry (knip's GitHub Actions plugin), so
+  // listing it in knip.jsonc is a "redundant pattern" hint (#10153).
+  const workflows = readdirSync(`${REPO_ROOT}.github/workflows`)
+    .map((f) => readFileSync(`${REPO_ROOT}.github/workflows/${f}`, "utf-8"))
+    .join("\n");
+  const skillScripts = readdirSync(`${REPO_ROOT}.claude/skills`)
+    .flatMap((skill) => onDisk(`.claude/skills/${skill}/scripts`, ".mjs"))
+    .filter((script) => !workflows.includes(`node ${script}`));
 
   it("lists every hook and skill script explicitly, with no glob", () => {
     expect(rootEntry.some((e) => e.includes("*"))).toBe(false);

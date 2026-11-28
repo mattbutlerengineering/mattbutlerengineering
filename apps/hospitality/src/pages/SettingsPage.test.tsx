@@ -309,6 +309,16 @@ describe("SettingsPage", () => {
     expect(mockNavigate).toHaveBeenCalledWith("/timeline?rehearsal=true");
   });
 
+  it("opens the Terminology page from the Help card (#10031)", async () => {
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText("Help")).toBeDefined();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Terminology" }));
+    expect(mockNavigate).toHaveBeenCalledWith("/terminology");
+  });
+
   it("renders venue defaults card after loading", async () => {
     renderPage();
     await waitFor(() => {

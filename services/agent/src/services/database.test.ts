@@ -129,10 +129,9 @@ describe("Database Service", () => {
     consoleSpy.mockRestore();
   });
 
-  it("reports degraded status when slow queries exceed threshold", () => {
-    // We can't easily push to slowQueryStats directly from here as it's not exported
-    // but we can trigger many slow queries
-    // Actually for unit test we might want to just verify it returns degraded if count > 10
-    // But we'd need to mock getSlowQueryStats or fill the stats.
-  });
+  // The slow-query threshold arm of getServiceStatus() is covered where
+  // createDatabase owns it — packages/database/src/index.test.ts, "returns
+  // degraded once slow queries pass the 10-per-5-min threshold". The
+  // assertion-free placeholder that used to sit here could not reach the
+  // slow-query store through this service's mocks, so it tested nothing.
 });

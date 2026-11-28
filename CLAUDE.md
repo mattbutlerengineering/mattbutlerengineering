@@ -68,7 +68,7 @@ A hook that did not run must be stated as skipped, with the reason, in the stage
 
 GH Actions runs on this account (verify with `gh run list --limit 5`). To ship without waiting on CI:
 
-- **Static sites**: `cd apps/<marketing|hospitality|rialto-web> && pnpm dlx wrangler@latest deploy`
+- **Static sites**: `cd apps/<marketing|hospitality|rialto-web> && pnpm dlx wrangler@latest deploy`. Not `apps/gen` — its Worker is Pulumi-managed (`infrastructure/pulumi/index.ts`), so a wrangler deploy there drifts Pulumi state: `pnpm build --filter=@mbe/gen`, then the Pulumi line.
 - **DO services** (all services + db-migrate, single app): `doctl apps create-deployment $DO_APP_ID --wait` (`DO_APP_ID` from your local `.env` or shell)
 - **DO build logs**: `doctl apps logs $DO_APP_ID <agent-api|users-api|reservations-api|db-migrate> --type=build --deployment <id>` (component is positional, NOT `--component`)
 - **Pulumi**: `cd infrastructure/pulumi && pulumi up --stack prod`

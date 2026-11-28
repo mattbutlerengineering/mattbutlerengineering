@@ -12,6 +12,27 @@ const SCRIPT_PATH = path.resolve(
   "check-destructive-migrations.js"
 );
 
+// #10143: an unresolvable base is an environmental blocker, reported as BLOCKED by repo-audit.
+const BASE_UNRESOLVABLE_EXIT = 10;
+
+/** A throwaway repo whose origin/main is the base commit, plus `files` committed on top. */
+function fixtureRepo(files) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "destructive-mig-"));
+  const git = (...args) => spawnSync("git", args, { cwd: dir, encoding: "utf-8" });
+  git("init", "-q", "-b", "main");
+  git("config", "user.email", "t@example.com");
+  git("config", "user.name", "t");
+  git("commit", "-q", "--allow-empty", "-m", "base");
+  git("update-ref", "refs/remotes/origin/main", "HEAD");
+  for (const [rel, content] of Object.entries(files)) {
+    fs.mkdirSync(path.dirname(path.join(dir, rel)), { recursive: true });
+    fs.writeFileSync(path.join(dir, rel), content);
+  }
+  git("add", "-A");
+  git("commit", "-q", "-m", "migration");
+  return dir;
+}
+
 describe("check-destructive-migrations", () => {
   describe("scanMigrationContent", () => {
     test("detects an unapproved DROP TABLE", async () => {
@@ -113,7 +134,7 @@ describe("check-destructive-migrations", () => {
         timeout: 15000,
       });
 
-      expect(result.status).toBe(1);
+      expect(result.status).toBe(BASE_UNRESOLVABLE_EXIT);
       expect(result.stdout).toContain("could not resolve a diff base");
     });
 
@@ -127,8 +148,51 @@ describe("check-destructive-migrations", () => {
         env: { ...process.env, DESTRUCTIVE_MIGRATION_BASE: "refs/heads/no-such-base-ref" },
       });
 
-      expect(result.status).toBe(1);
+      expect(result.status).toBe(BASE_UNRESOLVABLE_EXIT);
       expect(result.stdout).toContain("could not resolve a diff base");
+    });
+  });
+
+  describe("CLI against a fixture repo (#10143)", () => {
+    const MIGRATION = "services/users-api/prisma/migrations/20260101_x/migration.sql";
+    let dir;
+    afterEach(() => {
+      if (dir) fs.rmSync(dir, { recursive: true, force: true });
+      dir = undefined;
+    });
+
+    test("blocks an unapproved destructive migration committed since origin/main", () => {
+      dir = fixtureRepo({ [MIGRATION]: 'ALTER TABLE "Venue" DROP COLUMN "legacyId";\n' });
+      const result = spawnSync("node", [SCRIPT_PATH], {
+        cwd: dir,
+        encoding: "utf-8",
+        timeout: 15000,
+      });
+      expect(result.status).toBe(1);
+      expect(result.stdout).toContain("DROP COLUMN");
+    });
+
+    test("passes the same migration once it carries the approval marker", () => {
+      dir = fixtureRepo({
+        [MIGRATION]:
+          '-- DESTRUCTIVE: legacy column unused since #1\nALTER TABLE "Venue" DROP COLUMN "legacyId";\n',
+      });
+      const result = spawnSync("node", [SCRIPT_PATH], {
+        cwd: dir,
+        encoding: "utf-8",
+        timeout: 15000,
+      });
+      expect(result.status).toBe(0);
+    });
+
+    test("treats a base ref that looks like an option as a ref, not a flag", () => {
+      dir = fixtureRepo({ [MIGRATION]: 'ALTER TABLE "Venue" DROP COLUMN "legacyId";\n' });
+      const result = spawnSync("node", [SCRIPT_PATH, "--octopus"], {
+        cwd: dir,
+        encoding: "utf-8",
+        timeout: 15000,
+      });
+      expect(result.status).toBe(BASE_UNRESOLVABLE_EXIT);
     });
   });
 

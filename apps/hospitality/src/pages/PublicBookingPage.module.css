@@ -15,7 +15,8 @@
 }
 
 .header {
-  max-inline-size: 36rem;
+  /* Same cap as the booking card (BookingWidget.module.css) so both share a left edge (#10118). */
+  max-inline-size: 28rem;
   margin-inline: auto;
   margin-block-end: var(--rialto-space-xl);
 }

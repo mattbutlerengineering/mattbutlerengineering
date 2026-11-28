@@ -36,8 +36,15 @@
 }
 
 .primaryLink:focus-visible {
-  outline: none;
+  /* Transparent outline keeps a ring under forced-colors, which strips box-shadow. */
+  outline: var(--rialto-focus-ring-width) solid transparent;
   box-shadow: var(--rialto-shadow-focus);
+}
+
+@media (pointer: coarse), (max-width: 1024px) {
+  .primaryLink {
+    min-block-size: 44px;
+  }
 }
 
 .guestLink {

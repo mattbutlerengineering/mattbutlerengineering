@@ -1,0 +1,55 @@
+/* Terminology: a reading page, one column, comfortable measure, fine at 375px. */
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-xl);
+  max-inline-size: 48rem;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-md);
+}
+
+.terms {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-md);
+  margin: 0;
+}
+
+.term {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-2xs);
+}
+
+.definition {
+  margin: 0;
+}
+
+.prose {
+  max-inline-size: 65ch;
+  overflow-wrap: anywhere;
+}
+
+/* As the other help pages: underlined text with a target of at least 24 px. */
+.link {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: var(--rialto-space-lg);
+  min-inline-size: var(--rialto-space-lg);
+  color: var(--rialto-text-primary);
+  text-decoration: underline;
+}
+
+.link:hover {
+  color: var(--rialto-text-secondary);
+}
+
+.link:focus-visible {
+  outline: none;
+  border-radius: var(--rialto-radius-default);
+  box-shadow: var(--rialto-shadow-focus);
+}
