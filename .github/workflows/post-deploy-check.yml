@@ -85,7 +85,7 @@ jobs:
           }
 
           smoke_check "Marketing Homepage" "https://mattbutlerengineering.com" "<html"
-          smoke_check "Marketing /about" "https://mattbutlerengineering.com/about" "<html"
+          smoke_check "Marketing /shipped" "https://mattbutlerengineering.com/shipped" "<html"
           smoke_check "Hospitality Homepage" "https://mattbutlerengineering.com/hospitality/" "<html"
           smoke_check "Rialto Storybook" "https://mattbutlerengineering.github.io/mattbutlerengineering/" "<html"
           smoke_check "Users Health API" "https://api.mattbutlerengineering.com/api/v1/users/health" "status"
