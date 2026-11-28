@@ -64,6 +64,13 @@ describe("reservation block text contrast (#10036)", () => {
     expect(rule(rules, ".statusCancelled").get("color")).toBe("var(--rialto-text-secondary)");
   });
 
+  it.each([".overrideTag", ".statusWord"])(
+    "%s uses the on-surface text token on every status tint (#10058)",
+    (selector) => {
+      expect(rule(rules, selector).get("color")).toBe("var(--rialto-text-primary)");
+    }
+  );
+
   it.each([".guestName", ".details"])(
     "%s carries no opacity that would wash the text out",
     (selector) => {

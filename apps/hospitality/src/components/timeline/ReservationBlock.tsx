@@ -31,6 +31,13 @@ const STATUS_CLASS: Record<ReservationStatus, string> = {
   NO_SHOW: styles.statusNoShow ?? "",
 };
 
+/** Statuses that get a visible word; confirmed and completed are the quiet defaults. */
+const STATUS_WORD_STATUSES: ReadonlySet<ReservationStatus> = new Set([
+  "PENDING",
+  "NO_SHOW",
+  "CANCELLED",
+]);
+
 /** Placeholder so the label hook runs unconditionally; its output is used only with a real badge. */
 /** Horizontal gap between the block's left edge and its badge, and the badge's right margin. */
 const CHIP_INSET = 8;
@@ -76,8 +83,13 @@ function ReservationBlockComponent({
         total: reservation.inviteRsvp.partySize,
       })
     : null;
+  // WCAG 1.4.1: colour alone must not carry the states staff act on, so these name themselves.
+  const statusWord = STATUS_WORD_STATUSES.has(reservation.status)
+    ? t(RESERVATION_STATUS_KEYS[reservation.status])
+    : null;
   const visibleRun = [
     guestName,
+    statusWord,
     `${reservation.partySize} · ${startTime}${visitText !== null ? ` · ${visitText}` : ""}`,
     rsvpText,
     overrideReason ? t("timeline.block.overrideTag") : null,
@@ -87,7 +99,10 @@ function ReservationBlockComponent({
   const spokenLabel = [
     visibleRun,
     t("timeline.partyOf", { count: reservation.partySize }),
-    t(RESERVATION_STATUS_KEYS[reservation.status]).toLocaleLowerCase(fmt.locale),
+    // A status shown as a visible word is already spoken in the visible run.
+    statusWord === null
+      ? t(RESERVATION_STATUS_KEYS[reservation.status]).toLocaleLowerCase(fmt.locale)
+      : null,
     isSeated ? t("timeline.block.seatedWord") : null,
     guestSignalBadge ? lateLabel : null,
     overrideReason ? t("timeline.block.overrideLabel", { reason: overrideReason }) : null,
@@ -123,6 +138,11 @@ function ReservationBlockComponent({
             <span>{guestName}</span>
           </div>{" "}
           <div className={styles.details} data-truncate>
+            {statusWord !== null && (
+              <span className={styles.statusWord} data-testid="reservation-block-status-word">
+                {statusWord}
+              </span>
+            )}
             {reservation.partySize} · {startTime}
             {visitText !== null && ` · ${visitText}`}
           </div>{" "}
