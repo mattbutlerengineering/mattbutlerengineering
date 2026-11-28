@@ -139,6 +139,11 @@ describe("blocked checks", () => {
     expect(exitCodeFor(results)).toBe(1);
   });
 
+  it("wires check-destructive-migrations' blocked code into the audit (#10143)", () => {
+    const check = REPO_AUDIT_CHECKS.find((c) => c.name === "check-destructive-migrations");
+    expect(check.blocked?.[10]).toBe("base unresolvable — shallow clone or origin/main missing");
+  });
+
   it("wires check-rialto-changeset's blocked codes into the audit", () => {
     const check = REPO_AUDIT_CHECKS.find((c) => c.name === "check-rialto-changeset");
     expect(check.blocked[BLOCKED_EXIT_CODES.shallow]).toBe("shallow clone — base unresolvable");

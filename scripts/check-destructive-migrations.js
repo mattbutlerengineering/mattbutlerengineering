@@ -51,8 +51,15 @@ function git(...args) {
  * @returns {string}
  */
 function resolveBase(ref) {
-  return git("merge-base", "HEAD", ref);
+  // `--end-of-options`: a ref beginning with "-" is a ref, never a merge-base flag (#10143).
+  return git("merge-base", "--end-of-options", "HEAD", ref);
 }
+
+/**
+ * Exit codes for an environmental blocker (#10143), so `pnpm repo-audit` reports
+ * BLOCKED rather than a destructive-migration violation. Never a pass, never a skip.
+ */
+export const BLOCKED_EXIT_CODES = { "base-unresolvable": 10 };
 
 /**
  * Migration files added between `base` and HEAD.
@@ -123,19 +130,18 @@ if (isMain) {
   try {
     base = resolveBase(baseRef);
   } catch {
-    process.exit(
-      runCheck({
-        name: "destructive migrations",
-        findings: [`merge-base(HEAD, ${baseRef}) did not resolve`],
-        formatFinding: (line) => line,
-        failMessage:
-          "FAIL: destructive-migration check could not resolve a diff base.\n" +
-          "It needs `origin/main` and enough history for a merge base — in CI\n" +
-          "that means `fetch-depth: 0` on the checkout; locally, `git fetch\n" +
-          "origin main`. Set DESTRUCTIVE_MIGRATION_BASE=<ref> to override.\n" +
-          "Failing closed: a silently skipped gate reads exactly like a green one.",
-      })
-    );
+    runCheck({
+      name: "destructive migrations",
+      findings: [`merge-base(HEAD, ${baseRef}) did not resolve`],
+      formatFinding: (line) => line,
+      failMessage:
+        "BLOCKED: destructive-migration check could not resolve a diff base.\n" +
+        "It needs `origin/main` and enough history for a merge base — in CI\n" +
+        "that means `fetch-depth: 0` on the checkout; locally, `git fetch\n" +
+        "origin main`. Set DESTRUCTIVE_MIGRATION_BASE=<ref> to override.\n" +
+        "Failing closed: a silently skipped gate reads exactly like a green one.",
+    });
+    process.exit(BLOCKED_EXIT_CODES["base-unresolvable"]);
   }
 
   const files = getNewMigrationFiles(base);
