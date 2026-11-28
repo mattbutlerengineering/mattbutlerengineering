@@ -55,14 +55,14 @@ section 4.
    ```bash
    git diff --name-only origin/main...HEAD
    git fetch origin main
-   git log --since='6 hours ago' --format='%h %s' origin/main -- <your paths>
+   git log --format='%h %s' HEAD..origin/main -- <your paths>
    gh api 'repos/mattbutlerengineering/mattbutlerengineering/pulls?state=open&per_page=100&page=1' --jq '.[].number'
    gh api 'repos/mattbutlerengineering/mattbutlerengineering/pulls/<N>/files?per_page=100&page=1' --jq '.[].filename'
    ```
 
    The `git log` call covers merged work with no API call. Every merge here is
    a squash commit whose subject ends `(#N)`, so each line it prints names a
-   pull request that merged into your paths in the last 6 hours. Run the last
+   pull request that merged into your paths after your branch left `main`. Run the last
    call for every open pull request and compare its paths with yours. For
    either `gh api` call, request `page=2` and onward while a page returns 100
    rows. Do not follow a `Link` header: the cloud proxy answers it with 403.
@@ -155,6 +155,9 @@ commit sits on a branch that no PR reads.
   section 2 that names the merged PR. Review it under this section.
 - If the call prints `closed false`, the PR was closed without merging. Do not
   push and do not reopen it. Say so in your report.
+- If the call still prints `open false`, the PR is open but your push did not
+  become its head. Label the PR `needs-review`, report the fix as not shipped,
+  and do not push again.
 - "Pushed to the branch" is not "reachable from `main`". Report a fix as
   shipped only when all three of these hold. Run
   `gh api 'repos/mattbutlerengineering/mattbutlerengineering/pulls/<N>' --jq '"\(.merged) \(.head.sha) \(.merge_commit_sha)"'`.

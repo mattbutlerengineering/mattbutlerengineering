@@ -77,7 +77,10 @@ describe("fix protocol (#9947)", () => {
     // Merged work is read from git, not the closed-PR list: 50 rows of that
     // list covered under 3 of the 6 hours when measured (#10195 review).
     expect(fix[1]).not.toContain("pulls?state=closed");
-    expect(fix[1]).toContain("git log --since='6 hours ago' --format='%h %s' origin/main --");
+    // HEAD..origin/main, not a time window: a window also prints commits the
+    // branch is already built on, and a shallow clone's boundary commit.
+    expect(fix[1]).toContain("git log --format='%h %s' HEAD..origin/main --");
+    expect(fix[1]).not.toContain("--since=");
     expect(fix[1]).toContain("pulls/<N>/files?per_page=100&page=1");
     expect(fix[1]).toMatch(/`page=2`/);
     expect(fix[1]).toMatch(/not on issue numbers or titles/);
@@ -98,6 +101,10 @@ describe("fix protocol (#9947)", () => {
     expect(review[1]).toMatch(/confirm the PR is still open/);
     expect(review[1]).toContain("pulls/<N>' --jq");
     expect(review[1]).toContain("`open false`");
+    // Every output of the state call has a route, including a PR that is
+    // still open after a push that did not reach it (no re-push loop).
+    expect(review[1]).toContain("If the call still prints `open false`");
+    expect(review[1]).toContain("do not push again");
     expect(review[1]).toContain(".head.sha");
     expect(review[1]).toMatch(/follow-up pull request/);
     // Captured verbatim from the push that lost e9c6431 (#10184): a push to a
