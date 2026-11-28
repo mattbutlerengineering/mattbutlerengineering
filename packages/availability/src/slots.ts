@@ -151,7 +151,7 @@ export function freeTables(
   );
 }
 
-export function pacingOk(
+function pacingOk(
   snapshot: BookingSnapshot,
   day: ResolvedDaySummary,
   service: ResolvedService,
