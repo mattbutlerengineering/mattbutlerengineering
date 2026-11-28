@@ -172,7 +172,7 @@ describe.each(CASES)("staff pages in $tag", (c) => {
         <OfflineBanner lastSyncedAt={undefined} />
       </MemoryRouter>
     );
-    expect(screen.getByRole("button", { name: c.notFoundBack })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: c.notFoundBack })).toBeInTheDocument();
     expect(screen.getByText(c.offline)).toBeInTheDocument();
   });
 

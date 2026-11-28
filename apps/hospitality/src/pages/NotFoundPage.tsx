@@ -1,6 +1,6 @@
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
-import { Text, Button } from "@mattbutlerengineering/rialto";
+import { Text } from "@mattbutlerengineering/rialto";
 import { PageHeader } from "../components/PageHeader.js";
 import { useDocumentTitle } from "../hooks/useDocumentTitle.js";
 import styles from "./NotFoundPage.module.css";
@@ -40,9 +40,7 @@ export function NotFoundPage({ guest = false }: NotFoundPageProps) {
       </Text>
 
       <Link to="/timeline" className={styles.primaryLink}>
-        <Button variant="primary" size="md">
-          {t("notFound.back")}
-        </Button>
+        {t("notFound.back")}
       </Link>
     </div>
   );
