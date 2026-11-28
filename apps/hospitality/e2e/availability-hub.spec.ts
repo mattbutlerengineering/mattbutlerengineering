@@ -225,6 +225,31 @@ test.describe("Availability hub", () => {
     });
   }
 
+  // #10038 / #10027: the active sidebar item's gold label was 2.94:1 in light mode. The sidebar sits
+  // outside <main>, which the axe checks above are scoped to, so it is checked on its own here.
+  for (const theme of ["light", "dark"] as const) {
+    test(`the sidebar has no color-contrast violation in ${theme} mode`, async ({
+      mockedPage: page,
+    }) => {
+      // Stored before load: a stored preference wins over the server one (useThemeServerHydration),
+      // so the page paints in `theme` from the start and never switches mid-check.
+      await page.addInitScript((t) => localStorage.setItem("mbe-theme-preference", t), theme);
+      await openHub(page, DESKTOP);
+      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+      const nav = page.getByRole("navigation", { name: "Dashboard navigation" });
+      // The active item is what failed; without it on screen the check would pass vacuously.
+      // The Availability host carries aria-current="true" and its rail item "page".
+      await expect(nav.locator("[aria-current]").first()).toBeVisible();
+
+      const results = await new AxeBuilder({ page })
+        .include('nav[aria-label="Dashboard navigation"]')
+        .withRules(["color-contrast"])
+        .analyze();
+      expect(results.violations).toEqual([]);
+      expect(results.incomplete.flatMap((r) => r.nodes.map((n) => n.target))).toEqual([]);
+    });
+  }
+
   test("on a 375x812 phone the first paint stays within the budget and a screen and a half", async ({
     mockedPage: page,
   }) => {

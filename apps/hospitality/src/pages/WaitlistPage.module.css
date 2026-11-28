@@ -68,4 +68,10 @@
     min-block-size: 44px;
     min-inline-size: 44px;
   }
+
+  /* Party-size chips in the add form, same as the walk-in dialog's (#10038). */
+  .partySizeRow > button {
+    min-block-size: 44px;
+    min-inline-size: 44px;
+  }
 }
