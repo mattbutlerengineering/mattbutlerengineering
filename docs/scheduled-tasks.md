@@ -287,7 +287,9 @@ to a single worker without worktree isolation in cloud and keep the local
   Off-hour and off-minute, away from the on-the-hour scheduled fleet.
 - **Why it is not a routine:** the collector it runs needs exactly what a
   cloud routine does not have. `scripts/acmm/review-burden-metrics.js` shells
-  out to `gh`, which does not exist in a CCR session at all
+  out to `gh pr list --json ...,reviews,...`, a GraphQL-backed `gh` subcommand
+  that a CCR session's `gh` cannot run — `gh` itself is present there, but
+  GraphQL-backed subcommands answer HTTP 403 and only `gh api` REST calls work
   (`.claude/rules/gotchas.md` § Claude Code Remote). Nothing ran it at all
   after one manual run on 2026-06-14. (A booking-funnel `domain-metrics`
   collector used to run here too; it was retired in #5561 — it needed a
