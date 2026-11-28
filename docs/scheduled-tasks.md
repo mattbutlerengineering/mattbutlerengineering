@@ -393,6 +393,13 @@ to a single worker without worktree isolation in cloud and keep the local
      is the only _scheduled_ eval — the daily optimizer fires eval only on a
      flagged regression, never on every run; on the subscription it consumes
      plan quota, not API dollars.
+  4. **Eval task streaks (#10139):** after the checkpoint, runs
+     `node scripts/eval-task-streaks.mjs` over the recorded history
+     (`.metrics-data/eval-reports.jsonl`; it never runs the suite). Exit **1**
+     lists each task that failed 3 or more judged runs in a row: the routine
+     fixes it per the fix protocol, or files one issue per task, deduplicated on
+     `eval-task-streak:<taskId>`. Exit **2** (no readable history) is reported
+     as a failed check, never as "no streaks".
   - **Decision (#3571): no eval credentials are provisioned in the claude.ai
     RemoteTrigger sandbox**, the same call already made for `AUDIT_TOKEN`
     (see "Required secrets" below) — cloud routines don't carry live paid
