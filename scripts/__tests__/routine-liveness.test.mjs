@@ -452,6 +452,21 @@ describe("mbe-dev-speed liveness (#10044)", () => {
   });
 });
 
+// #10151: mbe-hourly-fix fires every hour, so a daily period is the
+// tightest window the sensor supports and still flags a dark day.
+describe("mbe-hourly-fix liveness (#10151)", () => {
+  it("is a daily-period heartbeat routine", () => {
+    const entry = ROUTINE_MANIFEST.find((candidate) => candidate.name === "mbe-hourly-fix");
+    expect(entry.signature).toEqual({ type: "heartbeat" });
+    expect(entry.periodDays).toBe(1);
+  });
+
+  it("prompt posts the heartbeat line the sensor parses", () => {
+    const prompt = readFileSync(resolve(ROOT, "docs", "routines", "mbe-hourly-fix.md"), "utf-8");
+    expect(prompt).toContain("heartbeat: mbe-hourly-fix <YYYY-MM-DD> <ok|noop|error> [note]");
+  });
+});
+
 describe("PR-title signatures confirmed against a live routine run", () => {
   it("mbe-monthly-meta-audit matches the title its live trigger emits", () => {
     const entry = ROUTINE_MANIFEST.find((candidate) => candidate.name === "mbe-monthly-meta-audit");

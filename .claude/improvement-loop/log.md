@@ -1,9 +1,3 @@
-## 2026-11-14
-
-**queueEfficiency:** composite 0.907 (baseline n/a) — healthy
-**Difficulty distribution:** size:s:19, size:m:14, size:xs:20, size:xl:8, size:l:11
-**Issues filed:** 0
-
 ## 2026-11-14 — mbe-evening (implement-queue)
 
 Phase 0 preflight: `main` green (0 failures in last 5 runs), `main-strictness.mjs` → `strict: true`, base-freshness → `fresh` (0 commits behind, ~2h old). No open PRs or `in-progress` issues needed straggler handling (merge train empty).
@@ -1170,3 +1164,25 @@ A full `pnpm lint` first failed in `@mbe/agent-service` with `Cannot find module
 **queueEfficiency:** composite 0.882 (baseline n/a) — healthy
 **Difficulty distribution:** size:xs:42, size:m:47, size:l:25, size:s:74, size:xl:15
 **Issues filed:** 0
+
+## 2026-11-28 — mbe-learning-loop
+
+**Sensors:** 19/19 available — ✅ Healthy (acmm L5 73/83, ciHealth 100% (1/1), mutationScore 98.21% PASS, 1 flaky (585213 runs), metricsFreshness 0 unhealthy, queueEfficiency composite 0.887).
+**Regressions:** 0 detected by sensor-report.mjs (`metrics/sensor-report.json` regressions array empty).
+**Sentry triage:** skipped — MCP token still expired (`find_organizations` → Authorization Expired), same as 2026-11-27.
+**Verifications:** 5 checked (48h window). 0 verified, 3 reopened, 2 skipped (#10088 no success/failure CI runs to verify against; #10098 Lighthouse inventory unavailable). All 3 reopens (#10093, #10071, #10058) were **false positives** traced to a real bug, not real regressions — see Fix PR below. Reclosed all three with an evidence comment after root-causing, each confirmed closed by an already-merged fix PR (#10095, #10100, #10068 respectively).
+
+### Fix PR (fix-protocol, not ticketed)
+
+`verifyBug()` in `scripts/verify-fixes.mjs` (the fallback verifier for plain `bug`-labeled issues) picked the first `completed` CI-workflow run regardless of `conclusion`, so a `cancelled` run — superseded by a later automation push under the `CI` workflow's own concurrency group (#3538) — read as a definite failure. Confirmed live: the last 10 push-triggered `CI` runs on `main` were all `cancelled` at the time (rapid successive automation merges), so this would have false-positived on every `bug`-labeled issue checked this fire, not just the three it hit. `verifyCiFix` already excludes `cancelled`/`skipped` for this exact reason (#6659); `verifyBug` never got the sibling fix.
+
+- **PR:** [#10146](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/10146) `fix(scripts): verifyBug must not treat a cancelled CI run as a failure (mbe-learning-loop)`
+- TDD: 2 new tests added (abstain-on-cancelled-only, skip-past-leading-cancelled), both RED before the fix, GREEN after. Full suite 41/41 passing; lint clean; repo-wide lint+typecheck exit 0 (pre-existing warnings only).
+- Reviewed: `reviewer-verdict: pass (score 9, threshold 7)`, posted `reviewed-merge: 55401b6… PASS 9/10`, labeled `reviewed`. Diff touches only `scripts/verify-fixes.mjs` + its test — no guardrail-path files, so `reviewed` (not `needs-review`) per `docs/routines/fix-protocol.md`.
+- **Could not dispatch CI on the branch** — `gh api .../actions/workflows/ci.yml/dispatches` returned `403 Resource not accessible by integration` (no `actions: write` from this session, per `gotchas.md`'s CCR table). PR is currently `gate-missing`; left for `automation-pr-rescue.yml` / the next CI-health sweep to dispatch, per existing repo machinery — did not retry or work around it. Scheduled a 50-minute self-check-in to confirm it clears.
+- Did not merge or enable auto-merge (cloud auto-mode denies routine merges, #6125) — left to `reviewed-merge.yml` once `CI Gate` reads green, per protocol.
+- Fix PRs this fire: 1/2 (per-fire cap).
+
+**AI issue feedback:** budgets refreshed (90d window, 200 total across categories). `agent-failed` halved to budget 1 (50% rejection, n=2); all other categories default budget=3.
+**Skill proposals:** 0 — not the configured skill-extraction day (Friday; today is Saturday).
+**Threshold notes:** false positive rate (wontfix+rejected)/total over all-time feedback = 27.5% (43 wontfix + 12 rejected / 200) — healthy, under the 30% loosen-threshold line (down from 29.0% last run). Fix effectiveness (last 30d, non-skip verifications) = 66.7% (12/18) — below last run's 80% (12/15), but 3 of this window's non-skip entries are today's confirmed false positives from the `verifyBug` bug just fixed; excluding them gives 80% (12/15), flat with last run and above the 50% review-trigger line either way. No threshold-tuning action needed. `verify-fixes.mjs`'s own auto-tuner applied 2 headroom adjustments: `acmm` 1.974→1.999, `ci-fix` 1.315→1.321.

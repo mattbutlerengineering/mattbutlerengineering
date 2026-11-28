@@ -260,6 +260,45 @@ describe("ClaudeCliAdapter", () => {
       expect(result.tokenUsage).toEqual({ inputTokens: 1200, outputTokens: 340 });
     });
 
+    // #10137: the eval judge reads this summary; without it a correct no-op always fails.
+    it("surfaces the result text of a successful run as resultText", async () => {
+      const stdout = JSON.stringify({
+        type: "result",
+        subtype: "success",
+        is_error: false,
+        result: "js-yaml is already the latest 5.x; no change needed.",
+        session_id: "abc",
+      });
+
+      setupExecFileMock({
+        claude: [{ stdout }],
+        "git-status": [{ stdout: "" }],
+      });
+
+      const result = await adapter.dispatch(makeConfig());
+
+      expect(result.resultText).toBe("js-yaml is already the latest 5.x; no change needed.");
+    });
+
+    it("leaves resultText undefined when the run reports is_error", async () => {
+      const stdout = JSON.stringify({
+        type: "result",
+        subtype: "error_during_execution",
+        is_error: true,
+        result: "Agent stopped: unexpected tool failure.",
+        session_id: "abc",
+      });
+
+      setupExecFileMock({
+        claude: [{ stdout }],
+        "git-status": [{ stdout: "" }],
+      });
+
+      const result = await adapter.dispatch(makeConfig());
+
+      expect(result.resultText).toBeUndefined();
+    });
+
     it("degrades to no usage (not a bogus $0) for malformed/non-JSON stdout", async () => {
       setupExecFileMock({
         claude: [{ stdout: "not json at all" }],

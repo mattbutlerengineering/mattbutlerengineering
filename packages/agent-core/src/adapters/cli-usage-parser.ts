@@ -166,6 +166,18 @@ export function extractClaudeCliError(stdout: string): string | undefined {
   return parsed.data.result ?? parsed.data.subtype;
 }
 
+/**
+ * Recovers Claude CLI's final summary (`result`) from a successful run, so a
+ * session's `resultText` carries the agent's own account of what it did — the
+ * evidence a declared no-op relies on (#10137). Error runs return undefined:
+ * their `result` is a failure message, surfaced via `extractClaudeCliError`.
+ */
+export function extractClaudeCliResultText(stdout: string): string | undefined {
+  const parsed = ClaudeCliResultSchema.safeParse(safeJsonParse(stdout.trim()));
+  if (!parsed.success || parsed.data.is_error) return undefined;
+  return parsed.data.result;
+}
+
 // ── Grok CLI (`grok -p --output-format json`) ────────────────────────
 //
 // Emits one JSON object. `usage.input_tokens` is uncached input only;

@@ -26,6 +26,7 @@ const FIXING_ROUTINES = [
   "mbe-doc-rot",
   "mbe-ui-quality",
   "mbe-dev-speed",
+  "mbe-hourly-fix",
 ];
 
 const promptOf = (name) => {
