@@ -139,9 +139,11 @@
   background: var(--rialto-surface-recessed);
 }
 
+/* Gold is the indicator (border + wash), never the label: gold text on the wash is 2.94:1 in
+   light mode (#10038). The label takes the primary text token. */
 .navLinkActive,
 .navLinkActive:hover {
-  color: var(--rialto-accent);
+  color: var(--rialto-text-primary);
   font-weight: var(--rialto-weight-medium);
   background: var(--rialto-accent-muted);
   border-inline-start-color: var(--rialto-accent);
