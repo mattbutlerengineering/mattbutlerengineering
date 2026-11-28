@@ -71,4 +71,50 @@ describe("pull_request workflows cancel their superseded runs", () => {
     expect(String(loadWorkflow(file).concurrency?.["cancel-in-progress"] ?? "")).not.toBe("");
     expect(String(loadWorkflow(file).concurrency?.["cancel-in-progress"])).not.toBe("false");
   });
+
+  /**
+   * A workflow that also runs on `push` must not let one push to main cancel
+   * the previous one — on a push event `github.event.pull_request.number` is
+   * empty, so a group keyed on it alone collapses every main push into one
+   * group. apps-visual.yml and rialto-web-e2e.yml publish their visual
+   * baselines on main (scripts/visual-baselines.mjs), so a cancelled main run
+   * loses the baseline ref the next PR fetches.
+   *
+   * Two spellings satisfy this and both are already in the repo: a per-run
+   * fallback in the group key (`|| github.run_id`, six workflows), or
+   * `cancel-in-progress` evaluated false on main (ci.yml). Dropping the
+   * fallback to the bare `github.event.pull_request.number` that
+   * ai-attribution.yml and auto-review.yml use is safe only because neither of
+   * those runs on push — which is exactly why this is asserted here and not
+   * left to a reader to notice.
+   */
+  const PUSH_GROUP_EXEMPT = {
+    "storybook.yml":
+      "serializes on a shared external resource: `group: pages` is GitHub's " +
+      "documented key for Pages deployments, and its deploy job is " +
+      "`if: github.event_name != 'pull_request'`. A PR build sharing that group " +
+      "can still cancel a main Pages deploy — a real hole, but it predates the " +
+      "concurrency blocks this file was added for and changing Pages " +
+      "serialization is its own decision (#10204).",
+  };
+
+  const pushCandidates = candidates
+    .filter(({ workflow }) => workflow.on.push)
+    .map(({ file }) => file)
+    .filter((file) => !(file in PUSH_GROUP_EXEMPT));
+
+  it("finds the pull_request workflows that also run on push", () => {
+    expect(pushCandidates).toContain("apps-visual.yml");
+    expect(pushCandidates).toContain("rialto-web-e2e.yml");
+    expect(pushCandidates).toContain("ci.yml");
+  });
+
+  it.each(pushCandidates)("%s never cancels one push to main with the next", (file) => {
+    const { concurrency } = loadWorkflow(file);
+    const perRunFallback = String(concurrency?.group ?? "").includes("github.run_id");
+    const notCancelledOnMain = String(concurrency?.["cancel-in-progress"] ?? "").includes(
+      "refs/heads/main"
+    );
+    expect(perRunFallback || notCancelledOnMain).toBe(true);
+  });
 });
