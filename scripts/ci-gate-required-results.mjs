@@ -124,6 +124,13 @@ function main() {
   }
 
   const { ok, errors } = evaluateRequiredResults(needs);
+  // #10188: drafts skip `prepare` on purpose. The verdict is unchanged (fail
+  // closed); the hint only says why, so a red gate on a draft is not chased.
+  if (process.env.IS_DRAFT_PR === "true" && needs?.[ROOT_JOB]?.result === "skipped") {
+    process.stdout.write(
+      "::notice::Draft PR: CI is skipped by design (#10188). Mark the PR ready for review to run it.\n"
+    );
+  }
   for (const error of errors) process.stdout.write(`::error::${error}\n`);
   process.exit(ok ? 0 : 1);
 }

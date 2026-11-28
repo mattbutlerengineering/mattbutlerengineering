@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { evaluateRequiredResults, PASSING_RESULTS } from "../ci-gate-required-results.mjs";
@@ -171,6 +171,29 @@ describe("ci-gate-required-results CLI", () => {
     expect(run({ NEEDS_JSON: JSON.stringify(needs({ results: { prepare: "abandoned" } })) })).toBe(
       1
     );
+  });
+
+  // #10188: drafts skip CI. The gate still fails closed; it only explains why.
+  const runSkippedRoot = (isDraft) =>
+    spawnSync("node", [SCRIPT], {
+      env: {
+        ...process.env,
+        NEEDS_JSON: JSON.stringify(needs({ results: { prepare: "skipped" } })),
+        IS_DRAFT_PR: isDraft,
+      },
+      encoding: "utf8",
+    });
+
+  it("still fails a draft PR's skipped root, with a mark-ready hint", () => {
+    const result = runSkippedRoot("true");
+    expect(result.status).toBe(1);
+    expect(result.stdout).toMatch(/Draft PR: CI is skipped by design \(#10188\)/);
+  });
+
+  it("gives no draft hint on a non-draft run", () => {
+    const result = runSkippedRoot("false");
+    expect(result.status).toBe(1);
+    expect(result.stdout).not.toMatch(/Draft PR/);
   });
 
   it("exits 1 when NEEDS_JSON is missing or malformed", () => {

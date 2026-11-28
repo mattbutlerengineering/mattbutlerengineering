@@ -17,6 +17,9 @@ on:
       - "LICENSE"
   pull_request:
     branches: [main]
+    # #10188: drafts skip CI (see `prepare` and `ci-gate`), so marking a PR
+    # ready must start the full run.
+    types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
     branches: [main]
   # Bare workflow_dispatch trigger — lets other workflows (e.g. drift-fix.yml)
@@ -49,6 +52,12 @@ jobs:
   # Build-chain job to succeed whenever has_code is "true".
   prepare:
     name: Prepare
+    # #10188: a draft PR costs no CI. Every other job needs `prepare`, so this
+    # one guard skips the whole chain. `ci-gate` still runs (always()) and
+    # fails closed on the skipped root with a "draft PR" message, so a guard
+    # that misfired on a ready PR can never read as a pass. A draft cannot
+    # merge, and `ready_for_review` runs everything on the head SHA.
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     outputs:
       has_code: ${{ steps.filter.outputs.has_code }}
@@ -1384,6 +1393,7 @@ jobs:
         # to `needs:` above is gated automatically.
         env:
           NEEDS_JSON: ${{ toJSON(needs) }}
+          IS_DRAFT_PR: ${{ github.event.pull_request.draft == true }}
         run: |
           set -euo pipefail
           node scripts/ci-gate-required-results.mjs
