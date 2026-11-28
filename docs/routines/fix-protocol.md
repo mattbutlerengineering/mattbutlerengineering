@@ -54,24 +54,36 @@ section 4.
 
    ```bash
    git diff --name-only origin/main...HEAD
-   gh api 'repos/mattbutlerengineering/mattbutlerengineering/pulls?state=open&per_page=100' --jq '.[].number'
-   gh api 'repos/mattbutlerengineering/mattbutlerengineering/pulls?state=closed&sort=updated&direction=desc&per_page=50' --jq '.[] | select(.merged_at != null) | "\(.number) \(.merged_at)"'
-   gh api --paginate 'repos/mattbutlerengineering/mattbutlerengineering/pulls/<N>/files' --jq '.[].filename'
+   git fetch origin main
+   git log --since='6 hours ago' --format='%h %s' origin/main -- <your paths>
+   gh api 'repos/mattbutlerengineering/mattbutlerengineering/pulls?state=open&per_page=100&page=1' --jq '.[].number'
+   gh api 'repos/mattbutlerengineering/mattbutlerengineering/pulls/<N>/files?per_page=100&page=1' --jq '.[].filename'
    ```
 
-   Run the last call for every open pull request and for every pull request
-   whose `merged_at` is within the last 6 hours, and compare its paths with
-   yours.
+   The `git log` call covers merged work with no API call. Every merge here is
+   a squash commit whose subject ends `(#N)`, so each line it prints names a
+   pull request that merged into your paths in the last 6 hours. Run the last
+   call for every open pull request and compare its paths with yours. For
+   either `gh api` call, request `page=2` and onward while a page returns 100
+   rows. Do not follow a `Link` header: the cloud proxy answers it with 403.
 
-   - An open pull request shares a path: read its diff. If it makes the same
-     fix, open no pull request, discard your branch and leave the finding to
-     it.
-   - A merged pull request shares a path: run `git fetch origin main`, then
-     `git rebase origin/main`, then `git diff --stat origin/main...HEAD`. If
-     the diff is now empty or comments-only, the substance has already landed.
-     Open no pull request, discard the branch and name the pull request that
-     landed the fix in your report. If a real change remains, re-run the gates
-     in step 5 on the rebased branch and continue.
+   - An open pull request shares a path: read its diff with
+     `gh api 'repos/mattbutlerengineering/mattbutlerengineering/pulls/<N>' -H 'Accept: application/vnd.github.diff'`.
+     If it makes the same fix, open no pull request, discard your branch and
+     leave the finding to it. Otherwise continue to step 8.
+   - `git log` prints a commit: run `git rebase origin/main`, then read
+     `git diff origin/main...HEAD` in full. `git diff --stat` cannot show
+     whether what remains is comments-only. If the diff is now empty or
+     comments-only, the substance has already landed. Open no pull request,
+     discard the branch and name the pull request that landed the fix in your
+     report. If a real change remains, re-run the gates in step 5 on the
+     rebased branch and continue to step 8.
+   - The rebase conflicts, because the competitor edited the same lines: run
+     `git rebase --abort`, then read the competitor's diff with
+     `git show <its commit>`. If it makes the same fix, open no pull request
+     and name it in your report. Otherwise branch fresh off `origin/main`,
+     re-apply the remaining change, re-run the gates in step 5 and continue to
+     step 8.
 
 8. Open one pull request per fire against `main`, holding every finding you
    fixed this fire (#10188: many small PRs saturate the CI queue). Each root
@@ -131,9 +143,12 @@ commit sits on a branch that no PR reads.
   `gh api 'repos/mattbutlerengineering/mattbutlerengineering/pulls/<N>' --jq '"\(.state) \(.merged)"'`.
   Push only when it prints `open false`.
 - After the push, run the same call with `--jq '"\(.state) \(.head.sha)"'`. It
-  must print `open` and the SHA that `git rev-parse HEAD` prints. If it does
-  not, or if the push printed `* [new branch]` for a branch that already had a
-  PR, the fix did not reach the PR.
+  must print `open` and the SHA that `git rev-parse HEAD` prints. The API's
+  `.head.sha` can lag a push by a few seconds, so on a mismatch run the call
+  once more after 10 seconds. If it still does not print `open` and your SHA,
+  or if the push printed `* [new branch]` for a branch that already had a PR,
+  the fix did not reach the PR: run the before-the-push call again and follow
+  the `closed true` or `closed false` route below.
 - If the call prints `closed true`, the PR merged. Do not push to its branch.
   Run `git fetch origin main`, branch `fix/<routine>-<slug>-followup` off
   `origin/main`, apply the fix there, and open a follow-up pull request under
@@ -141,11 +156,16 @@ commit sits on a branch that no PR reads.
 - If the call prints `closed false`, the PR was closed without merging. Do not
   push and do not reopen it. Say so in your report.
 - "Pushed to the branch" is not "reachable from `main`". Report a fix as
-  shipped only when its PR's `.merged` is `true` and, after
-  `git fetch origin main`,
-  `git merge-base --is-ancestor <the PR's .merge_commit_sha> origin/main`
-  exits 0. Merges here are squashed, so test the PR's merge commit, not the
-  SHA you pushed.
+  shipped only when all three of these hold. Run
+  `gh api 'repos/mattbutlerengineering/mattbutlerengineering/pulls/<N>' --jq '"\(.merged) \(.head.sha) \(.merge_commit_sha)"'`.
+  - `.merged` is `true`.
+  - `.head.sha` equals the SHA you pushed, the one `git rev-parse HEAD`
+    printed at push time. A PR that merged before your push keeps its older
+    head, so a merged PR alone proves nothing about your fix.
+  - After `git fetch origin main`,
+    `git merge-base --is-ancestor <.merge_commit_sha> origin/main` exits 0.
+    Merges here are squashed, so test the PR's merge commit, not the SHA you
+    pushed.
 
 **Hold these for the Owner.** Label the PR `needs-review` and do not add the
 `reviewed` label when the PR does any of these:

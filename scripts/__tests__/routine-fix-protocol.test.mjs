@@ -74,11 +74,22 @@ describe("fix protocol (#9947)", () => {
     expect(fix[1]).toMatch(/Immediately before you open the pull request/);
     expect(fix[1]).toContain("git diff --name-only origin/main...HEAD");
     expect(fix[1]).toContain("pulls?state=open");
-    expect(fix[1]).toContain("pulls?state=closed&sort=updated&direction=desc");
-    expect(fix[1]).toContain("pulls/<N>/files");
+    // Merged work is read from git, not the closed-PR list: 50 rows of that
+    // list covered under 3 of the 6 hours when measured (#10195 review).
+    expect(fix[1]).not.toContain("pulls?state=closed");
+    expect(fix[1]).toContain("git log --since='6 hours ago' --format='%h %s' origin/main --");
+    expect(fix[1]).toContain("pulls/<N>/files?per_page=100&page=1");
+    expect(fix[1]).toMatch(/`page=2`/);
     expect(fix[1]).toMatch(/not on issue numbers or titles/);
     expect(fix[1]).toMatch(/already landed/);
     expect(fix[1]).toMatch(/comments-only/);
+    expect(fix[1]).toContain("`git diff origin/main...HEAD`");
+    expect(fix[1]).toContain("git rebase --abort");
+    expect(fix[1]).toMatch(/[Oo]therwise continue to step 8/);
+  });
+
+  it("never follows a Link header, which the cloud proxy answers with 403", () => {
+    expect(protocol).not.toContain("--paginate");
   });
 
   it("never pushes a review-driven fix to a PR that has closed or merged (#10184)", () => {
@@ -94,6 +105,11 @@ describe("fix protocol (#9947)", () => {
     expect(review[1]).toContain("`* [new branch]`");
     expect(review[1]).toContain("git merge-base --is-ancestor");
     expect(review[1]).toContain("origin/main");
+    // "Shipped" needs all three: #10176 was merged and on main, yet the lost
+    // fix was never its head.
+    expect(review[1]).toContain(String.raw`--jq '"\(.merged) \(.head.sha) \(.merge_commit_sha)"'`);
+    expect(review[1]).toMatch(/`\.head\.sha` equals the SHA you pushed/);
+    expect(review[1]).toMatch(/after 10 seconds/);
   });
 
   it("gives routines no GraphQL-backed gh call, which answers 403 in cloud sessions", () => {
