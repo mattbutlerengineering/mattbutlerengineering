@@ -1,0 +1,7 @@
+{
+  "name": "mbe-hourly-fix",
+  "triggerId": "trig_01AdqK9CaJWQr3mLNYKARNgx",
+  "periodDays": 1,
+  "activatedAt": "2026-11-28",
+  "signature": { "type": "heartbeat" }
+}
