@@ -8,11 +8,20 @@
  * Intentional destructive migrations can be marked with a comment:
  *   -- DESTRUCTIVE: <reason>
  *
+ * Base resolution: `DESTRUCTIVE_MIGRATION_BASE` env override, else the
+ * `[base-ref]` argument, else `origin/main`, narrowed to
+ * `git merge-base HEAD <ref>`. An unresolvable base FAILS the check rather
+ * than passing: this gate only sees a migration by diffing against a base, so
+ * a base it cannot resolve means it inspected nothing. It used to swallow that
+ * failure and print "No new migration files found", which reads exactly like a
+ * real all-clear. Same fail-closed stance, and wording, as
+ * check-rialto-changeset.mjs.
+ *
  * Usage: node scripts/check-destructive-migrations.js [base-ref]
  * Exit code: 0 if safe, 1 if destructive operations found without approval marker
  */
 
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { readFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { runCheck } from "./lib/fitness-check.mjs";
@@ -27,26 +36,34 @@ const DESTRUCTIVE_PATTERNS = [
 
 const APPROVAL_MARKER = /--\s*DESTRUCTIVE:/i;
 
-function getNewMigrationFiles(baseRef) {
-  try {
-    const output = execSync(
-      `git diff --name-only --diff-filter=A ${baseRef}...HEAD -- 'services/*/prisma/migrations/**/*.sql'`,
-      { encoding: "utf-8" }
-    ).trim();
-    return output ? output.split("\n") : [];
-  } catch {
-    // If base ref doesn't exist (e.g., first run), check all migration files
-    // that are staged or untracked
-    try {
-      const staged = execSync(
-        `git diff --name-only --cached -- 'services/*/prisma/migrations/**/*.sql'`,
-        { encoding: "utf-8" }
-      ).trim();
-      return staged ? staged.split("\n") : [];
-    } catch {
-      return [];
-    }
-  }
+const MIGRATION_PATHSPEC = "services/*/prisma/migrations/**/*.sql";
+
+/** @param {...string} args @returns {string} */
+function git(...args) {
+  return execFileSync("git", args, { encoding: "utf-8" }).trim();
+}
+
+/**
+ * The commit to diff HEAD against. Throws when it does not resolve, which the
+ * CLI turns into a failure rather than an empty file list.
+ *
+ * @param {string} ref
+ * @returns {string}
+ */
+function resolveBase(ref) {
+  return git("merge-base", "HEAD", ref);
+}
+
+/**
+ * Migration files added between `base` and HEAD.
+ *
+ * @param {string} base - an already-resolved commit
+ * @returns {string[]}
+ */
+function getNewMigrationFiles(base) {
+  return git("diff", "--name-only", "--diff-filter=A", base, "HEAD", "--", MIGRATION_PATHSPEC)
+    .split("\n")
+    .filter(Boolean);
 }
 
 /** Pure scan of one migration file's SQL content — no I/O, no logging. */
@@ -100,11 +117,34 @@ if (isMain && process.argv[2] === "--file") {
 }
 
 if (isMain) {
-  const baseRef = process.argv[2] || "origin/main";
-  const files = getNewMigrationFiles(baseRef);
+  const baseRef = process.env.DESTRUCTIVE_MIGRATION_BASE || process.argv[2] || "origin/main";
+
+  let base;
+  try {
+    base = resolveBase(baseRef);
+  } catch {
+    process.exit(
+      runCheck({
+        name: "destructive migrations",
+        findings: [`merge-base(HEAD, ${baseRef}) did not resolve`],
+        formatFinding: (line) => line,
+        failMessage:
+          "FAIL: destructive-migration check could not resolve a diff base.\n" +
+          "It needs `origin/main` and enough history for a merge base — in CI\n" +
+          "that means `fetch-depth: 0` on the checkout; locally, `git fetch\n" +
+          "origin main`. Set DESTRUCTIVE_MIGRATION_BASE=<ref> to override.\n" +
+          "Failing closed: a silently skipped gate reads exactly like a green one.",
+      })
+    );
+  }
+
+  const files = getNewMigrationFiles(base);
 
   if (files.length === 0) {
-    console.log("No new migration files found — skipping destructive check.");
+    // Not "skipping": a base resolved, so this is a real all-clear. The old
+    // wording was printed on an unresolvable base too, which is what let the
+    // inert case pass for a clean one.
+    console.log(`No new migration files since ${baseRef} — nothing to check.`);
     process.exit(0);
   }
 
