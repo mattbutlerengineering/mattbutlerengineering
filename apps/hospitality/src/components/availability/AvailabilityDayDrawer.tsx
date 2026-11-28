@@ -79,6 +79,8 @@ export interface AvailabilityDayDrawerProps {
   readonly dateRules?: readonly DateRule[];
   /** Section names by id, so a section closure's layer reads "Bar closed" (ADR-032). */
   readonly sectionNames?: ReadonlyMap<string, string>;
+  /** "Explain this day": open the date's per-time explanation. Hidden when not given. */
+  readonly onExplain?: (date: string) => void;
   readonly onClose: () => void;
 }
 
@@ -116,14 +118,17 @@ function summaryText(day: ResolvedDay, weekday: string, locale: string, t: TFunc
   ];
 }
 
-function DayBody({
+export function DayBody({
   day,
   date,
   dateRules,
   config,
   sectionNames,
   layerActions,
+  alwaysShowStack = false,
 }: {
+  /** Explain this day lists the layers even when the regular week is the only one. */
+  readonly alwaysShowStack?: boolean;
   readonly day: ResolvedDay;
   readonly date: string;
   readonly dateRules?: readonly DateRule[];
@@ -140,6 +145,7 @@ function DayBody({
   // A Manager's day under one dated schedule shows it too: Remove and Edit have nowhere else to be.
   const [only] = day.explanation;
   const showStack =
+    alwaysShowStack ||
     day.explanation.length >= 2 ||
     (layerActions !== undefined &&
       config !== undefined &&
@@ -326,6 +332,13 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
                 : undefined
             }
           />
+        )}
+        {!picked && props.onExplain && (
+          <div className={styles.dayActions}>
+            <Button variant="secondary" onClick={() => props.onExplain?.(date)}>
+              {t("availabilityExplain.open")}
+            </Button>
+          </div>
         )}
         {picked && editing?.hoursDiffer && (
           <Text variant="body" color="primary">

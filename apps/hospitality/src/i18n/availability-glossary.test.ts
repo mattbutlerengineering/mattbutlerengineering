@@ -197,6 +197,7 @@ describe("Availability glossary", () => {
   it("covers the availability namespaces, the hub's included", () => {
     expect([...AVAILABILITY_NAMESPACES].sort()).toEqual([
       "availability",
+      "availabilityExplain",
       "availabilityHub",
       "availabilitySchedules",
       "availabilitySpecial",

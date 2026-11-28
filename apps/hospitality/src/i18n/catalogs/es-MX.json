@@ -3529,6 +3529,72 @@
       "saveFailed": "No se pudo guardar."
     }
   },
+  "availabilityExplain": {
+    "title": "Explicar este día",
+    "description": "Qué hacen las reglas en una fecha y por qué cada horario se puede reservar o no.",
+    "open": "Explicar este día",
+    "guideLink": "Abrir Explicar este día para cualquier fecha",
+    "dateLabel": "Fecha",
+    "partySizeLabel": "Tamaño del grupo",
+    "loading": "Revisando cada horario de este día",
+    "loadError": "No se pudo explicar este día",
+    "closedAllDay": "Cerrado todo el día, así que no hay horarios que explicar.",
+    "rulesHeading": "Reglas que fijan el horario",
+    "timesHeading": "Resultado de cada horario",
+    "pastDate": "Esto es lo que producen las reglas de hoy. Esta fecha ya pasó, así que es posible que a los clientes no se les hayan ofrecido los mismos horarios.",
+    "outcome": {
+      "bookable": "Disponible",
+      "removed": "No disponible"
+    },
+    "link": {
+      "closures": "Editar cierres",
+      "regularHours": "Editar horario habitual",
+      "bookingRules": "Editar reglas de reserva",
+      "floorPlan": "Editar el plano de sala",
+      "calendar": "Abrir este día en el Calendario",
+      "label": "{{link}}, para {{time}}"
+    },
+    "summary": {
+      "bookable_one": "{{count}} horario disponible para un grupo de {{partySize}}.",
+      "bookable_other": "{{count}} horarios disponibles para un grupo de {{partySize}}.",
+      "bookable_many": "{{count}} horarios disponibles para un grupo de {{partySize}}.",
+      "commonReason": "El motivo más común por el que faltan horarios es {{reason}}."
+    },
+    "reasonName": {
+      "booking_paused": "una pausa",
+      "channel_not_offered": "un servicio que no se reserva de esta forma",
+      "closure": "un cierre",
+      "nonexistent_local_time": "un cambio de hora",
+      "no_suitable_table": "que ninguna mesa es lo bastante grande para el grupo",
+      "before_earliest": "el aviso mínimo de las reglas de reserva",
+      "after_latest_date": "con cuánta anticipación pueden reservar los clientes",
+      "no_free_table": "que las mesas ya están reservadas",
+      "pacing": "el ritmo"
+    },
+    "reason": {
+      "booking_paused": "Pausa: la reserva {{channel}} está en pausa.",
+      "channel_not_offered": "{{service}} no se reserva {{channel}}.",
+      "closure": {
+        "venue": "Cierre: el local está cerrado {{window}}.",
+        "service": "Cierre: {{service}} está cerrado {{window}}.",
+        "booking": "Cierre: las reservas están cerradas {{window}}.",
+        "tables": "Cierre: las mesas están bloqueadas {{window}}."
+      },
+      "window": {
+        "allDay": "todo el día",
+        "range": "de {{from}} a {{to}}"
+      },
+      "nonexistent_local_time": "Este horario no existe en esta fecha porque cambia la hora.",
+      "no_suitable_table": "Ninguna mesa tiene lugar para un grupo de {{partySize}}.",
+      "before_earliest": "Demasiado pronto: los clientes pueden reservar desde {{earliest}}.",
+      "after_latest_date": "Demasiado adelantado: los clientes pueden reservar hasta el {{latest}}.",
+      "no_free_table": "Todas las mesas adecuadas están reservadas. Mesas con lugar para este grupo: {{tables}}.",
+      "pacing": {
+        "venue": "Ritmo: {{covers}} de {{limit}} cubiertos ya reservados a las {{time}}, así que un grupo de {{partySize}} lo superaría.",
+        "service": "Ritmo de {{service}}: {{covers}} de {{limit}} cubiertos ya reservados a las {{time}}, así que un grupo de {{partySize}} lo superaría."
+      }
+    }
+  },
   "availabilityHub": {
     "dayActions": {
       "copyHours": "Copiar horario…",

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useSearchParams } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { Skeleton, Stack, Text } from "@mattbutlerengineering/rialto";
 import { resolveDay } from "@mbe/availability";
 import { useVenue } from "../contexts/VenueContext.js";
@@ -148,6 +148,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
   const [view, setView] = useState<CalendarView>("month");
   // How another page opened this one (?tab=, ?action=, ?date=, ?from=setup), read once on mount.
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [entry] = useState(() => parseAvailabilityEntry(searchParams));
   // A ?date= (History's View day) opens that day on Calendar; beside another layer it is ignored.
   const [openOn] = useState(() => ((entry.tab ?? "calendar") === "calendar" ? entry.date : null));
@@ -714,6 +715,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         viewerRole={team?.viewerRole}
         dateRules={config.data?.config.dateRules}
         sectionNames={sectionNames}
+        onExplain={(date) => void navigate(availabilityPath({ view: "explain", date }))}
         editing={
           config.data
             ? {
