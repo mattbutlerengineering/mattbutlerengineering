@@ -48,7 +48,7 @@ export function StatRow({ stats }: StatRowProps) {
         </div>
       ))}
 
-      <div className={styles.tile}>
+      <div className={`${styles.tile} ${styles.meterTile}`}>
         <Meter
           label={t("home.stats.cancellationRate")}
           value={stats.cancellationRate}

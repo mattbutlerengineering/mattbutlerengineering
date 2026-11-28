@@ -378,6 +378,41 @@ describe("FloorPlanCanvas", () => {
       expect(screen.getByText("(Active)")).toBeDefined();
     });
 
+    it("hides the name overlay when the canvas fits to a phone-sized scale", () => {
+      vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue({
+        width: 312,
+        height: 234,
+        top: 0,
+        left: 0,
+        right: 312,
+        bottom: 234,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      });
+      render(<FloorPlanCanvas {...defaultProps} />);
+      // scale = 312/800 = 0.39: the overlay would cover tables, and the page title names the plan.
+      expect(screen.getByText("39%")).toBeDefined();
+      expect(screen.queryByText("Main Dining")).toBeNull();
+      expect(screen.queryByText("(Active)")).toBeNull();
+    });
+
+    it("keeps the name overlay at half scale and above", () => {
+      vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue({
+        width: 400,
+        height: 300,
+        top: 0,
+        left: 0,
+        right: 400,
+        bottom: 300,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      });
+      render(<FloorPlanCanvas {...defaultProps} />);
+      expect(screen.getByText("Main Dining")).toBeDefined();
+    });
+
     it("does not show (Active) label when floor plan is not active", () => {
       const inactivePlan = { ...FLOOR_PLAN, isActive: false };
       render(<FloorPlanCanvas {...defaultProps} floorPlan={inactivePlan} />);
