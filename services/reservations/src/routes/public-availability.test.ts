@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeAll, afterAll, beforeEach, afterEach } from "vitest";
 import { buildApp } from "../app.js";
 import type { FastifyInstance } from "fastify";
 import type { DomainServices } from "../services/domain-services.js";
@@ -35,6 +35,7 @@ vi.mock("jose", () => ({
   createRemoteJWKSet: vi.fn(() => vi.fn()),
 }));
 
+import { resetRateLimitState } from "../middleware/public-rate-limit.js";
 import { resolveVenueId } from "../services/resolve-venue.js";
 import { verifyMemberToken } from "../services/member-token.js";
 
@@ -440,6 +441,84 @@ describe("GET /public/v1/venues/:slug/availability", () => {
         2,
         expect.objectContaining({ logger: expect.anything() })
       );
+    });
+
+    describe("clamps the range to the booking window (#10120)", () => {
+      const windowedVenue = {
+        ...mockVenue,
+        settings: { maxPartySize: 12, maxAdvanceBooking: 10, memberLeadDays: 5 },
+      };
+      const DATES = "/public/v1/venues/the-oak-table/availability/dates";
+      // Real clock (a faked one skews the shared rate-limit store): dates are venue-local offsets from today.
+      const inDays = (n: number) =>
+        new Date(Date.now() + n * 86_400_000).toLocaleDateString("en-CA", {
+          timeZone: "America/Los_Angeles",
+        });
+      const lastRange = () => vi.mocked(availabilityService.getClosedDates).mock.calls.at(-1);
+
+      beforeEach(() => {
+        // The file's earlier requests sit near the public limiter's 30/min per IP.
+        resetRateLimitState();
+        vi.mocked(venueService.getBySlug).mockResolvedValueOnce(windowedVenue);
+        vi.mocked(availabilityService.getClosedDates).mockReset();
+        vi.mocked(availabilityService.getClosedDates).mockResolvedValue([]);
+      });
+      afterEach(() => {
+        vi.mocked(availabilityService.getClosedDates).mockReset();
+      });
+
+      it("asks a guest for no date past maxAdvanceBooking", async () => {
+        await app.inject({ method: "GET", url: `${DATES}?from=${inDays(0)}&to=${inDays(45)}` });
+
+        expect(lastRange()?.slice(1, 3)).toEqual([inDays(0), inDays(10)]);
+      });
+
+      it("extends a verified member's range by leadDays", async () => {
+        vi.mocked(verifyMemberToken).mockResolvedValueOnce({
+          valid: true,
+          venueId: "venue_1",
+          email: "ada@example.com",
+        });
+
+        await app.inject({
+          method: "GET",
+          url: `${DATES}?from=${inDays(0)}&to=${inDays(45)}`,
+          headers: { "x-member-token": "t" },
+        });
+
+        expect(lastRange()?.slice(1, 3)).toEqual([inDays(0), inDays(15)]);
+      });
+
+      it.each([
+        ["an invalid token", { valid: false, expired: false }],
+        ["an expired token", { valid: false, expired: true }],
+      ] as const)("falls back to the guest window for %s", async (_label, verdict) => {
+        vi.mocked(verifyMemberToken).mockResolvedValueOnce(verdict);
+
+        await app.inject({
+          method: "GET",
+          url: `${DATES}?from=${inDays(0)}&to=${inDays(45)}`,
+          headers: { "x-member-token": "t" },
+        });
+
+        expect(lastRange()?.slice(1, 3)).toEqual([inDays(0), inDays(10)]);
+      });
+
+      it("leaves a range already inside the window alone", async () => {
+        await app.inject({ method: "GET", url: `${DATES}?from=${inDays(2)}&to=${inDays(5)}` });
+
+        expect(lastRange()?.slice(1, 3)).toEqual([inDays(2), inDays(5)]);
+      });
+
+      it("answers an empty list, with no listing, for a range wholly past the window", async () => {
+        const response = await app.inject({
+          method: "GET",
+          url: `${DATES}?from=${inDays(20)}&to=${inDays(45)}`,
+        });
+
+        expect(response.json()).toEqual({ data: [] });
+        expect(availabilityService.getClosedDates).not.toHaveBeenCalled();
+      });
     });
 
     it("returns 404 for an unknown venue", async () => {

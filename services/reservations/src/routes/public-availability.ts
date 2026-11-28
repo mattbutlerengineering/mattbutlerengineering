@@ -16,6 +16,7 @@ import { validateDateRange, validatePartySize } from "@mbe/database";
 import { publicRateLimitHook } from "../middleware/public-rate-limit.js";
 import { publicVenueScoped } from "./public-venue-scope.js";
 import { verifiedMember } from "./public-member.js";
+import { bookingWindow } from "../services/slot-rules.js";
 
 /** The longest range the dates listing accepts; matches the engine's own cap. */
 const MAX_DATES_RANGE_DAYS = 60;
@@ -249,12 +250,21 @@ export const publicAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
             .send(createProblemDetails(400, "Invalid Date Range", rangeResult.error ?? ""));
         }
 
+        // No date past what this caller may book is worth computing: the guest
+        // window, widened by `memberLeadDays` for a verified member (#10120).
+        const member = (await verifiedMember(request, venue.id)) !== null;
+        const { latestLocalDate } = bookingWindow(venue.settings, new Date(), venue.ianaTimezone, {
+          member,
+        });
+        const last = latestLocalDate !== null && latestLocalDate < to ? latestLocalDate : to;
+        if (last < from) return reply.send({ data: [] });
+
         const closed = await availabilityService.getClosedDates(
           venue.id,
           from,
-          to,
+          last,
           DATES_LISTING_PARTY_SIZE,
-          { logger: request.log, member: (await verifiedMember(request, venue.id)) !== null }
+          { logger: request.log, member }
         );
 
         return reply.send({ data: closed });
