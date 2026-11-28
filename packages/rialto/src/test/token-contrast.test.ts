@@ -376,3 +376,17 @@ it("velvet declares an error red in both themes", () => {
   expect(surfaceScopes["velvet"]!.light["error"]).toBeDefined();
   expect(surfaceScopes["velvet"]!.dark["error"]).toBeDefined();
 });
+
+describe.each(["light", "dark"] as const)(
+  "velvet text-on-error on its error fill (%s)",
+  (theme) => {
+    it("clears 4.5:1 on the velvet error red", () => {
+      const t = surfaceScopes["velvet"]![theme];
+      const textOnError = t["text-on-error"];
+      if (textOnError === undefined) throw new Error(`velvet.${theme} has no "text-on-error"`);
+      const band = t["surface"]!.$value;
+      const fill = resolveOn(t["error"]!.$value, band);
+      expect(contrastRatio(resolveOn(textOnError.$value, fill), fill)).toBeGreaterThanOrEqual(4.5);
+    });
+  }
+);

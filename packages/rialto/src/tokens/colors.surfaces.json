@@ -36,6 +36,11 @@
           "$value": "#ff9a8a",
           "$type": "color",
           "$description": "Velvet error red: the base #b84a3c is under 3:1 on velvet"
+        },
+        "text-on-error": {
+          "$value": "#1a1918",
+          "$type": "color",
+          "$description": "Dark label: the inherited ivory is 2.0:1 on the velvet error red"
         }
       },
       "dark": {
@@ -47,7 +52,8 @@
         "border": { "$value": "rgb(255 255 255 / 0.4)", "$type": "color" },
         "border-strong": { "$value": "rgb(255 255 255 / 0.6)", "$type": "color" },
         "focus-ring": { "$value": "#d4a23a", "$type": "color" },
-        "error": { "$value": "#ff9a8a", "$type": "color" }
+        "error": { "$value": "#ff9a8a", "$type": "color" },
+        "text-on-error": { "$value": "#1a1918", "$type": "color" }
       }
     }
   }
