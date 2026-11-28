@@ -1919,7 +1919,7 @@ describe("TimelinePage", () => {
       await waitFor(() => {
         expect(screen.getByRole("link", { name: "Floor Plan" })).toHaveAttribute(
           "href",
-          "/floor-plans"
+          "/availability/floor-plans"
         );
       });
     });

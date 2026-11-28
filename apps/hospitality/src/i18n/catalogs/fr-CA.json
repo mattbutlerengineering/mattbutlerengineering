@@ -367,6 +367,7 @@
     "items": {
       "profile": "Profil",
       "settings": "Paramètres",
+      "terminology": "Terminologie",
       "users": "Utilisateurs",
       "tonightsService": "Service de ce soir",
       "night": "La soirée en chiffres",
@@ -1633,6 +1634,8 @@
     "expiredDescription": "Les liens de réservation cessent de fonctionner après un certain temps. Communiquez avec le restaurant, qui vous aidera avec votre réservation.",
     "invalidHeading": "Ce lien ne peut pas être utilisé",
     "invalidDescription": "Il a peut-être déjà été utilisé ou copié de façon incomplète. Ouvrez le lien de votre plus récent courriel de confirmation, ou communiquez avec le restaurant.",
+    "errorHeading": "Une erreur s'est produite",
+    "errorDescription": "Nous n'avons pas pu charger votre réservation. Vérifiez votre connexion et réessayez.",
     "fallbackTitle": "Votre réservation",
     "detailsTitle": "Détails de la réservation",
     "guest": "Client",
@@ -1743,6 +1746,8 @@
     "error": "Une erreur s'est produite. Veuillez réessayer.",
     "endedHeading": "Cette invitation est terminée",
     "endedDescription": "La réservation a été annulée ou est déjà passée. Demandez les détails à la personne qui vous a invité.",
+    "errorHeading": "Une erreur s'est produite",
+    "errorDescription": "Nous n'avons pas pu charger cette invitation. Vérifiez votre connexion et réessayez.",
     "notFoundHeading": "Invitation introuvable",
     "notFoundDescription": "Vérifiez le lien que vous avez reçu ou demandez à la personne qui vous a invité de vous le renvoyer."
   },
@@ -4049,6 +4054,11 @@
       "early": "Tôt (avant {{hour}})",
       "dinner": "Souper ({{range}})",
       "late": "Tard (à partir de {{hour}})"
+    },
+    "segmentsCompact": {
+      "early": "Avant {{hour}}",
+      "dinner": "{{range}}",
+      "late": "Dès {{hour}}"
     },
     "noSeatings": {
       "early": "Aucun service tôt ce soir.",

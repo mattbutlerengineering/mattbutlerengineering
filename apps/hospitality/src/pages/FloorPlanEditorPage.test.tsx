@@ -438,9 +438,9 @@ function renderPage(id = "fp-1", search = "") {
   const Wrapper = createWrapper();
   return render(
     <Wrapper>
-      <MemoryRouter initialEntries={[`/floor-plans/${id}${search}`]}>
+      <MemoryRouter initialEntries={[`/availability/floor-plans/${id}${search}`]}>
         <Routes>
-          <Route path="/floor-plans/:id" element={<FloorPlanEditorPage />} />
+          <Route path="/availability/floor-plans/:id" element={<FloorPlanEditorPage />} />
         </Routes>
       </MemoryRouter>
     </Wrapper>
@@ -1055,7 +1055,7 @@ describe("FloorPlanEditorPage", () => {
       await waitFor(() => screen.getByLabelText("Back to floor plans"));
       fireEvent.click(screen.getByLabelText("Back to floor plans"));
 
-      expect(mockNavigate).toHaveBeenCalledWith("/floor-plans");
+      expect(mockNavigate).toHaveBeenCalledWith("/availability/floor-plans");
     });
 
     it("shows table count in sidebar", async () => {
@@ -1164,7 +1164,7 @@ describe("FloorPlanEditorPage", () => {
       await waitFor(() => screen.getByText("Back to Floor Plan"));
       fireEvent.click(screen.getByText("Back to Floor Plan"));
 
-      expect(mockNavigate).toHaveBeenCalledWith("/floor-plans");
+      expect(mockNavigate).toHaveBeenCalledWith("/availability/floor-plans");
     });
   });
 

@@ -31,6 +31,7 @@ import { useOnboardingChatState } from "../components/venue-onboarding/useOnboar
 import { LiveStatus } from "../components/LiveStatus.js";
 import { useStatusMessage } from "../hooks/useStatusMessage.js";
 import styles from "./VenueOnboardingPage.module.css";
+import { availabilityPath } from "../components/availability/availability-address.js";
 
 export function VenueOnboardingPage() {
   const { t } = useTranslation();
@@ -186,7 +187,9 @@ export function VenueOnboardingPage() {
     if (!celebrationDone || launch.floorPlanId === null) return;
     if (selectedVenueId !== launch.venueId) return;
     navigate(
-      rehearseAfterLaunch ? "/timeline?rehearsal=true" : `/floor-plans/${launch.floorPlanId}`,
+      rehearseAfterLaunch
+        ? "/timeline?rehearsal=true"
+        : availabilityPath({ view: "floorPlans", floorPlanId: launch.floorPlanId }),
       {
         replace: true,
       }

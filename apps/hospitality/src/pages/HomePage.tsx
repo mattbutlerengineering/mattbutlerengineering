@@ -26,6 +26,7 @@ import { useSSEStatus, useSSEEventFeed } from "../hooks/useSSESync.js";
 import { deriveVenueOpenState } from "../utils/venueOpenState.js";
 import { formatVenueOpenLabel } from "../utils/venueOpenLabel.js";
 import styles from "./HomePage.module.css";
+import { availabilityPath } from "../components/availability/availability-address.js";
 
 /** Statuses where the server's own `detail` says exactly what happened: the cooldown (409) and a send it refused or could not make (424). */
 const WIN_BACK_REASON_STATUSES: ReadonlySet<number> = new Set([409, 424]);
@@ -150,7 +151,11 @@ export function HomePage() {
           <Button variant="secondary" size="sm" onClick={() => navigate("/timeline?walkin=true")}>
             {t("home.actions.walkIn")}
           </Button>
-          <Button variant="secondary" size="sm" onClick={() => navigate("/floor-plans")}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => navigate(availabilityPath({ view: "floorPlans" }))}
+          >
             {t("home.actions.floorPlan")}
           </Button>
           <Button variant="secondary" size="sm" onClick={() => navigate("/guests")}>

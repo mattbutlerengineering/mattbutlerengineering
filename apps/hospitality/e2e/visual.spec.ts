@@ -47,7 +47,11 @@
  * Run only through playwright.visual.config.ts.
  */
 import { readdirSync, readFileSync } from "node:fs";
-import { buildDepositsFixture, buildSlotsBody } from "./api-mocks.js";
+import {
+  buildAvailabilityConfigFixture,
+  buildDepositsFixture,
+  buildSlotsBody,
+} from "./api-mocks.js";
 import { test as base, expect } from "./fixtures.js";
 
 const APP = "hospitality";
@@ -341,6 +345,37 @@ function reservationsOnFixedDay(): object {
  */
 const LANDS_ON: Record<string, string> = { "/": "timeline" };
 
+/**
+ * The shared one-schedule config plus the alternate schedule route-fixtures.json names for
+ * `availability/seasonal/:scheduleId` (#10235): same shape as the seasonal editor spec's Weeknights.
+ */
+function seasonalConfigFixture() {
+  const demo = buildAvailabilityConfigFixture();
+  const config = demo.config;
+  return {
+    ...demo,
+    config: {
+      ...config,
+      schedules: [
+        ...config.schedules,
+        { id: "sch_e2e_1", name: "Summer", kind: "alternate", isRegular: false },
+      ],
+      scheduleServices: [
+        ...config.scheduleServices,
+        ...config.scheduleServices.map((s) => ({
+          ...s,
+          id: `${s.id}-sch_e2e_1`,
+          scheduleId: "sch_e2e_1",
+        })),
+      ],
+      assignments: [
+        ...config.assignments,
+        { id: "as-sch_e2e_1", scheduleId: "sch_e2e_1", weekdays: [1, 2, 3, 4], precedence: 1 },
+      ],
+    },
+  };
+}
+
 /** A route whose populated state needs a query string the ledger path lacks. */
 const QUERY: Record<string, string> = { "reservations/manage": "?token=vr-manage-token" };
 
@@ -472,6 +507,16 @@ for (const { route } of pages) {
           json: { data: explainTrace(serviceDate, partySize) },
         });
       });
+      if (route === "availability/seasonal/:scheduleId") {
+        // The edit form only renders for a schedule the venue's config holds (#10235); the
+        // shared one-schedule config would baseline "These seasonal hours are no longer there".
+        const seasonal = seasonalConfigFixture();
+        await page.route(/\/api\/v1\/venues\/[^/?]+\/availability\/config$/, (r) =>
+          r.request().method() === "GET"
+            ? r.fulfill({ status: 200, json: { data: seasonal } })
+            : r.fallback()
+        );
+      }
       if (route === "admin") {
         // RequireAdmin reads the `admin` permission off the OIDC profile.
         await page.addInitScript(() => {

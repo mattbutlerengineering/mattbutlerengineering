@@ -359,6 +359,7 @@
     "items": {
       "profile": "Profile",
       "settings": "Settings",
+      "terminology": "Terminology",
       "users": "Users",
       "tonightsService": "Tonight's Service",
       "night": "The night in numbers",
@@ -1595,6 +1596,8 @@
     "expiredDescription": "Reservation links stop working after a while. Contact the restaurant and they will help you with your reservation.",
     "invalidHeading": "This link can't be used",
     "invalidDescription": "It may have already been used or copied incompletely. Open the link in your latest confirmation email, or contact the restaurant.",
+    "errorHeading": "Something went wrong",
+    "errorDescription": "We couldn't load your reservation. Check your connection and try again.",
     "fallbackTitle": "Your reservation",
     "detailsTitle": "Reservation Details",
     "guest": "Guest",
@@ -1705,7 +1708,9 @@
     "endedHeading": "This invitation has ended",
     "endedDescription": "The reservation was cancelled or has already passed. Ask the person who invited you for the details.",
     "notFoundHeading": "Invitation not found",
-    "notFoundDescription": "Check the link you were sent, or ask the person who invited you to send it again."
+    "notFoundDescription": "Check the link you were sent, or ask the person who invited you to send it again.",
+    "errorHeading": "Something went wrong",
+    "errorDescription": "We couldn't load this invitation. Check your connection and try again."
   },
   "offlineBanner": {
     "cached": "Showing cached data from last sync",
@@ -3939,6 +3944,11 @@
       "early": "Early (before {{hour}})",
       "dinner": "Dinner ({{range}})",
       "late": "Late (from {{hour}})"
+    },
+    "segmentsCompact": {
+      "early": "Before {{hour}}",
+      "dinner": "{{range}}",
+      "late": "From {{hour}}"
     },
     "noSeatings": {
       "early": "No early seatings tonight.",

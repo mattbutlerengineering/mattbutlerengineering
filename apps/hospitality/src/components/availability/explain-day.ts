@@ -44,8 +44,6 @@ export const isManagerOnly = (destination: ExplainDestination): boolean =>
 
 export const destinationOf = (reason: TraceReason): ExplainDestination => DESTINATION[reason.code];
 
-const FLOOR_PLAN_PATH = "/floor-plans";
-
 /** Where the deciding rule is edited; `service` and `date` aim the screen at this time. */
 export function destinationPath(
   destination: ExplainDestination,
@@ -62,7 +60,7 @@ export function destinationPath(
     case "calendar":
       return availabilityPath({ view: "calendar", date });
     case "floorPlan":
-      return FLOOR_PLAN_PATH;
+      return availabilityPath({ view: "floorPlans" });
   }
 }
 

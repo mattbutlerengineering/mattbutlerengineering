@@ -20,7 +20,7 @@ describe("chatPageContext", () => {
   });
 
   it("sends the open floor plan and menu from the path", () => {
-    expect(chatPageContext("/floor-plans/fp_1", "")).toEqual({
+    expect(chatPageContext("/availability/floor-plans/fp_1", "")).toEqual({
       page: "floor-plans",
       focus: { kind: "floorPlan", id: "fp_1" },
     });

@@ -56,10 +56,12 @@ export function chatPageContext(pathname: string, search: string): ChatPageConte
     .replace(/^\/hospitality/, "")
     .split("/")
     .filter(Boolean);
-  const page = segments[0] ?? "timeline";
+  // Floor plans live under Availability (#9944 S3); the agent still knows them as `floor-plans`.
+  const underAvailability = segments[0] === "availability" && segments[1] === "floor-plans";
+  const [page = "timeline", ...rest] = underAvailability ? segments.slice(1) : segments;
   if (!CHAT_PAGES.has(page)) return {};
   const params = new URLSearchParams(search);
-  const focus = focusFor(page, segments.slice(1), params);
+  const focus = focusFor(page, rest, params);
   const date = params.get("date");
   const focusDate = DATED_PAGES.has(page) && date && CALENDAR_DATE.test(date) ? date : undefined;
   return { page, ...(focus ? { focus } : {}), ...(focusDate ? { focusDate } : {}) };

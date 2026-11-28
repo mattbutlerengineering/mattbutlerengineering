@@ -174,9 +174,39 @@ async function auditPackage(pkg) {
   return { pkg, stdout, stderr, result: classifyDepcheckResult(stdout) };
 }
 
+/**
+ * Resolve depcheck once, serially, before the concurrent audits start (#10226).
+ * On a cold runner the `~/.npm/_npx` cache has no depcheck, so concurrent
+ * `npx` processes install it into the same directory at once and one reads a
+ * package.json another is still writing (ERR_INVALID_PACKAGE_CONFIG). After
+ * this call every audit is a cache hit.
+ *
+ * @returns {Promise<{ ok: true } | { ok: false, reason: string }>}
+ */
+export async function primeDepcheck() {
+  try {
+    await execFileAsync("npx", [DEPCHECK_SPEC, "--version"], {
+      encoding: "utf8",
+      shell: true,
+      maxBuffer: 64 * 1024 * 1024,
+    });
+    return { ok: true };
+  } catch (error) {
+    const detail = String(error?.stderr || error?.message || "").trim();
+    return { ok: false, reason: detail };
+  }
+}
+
 async function run() {
   const root = resolve(process.cwd());
   console.log("🔍 Starting Dependency Sync Audit...");
+
+  const primed = await primeDepcheck();
+  if (!primed.ok) {
+    console.error(`❌ Could not resolve ${DEPCHECK_SPEC} before auditing — failing closed.`);
+    if (primed.reason) console.error(`   ${primed.reason}`);
+    process.exit(1);
+  }
 
   const packages = discoverPackages(root);
   // Reported after the fan-out, in discovery order: interleaving 28 concurrent

@@ -100,8 +100,8 @@ describe("buildAvailabilityRail", () => {
   it("lists each floor plan under Where guests sit", () => {
     const sit = rail().find((g) => g.id === "sit")!;
     expect(sit.nodes.map((n) => [n.label, n.to])).toEqual([
-      [{ text: "Main floor" }, "/floor-plans/fp-main"],
-      [{ text: "Patio" }, "/floor-plans/fp-patio"],
+      [{ text: "Main floor" }, "/availability/floor-plans/fp-main"],
+      [{ text: "Patio" }, "/availability/floor-plans/fp-patio"],
     ]);
   });
 

@@ -169,6 +169,15 @@ export const RULES = [
     when: (f) => isAgentInstructionPath(f),
     why: "agent-instruction file (the automation's own guardrails)",
   },
+  // #10215: the rest of the hold list that isAgentInstructionPath does not cover.
+  {
+    tier: T3,
+    when: (f) =>
+      /^\.github\//.test(f) ||
+      /^scripts\/(reviewed-merge|fast-path-decision)\.mjs$/.test(f) ||
+      f === "packages/agent-core/src/pr-risk-classifier.ts",
+    why: "automation guardrail (fix-protocol hold list)",
+  },
   { tier: T3, when: (f) => /^apps\/[^/]+\/wrangler\.toml$/.test(f), why: "wrangler config" },
 
   // T2 — standard

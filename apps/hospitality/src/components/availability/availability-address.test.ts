@@ -24,6 +24,9 @@ const MOUNTED: readonly string[] = [
   "/availability/booking-rules",
   "/availability/calendar",
   "/availability/closures",
+  "/availability/floor-plans",
+  "/availability/floor-plans/fp-1",
+  "/availability/floor-plans/a%20b%2Fc",
   "/availability/history",
   "/availability/hours",
   "/availability/seasonal",
@@ -55,6 +58,9 @@ describe("availabilityPath", () => {
     ],
     [{ view: "bookingRules" }, "/availability/booking-rules"],
     [{ view: "history" }, "/availability/history"],
+    [{ view: "floorPlans" }, "/availability/floor-plans"],
+    [{ view: "floorPlans", floorPlanId: "fp-1" }, "/availability/floor-plans/fp-1"],
+    [{ view: "floorPlans", floorPlanId: "a b/c" }, "/availability/floor-plans/a%20b%2Fc"],
     // The Availability map is retired (#10032): its old target lands on the hub.
     [{ view: "map" }, "/availability"],
   ];
@@ -74,6 +80,7 @@ describe("availabilityPath", () => {
         "bookingRules",
         "calendar",
         "closures",
+        "floorPlans",
         "history",
         "hours",
         "hub",

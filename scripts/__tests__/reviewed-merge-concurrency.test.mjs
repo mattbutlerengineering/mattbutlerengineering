@@ -38,8 +38,30 @@ describe("reviewed-merge.yml concurrency (#10192)", () => {
     expect(group(cancelled)).toContain("2");
   });
 
-  it("the job is skipped for non-success CI completions", () => {
-    expect(wf.jobs.merge.if).toContain("workflow_run.conclusion == 'success'");
+  describe("jobs.merge.if", () => {
+    const runs = (github) => evaluateTemplate(`\${{ ${wf.jobs.merge.if} }}`, github) === "true";
+    const ciDone = (conclusion) => ({
+      event_name: "workflow_run",
+      event: { workflow_run: { conclusion } },
+    });
+    const label = (name) => ({
+      event_name: "pull_request_target",
+      event: { label: { name } },
+    });
+
+    it("runs for a successful CI completion", () => {
+      expect(runs(ciDone("success"))).toBe(true);
+    });
+
+    it("is skipped for failed and cancelled CI completions", () => {
+      expect(runs(ciDone("failure"))).toBe(false);
+      expect(runs(ciDone("cancelled"))).toBe(false);
+    });
+
+    it("runs for the reviewed label and not for another label", () => {
+      expect(runs(label("reviewed"))).toBe(true);
+      expect(runs(label("needs-review"))).toBe(false);
+    });
   });
 
   it("a non-reviewed label event gets its own group", () => {

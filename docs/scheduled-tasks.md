@@ -393,6 +393,13 @@ to a single worker without worktree isolation in cloud and keep the local
      is the only _scheduled_ eval — the daily optimizer fires eval only on a
      flagged regression, never on every run; on the subscription it consumes
      plan quota, not API dollars.
+  4. **Eval task streaks (#10139):** after the checkpoint, runs
+     `node scripts/eval-task-streaks.mjs` over the recorded history
+     (`.metrics-data/eval-reports.jsonl`; it never runs the suite). Exit **1**
+     lists each task that failed 3 or more judged runs in a row: the routine
+     fixes it per the fix protocol, or files one issue per task, deduplicated on
+     `eval-task-streak:<taskId>`. Exit **2** (no readable history) is reported
+     as a failed check, never as "no streaks".
   - **Decision (#3571): no eval credentials are provisioned in the claude.ai
     RemoteTrigger sandbox**, the same call already made for `AUDIT_TOKEN`
     (see "Required secrets" below) — cloud routines don't carry live paid
@@ -616,12 +623,13 @@ new weekday schedule slot** (see Plan budget below).
 
 - **When:** hourly at `:27` (`27 * * * *`). Model: sonnet.
 - **What it does:** picks a lens from the UTC hour (end user, development
-  speed, development quality), finds one root-caused problem, and fixes it in
-  one PR of about 150 lines titled `… (mbe-hourly-fix)`, per
-  [`routines/fix-protocol.md`](./routines/fix-protocol.md) (#10151).
+  speed, development quality), finds up to 4 root-caused problems, and fixes
+  them in one PR of under about 400 lines titled `… (mbe-hourly-fix)`, one
+  commit per fix, per [`routines/fix-protocol.md`](./routines/fix-protocol.md)
+  (#10151, batching #10188).
 - **Merges:** every PR goes through `reviewed-merge.yml`. Findings whose fix
   needs a guardrail path, a security fix or a product decision become issues.
-- **Guardrails:** at most two of its PRs open at once; never weakens a gate.
+- **Guardrails:** at most one of its PRs open at once; never weakens a gate.
 
 ## Plan budget (Max 20x)
 
@@ -636,7 +644,7 @@ it does **not** count against the claude.ai plan quota):
 - 1st of month: + `mbe-monthly-meta-audit` (opus) → 6 (or briefly 8 if the 1st is a Fri)
 - Hourly: + `mbe-dev-speed` (opus) → up to 24 more runs a day; most refresh the ledger and open nothing
 
-`mbe-hourly-fix` (added 2026-11-28, #10151) adds up to 24 sonnet fires a day; a fire at its WIP cap exits after one heartbeat.
+`mbe-hourly-fix` (added 2026-11-28, #10151) adds up to 24 sonnet fires a day; a fire whose PR is still open exits after one heartbeat.
 
 `mbe-feature-drain` (added 2026-10-16) sits on top of that baseline: one hourly
 sonnet trigger (up to 24 fires/day since 2026-11-18, down from 48). A fire with

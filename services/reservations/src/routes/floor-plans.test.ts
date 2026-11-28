@@ -1,6 +1,7 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach, afterAll } from "vitest";
 import type * as AuthFastifyModule from "@mbe/auth/fastify";
 import { buildApp } from "../app.js";
+import { perTestClientIp } from "../test/per-test-client-ip.js";
 import type { FastifyInstance } from "fastify";
 
 // Mock the floor plan service
@@ -197,8 +198,12 @@ describe("Floor Plan Routes", () => {
   let app: FastifyInstance;
   const originalEnv = process.env;
 
-  beforeEach(async () => {
-    resetServiceMocks();
+  // One app per file: services are module mocks cleared per test, and the
+  // rate-limit bucket is rotated per test (perTestClientIp). Tests that need a
+  // different membership lookup build their own scopedApp.
+  let nextTest: () => void;
+
+  beforeAll(async () => {
     process.env = {
       ...originalEnv,
       AUTH_AUTHORITY: "https://test.auth0.com",
@@ -207,11 +212,20 @@ describe("Floor Plan Routes", () => {
     };
     app = await buildApp({ logger: false });
     await app.ready();
+    ({ nextTest } = perTestClientIp(app));
   });
 
-  afterEach(async () => {
-    await app.close();
+  beforeEach(() => {
+    resetServiceMocks();
+    nextTest();
+  });
+
+  afterEach(() => {
     vi.clearAllMocks();
+  });
+
+  afterAll(async () => {
+    await app.close();
     process.env = originalEnv;
   });
 

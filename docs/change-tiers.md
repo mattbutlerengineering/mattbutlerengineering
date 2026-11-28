@@ -44,6 +44,7 @@ Rules are evaluated against the PR diff. Each rule maps a path glob (or a struct
 - Changes to `scripts/check-*.js` (the gate-enforcement scripts).
 - Changes to `.husky/*` (pre-commit hook).
 - Changes to files that instruct agents (the automation's own guardrails, #10174): the root `CLAUDE.md` and `AGENTS.md`, their extracted reference docs `docs/claude-reference.md` and `docs/agents-reference.md`, `docs/routines/**`, and `.claude/**` except the automation-only `.claude/acmm/state.json`. The authority on which paths count is the hold list in [`docs/routines/fix-protocol.md`](./routines/fix-protocol.md) § 3; the classifier rule is `isAgentInstructionPath()` in `scripts/tier-escalation.mjs`. These are therefore never T1, so no unreviewed merge path can land them on CI signal alone.
+- Changes to the remaining fix-protocol hold-list paths (#10215): `.github/**` (workflows not already T4), `scripts/reviewed-merge.mjs`, `scripts/fast-path-decision.mjs` and `packages/agent-core/src/pr-risk-classifier.ts`.
 - Changes to `apps/*/wrangler.toml` (Cloudflare Worker config).
 - Database migration that _adds_ a column or table (no destructive ops, but still mutates schema).
 - Any `*.test.ts` deletion or `it.skip`/`describe.skip` addition (loosens test coverage).

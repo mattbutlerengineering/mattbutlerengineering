@@ -20,6 +20,7 @@ import { useStaffTonight } from "../hooks/useStaffTonight.js";
 import { useBriefing, type BriefingEntry } from "../hooks/useBriefing.js";
 import { useSSEEventFeed } from "../hooks/useSSESync.js";
 import { useStatusMessage } from "../hooks/useStatusMessage.js";
+import { useViewport } from "../hooks/useViewport.js";
 import { describeApiError } from "../lib/describe-api-error.js";
 import { formatWallHour, formatWallHourRange } from "../utils/format.js";
 import { ordinalVisitLabel } from "../i18n/ordinal-visit.js";
@@ -50,23 +51,22 @@ import styles from "./BriefingPage.module.css";
 const EARLY_END_HOUR = 18;
 const LATE_START_HOUR = 21;
 
-function timeSegments(t: TFunction, locale: string) {
+/**
+ * `compact` (a phone) prints each boundary without the bucket name: four long labels overflow a
+ * 375px segmented control and cut the last one off (#10234).
+ */
+function timeSegments(t: TFunction, locale: string, compact: boolean) {
+  const key = compact ? "briefing.segmentsCompact" : "briefing.segments";
   return [
     { id: "all", label: t("briefing.segments.all") },
-    {
-      id: "early",
-      label: t("briefing.segments.early", { hour: formatWallHour(EARLY_END_HOUR, locale) }),
-    },
+    { id: "early", label: t(`${key}.early`, { hour: formatWallHour(EARLY_END_HOUR, locale) }) },
     {
       id: "dinner",
-      label: t("briefing.segments.dinner", {
+      label: t(`${key}.dinner`, {
         range: formatWallHourRange(EARLY_END_HOUR, LATE_START_HOUR, locale),
       }),
     },
-    {
-      id: "late",
-      label: t("briefing.segments.late", { hour: formatWallHour(LATE_START_HOUR, locale) }),
-    },
+    { id: "late", label: t(`${key}.late`, { hour: formatWallHour(LATE_START_HOUR, locale) }) },
   ] as const;
 }
 
@@ -221,6 +221,7 @@ export function BriefingPage() {
   const { t } = useTranslation();
   const fmt = useVenueFormat();
   const navigate = useNavigate();
+  const isPhone = useViewport() === "phone";
   const [searchParams, setSearchParams] = useSearchParams();
   const tonight = useStaffTonight(selectedVenueId);
   // No ?date: the current service day, which trails the calendar date after midnight.
@@ -267,7 +268,7 @@ export function BriefingPage() {
 
       <div className={styles.toolbar}>
         <SegmentedControl
-          segments={[...timeSegments(t, fmt.locale)]}
+          segments={[...timeSegments(t, fmt.locale, isPhone)]}
           value={timeSlot}
           onChange={(value) => setTimeSlot(value as TimeSegmentId)}
           size="sm"

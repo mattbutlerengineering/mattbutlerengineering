@@ -1,7 +1,8 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach, afterAll } from "vitest";
 import type * as VenueServiceModule from "../services/venue.js";
 import type * as AuthFastifyModule from "@mbe/auth/fastify";
 import { buildApp } from "../app.js";
+import { perTestClientIp } from "../test/per-test-client-ip.js";
 import type { FastifyInstance } from "fastify";
 
 // Mock the venue service
@@ -194,21 +195,39 @@ describe("Venue Routes", () => {
   let app: FastifyInstance;
   const originalEnv = process.env;
 
-  beforeEach(async () => {
+  // One shared app per file for the suites in this block: services are module
+  // mocks cleared per test, and the rate-limit bucket is rotated per test
+  // (perTestClientIp). Tests that need a membership lookup build a scopedApp.
+  // Env is still reset per test because several tests overwrite process.env.
+  const setAuthEnv = () => {
     process.env = {
       ...originalEnv,
       AUTH_AUTHORITY: "https://test.auth0.com",
       AUTH_AUDIENCE: "https://api.example.com",
       AUTH_BYPASS_IN_TESTS: "true",
     };
+  };
+  let nextTest: () => void;
+
+  beforeAll(async () => {
+    setAuthEnv();
     app = await buildApp({ logger: false });
     await app.ready();
+    ({ nextTest } = perTestClientIp(app));
   });
 
-  afterEach(async () => {
-    await app.close();
+  beforeEach(() => {
+    setAuthEnv();
+    nextTest();
+  });
+
+  afterEach(() => {
     vi.clearAllMocks();
     process.env = originalEnv;
+  });
+
+  afterAll(async () => {
+    await app.close();
   });
 
   describe("Venue Group Endpoints", () => {

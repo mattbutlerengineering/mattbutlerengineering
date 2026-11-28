@@ -2,6 +2,7 @@ import { test, expect, describe, beforeEach, afterEach, vi } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
+import { spawnSync } from "node:child_process";
 
 describe("check-ai-antipatterns", () => {
   let tmpDir;
@@ -261,9 +262,60 @@ describe("check-ai-antipatterns", () => {
       expect(blockHasAssertion(block)).toBe(false);
     });
 
-    test("does not recognize a custom throw-based helper (documented limitation)", async () => {
+    test("flags a genuinely empty, comment-only test body (#10147)", async () => {
+      const { blockHasAssertion } = await import("../check-ai-antipatterns.mjs");
+      const block = '"not yet implemented", () => {\n  // TODO: write this test\n}';
+      expect(blockHasAssertion(block)).toBe(false);
+    });
+
+    test("recognizes a same-name-convention helper that throws on failure, e.g. assertKeysMatch (#10147)", async () => {
       const { blockHasAssertion } = await import("../check-ai-antipatterns.mjs");
       const block = '"schemas match", () => { assertKeysMatch("User", zodKeys, jsonKeys); }';
+      expect(blockHasAssertion(block)).toBe(true);
+    });
+
+    test("recognizes an expect-prefixed helper, e.g. expectBroken (#10147)", async () => {
+      const { blockHasAssertion } = await import("../check-ai-antipatterns.mjs");
+      const block = '"denied", async () => { expectBroken(res, "label", ctx); }';
+      expect(blockHasAssertion(block)).toBe(true);
+    });
+
+    test("recognizes a throw statement reachable from the test body, e.g. compareSchema's drift guard (#10147)", async () => {
+      const { blockHasAssertion } = await import("../check-ai-antipatterns.mjs");
+      const block =
+        '"has no breaking changes", () => {\n' +
+        "  const { breaking } = compareSchema(schemaId, base, schemaObj);\n" +
+        "  if (breaking.length > 0) {\n" +
+        '    throw new Error("Breaking schema changes detected");\n' +
+        "  }\n" +
+        "}";
+      expect(blockHasAssertion(block)).toBe(true);
+    });
+
+    test("recognizes the rls-route-sweep fixture.run delegate (#10147)", async () => {
+      const { blockHasAssertion } = await import("../check-ai-antipatterns.mjs");
+      const block = '"[ok] tables", async () => { await fixture.run(ctx); }';
+      expect(blockHasAssertion(block)).toBe(true);
+    });
+
+    test("does not mistake the word 'throw' in a test's own description for a throw statement (#10147)", async () => {
+      const { blockHasAssertion } = await import("../check-ai-antipatterns.mjs");
+      const block =
+        '"does not throw when onSigninCallback prop is not provided", () => {\n' +
+        "  render(<Foo />);\n" +
+        "}";
+      expect(blockHasAssertion(block)).toBe(false);
+    });
+
+    test("does not mistake a method call on a variable merely named like an assertion helper, e.g. expected.push(...) (#10147)", async () => {
+      const { blockHasAssertion } = await import("../check-ai-antipatterns.mjs");
+      const block = '"builds a list", () => { const expected = []; expected.push(1); }';
+      expect(blockHasAssertion(block)).toBe(false);
+    });
+
+    test("does not mistake assertions.push(...) for an assertion call (#10147)", async () => {
+      const { blockHasAssertion } = await import("../check-ai-antipatterns.mjs");
+      const block = '"collects things", () => { const assertions = []; assertions.push(1); }';
       expect(blockHasAssertion(block)).toBe(false);
     });
   });
@@ -472,6 +524,111 @@ describe("check-ai-antipatterns", () => {
       expect(counts.magicTimeouts).toBeGreaterThanOrEqual(1);
       expect(counts.emptyCatch).toBeGreaterThanOrEqual(1);
       expect(counts.anyType).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  // ── --list (#10149) ─────────────────────────────────────────────────────────
+
+  describe("--list", () => {
+    // Built from parts so this file's own source doesn't count as a ratchet hit.
+    const EMPTY_CATCH = ["try { x(); } catch (e)", "{}"].join(" ");
+    const MAGIC_TIMEOUT = ["setTimeout(fn,", "3000);"].join(" ");
+    const SCRIPT = path.resolve(import.meta.dirname, "..", "check-ai-antipatterns.mjs");
+    const run = (...args) =>
+      spawnSync(process.execPath, [SCRIPT, ...args], { cwd: tmpDir, encoding: "utf-8" });
+
+    test("scanOccurrences reports the declaration's own line for noopTestAssertions", async () => {
+      fs.writeFileSync(
+        path.join(tmpDir, "src", "a.test.ts"),
+        [
+          'import { it, expect } from "vitest";',
+          "",
+          'it("asserts", () => {',
+          "  expect(1).toBe(1);",
+          "});",
+          "",
+          'it("has no assertion", () => {',
+          "  doThing();",
+          "});",
+        ].join("\n") + "\n"
+      );
+      const { scanOccurrences } = await import("../check-ai-antipatterns.mjs");
+      const found = scanOccurrences(tmpDir).noopTestAssertions;
+      expect(found).toHaveLength(1);
+      expect(found[0]).toMatchObject({ line: 7 });
+      expect(found[0].file).toBe(path.join(tmpDir, "src", "a.test.ts"));
+      expect(found[0].snippet).toBe('it("has no assertion", () => {');
+    });
+
+    test("scanOccurrences lengths equal scanAll counts", async () => {
+      fs.writeFileSync(
+        path.join(tmpDir, "src", "index.ts"),
+        [MAGIC_TIMEOUT, EMPTY_CATCH, "const y = val as any;"].join("\n") + "\n"
+      );
+      const { scanOccurrences, scanAll } = await import("../check-ai-antipatterns.mjs");
+      const counts = scanAll(tmpDir);
+      const found = scanOccurrences(tmpDir);
+      for (const [name, count] of Object.entries(counts)) {
+        expect(found[name]).toHaveLength(count);
+      }
+    });
+
+    test("prints path:line rows grouped by pattern and exits 0", () => {
+      fs.writeFileSync(path.join(tmpDir, "src", "index.ts"), `ok();\n${EMPTY_CATCH}\n`);
+      const result = run("--list");
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain("emptyCatch");
+      expect(result.stdout).toMatch(/src\/index\.ts:2 {2}try \{ x\(\); \} catch/);
+    });
+
+    test("--list=<pattern> narrows to one pattern", () => {
+      fs.writeFileSync(path.join(tmpDir, "src", "index.ts"), `${MAGIC_TIMEOUT}\n${EMPTY_CATCH}\n`);
+      const result = run("--list=emptyCatch");
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain("src/index.ts:2");
+      expect(result.stdout).not.toContain("magicTimeouts");
+    });
+
+    test("--list=<unknown> exits non-zero and lists valid names", () => {
+      const result = run("--list=nope");
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain("nope");
+      expect(result.stderr).toContain("emptyCatch");
+    });
+
+    test("--list with --update exits non-zero and does not write a baseline", () => {
+      const result = run("--list", "--update");
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toMatch(/--list.*--update|--update.*--list/);
+      expect(fs.existsSync(path.join(tmpDir, "metrics"))).toBe(false);
+    });
+
+    test("--list does not mutate the baseline file", () => {
+      const baselineDir = path.join(tmpDir, "metrics");
+      fs.mkdirSync(baselineDir, { recursive: true });
+      const baselineFile = path.join(baselineDir, "ai-antipattern-baselines.json");
+      fs.writeFileSync(baselineFile, '{"patterns":{}}\n');
+      run("--list");
+      expect(fs.readFileSync(baselineFile, "utf-8")).toBe('{"patterns":{}}\n');
+    });
+
+    test("truncates long snippets to 110 chars", () => {
+      const long = "x".repeat(300);
+      fs.writeFileSync(path.join(tmpDir, "src", "index.ts"), `${EMPTY_CATCH} // ${long}\n`);
+      const row = run("--list=emptyCatch")
+        .stdout.split("\n")
+        .find((l) => l.includes("src/index.ts:1"));
+      expect(row.split("  ")[1].length).toBeLessThanOrEqual(110);
+    });
+
+    test("default output hints at --list", () => {
+      fs.mkdirSync(path.join(tmpDir, "metrics"), { recursive: true });
+      fs.writeFileSync(
+        path.join(tmpDir, "metrics", "ai-antipattern-baselines.json"),
+        '{"patterns":{}}\n'
+      );
+      const result = run();
+      expect(result.stdout).toContain("--list");
     });
   });
 

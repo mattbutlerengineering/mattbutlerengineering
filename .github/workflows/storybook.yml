@@ -22,9 +22,20 @@ permissions:
   pages: write
   id-token: write
 
+# One workflow-level block, two behaviours (#10204):
+#   - A PR run only builds (deploy is gated off below). It gets its own
+#     `pages-pr-<number>` group and cancels its superseded build, so it can
+#     never cancel or displace a deploying run, nor another PR's build.
+#   - Every run that deploys (push to main, workflow_dispatch) shares GitHub's
+#     documented `pages` group and is never cancelled in progress, so deploys
+#     serialize and none is cut off mid-flight. A newer queued run still
+#     replaces an older PENDING one; that is wanted, the newer build contains it.
+# Workflow-level, not on the deploy job: serializing the whole run keeps deploys
+# in merge order. With only the deploy job serialized, an older run whose build
+# finished last would publish over a newer one.
 concurrency:
-  group: pages
-  cancel-in-progress: true
+  group: ${{ github.event_name == 'pull_request' && format('pages-pr-{0}', github.event.pull_request.number) || 'pages' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
