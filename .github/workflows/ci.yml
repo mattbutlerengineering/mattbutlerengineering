@@ -649,6 +649,13 @@ jobs:
     # exclusion so a new package can never fall outside every leg
     # (scripts/__tests__/ci-test-shards.test.mjs). Coverage gating lives in
     # `test-coverage-gate`, which joins all legs.
+    #
+    # A leg is worth its own runner only if it shortens the critical path.
+    # #10009: rialto had a leg of ~0.5 min that paid a full dispatch wait
+    # (median 15.2 min on 2026-11-28) and its own workspace setup, so it was
+    # folded into `rest` (3.0 -> ~3.5 min, still under the 7.8 min hospitality
+    # leg that sets the path). Split a leg out again only when it becomes the
+    # slowest one.
     name: Test (Node ${{ matrix.node-version }}, ${{ matrix.leg }})
     runs-on: ubuntu-latest
     # Not `typecheck` (#6665): the turbo `^build` cache it reuses is produced
@@ -666,16 +673,14 @@ jobs:
         # non-PR events, which let a Node-20-only failure land on main before
         # anyone saw it (#3558) — see #3570 and .claude/rules/gotchas.md.
         node-version: [22]
-        leg: [reservations, hospitality, rialto, rest]
+        leg: [reservations, hospitality, rest]
         include:
           - leg: reservations
             filter: "--filter=@mbe/reservations-service"
           - leg: hospitality
             filter: "--filter=@mbe/hospitality"
-          - leg: rialto
-            filter: "--filter=@mattbutlerengineering/rialto"
           - leg: rest
-            filter: "--filter=!@mbe/reservations-service --filter=!@mbe/hospitality --filter=!@mattbutlerengineering/rialto"
+            filter: "--filter=!@mbe/reservations-service --filter=!@mbe/hospitality"
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5

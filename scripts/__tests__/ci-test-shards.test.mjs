@@ -29,7 +29,6 @@ const gateJob = getJob(workflow, "ci-gate") ?? {
 const NAMED_LEGS = {
   reservations: "@mbe/reservations-service",
   hospitality: "@mbe/hospitality",
-  rialto: "@mattbutlerengineering/rialto",
 };
 
 function legFilters() {
@@ -88,6 +87,16 @@ describe("ci.yml test legs", () => {
     const rest = legs.find((l) => l.leg === "rest");
     expect(rest.includes).toEqual([]);
     expect([...rest.excludes].sort()).toEqual(Object.values(NAMED_LEGS).sort());
+  });
+
+  // #10009: the rialto leg ran ~0.5 min of work but paid a full dispatch wait
+  // (median 15.2 min, max 16.8 min across the 2026-11-28 runs) plus its own
+  // workspace setup. It rides in `rest`, which stays well inside the
+  // hospitality leg that sets the critical path.
+  it("runs rialto inside the rest leg rather than a leg of its own", () => {
+    expect(legs.map((l) => l.leg)).not.toContain("rialto");
+    const rest = legs.find((l) => l.leg === "rest");
+    expect(selects(rest, "@mattbutlerengineering/rialto")).toBe(true);
   });
 
   it("every named package exists and defines test:coverage", () => {
