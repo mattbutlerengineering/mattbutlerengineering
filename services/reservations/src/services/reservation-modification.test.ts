@@ -109,7 +109,11 @@ async function modifyHeld(
 
 describe("modifyReservation", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    // resetAllMocks, not clearAllMocks: modifyHeld queues a findUnique
+    // mockResolvedValueOnce that a test rejected before the hold lookup never
+    // consumes, and clearAllMocks would hand it to the next test (#10219).
+    // Every mock here is a bare vi.fn(), so resetting loses no default.
+    vi.resetAllMocks();
   });
 
   it("returns NO_CHANGES_PROVIDED when no fields are provided", async () => {
@@ -266,7 +270,7 @@ describe("booking window on guest modify (#6560)", () => {
     new Date(Date.now() + offsetDays * DAY_MS).toISOString();
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     vi.mocked(venueService.getById).mockResolvedValue({
       id: "venue_1",
       ianaTimezone: "UTC",
@@ -329,7 +333,7 @@ describe("guest modification policy on modify", () => {
   }
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     vi.mocked(moveReservationToHold).mockResolvedValue({
       success: true,
       reservation: makeReservation(),
@@ -396,7 +400,7 @@ describe("guest modification policy on modify", () => {
 
 describe("per-person deposit guard on partySize change (#2931 — decision: Block)", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
   });
 
   it("blocks a partySize INCREASE with 409 when a per_person deposit is held", async () => {

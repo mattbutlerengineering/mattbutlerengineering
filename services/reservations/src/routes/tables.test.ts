@@ -136,6 +136,12 @@ describe("Table Routes", () => {
       AUTH_AUDIENCE: "https://api.example.com",
       AUTH_BYPASS_IN_TESTS: "true",
     };
+    // #10219: a nested describe sets a persistent `resolveVenueId` value
+    // ("venue-own"), and `clearAllMocks` keeps it, so under shuffled order the
+    // table routes resolved the wrong venue and returned 404. Restore the
+    // module default before every test.
+    vi.mocked(resolveVenueId).mockReset();
+    vi.mocked(resolveVenueId).mockResolvedValue("venue-1");
     stubEvents = new ReservationEventEmitter();
     vi.spyOn(stubEvents, "emitTableUpdated");
     app = await buildApp({

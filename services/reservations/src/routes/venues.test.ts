@@ -1717,6 +1717,11 @@ describe("Venue Routes — settings.tonightNote is owner-only (#8652)", () => {
 
   beforeEach(() => {
     vi.mocked(jwtVerify).mockReset();
+    // Earlier suites in this file leave unconsumed mockResolvedValueOnce queues
+    // and persistent mockResolvedValue values that clearAllMocks does not drop,
+    // so a shuffled order feeds them to these tests (#10219).
+    for (const fn of Object.values(venueService)) vi.mocked(fn).mockReset();
+    for (const fn of Object.values(venueGroupService)) vi.mocked(fn).mockReset();
   });
 
   afterEach(async () => {
