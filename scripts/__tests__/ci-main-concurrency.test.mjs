@@ -25,11 +25,48 @@ describe("ci.yml concurrency (#10194)", () => {
     expect(group(push("a".repeat(40)))).toBe(group(push("a".repeat(40))));
   });
 
+  it("a workflow_dispatch on a PR branch groups per ref, not per SHA", () => {
+    const dispatch = (sha) => ({
+      workflow: "CI",
+      ref: "refs/heads/feat/x",
+      sha,
+      event_name: "workflow_dispatch",
+    });
+    expect(group(dispatch("a".repeat(40)))).toBe(group(dispatch("b".repeat(40))));
+    expect(group(dispatch("a".repeat(40)))).toContain("refs/heads/feat/x");
+  });
+
+  it("a workflow_dispatch on main gets a per-SHA group like a push", () => {
+    const dispatch = (sha) => ({
+      workflow: "CI",
+      ref: "refs/heads/main",
+      sha,
+      event_name: "workflow_dispatch",
+    });
+    expect(group(dispatch("a".repeat(40)))).not.toBe(group(dispatch("b".repeat(40))));
+    expect(group(dispatch("a".repeat(40)))).toBe(group(push("a".repeat(40))));
+  });
+
   it("PR branches keep cancel-in-progress: true and one group per ref", () => {
     const expr = ci.concurrency["cancel-in-progress"];
     expect(evaluate(expr, pr(1))).toBe("true");
     expect(evaluate(expr, push("a".repeat(40)))).toBe("false");
     expect(group(pr(1))).toBe(group({ ...pr(1), sha: "y".repeat(40) }));
     expect(group(pr(1))).not.toBe(group(pr(2)));
+  });
+
+  // #10188: a draft run skips every job. It must never share a group with a
+  // ready run, or a draft `synchronize` run created after `ready_for_review`
+  // cancels the real run (seen on #10216: push + mark-ready in one second).
+  it("a draft PR run never shares a group with a ready run of the same PR", () => {
+    const draft = (runId) => ({
+      ...pr(1),
+      run_id: runId,
+      event: { pull_request: { draft: true } },
+    });
+    const ready = { ...pr(1), run_id: 9, event: { pull_request: { draft: false } } };
+    expect(group(draft(1))).not.toBe(group(ready));
+    expect(group(draft(1))).not.toBe(group(draft(2)));
+    expect(group(ready)).toBe(group(pr(1)));
   });
 });

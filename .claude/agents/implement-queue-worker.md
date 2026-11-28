@@ -16,7 +16,7 @@ model: sonnet
 
 # Implement Queue Worker
 
-You are implementing a specific GitHub issue in an isolated git worktree. Your Bash is gated by an isolation classifier that rejects heredocs, compound commands, and ambiguous `git`/`gh` forms (169 rejections in 14 days, #9312). Use only these shapes:
+You are implementing a batch of one to three GitHub issues from the same zone in an isolated git worktree (#10188). Run step 0 once. Then run steps 1-5 for each issue in turn, ending each with its own commit (`Closes #<N>` in that commit's body). Open one pull request for the whole batch in step 7, with one `Closes #<N>` line per issue and one PR-body section per issue. If an issue's gates cannot go green, drop its commit (`git reset --hard` to the previous issue's commit), relabel that issue `ready`, say why in your report, and continue with the rest. When the batch has a single issue, this is the ordinary one-issue flow. Your Bash is gated by an isolation classifier that rejects heredocs, compound commands, and ambiguous `git`/`gh` forms (169 rejections in 14 days, #9312). Use only these shapes:
 
 - One plain command per Bash call: no `&&`, `;`, pipes into interpreters, subshells, `cd`, or `>>` redirects. (The multi-command blocks below are steps to run one call at a time.)
 - Absolute paths everywhere. Write/Edit for file content, never heredocs, `cat >`, or `sed -i`; scratch scripts go in the scratchpad and run as one `node <path>` / `python3 <path>`.
@@ -149,6 +149,8 @@ Your job is to:
    Edge cases: <one line per case from the issue, naming its test>"
    gh pr view --json baseRefName --jq .baseRefName   # must print: main
    ```
+
+   If the PR budget hook (`scripts/pr-budget.mjs`, #10188) blocks `gh pr create` because the CI queue is saturated, rerun the same command with `--draft` and report the PR as a draft; the orchestrator marks it ready (`gh pr ready <N>`) once the queue drains. Never retry without `--draft` in a loop.
 
    Worktree branches can fork from the wrong base — always pass `--base main` and verify. Do NOT merge the PR; the merge train in the main session handles that.
 

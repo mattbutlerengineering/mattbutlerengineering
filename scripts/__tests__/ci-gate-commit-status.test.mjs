@@ -51,6 +51,17 @@ describe("ci.yml CI Gate job — commit-status publish wiring (#4025)", () => {
     expect(stepBlock).toMatch(/if:\s*always\(\)/);
   });
 
+  // #10188: a draft run (prepare skipped) can finish after a ready run on the
+  // same SHA under a saturated queue; it must not overwrite the ready verdict.
+  it("publishes nothing for a draft run whose prepare was skipped", () => {
+    const publishStepIndex = CI_WORKFLOW.indexOf("- name: Publish CI Gate commit status");
+    const stepBlock = CI_WORKFLOW.slice(publishStepIndex, publishStepIndex + 1800);
+    expect(stepBlock).toContain(
+      "DRAFT_SKIP: ${{ github.event.pull_request.draft == true && needs.prepare.result == 'skipped' }}"
+    );
+    expect(stepBlock).toMatch(/if \[ "\$DRAFT_SKIP" = true \]; then[\s\S]*?exit 0/);
+  });
+
   it("computes the status state via the pure ci-gate-commit-status.mjs mapping", () => {
     expect(CI_WORKFLOW).toContain("scripts/ci-gate-commit-status.mjs");
   });

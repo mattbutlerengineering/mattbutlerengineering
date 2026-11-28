@@ -39,6 +39,12 @@
 #     failure #5766 exists to fix, one layer up. The script itself decides
 #     whether to print (nothing when healthy, one line of JSON when inert).
 #
+#   Check 4 — PR budget (BLOCK, exit 2, #10188):
+#     A non-draft PR adds a full CI run to the queue. While queued + running
+#     PR CI runs reach the threshold, scripts/pr-budget.mjs blocks it and says
+#     how to batch (commit to the open PR, or open a --draft). Drafts always
+#     pass; PR_BUDGET_OVERRIDE=1 passes; a failed measurement passes.
+#
 #   Output: every warning (Check 1, Check 3) is collected and printed at the
 #   end as ONE PreToolUse JSON object — a hook may print only one, and a
 #   command like `pnpm regen && git commit` trips both checks (#8519).
@@ -111,6 +117,15 @@ case "$cmd" in
       hooks_msg=$(printf '%s' "$hooks_json" | node -e 'let d="";process.stdin.on("data",(c)=>(d+=c)).on("end",()=>{try{process.stdout.write(JSON.parse(d).hookSpecificOutput.additionalContext||"")}catch{}})')
       [[ -n "$hooks_msg" ]] && add_warning "$hooks_msg"
     fi
+    ;;
+esac
+
+# ---------------------------------------------------------------------------
+# Check 4: PR budget — block a non-draft PR while the CI queue is saturated
+# ---------------------------------------------------------------------------
+case "$cmd" in
+  *"gh pr create"*|*"gh api"*pulls*)
+    node "$CLAUDE_PROJECT_DIR/scripts/pr-budget.mjs" --command "$cmd" || exit 2
     ;;
 esac
 

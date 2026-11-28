@@ -97,10 +97,13 @@ describe("ci.yml job consolidation (#10010)", () => {
       expect(CI.jobs["detect-changes"]).toBeUndefined();
     });
 
-    it("prepare is the root: no needs, no if, and it exports every change flag", () => {
+    it("prepare is the root: no needs, only the draft guard, and it exports every change flag", () => {
       const job = getJob(CI, "prepare");
       expect(job.needs).toEqual([]);
-      expect(job.if).toBeNull();
+      // #10188: drafts skip CI. Any other `if:` would let a broken root read as a docs-only skip.
+      expect(job.if).toBe(
+        "github.event_name != 'pull_request' || !github.event.pull_request.draft"
+      );
       for (const flag of ["has_code", "has_rialto", "has_container_changes"]) {
         expect(job.outputs[flag]).toBe(`\${{ steps.filter.outputs.${flag} }}`);
       }
@@ -115,6 +118,16 @@ describe("ci.yml job consolidation (#10010)", () => {
           "steps.filter.outputs.has_code == 'true'"
         );
       }
+    });
+
+    it("pull_request runs when a draft is marked ready, and CI Gate still always runs", () => {
+      expect(CI.on.pull_request.types).toEqual([
+        "opened",
+        "synchronize",
+        "reopened",
+        "ready_for_review",
+      ]);
+      expect(getJob(CI, "ci-gate").if).toBe("always()");
     });
 
     it("prepare checks out full history for the diff against the base branch", () => {

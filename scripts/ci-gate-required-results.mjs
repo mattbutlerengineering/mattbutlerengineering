@@ -25,8 +25,8 @@
  *   3. Because a skipped root cascades `skipped` to every dependent (which
  *      reads identically to a legitimate skip), the root of the chain is
  *      checked explicitly:
- *        - prepare has no `if:` (it absorbed the old detect-changes job,
- *          #10064), so it must be `success`;
+ *        - prepare's only `if:` is the draft guard (#10188; it absorbed the
+ *          old detect-changes job, #10064), so it must be `success`;
  *        - its has_code output must be exactly "true" or "false";
  *        - every Build-chain job gates on `has_code == 'true'`, so when
  *          has_code is "true" each must be `success`. A skip there would
@@ -69,7 +69,9 @@ function checkRootOfChain(needs) {
 
   const errors = [];
   if (root.result !== "success") {
-    errors.push(`${ROOT_JOB} must succeed (it has no if:), got ${JSON.stringify(root.result)}`);
+    errors.push(
+      `${ROOT_JOB} must succeed (its only if: is the draft guard), got ${JSON.stringify(root.result)}`
+    );
   }
 
   const hasCode = root.outputs?.has_code;
@@ -124,6 +126,13 @@ function main() {
   }
 
   const { ok, errors } = evaluateRequiredResults(needs);
+  // #10188: drafts skip `prepare` on purpose. The verdict is unchanged (fail
+  // closed); the hint only says why, so a red gate on a draft is not chased.
+  if (process.env.IS_DRAFT_PR === "true" && needs?.[ROOT_JOB]?.result === "skipped") {
+    process.stdout.write(
+      "::notice::Draft PR: CI is skipped by design (#10188). Mark the PR ready for review to run it.\n"
+    );
+  }
   for (const error of errors) process.stdout.write(`::error::${error}\n`);
   process.exit(ok ? 0 : 1);
 }
