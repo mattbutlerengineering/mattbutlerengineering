@@ -183,7 +183,16 @@ describe("registerHealthRoutes", () => {
     appWithHighErrors.decorate("rateLimitMonitor", mockRateLimitMonitor);
     appWithHighErrors.decorate("latencyTracker", mockLatencyTracker);
     appWithHighErrors.decorate("getErrorRates", () => ({
-      endpoints: [{ endpoint: "/api/v1/test", total: 20, errors: 5, clientErrors: 0, rate: 0.25 }],
+      endpoints: [
+        {
+          endpoint: "/api/v1/test",
+          total: 20,
+          answered: 20,
+          errors: 5,
+          clientErrors: 0,
+          rate: 0.25,
+        },
+      ],
       degraded: true,
     }));
     await appWithHighErrors.register(registerHealthRoutes, createTestOptions());
@@ -270,7 +279,16 @@ describe("registerHealthRoutes", () => {
     appWith401s.decorate("rateLimitMonitor", mockRateLimitMonitor);
     appWith401s.decorate("latencyTracker", mockLatencyTracker);
     appWith401s.decorate("getErrorRates", () => ({
-      endpoints: [{ endpoint: "/api/v1/venues", total: 6, errors: 0, clientErrors: 6, rate: 0 }],
+      endpoints: [
+        {
+          endpoint: "/api/v1/venues",
+          total: 6,
+          answered: 0,
+          errors: 0,
+          clientErrors: 6,
+          rate: 0,
+        },
+      ],
       degraded: false,
     }));
     await appWith401s.register(registerHealthRoutes, createTestOptions());
@@ -283,6 +301,7 @@ describe("registerHealthRoutes", () => {
     expect(body.error_rates.endpoints[0]).toEqual({
       endpoint: "/api/v1/venues",
       total: 6,
+      answered: 0,
       errors: 0,
       clientErrors: 6,
       rate: 0,

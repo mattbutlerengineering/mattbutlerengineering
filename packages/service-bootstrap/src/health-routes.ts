@@ -94,7 +94,11 @@ const healthSchema = {
                 type: "object",
                 properties: {
                   endpoint: { type: "string" },
-                  total: { type: "number" },
+                  total: { type: "number", description: "All recorded requests" },
+                  answered: {
+                    type: "number",
+                    description: "2xx/3xx plus 5xx; the denominator of rate",
+                  },
                   errors: { type: "number", description: "Server errors (5xx) only" },
                   clientErrors: {
                     type: "number",
