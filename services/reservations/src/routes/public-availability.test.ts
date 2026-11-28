@@ -171,9 +171,9 @@ describe("GET /public/v1/venues/:slug/availability", () => {
         headers: { "x-member-token": "t" },
       });
 
-      expect(vi.mocked(availabilityService.getClosedDates).mock.calls.at(-1)?.[4]).toMatchObject(
-        { member: true }
-      );
+      expect(vi.mocked(availabilityService.getClosedDates).mock.calls.at(-1)?.[4]).toMatchObject({
+        member: true,
+      });
     });
   });
 
