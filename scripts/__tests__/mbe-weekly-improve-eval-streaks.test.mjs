@@ -25,6 +25,11 @@ describe("docs/routines/mbe-weekly-improve.md runs the eval task-streak check", 
     expect(script).toContain("argv[2] ?? DEFAULT_HISTORY");
     expect(script).not.toMatch(/["'`]--[a-z]/);
     expect(block).not.toMatch(/eval-task-streaks\.mjs`? --/);
+    // A flag in its own backticks (`...mjs` `--json`) slips past the regex above,
+    // so pin the wording and scan the rest of the invoking sentence for any flag.
+    expect(step).toContain(`\`${INVOCATION}\` with no arguments.`);
+    const afterInvocation = step.slice(step.indexOf(INVOCATION) + INVOCATION.length);
+    expect(afterInvocation.split(/\.(?:\s|$)/)[0]).not.toContain("--");
     expect(script).toContain('const DEFAULT_HISTORY = ".metrics-data/eval-reports.jsonl"');
     expect(step).toContain(".metrics-data/eval-reports.jsonl");
   });
@@ -58,6 +63,28 @@ describe("docs/routines/mbe-weekly-improve.md runs the eval task-streak check", 
     expect(step).not.toMatch(/gh (issue|pr) (list|view)/);
   });
 
+  it("says which alarm gets the one fix, and that an open issue gets a comment only", () => {
+    expect(step).toContain("file nothing new");
+    expect(step).toMatch(/gets the comment only and no fix PR this fire/);
+    expect(step).toContain("at most one streak fix per fire");
+    expect(step).toMatch(/the alarm with the longest `streak` \(ties: the first in `alarms\[\]`\)/);
+    expect(step).toMatch(/For every other remaining alarm[^.]*file ONE issue per task/);
+  });
+
+  it("never lets a fix weaken the task's own checks", () => {
+    expect(step).toMatch(
+      /never make a task pass by loosening, skipping or deleting its own checks under `packages\/agent-core\/eval-suite\/`/
+    );
+  });
+
+  it("treats a crash or a missing script as a failed check, not an alarm", () => {
+    // An unhandled throw exits 1 with empty stdout; so does a missing script file.
+    expect(step).toMatch(/\*\*Exit 1\*\* with JSON on stdout whose `status` is `alarm`/);
+    expect(step).toMatch(
+      /Any other exit code, or an exit 1 whose stdout is not JSON with `status` equal to `alarm`[^.]*, is a failed check: quote stderr in step 5, file nothing and open no PR/
+    );
+  });
+
   it("deduplicates from the repo-scoped issue listing, never the search API", () => {
     // `search/*` answers 403 in Claude Code Remote and `--paginate` follows a
     // Link header the proxy rejects (scripts/collect-sdlc-speed.mjs).
@@ -70,7 +97,12 @@ describe("docs/routines/mbe-weekly-improve.md runs the eval task-streak check", 
     );
     expect(step).toContain("select(.pull_request == null)");
     expect(step).toContain('contains("eval-task-streak:<taskId>")');
-    expect(step).toMatch(/`page=2` and onward while a page returns 100 rows/);
+    const paging = /`page=2` and onward while a page returns 100 rows/;
+    const closedAt = step.indexOf("issues?state=closed");
+    expect(step.slice(0, closedAt), "open listing is paged").toMatch(paging);
+    // An Owner `wontfix` must not age off page 1 of the closed listing.
+    expect(step.slice(closedAt), "closed listing is paged").toMatch(paging);
+    expect(step).not.toMatch(/first page only/i);
     for (const label of ["`wontfix`", "`vetoed`", "`deferred`"]) {
       expect(step, `closed match labeled ${label} is not re-filed`).toContain(label);
     }
