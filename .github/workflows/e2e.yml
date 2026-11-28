@@ -193,7 +193,7 @@ jobs:
         run: pnpm build --filter '@mbe/hospitality^...' --filter '@mbe/users-service^...' --filter '@mbe/reservations-service^...'
 
       - name: Install Playwright
-        run: npx playwright install --with-deps chromium
+        run: bash scripts/playwright-install-with-retry.sh
 
       # Apply migrations so the services boot against a real, up-to-date schema.
       - name: Apply migrations (users)
@@ -558,7 +558,7 @@ jobs:
         run: pnpm --dir apps/marketing build
 
       - name: Install Playwright
-        run: npx playwright install --with-deps chromium
+        run: bash scripts/playwright-install-with-retry.sh
 
       - name: Run E2E tests
         run: pnpm --dir apps/marketing test:e2e
@@ -624,7 +624,7 @@ jobs:
         run: pnpm build --filter @mbe/api-client...
 
       - name: Install Playwright
-        run: npx playwright install --with-deps chromium
+        run: bash scripts/playwright-install-with-retry.sh
 
       # Fails with one clear "E2E auth preflight failed: <reason>" line when the
       # Auth0 grant/user/client is wrong, instead of every spec failing at the fixture.
