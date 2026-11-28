@@ -109,6 +109,9 @@ test.describe("Briefing: Tonight's Service", () => {
     // any future copy edit into a red E2E. BriefingPage.test.tsx owns the exact
     // wording (against a mocked SegmentedControl); this spec owns the filtering
     // behaviour against the real one, which renders role=radio and no test id.
+    // The leading word holds at every width: a phone prints "6–9 PM" but keeps
+    // the full label as the radio's accessible name, which is what `name`
+    // matches (#10238).
     // All: three parties, no leading zeros.
     await expect(mockedPage.getByText("5:30 PM")).toBeVisible();
     await expect(mockedPage.getByText("6:30 PM")).toBeVisible();

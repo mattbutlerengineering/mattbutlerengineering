@@ -138,13 +138,18 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     value: _value,
     onChange,
   }: {
-    segments?: Array<{ id: string; label: string }>;
+    segments?: Array<{ id: string; label: string; ariaLabel?: string }>;
     value?: string;
     onChange?: (id: string) => void;
   }) => (
     <div data-testid="segmented-control">
       {segments?.map((s) => (
-        <button key={s.id} data-testid={`segment-${s.id}`} onClick={() => onChange?.(s.id)}>
+        <button
+          key={s.id}
+          data-testid={`segment-${s.id}`}
+          aria-label={s.ariaLabel}
+          onClick={() => onChange?.(s.id)}
+        >
           {s.label}
         </button>
       ))}
@@ -576,6 +581,58 @@ describe("BriefingPage", () => {
         expect(screen.getByTestId("segment-early")).toHaveTextContent("Before 6 PM");
         expect(screen.getByTestId("segment-dinner")).toHaveTextContent(/^6\s*–\s*9 PM$/);
         expect(screen.getByTestId("segment-late")).toHaveTextContent("From 9 PM");
+      } finally {
+        viewport.value = "desktop";
+      }
+    });
+
+    // #10238: the compact text drops the period name, so a screen reader would hear "6–9 PM,
+    // radio". The accessible name stays the full label at every width.
+    it("a phone keeps the bucket name in each segment's accessible name (#10238)", () => {
+      viewport.value = "phone";
+      try {
+        mockBriefing({ data: night() });
+
+        renderPage();
+
+        expect(screen.getByRole("button", { name: "Early (before 6 PM)" })).toHaveTextContent(
+          /^Before 6 PM$/
+        );
+        // An accessible name is not whitespace-normalised: ICU's range uses thin and narrow spaces.
+        expect(
+          screen.getByRole("button", { name: /^Dinner \(6\s*–\s*9\s*PM\)$/ })
+        ).toHaveTextContent(/^6\s*–\s*9 PM$/);
+        expect(screen.getByRole("button", { name: "Late (from 9 PM)" })).toHaveTextContent(
+          /^From 9 PM$/
+        );
+        // "All" is not shortened, so it needs no override.
+        expect(screen.getByTestId("segment-all")).not.toHaveAttribute("aria-label");
+      } finally {
+        viewport.value = "desktop";
+      }
+    });
+
+    it("desktop segments carry no accessible-name override: the visible label is the name", () => {
+      mockBriefing({ data: night() });
+
+      renderPage();
+
+      for (const id of ["all", "early", "dinner", "late"]) {
+        expect(screen.getByTestId(`segment-${id}`)).not.toHaveAttribute("aria-label");
+      }
+    });
+
+    // #10238: only a phone is compact. Without this, `!== "desktop"` kept every test green.
+    it("a tablet prints the full labels, bucket name included (#10238)", () => {
+      viewport.value = "tablet";
+      try {
+        mockBriefing({ data: night() });
+
+        renderPage();
+
+        expect(screen.getByTestId("segment-early")).toHaveTextContent("Early (before 6 PM)");
+        expect(screen.getByTestId("segment-dinner")).toHaveTextContent(/^Dinner \(6\s*–\s*9 PM\)$/);
+        expect(screen.getByTestId("segment-late")).toHaveTextContent("Late (from 9 PM)");
       } finally {
         viewport.value = "desktop";
       }
