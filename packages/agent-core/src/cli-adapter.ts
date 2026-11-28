@@ -47,6 +47,8 @@ export interface AdapterResult {
   readonly tokenUsage?: TokenUsage;
   /** Turn count, when the backend reports it. Undefined when the CLI exposes no turn signal (#4208). */
   readonly numTurns?: number;
+  /** The agent's final summary, when the backend reports one. Undefined otherwise (#10137). */
+  readonly resultText?: string;
 }
 
 // ── Adapter state (for multi-adapter rotation / cooldown) ───────────
