@@ -15,15 +15,23 @@ declare module "fastify" {
  * in health check responses.
  */
 
+type RequestOutcome = "ok" | "server-error" | "client-error" | "neutral";
+
 interface RequestRecord {
   readonly timestamp: number;
-  readonly isError: boolean;
+  readonly outcome: RequestOutcome;
 }
 
 export interface EndpointErrorRate {
   readonly endpoint: string;
+  /** Every recorded request, including 4xx and 408/429/499. */
   readonly total: number;
+  /** Requests the service answered: 2xx/3xx plus 5xx. The denominator of `rate`. */
+  readonly answered: number;
+  /** Server errors (5xx) only. Drives `rate` and degradation. */
   readonly errors: number;
+  /** Client errors (4xx except 408/429/499). Observable, never degrades. */
+  readonly clientErrors: number;
   readonly rate: number;
 }
 
@@ -40,7 +48,25 @@ export interface ErrorRateHealthCheckResult {
 
 const WINDOW_MS = 5 * 60 * 1000; // 5 minutes
 const DEGRADATION_THRESHOLD = 0.1; // 10% error rate
+const MIN_ANSWERED_FOR_DEGRADATION = 5;
 const IGNORED_PATHS = new Set(["/health", "/docs", "/reference"]);
+
+// Single owner of the degradation rule, shared by the snapshot and the message.
+function isEndpointDegraded(e: Pick<EndpointErrorRate, "answered" | "rate">): boolean {
+  return e.rate > DEGRADATION_THRESHOLD && e.answered >= MIN_ANSWERED_FOR_DEGRADATION;
+}
+
+// 408 (client timeout), 429 (the rate limiter working) and 499 (client closed
+// the request) are not faults the service or the caller's input caused.
+const NEUTRAL_CLIENT_STATUSES = new Set([408, 429, 499]);
+
+function classify(statusCode: number): RequestOutcome {
+  if (statusCode >= 500) return "server-error";
+  if (statusCode >= 400) {
+    return NEUTRAL_CLIENT_STATUSES.has(statusCode) ? "neutral" : "client-error";
+  }
+  return "ok";
+}
 
 function createErrorRateTracker() {
   const records = new Map<string, RequestRecord[]>();
@@ -48,7 +74,7 @@ function createErrorRateTracker() {
   function record(endpoint: string, statusCode: number): void {
     const entry: RequestRecord = {
       timestamp: Date.now(),
-      isError: statusCode >= 400,
+      outcome: classify(statusCode),
     };
 
     const existing = records.get(endpoint) ?? [];
@@ -75,12 +101,23 @@ function createErrorRateTracker() {
 
     for (const [endpoint, entries] of records) {
       const total = entries.length;
-      const errors = entries.filter((r) => r.isError).length;
-      const rate = total > 0 ? errors / total : 0;
+      const errors = entries.filter((r) => r.outcome === "server-error").length;
+      const clientErrors = entries.filter((r) => r.outcome === "client-error").length;
+      // Client traffic (4xx, 408/429/499) never reached a verdict on the
+      // service, so it must not dilute a real 5xx rate.
+      const answered = entries.filter((r) => r.outcome === "ok").length + errors;
+      const rate = answered > 0 ? errors / answered : 0;
 
-      endpoints.push({ endpoint, total, errors, rate: Math.round(rate * 1000) / 1000 });
+      endpoints.push({
+        endpoint,
+        total,
+        answered,
+        errors,
+        clientErrors,
+        rate: Math.round(rate * 1000) / 1000,
+      });
 
-      if (rate > DEGRADATION_THRESHOLD && total >= 5) {
+      if (isEndpointDegraded({ answered, rate })) {
         degraded = true;
       }
     }
@@ -132,9 +169,7 @@ export function createErrorRateHealthCheck(
     return { status: "ok", endpoints: snapshot.endpoints };
   }
 
-  const degradedEndpoints = snapshot.endpoints.filter(
-    (e) => e.rate > DEGRADATION_THRESHOLD && e.total >= 5
-  );
+  const degradedEndpoints = snapshot.endpoints.filter(isEndpointDegraded);
   const message = `High error rate on: ${degradedEndpoints.map((e) => `${e.endpoint} (${Math.round(e.rate * 100)}%)`).join(", ")}`;
 
   return { status: "degraded", endpoints: snapshot.endpoints, message };
