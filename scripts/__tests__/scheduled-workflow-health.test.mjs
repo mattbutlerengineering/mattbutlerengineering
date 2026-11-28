@@ -507,18 +507,78 @@ describe("runScheduledWorkflowHealthCheck — awaiting-rerun", () => {
   });
 });
 
-// resolveWorkflowModifiedAt — injectable exec, fails open (undefined) on a
-// shallow clone so a depth-1 checkout can never masquerade as a real
-// per-file timestamp (#4502).
+// resolveWorkflowModifiedAt — injectable exec. `git log -1 -- <path>` is
+// never trusted in a shallow clone (#4502: a depth-1 checkout must not
+// masquerade as a real per-file timestamp), so the date is read from the
+// GitHub API instead. Without that fallback the `awaiting-rerun` guard is
+// structurally dead wherever the checkout is shallow — every cloud routine
+// session — and a workflow that was already fixed is filed as a `ci-fix` /
+// `ready` streak anyway (#10130: Generate Changelog, whose only failing run
+// 2026-11-01T15:57Z predates its fix commit b0f7f0e, 2026-11-02T04:17Z).
 describe("resolveWorkflowModifiedAt", () => {
-  it("returns undefined without consulting git log when the repo is shallow", () => {
-    const exec = (_cmd, args) => {
+  it("falls back to the GitHub API for the file's newest commit date when the repo is shallow", () => {
+    const calls = [];
+    const exec = (cmd, args) => {
+      calls.push([cmd, args]);
       if (args.includes("--is-shallow-repository")) return "true\n";
-      throw new Error("git log should never be called on a shallow repo");
+      if (cmd === "git") throw new Error("git log should never be called on a shallow repo");
+      return JSON.stringify([{ commit: { committer: { date: "2026-11-02T04:17:01Z" } } }]);
+    };
+
+    expect(resolveWorkflowModifiedAt(".github/workflows/changelog.yml", { exec })).toBe(
+      "2026-11-02T04:17:01Z"
+    );
+
+    // The fallback asks the API for exactly that path's newest commit.
+    const api = calls.find(([cmd]) => cmd === "gh");
+    expect(api).toBeDefined();
+    expect(api[1][0]).toBe("api");
+    expect(api[1][1]).toContain("/commits?path=.github/workflows/changelog.yml");
+    expect(api[1][1]).toContain("per_page=1");
+  });
+
+  it("returns undefined without consulting git log when the repo is shallow and the API cannot answer", () => {
+    const exec = (cmd, args) => {
+      if (args.includes("--is-shallow-repository")) return "true\n";
+      if (cmd === "git") throw new Error("git log should never be called on a shallow repo");
+      throw new Error("gh: not found");
     };
     expect(
       resolveWorkflowModifiedAt(".github/workflows/chaos-agent.yml", { exec })
     ).toBeUndefined();
+  });
+
+  it("returns undefined when the API reports no commits for the path", () => {
+    const exec = (cmd, args) => {
+      if (args.includes("--is-shallow-repository")) return "true\n";
+      if (cmd === "git") throw new Error("git log should never be called on a shallow repo");
+      return "[]";
+    };
+    expect(
+      resolveWorkflowModifiedAt(".github/workflows/chaos-agent.yml", { exec })
+    ).toBeUndefined();
+  });
+
+  it("returns undefined when the API response is not parseable JSON", () => {
+    const exec = (cmd, args) => {
+      if (args.includes("--is-shallow-repository")) return "true\n";
+      if (cmd === "git") throw new Error("git log should never be called on a shallow repo");
+      return "<html>502 Bad Gateway</html>";
+    };
+    expect(
+      resolveWorkflowModifiedAt(".github/workflows/chaos-agent.yml", { exec })
+    ).toBeUndefined();
+  });
+
+  it("prefers git log over the API when the repo has full history", () => {
+    const exec = (cmd, args) => {
+      if (args.includes("--is-shallow-repository")) return "false\n";
+      if (cmd === "gh") throw new Error("the API must not be consulted with full history");
+      return "2026-08-01T00:00:00+00:00\n";
+    };
+    expect(resolveWorkflowModifiedAt(".github/workflows/chaos-agent.yml", { exec })).toBe(
+      "2026-08-01T00:00:00+00:00"
+    );
   });
 
   it("returns the per-file committer date when the repo is not shallow", () => {
@@ -531,13 +591,23 @@ describe("resolveWorkflowModifiedAt", () => {
     );
   });
 
-  it("returns undefined when the shallow check itself fails", () => {
+  it("returns undefined when neither git nor the API is available", () => {
     const exec = () => {
       throw new Error("git not available");
     };
     expect(
       resolveWorkflowModifiedAt(".github/workflows/chaos-agent.yml", { exec })
     ).toBeUndefined();
+  });
+
+  it("falls back to the API when git itself is unavailable", () => {
+    const exec = (cmd) => {
+      if (cmd === "git") throw new Error("git not available");
+      return JSON.stringify([{ commit: { committer: { date: "2026-11-02T04:17:01Z" } } }]);
+    };
+    expect(resolveWorkflowModifiedAt(".github/workflows/chaos-agent.yml", { exec })).toBe(
+      "2026-11-02T04:17:01Z"
+    );
   });
 });
 

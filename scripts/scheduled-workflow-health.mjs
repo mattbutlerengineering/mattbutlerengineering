@@ -1163,13 +1163,27 @@ function readFlag(args, name) {
  * git unavailable) — the classifier treats that as "cannot compare" and keeps
  * the previous detection behavior rather than suppressing it (#4291).
  *
- * Also returns undefined when the repo is a shallow clone: `git log -1 --
- * <path>` in a depth-1 checkout reports the single commit it has regardless
- * of whether that commit touched `path`, which makes every workflow's
- * "modified at" resolve to HEAD's date and silently suppresses every
- * genuine failing streak (#4502). This is belt-and-braces — the workflow's
- * checkout step should already fetch full history — so a shallow clone is
- * treated the same as any other "cannot compare" case, not a hard error.
+ * `git log -1 -- <path>` is never trusted in a shallow clone: in a depth-1
+ * checkout it reports the single commit it has regardless of whether that
+ * commit touched `path`, which makes every workflow's "modified at" resolve
+ * to HEAD's date and silently suppresses every genuine failing streak
+ * (#4502).
+ *
+ * Returning undefined there is NOT harmless, though, because undefined makes
+ * `allFailuresPrecede()` fail open and the `awaiting-rerun` guard is then
+ * structurally dead: not only in CI (whose checkout step does fetch full
+ * history) but in every cloud routine session, where the checkout is shallow
+ * by construction and nothing can change that. That is how #10130 was filed
+ * as a `ci-fix` / `ready` streak for `changelog.yml` whose single failing run
+ * (2026-11-01T15:57Z) predates its own fix commit b0f7f0e
+ * (2026-11-02T04:17:01Z) — exactly the false positive #4287/#4290 built the
+ * guard to prevent, costing a drain worker on an already-fixed bug.
+ *
+ * So a shallow clone falls back to the one source that is authoritative
+ * without local history: the file's newest commit per the GitHub API. If that
+ * cannot answer either (no `gh`, no network, no commits for the path, an
+ * unparseable body) the result is still undefined and the detection is still
+ * kept — a noisy detection is recoverable, a silently suppressed one is not.
  *
  * @param {string} workflowPath repo-relative path, e.g. `.github/workflows/ci.yml`
  * @param {{exec?: typeof execFileSync}} [deps]
@@ -1182,14 +1196,50 @@ export function resolveWorkflowModifiedAt(workflowPath, { exec = execFileSync } 
       encoding: "utf-8",
       stdio: ["ignore", "pipe", "ignore"],
     }).trim();
-    if (shallow === "true") return undefined;
 
-    const out = exec("git", ["log", "-1", "--format=%cI", "--", workflowPath], {
-      cwd: ROOT,
-      encoding: "utf-8",
-      stdio: ["ignore", "pipe", "ignore"],
-    }).trim();
-    return out.length > 0 ? out : undefined;
+    if (shallow !== "true") {
+      const out = exec("git", ["log", "-1", "--format=%cI", "--", workflowPath], {
+        cwd: ROOT,
+        encoding: "utf-8",
+        stdio: ["ignore", "pipe", "ignore"],
+      }).trim();
+      return out.length > 0 ? out : undefined;
+    }
+  } catch {
+    // git is unusable (absent, not a repo, failed) — the API may still answer.
+  }
+
+  return resolveWorkflowModifiedAtViaApi(workflowPath, { exec });
+}
+
+/**
+ * The newest commit date for `workflowPath` per the GitHub API — the fallback
+ * used when local history cannot answer (see `resolveWorkflowModifiedAt`).
+ *
+ * `{owner}/{repo}` placeholders are resolved by `gh` itself from the checkout's
+ * remote, so this needs no repo-resolution of its own. The body is parsed here
+ * rather than with `--jq` so a malformed response is a caught parse error, not
+ * a silently empty string.
+ *
+ * Every failure mode returns undefined, which keeps the caller's detection
+ * rather than suppressing it.
+ *
+ * @param {string} workflowPath
+ * @param {{exec?: typeof execFileSync}} [deps]
+ * @returns {string|undefined}
+ */
+export function resolveWorkflowModifiedAtViaApi(workflowPath, { exec = execFileSync } = {}) {
+  try {
+    const raw = exec(
+      "gh",
+      ["api", `repos/{owner}/{repo}/commits?path=${workflowPath}&per_page=1`],
+      { cwd: ROOT, encoding: "utf-8", stdio: ["ignore", "pipe", "ignore"] }
+    );
+    const commits = JSON.parse(raw);
+    if (!Array.isArray(commits) || commits.length === 0) return undefined;
+
+    const date = commits[0]?.commit?.committer?.date;
+    return typeof date === "string" && date.length > 0 ? date : undefined;
   } catch {
     return undefined;
   }
