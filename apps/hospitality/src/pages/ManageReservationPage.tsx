@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from "react";
+import { useId, useRef, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { useTranslation } from "react-i18next";
@@ -35,7 +35,7 @@ const CANCELLABLE_STATUSES = new Set(["PENDING", "CONFIRMED"]);
 class ManageTokenError extends Error {
   constructor(
     message: string,
-    public readonly type: "invalid" | "expired"
+    public readonly type: "invalid" | "expired" | "error"
   ) {
     super(message);
     this.name = "ManageTokenError";
@@ -56,7 +56,15 @@ const MANAGE_DEFAULTS = manageParamsSchema.parse({});
  * Guest-facing error surface: tells the guest what to do next in their own terms. It never links to
  * the vendor site (#9951) — the manage link carries only a token, so there is no venue page to route to.
  */
-function DeadEndRescue({ heading, description }: { heading: string; description: string }) {
+function DeadEndRescue({
+  heading,
+  description,
+  action,
+}: {
+  heading: string;
+  description: string;
+  action?: ReactNode;
+}) {
   const { t } = useTranslation();
   return (
     <main>
@@ -66,6 +74,7 @@ function DeadEndRescue({ heading, description }: { heading: string; description:
           headingLevel={1}
           heading={heading}
           description={description}
+          action={action}
         />
         <div className={styles.supportLine}>
           <Text variant="caption" color="secondary">
@@ -103,10 +112,13 @@ function ManageReservationPageContent() {
       try {
         return await publicApiClient.reservations.manageReservation(token!);
       } catch (err) {
-        if (err instanceof ApiClientError && err.statusCode === 410) {
-          throw new ManageTokenError("Link expired", "expired");
+        if (err instanceof ApiClientError) {
+          if (err.statusCode === 410) throw new ManageTokenError("Link expired", "expired");
+          // Any other client error (400/401/403/404) means the token itself is bad; a
+          // server error or network failure (caught below) is transient, not a dead link.
+          if (err.statusCode < 500) throw new ManageTokenError("Invalid link", "invalid");
         }
-        throw new ManageTokenError("Invalid link", "invalid");
+        throw new ManageTokenError("Something went wrong", "error");
       }
     },
     enabled: !!token,
@@ -178,6 +190,16 @@ function ManageReservationPageContent() {
 
   if (error || !data) {
     const errorType = error instanceof ManageTokenError ? error.type : "invalid";
+
+    if (errorType === "error") {
+      return (
+        <DeadEndRescue
+          heading={t("manageReservation.errorHeading")}
+          description={t("manageReservation.errorDescription")}
+          action={<Button onClick={() => void refetch()}>{t("errorBanner.retry")}</Button>}
+        />
+      );
+    }
 
     return (
       <DeadEndRescue

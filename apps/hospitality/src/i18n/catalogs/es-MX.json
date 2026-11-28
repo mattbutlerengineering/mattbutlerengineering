@@ -1634,6 +1634,8 @@
     "expiredDescription": "Los enlaces de reservación dejan de funcionar con el tiempo. Comunícate con el restaurante y te ayudarán con tu reservación.",
     "invalidHeading": "No se puede usar este enlace",
     "invalidDescription": "Puede que ya se haya usado o que se haya copiado incompleto. Abre el enlace de tu correo de confirmación más reciente, o comunícate con el restaurante.",
+    "errorHeading": "Algo salió mal",
+    "errorDescription": "No pudimos cargar tu reservación. Revisa tu conexión e inténtalo de nuevo.",
     "fallbackTitle": "Tu reserva",
     "detailsTitle": "Detalles de la reserva",
     "guest": "Cliente",
@@ -1744,6 +1746,8 @@
     "error": "Algo salió mal. Inténtalo de nuevo.",
     "endedHeading": "Esta invitación ha terminado",
     "endedDescription": "La reservación fue cancelada o ya pasó. Pregunta a la persona que te invitó para más detalles.",
+    "errorHeading": "Algo salió mal",
+    "errorDescription": "No pudimos cargar esta invitación. Revisa tu conexión e inténtalo de nuevo.",
     "notFoundHeading": "Invitación no encontrada",
     "notFoundDescription": "Revisa el enlace que recibiste o pide a la persona que te invitó que te lo envíe de nuevo."
   },
