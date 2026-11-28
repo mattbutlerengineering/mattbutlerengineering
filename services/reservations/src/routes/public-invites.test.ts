@@ -205,6 +205,9 @@ describe("GET /public/v1/invites/:token", () => {
     });
   });
 
+  // The limiter is per client IP and the app is shared, so each limit test
+  // exhausts the budget of its own address instead of the one the other cases
+  // use. That keeps the file order-independent (#10219).
   it("rate limits the RSVP write with 429", async () => {
     vi.mocked(addInviteRsvp).mockResolvedValue({ kind: "ok" });
     let last = 0;
@@ -214,17 +217,25 @@ describe("GET /public/v1/invites/:token", () => {
           method: "POST",
           url: "/public/v1/invites/venue_1.other/rsvp",
           payload: { firstName: "Sam", status: "IN" },
+          remoteAddress: "10.0.0.21",
         })
       ).statusCode;
     }
     expect(last).toBe(429);
   });
 
-  // Last: it spends the per-IP budget the other cases share.
   it("is rate limited", async () => {
     vi.mocked(getInvitePublicView).mockResolvedValue({ kind: "missing" });
     let last = 0;
-    for (let i = 0; i < 31; i += 1) last = (await get("venue_1.secret")).statusCode;
+    for (let i = 0; i < 31; i += 1) {
+      last = (
+        await app.inject({
+          method: "GET",
+          url: "/public/v1/invites/venue_1.secret",
+          remoteAddress: "10.0.0.31",
+        })
+      ).statusCode;
+    }
     expect(last).toBe(429);
   });
 });
