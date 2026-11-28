@@ -215,7 +215,7 @@ export const UpdateTablePositionsBodySchema = z.object({
 
 export const AssignTableBodySchema = z.object({
   floorPlanId: z.string(),
-  shapeMetadata: JsonObjectSchema.optional(),
+  shapeMetadata: TableShapeMetadataSchema.optional(),
 });
 
 // ── Guests (routes/guests.ts) ─────────────────────────────────
