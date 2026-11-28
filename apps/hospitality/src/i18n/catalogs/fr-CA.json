@@ -1113,6 +1113,7 @@
     "guestFallback": "Client",
     "view": "Voir",
     "viewAria": "Voir la réservation de {{name}} dans la chronologie",
+    "partyOf": "Groupe de {{size}}",
     "status": {
       "PENDING": "En attente",
       "CONFIRMED": "Confirmée",
