@@ -99,7 +99,7 @@ and forcing that into config would be a leaky abstraction. The boundary is:
 The migration below is complete. Confirmed against the tree:
 
 - `packages/rialto-catalog/src/catalog-config.ts` no longer exists.
-- 37 co-located `<Component>.catalog.ts` files live under
+- 85 co-located `<Component>.catalog.ts` files live under
   `packages/rialto/src/components/**` (one per curated component), each
   `satisfies CatalogMeta` (`packages/rialto/src/components/catalog-meta.ts`;
   `packages/rialto-catalog/src/catalog-meta.ts` is its documented mirror).
