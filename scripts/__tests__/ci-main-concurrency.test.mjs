@@ -25,6 +25,28 @@ describe("ci.yml concurrency (#10194)", () => {
     expect(group(push("a".repeat(40)))).toBe(group(push("a".repeat(40))));
   });
 
+  it("a workflow_dispatch on a PR branch groups per ref, not per SHA", () => {
+    const dispatch = (sha) => ({
+      workflow: "CI",
+      ref: "refs/heads/feat/x",
+      sha,
+      event_name: "workflow_dispatch",
+    });
+    expect(group(dispatch("a".repeat(40)))).toBe(group(dispatch("b".repeat(40))));
+    expect(group(dispatch("a".repeat(40)))).toContain("refs/heads/feat/x");
+  });
+
+  it("a workflow_dispatch on main gets a per-SHA group like a push", () => {
+    const dispatch = (sha) => ({
+      workflow: "CI",
+      ref: "refs/heads/main",
+      sha,
+      event_name: "workflow_dispatch",
+    });
+    expect(group(dispatch("a".repeat(40)))).not.toBe(group(dispatch("b".repeat(40))));
+    expect(group(dispatch("a".repeat(40)))).toBe(group(push("a".repeat(40))));
+  });
+
   it("PR branches keep cancel-in-progress: true and one group per ref", () => {
     const expr = ci.concurrency["cancel-in-progress"];
     expect(evaluate(expr, pr(1))).toBe("true");

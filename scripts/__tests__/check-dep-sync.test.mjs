@@ -42,6 +42,13 @@ const CLEAN_PAYLOAD =
 
 /** A depcheck run that never produces output — registry blip / npx failure. */
 const STUB_SPAWN_FAILURE = `#!/bin/sh
+case "$*" in *--version*) echo "1.4.7"; exit 0 ;; esac
+echo "npm ERR! ECONNRESET registry unreachable" >&2
+exit 1
+`;
+
+/** Fails every invocation, including the priming `--version` call. */
+const STUB_SPAWN_FAILURE_ALWAYS = `#!/bin/sh
 echo "npm ERR! ECONNRESET registry unreachable" >&2
 exit 1
 `;
@@ -54,6 +61,7 @@ echo '${CLEAN_PAYLOAD}'
 /** Clean for apps/site, spawn failure for everything else. */
 const STUB_MIXED = `#!/bin/sh
 case "$*" in
+  *--version*) echo "1.4.7" ;;
   *apps/site*) echo '${CLEAN_PAYLOAD}' ;;
   *) echo "npm ERR! ECONNRESET registry unreachable" >&2; exit 1 ;;
 esac
@@ -61,6 +69,7 @@ esac
 
 /** Reports two missing dependencies (depcheck itself exits non-zero then). */
 const STUB_MISSING_DEPS = `#!/bin/sh
+case "$*" in *--version*) echo "1.4.7"; exit 0 ;; esac
 echo '{"dependencies":[],"devDependencies":[],"missing":{"lodash":["src/a.js"],"zod":["src/b.js"]},"using":{},"invalidFiles":{},"invalidDirs":{}}'
 exit 255
 `;
@@ -79,6 +88,13 @@ echo '{"issues":{"missing":{}}}'
  * serial one by reading the interleaving.
  */
 const STUB_RECORDS_OVERLAP = `#!/bin/sh
+case "$*" in *--version*)
+  echo "prime-start" >> "$DEP_SYNC_STUB_LOG"
+  sleep 0.2
+  echo "prime-end" >> "$DEP_SYNC_STUB_LOG"
+  echo "1.4.7"
+  exit 0 ;;
+esac
 echo "start" >> "$DEP_SYNC_STUB_LOG"
 sleep 0.4
 echo "end" >> "$DEP_SYNC_STUB_LOG"
@@ -319,10 +335,37 @@ describe("check-dep-sync fan-out wiring", () => {
     const run = runScript(fixture, { DEP_SYNC_STUB_LOG: log });
 
     expect(run.status).toBe(0);
-    const lines = readFileSync(log, "utf8").trim().split("\n");
+    const lines = readFileSync(log, "utf8")
+      .trim()
+      .split("\n")
+      .filter((line) => !line.startsWith("prime-"));
     expect(lines).toHaveLength(8);
     // Serial execution can only ever produce start,end,start,end,...
     const overlapped = lines.some((line, i) => line === "start" && lines[i + 1] === "start");
     expect(overlapped).toBe(true);
+  });
+
+  it("resolves depcheck once, to completion, before the first concurrent audit starts (#10226)", () => {
+    const fixture = makeFixture({
+      packages: ["apps/a", "apps/b", "packages/c", "packages/d"],
+      npxStub: STUB_RECORDS_OVERLAP,
+    });
+    const log = join(fixture.root, "stub.log");
+    const run = runScript(fixture, { DEP_SYNC_STUB_LOG: log });
+
+    expect(run.status).toBe(0);
+    const lines = readFileSync(log, "utf8").trim().split("\n");
+    expect(lines.slice(0, 2)).toEqual(["prime-start", "prime-end"]);
+    expect(lines.filter((line) => line.startsWith("prime-"))).toHaveLength(2);
+  });
+
+  it("fails the script with a clear message when the priming call fails (#10226)", () => {
+    const fixture = makeFixture({ packages: ["apps/a"], npxStub: STUB_SPAWN_FAILURE_ALWAYS });
+    const run = runScript(fixture);
+
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain("Could not resolve depcheck@");
+    expect(run.stderr).toContain("ECONNRESET");
+    expect(run.stdout).not.toContain("Auditing");
   });
 });
