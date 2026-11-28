@@ -6,6 +6,11 @@ import { VenueContext, type VenueContextValue } from "../../contexts/venue-conte
 import { localeRuntime } from "../../i18n/runtime.js";
 import esMX from "../../i18n/catalogs/es-MX.json";
 import { useWinningChangeText } from "./use-winning-change-text.js";
+// The hook's lazy `import()` of this chunk was a cold Vite transform inside the timed waitFor:
+// ~0.8 s alone, several seconds under full-suite load, against waitFor's 1 s default (#10030).
+// Importing it here moves the transform to file collection, which no timeout covers; the hook's
+// `import()` still resolves asynchronously, so the first render still shows the English summary.
+import "./change-summary-text.js";
 
 vi.mock("@mbe/auth/react", () => ({ useAuth: () => ({ user: { id: "auth0|me" } }) }));
 
