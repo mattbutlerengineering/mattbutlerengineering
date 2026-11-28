@@ -33,7 +33,7 @@ const PATTERN_DESCRIPTIONS = {
     "Magic numbers in setTimeout/setInterval (e.g. setTimeout(fn, 3000) without a named constant)",
   emptyCatch: "Empty or comment-only catch blocks that swallow errors silently",
   noopTestAssertions:
-    "Test functions containing no recognized assertion call (expect(), assert(), assert.<method>(), or t.assert.<method>())",
+    "Test functions containing no recognized assertion call (expect()/assert()/verify()-named calls including helpers like assertKeysMatch(), t.assert.<method>(), a reachable throw, or the rls-route-sweep fixture.run() delegate)",
   hardcodedRoutes: "Hardcoded /api/... route strings instead of route constants (non-test files)",
   anyType: "TypeScript `as any` casts or `: any` type annotations (non-test files)",
   consoleLogs: "console.log() calls in production (non-test) source files",
@@ -116,19 +116,41 @@ function countMatches(content, regex) {
 
 /**
  * Recognizes an assertion call inside a test block's body. This is a
- * heuristic substring/regex rule, not a parser — it looks for a call to a
- * name that starts with `expect`, `assert`, or `t.assert` (the node:test
- * `TestContext` assertion namespace, e.g. `t.assert.ok(...)`), optionally
- * followed by `.method` (`assert.equal(...)`, `t.assert.deepStrictEqual(...)`).
+ * heuristic substring/regex rule, not a parser — it looks for one of three
+ * independent signals, any of which is enough:
  *
- * Known blind spots (intentional — see issue #4197, not fixed here):
- *   - Custom throw-based assertion helpers (e.g. a local `assertKeysMatch()`
- *     that throws on mismatch) are invisible to this rule; it only
- *     recognizes calls literally named expect/assert/t.assert.
+ *   1. A call to `expect`, `assert`, `verify`, `t.assert` (node:test's
+ *      `TestContext` namespace), or — as of #10147 — any identifier that
+ *      merely *starts* with `expect`/`assert`/`verify`, e.g. a local
+ *      `assertKeysMatch()` or an imported `expectBroken()`. vitest and
+ *      node:test both fail a test on an uncaught throw, so a same-convention
+ *      helper that throws on mismatch is a real assertion, not just a
+ *      plausible-looking call.
+ *   2. A bare `throw` statement reachable from the test body — e.g. the
+ *      cross-service schema-contract tests' `compareSchema()` result
+ *      feeding a hand-written `if (breaking.length > 0) throw new
+ *      Error(...)`. An uncaught throw fails the test exactly like a failed
+ *      `expect()` would, regardless of what raised it.
+ *   3. `fixture.run(ctx)` specifically, matched narrowly on purpose: it is
+ *      the one shape in this repo (`rls-route-sweep.integration.test.ts`)
+ *      where a test's whole body delegates to a fixture object assembled in
+ *      a *different* file (`rls-route-sweep.fixtures(.ts|-public.ts)`'s
+ *      `ok()`/`notRls()` factories, which do call `expect()`/`expectBroken()`
+ *      inside their `run()`). A generic "anything `.run(...)`" rule would
+ *      hide real no-op tests elsewhere that happen to call an unrelated
+ *      `.run()` method, so this does not generalize past the literal name.
+ *
+ * Known blind spots (intentional):
  *   - Other assertion libraries/styles (chai `.should`, `.to.equal(...)`
  *     chains, custom matcher DSLs) are not recognized.
- *   - A variable merely *named* `assert` that isn't an assertion library
- *     (e.g. a local `assert()` guard helper) would false-positive.
+ *   - A function merely *named* like an assertion (e.g. a guard helper
+ *     `assertDefined()` that just returns a boolean instead of throwing)
+ *     would false-positive — same risk the original literal-name rule
+ *     already carried for a plain `assert` import.
+ *   - `throw` matches anywhere in the block text, including inside a string
+ *     or comment that only mentions the word; there are no such comments in
+ *     this repo today (see the "genuinely empty" fixture in
+ *     check-ai-antipatterns.test.mjs, which carries none).
  *
  * @param {string} block - test block body text (as sliced by the caller)
  * @returns {boolean}
@@ -137,7 +159,7 @@ function countMatches(content, regex) {
 // tsc wherever a package's tsconfig includes its tests; the optional `<...>`
 // admits a type argument before the call (`assertType<string>(value)`).
 const ASSERTION_CALL_RE =
-  /\b(?:expect|expectTypeOf|assert|assertType|t\.assert)(?:\.\w+)*\s*(?:<[^()]*>)?\s*\(/;
+  /\b(?:expect|assert|verify)\w*(?:\.\w+)*\s*(?:<[^()]*>)?\s*\(|\bt\.assert(?:\.\w+)*\s*(?:<[^()]*>)?\s*\(|\bthrow\b|\bfixture\.run\s*\(/;
 
 export function blockHasAssertion(block) {
   return ASSERTION_CALL_RE.test(block);

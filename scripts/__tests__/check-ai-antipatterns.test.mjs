@@ -261,10 +261,40 @@ describe("check-ai-antipatterns", () => {
       expect(blockHasAssertion(block)).toBe(false);
     });
 
-    test("does not recognize a custom throw-based helper (documented limitation)", async () => {
+    test("flags a genuinely empty, comment-only test body (#10147)", async () => {
+      const { blockHasAssertion } = await import("../check-ai-antipatterns.mjs");
+      const block = '"not yet implemented", () => {\n  // TODO: write this test\n}';
+      expect(blockHasAssertion(block)).toBe(false);
+    });
+
+    test("recognizes a same-name-convention helper that throws on failure, e.g. assertKeysMatch (#10147)", async () => {
       const { blockHasAssertion } = await import("../check-ai-antipatterns.mjs");
       const block = '"schemas match", () => { assertKeysMatch("User", zodKeys, jsonKeys); }';
-      expect(blockHasAssertion(block)).toBe(false);
+      expect(blockHasAssertion(block)).toBe(true);
+    });
+
+    test("recognizes an expect-prefixed helper, e.g. expectBroken (#10147)", async () => {
+      const { blockHasAssertion } = await import("../check-ai-antipatterns.mjs");
+      const block = '"denied", async () => { expectBroken(res, "label", ctx); }';
+      expect(blockHasAssertion(block)).toBe(true);
+    });
+
+    test("recognizes a throw statement reachable from the test body, e.g. compareSchema's drift guard (#10147)", async () => {
+      const { blockHasAssertion } = await import("../check-ai-antipatterns.mjs");
+      const block =
+        '"has no breaking changes", () => {\n' +
+        "  const { breaking } = compareSchema(schemaId, base, schemaObj);\n" +
+        "  if (breaking.length > 0) {\n" +
+        '    throw new Error("Breaking schema changes detected");\n' +
+        "  }\n" +
+        "}";
+      expect(blockHasAssertion(block)).toBe(true);
+    });
+
+    test("recognizes the rls-route-sweep fixture.run delegate (#10147)", async () => {
+      const { blockHasAssertion } = await import("../check-ai-antipatterns.mjs");
+      const block = '"[ok] tables", async () => { await fixture.run(ctx); }';
+      expect(blockHasAssertion(block)).toBe(true);
     });
   });
 
