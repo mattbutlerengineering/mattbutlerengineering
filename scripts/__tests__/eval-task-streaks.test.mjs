@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   STREAK_THRESHOLD,
   parseEvalHistory,
+  classifyEvalHistory,
   classifyTaskStreaks,
   streakDedupeKey,
 } from "../eval-task-streaks.mjs";
@@ -79,6 +80,99 @@ describe("classifyTaskStreaks", () => {
   });
 });
 
+// A raw task entry; `extra` carries turns/costUsd/judgeResult.
+const task = (taskId, passed, extra = {}) => ({ taskId, passed, ...extra });
+const at = (day, tasks, timestamp = `2026-11-${String(day).padStart(2, "0")}T06:00:00.000Z`) => ({
+  ...(timestamp === null ? {} : { timestamp }),
+  tasks,
+});
+const NON_RUN = { turns: 0, costUsd: 0 };
+const JUDGE_THREW = {
+  turns: 11,
+  costUsd: 0.7,
+  judgeResult: { passed: false, confidence: 0, evaluationFailed: true },
+};
+const JUDGED = { turns: 9, costUsd: 0.4, judgeResult: { passed: false, confidence: 0.2 } };
+
+describe("classifyTaskStreaks: unjudged rows are skipped, never counted or resetting (#10139 review)", () => {
+  it("does not count non-runs (0 turns, $0) as judged failures", () => {
+    const history = [
+      at(1, [task("a", false, JUDGED)]),
+      at(2, [task("a", false, NON_RUN)]),
+      at(3, [task("a", false, NON_RUN)]),
+    ];
+    expect(classifyTaskStreaks(history)).toMatchObject({ status: "ok", alarms: [] });
+  });
+
+  it("does not count rows where the judge threw as judged failures", () => {
+    const history = [
+      at(1, [task("a", false, JUDGED)]),
+      at(2, [task("a", false, JUDGE_THREW)]),
+      at(3, [task("a", false, JUDGE_THREW)]),
+    ];
+    expect(classifyTaskStreaks(history)).toMatchObject({ status: "ok", alarms: [] });
+  });
+
+  it("a non-run between judged failures neither counts nor resets", () => {
+    const history = [
+      at(1, [task("a", false, JUDGED)]),
+      at(2, [task("a", false, JUDGED)]),
+      at(3, [task("a", false, NON_RUN)]),
+      at(4, [task("a", false, JUDGED)]),
+    ];
+    expect(classifyTaskStreaks(history)).toMatchObject({
+      status: "alarm",
+      alarms: [expect.objectContaining({ taskId: "a", streak: 3 })],
+    });
+  });
+
+  it("treats passed:null like a task missing from the row: skipped, no reset", () => {
+    const history = [
+      at(1, [task("a", false)]),
+      at(2, [task("a", false)]),
+      at(3, [task("a", null)]),
+      at(4, [task("a", false)]),
+    ];
+    expect(classifyTaskStreaks(history)).toMatchObject({ status: "alarm" });
+  });
+
+  it("treats a row with an empty tasks array the same way (no reset)", () => {
+    const history = [
+      at(1, [task("a", false)]),
+      at(2, [task("a", false)]),
+      at(3, []),
+      at(4, [task("a", false)]),
+    ];
+    expect(classifyTaskStreaks(history)).toMatchObject({ status: "alarm" });
+  });
+});
+
+describe("classifyTaskStreaks: rows without a timestamp (#10139 review)", () => {
+  it("keeps an undated row at its file position instead of sorting it oldest", () => {
+    const history = [
+      at(1, [task("a", false)]),
+      at(2, [task("a", false)]),
+      at(3, [task("a", false)]),
+      at(0, [task("a", true)], null),
+    ];
+    expect(classifyTaskStreaks(history)).toMatchObject({ status: "ok", alarms: [] });
+  });
+});
+
+describe("classifyEvalHistory: truncated newest row fails closed (#10139 review)", () => {
+  const lines = [1, 2, 3].map((d) => JSON.stringify(row(d, { t: false })));
+
+  it("is undeterminable when the newest line is cut mid-write", () => {
+    const text = `${lines.join("\n")}\n{"runId":"eval-9","tasks":[{"taskId":"t","pa`;
+    expect(classifyEvalHistory(text)).toMatchObject({ status: "undeterminable", malformed: 1 });
+  });
+
+  it("still skips and counts a malformed line that is not the newest", () => {
+    const text = `${lines[0]}\n{not json\n${lines[1]}\n${lines[2]}\n`;
+    expect(classifyEvalHistory(text)).toMatchObject({ status: "alarm", malformed: 1 });
+  });
+});
+
 describe("streakDedupeKey", () => {
   it("is keyed on the task id alone, stable across runs", () => {
     expect(streakDedupeKey("dep-bump")).toBe(streakDedupeKey("dep-bump"));
@@ -99,6 +193,6 @@ describe("parseEvalHistory", () => {
   });
 
   it("returns no entries for an empty file", () => {
-    expect(parseEvalHistory("")).toEqual({ entries: [], malformed: 0 });
+    expect(parseEvalHistory("")).toEqual({ entries: [], malformed: 0, newestMalformed: false });
   });
 });

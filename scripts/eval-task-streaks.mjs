@@ -20,24 +20,64 @@ const DEFAULT_HISTORY = ".metrics-data/eval-reports.jsonl";
 /** Dedupe key for the per-task issue: the task id only, never a run id or timestamp. */
 export const streakDedupeKey = (taskId) => `eval-task-streak:${taskId}`;
 
-/** Parses JSONL into entries; unparseable lines are counted, not dropped silently. */
+/**
+ * Parses JSONL into entries; unparseable lines are counted, not dropped silently.
+ * `newestMalformed` is true when the LAST non-blank line is unparseable (a write
+ * cut mid-line): the newest run decides the verdict, so that must fail closed.
+ */
 export function parseEvalHistory(text) {
   const entries = [];
   let malformed = 0;
+  let newestMalformed = false;
   for (const line of text.split("\n")) {
     if (line.trim() === "") continue;
     try {
       entries.push(JSON.parse(line));
+      newestMalformed = false;
     } catch {
       malformed += 1;
+      newestMalformed = true;
     }
   }
-  return { entries, malformed };
+  return { entries, malformed, newestMalformed };
 }
 
-const stamp = (entry) => Date.parse(entry.timestamp ?? "") || 0;
+/**
+ * Same rule as `taskDidNotRun()` in packages/agent-core/src/eval/run-detection.ts
+ * (copied: this script cannot import the compiled TS package): no turns and no
+ * cost means the agent never ran.
+ */
+const didNotRun = (task) => task.turns === 0 && task.costUsd === 0;
 
-/** Length of the trailing run of `passed === false` outcomes (oldest first). */
+/**
+ * The task's verdict in one run: true/false when it was really judged, null when
+ * there is no verdict (no boolean `passed`, a non-run, or the LLM judge threw,
+ * `judgeResult.evaluationFailed` as in `suiteJudgeUnavailable()`). The harness
+ * records both of the latter as `passed: false`, which is not a judged failure.
+ */
+function judgedOutcome(task) {
+  if (typeof task.passed !== "boolean") return null;
+  if (didNotRun(task) || task.judgeResult?.evaluationFailed === true) return null;
+  return task.passed;
+}
+
+/**
+ * Rows oldest first. A row without a parseable timestamp keeps its file position
+ * relative to its neighbours (it inherits the previous row's time); the sort is stable.
+ */
+function chronological(entries) {
+  let previous = Number.NEGATIVE_INFINITY;
+  return entries
+    .map((entry) => {
+      const parsed = Date.parse(entry.timestamp ?? "");
+      previous = Number.isNaN(parsed) ? previous : parsed;
+      return { entry, time: previous };
+    })
+    .sort((a, b) => a.time - b.time)
+    .map(({ entry }) => entry);
+}
+
+/** Length of the trailing run of `false` outcomes; `null` (no verdict) is skipped by the caller. */
 function trailingFailures(outcomes) {
   let streak = 0;
   for (let i = outcomes.length - 1; i >= 0 && outcomes[i] === false; i--) streak += 1;
@@ -52,17 +92,18 @@ function trailingFailures(outcomes) {
  * @param {{ threshold?: number }} [options]
  */
 export function classifyTaskStreaks(entries, { threshold = STREAK_THRESHOLD } = {}) {
-  const usable = entries
-    .filter((e) => Array.isArray(e?.tasks) && e.tasks.length > 0)
-    .sort((a, b) => stamp(a) - stamp(b));
+  const usable = chronological(
+    entries.filter((e) => Array.isArray(e?.tasks) && e.tasks.length > 0)
+  );
   if (usable.length === 0) {
     return { status: "undeterminable", reason: "no eval history rows with tasks", alarms: [] };
   }
   const latest = usable[usable.length - 1];
   const alarms = latest.tasks.flatMap(({ taskId }) => {
     const outcomes = usable.flatMap((e) => {
-      const task = e.tasks.find((t) => t.taskId === taskId);
-      return task ? [task.passed] : [];
+      const found = e.tasks.find((t) => t.taskId === taskId);
+      const outcome = found ? judgedOutcome(found) : null;
+      return outcome === null ? [] : [outcome];
     });
     const streak = trailingFailures(outcomes);
     return streak >= threshold
@@ -79,6 +120,20 @@ export function classifyTaskStreaks(entries, { threshold = STREAK_THRESHOLD } = 
   return { status: alarms.length > 0 ? "alarm" : "ok", reason: "", alarms };
 }
 
+/** Parse and classify raw JSONL; a truncated newest line is undeterminable, never ok. */
+export function classifyEvalHistory(text, options) {
+  const { entries, malformed, newestMalformed } = parseEvalHistory(text);
+  if (newestMalformed) {
+    return {
+      status: "undeterminable",
+      reason: "the newest history line is unparseable (truncated write?)",
+      alarms: [],
+      malformed,
+    };
+  }
+  return { ...classifyTaskStreaks(entries, options), malformed };
+}
+
 function main(argv) {
   const path = argv[2] ?? DEFAULT_HISTORY;
   let text;
@@ -92,8 +147,7 @@ function main(argv) {
     process.exitCode = 2;
     return;
   }
-  const { entries, malformed } = parseEvalHistory(text);
-  const verdict = { ...classifyTaskStreaks(entries), malformed };
+  const verdict = classifyEvalHistory(text);
   process.stdout.write(JSON.stringify(verdict, null, 2) + "\n");
   process.exitCode = { ok: 0, alarm: 1, undeterminable: 2 }[verdict.status];
 }
