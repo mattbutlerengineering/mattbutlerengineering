@@ -376,6 +376,50 @@ function seasonalConfigFixture() {
   };
 }
 
+/**
+ * The shared one-schedule config plus a closure and a special-hours date for
+ * `availability/special-dates` (#10260): with no date rules the page baselines its empty state.
+ * Fixed dates after FIXED_NOW's day, so both rows are upcoming on every run.
+ */
+function specialDatesConfigFixture() {
+  const demo = buildAvailabilityConfigFixture();
+  return {
+    ...demo,
+    config: {
+      ...demo.config,
+      dateRules: [
+        {
+          id: "dr-e2e-closure",
+          kind: "closure",
+          targetKind: "venue",
+          startsOn: "2026-07-04",
+          endsOn: "2026-07-04",
+        },
+        {
+          id: "dr-e2e-special-hours",
+          kind: "special_hours",
+          targetKind: "venue",
+          startsOn: "2026-12-24",
+          endsOn: "2026-12-24",
+          payload: {
+            version: 1,
+            services: [
+              {
+                venueServiceId: "vs-dinner",
+                opensAt: 960,
+                lastSeatingAt: 1140,
+                closesAt: 1200,
+                seating: { version: 1, interval: 15 },
+                bookingTypes: ["online", "phone"],
+              },
+            ],
+          },
+        },
+      ],
+    },
+  };
+}
+
 /** A route whose populated state needs a query string the ledger path lacks. */
 const QUERY: Record<string, string> = { "reservations/manage": "?token=vr-manage-token" };
 
@@ -514,6 +558,16 @@ for (const { route } of pages) {
         await page.route(/\/api\/v1\/venues\/[^/?]+\/availability\/config$/, (r) =>
           r.request().method() === "GET"
             ? r.fulfill({ status: 200, json: { data: seasonal } })
+            : r.fallback()
+        );
+      }
+      if (route === "availability/special-dates") {
+        // The list only renders for a venue with date rules (#10260); scoped to this route, so
+        // every other Availability capture keeps the shared config.
+        const specialDates = specialDatesConfigFixture();
+        await page.route(/\/api\/v1\/venues\/[^/?]+\/availability\/config$/, (r) =>
+          r.request().method() === "GET"
+            ? r.fulfill({ status: 200, json: { data: specialDates } })
             : r.fallback()
         );
       }
