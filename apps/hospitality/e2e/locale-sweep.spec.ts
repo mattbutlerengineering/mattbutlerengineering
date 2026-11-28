@@ -21,13 +21,17 @@
  *     sits inside a `data-truncate` ellipsis cell (the sanctioned exception,
  *     ux.md), and any page-level sideways scroll. Swept at a phone width, where
  *     the longer es-MX / fr-CA strings bite first.
+ *  4. A CLIPPED PLACEHOLDER — rule 3 walks text nodes, and a placeholder is not
+ *     one. On the gated Reservations route the search placeholder is measured
+ *     against its input's content box, in en-US as well as the swept locales,
+ *     at both viewports and across the widths between them (#10250).
  *
  * Runs through the bare `test:e2e` script like the other public-route specs
  * (playwright.config.ts auto-discovers e2e/*.spec.ts; workflow-coverage.test.ts
  * pins both that and this file's presence). Every endpoint a step acts on is
  * mocked below, and `unmocked` fails the test on any request no mock answered.
  */
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { enUS as rialtoEnUS, type RialtoMessages } from "@mattbutlerengineering/rialto/providers";
 import { enGB as rialtoEnGB } from "@mattbutlerengineering/rialto/locales/en-GB";
@@ -52,6 +56,8 @@ const PHONE = { width: 375, height: 812 } as const;
 
 type Locale = "en-GB" | "es-MX" | "fr-CA";
 const LOCALES: readonly Locale[] = ["en-GB", "es-MX", "fr-CA"];
+/** The source locale has no translation to sweep, but its strings still have to fit. */
+type StaffLocale = Locale | "en-US";
 
 type Flat = Record<string, string>;
 
@@ -326,7 +332,7 @@ async function mockPublicRoutes(page: Page): Promise<void> {
 }
 
 /** The target locale's own text for a catalog key — the sweep drives the UI by what the guest reads. */
-function label(locale: Locale, key: string): string {
+function label(locale: StaffLocale, key: string): string {
   const value = { ...loadCatalog("en-US"), ...loadCatalog(locale) }[key];
   if (!value) throw new Error(`No catalog value for ${key} in ${locale}`);
   return value;
@@ -785,7 +791,7 @@ async function mockGatedRoutes(page: Page, route: string): Promise<void> {
 }
 
 /** The staff locale, and (for `admin`) the permission RequireAdmin reads off the OIDC profile. */
-async function stageStaffSession(page: Page, locale: Locale, route: string): Promise<void> {
+async function stageStaffSession(page: Page, locale: StaffLocale, route: string): Promise<void> {
   await page.addInitScript(
     ([key, tag, current]) => {
       localStorage.setItem(key, tag);
@@ -804,6 +810,163 @@ async function stageStaffSession(page: Page, locale: Locale, route: string): Pro
   );
 }
 
+interface PlaceholderFit {
+  placeholder: string;
+  /** Width the placeholder text needs, in CSS px. */
+  textWidth: number;
+  /** Width of the input's content box, in CSS px. */
+  room: number;
+}
+
+/**
+ * How wide an input's placeholder is, and how much room its content box has for it. The text is
+ * measured on a canvas in the placeholder's own font: Chromium reports `scrollWidth` equal to
+ * `clientWidth` on an input whose placeholder is clipped (#10244), so those cannot tell.
+ */
+async function placeholderFit(input: Locator): Promise<PlaceholderFit> {
+  return input.evaluate(async (el: HTMLInputElement) => {
+    const own = getComputedStyle(el);
+    const pseudo = getComputedStyle(el, "::placeholder");
+    // The `font` shorthand can read empty, so the canvas font is built from its longhands;
+    // `::placeholder` wins where it sets one.
+    const read = (property: string) =>
+      pseudo.getPropertyValue(property) || own.getPropertyValue(property);
+    const font = ["font-style", "font-weight", "font-size", "font-family"].map(read).join(" ");
+    const placeholder = el.placeholder;
+    // Before the webfont arrives the canvas would measure a fallback face. A failed font
+    // fetch is not this check's failure: canvas and input then fall back to the same face.
+    await document.fonts.load(font, placeholder).catch(() => []);
+    await document.fonts.ready;
+    const context = document.createElement("canvas").getContext("2d");
+    if (!context) throw new Error("no 2d canvas context to measure the placeholder with");
+    context.font = font;
+    // "normal" parses to NaN; a length computes to px and is added after every character.
+    const tracking = Number.parseFloat(read("letter-spacing")) || 0;
+    const px = (property: string) => Number.parseFloat(own.getPropertyValue(property)) || 0;
+    const edges = ["border-left-width", "padding-left", "padding-right", "border-right-width"];
+    return {
+      placeholder,
+      textWidth: context.measureText(placeholder).width + tracking * placeholder.length,
+      // From the border box, not `clientWidth`: on a text input Chromium reports the inner
+      // editor's width there (padding already taken off), so subtracting padding counts it twice.
+      room: el.getBoundingClientRect().width - edges.reduce((sum, edge) => sum + px(edge), 0),
+    };
+  });
+}
+
+const RESERVATIONS = "reservations";
+
+/**
+ * Widths the desktop test walks its search field through. The field grows into whatever its
+ * toolbar row has left, so at the two swept viewports it is wide whatever its basis; a basis
+ * that is too small only clips in the bands where the field shares a row and has nothing left to
+ * grow into (measured for #10250: with a 12rem basis nothing clips at 375 or 1280, and es-MX
+ * clips across most of 416 to 1216). Resized in place, so no route is loaded a second time.
+ *
+ * A coarse pass every `step` px, refined to 1px where a clip could hide between two samples.
+ * While the field shares a row its width is its basis plus the row's leftover; the leftover is 0
+ * at the width where the field first fits on that row and grows by 1px per viewport px above it
+ * (less, if something else on the row grows too). A basis `d` px too small therefore clips only
+ * in the `d` px just ABOVE each such wrap point, which a 16px grid hits by luck when `d` is 2 or
+ * 3. The first sample above a wrap point sits at most `step` px past it, so its spare room is
+ * under `step`: that is the trigger, and the band it betrays lies wholly in the gap BELOW that
+ * sample. Nothing can hide just above a sample: a wrap point there leaves the next sample within
+ * `step` of it, and that one triggers.
+ */
+const SEARCH_SCAN = { from: 320, to: DESKTOP.width, step: 16 } as const;
+
+/**
+ * The Reservations search placeholder has been clipped twice (#10241, #10244). Only this input is
+ * checked: `placeholderFit` works on any input, but run over every gated route it finds the Admin
+ * and Guests search placeholders clipped today (#10262), so widening this to every route waits on
+ * those fixes.
+ */
+async function expectSearchPlaceholderFits(
+  page: Page,
+  locale: StaffLocale,
+  viewport: { width: number; height: number }
+): Promise<void> {
+  const where = `${locale} ${RESERVATIONS} @ ${viewport.width}x${viewport.height}`;
+  const input = page.getByRole("textbox", {
+    name: label(locale, "reservations.search.label"),
+    exact: true,
+  });
+  await expect(input, `${where}: search field`).toBeVisible();
+  const { placeholder, textWidth, room } = await placeholderFit(input);
+  // An empty or foreign placeholder would fit without proving anything.
+  expect(placeholder, `${where}: search placeholder`).toBe(
+    label(locale, "reservations.search.placeholder")
+  );
+  expect(
+    textWidth,
+    `${where}: placeholder "${placeholder}" needs ${textWidth.toFixed(1)}px, its input has room for ${room.toFixed(1)}px`
+  ).toBeLessThanOrEqual(room);
+  if (viewport.width !== DESKTOP.width) return;
+
+  const { from, to, step } = SEARCH_SCAN;
+  const clipped: string[] = [];
+  const measureAt = async (width: number): Promise<PlaceholderFit> => {
+    await page.setViewportSize({ width, height: viewport.height });
+    const at = await placeholderFit(input);
+    if (at.textWidth > at.room) {
+      clipped.push(
+        `${width}px wide: needs ${at.textWidth.toFixed(1)}px, room for ${at.room.toFixed(1)}px`
+      );
+    }
+    return at;
+  };
+  for (let width = from; width <= to; width += step) {
+    const at = await measureAt(width);
+    // Fits here with less than a step to spare: a narrower band may clip in the gap below
+    // (see SEARCH_SCAN). A sample that is itself clipped has already failed the test.
+    const nearClip = at.textWidth <= at.room && at.room < at.textWidth + step;
+    if (!nearClip || width === from) continue;
+    for (let fine = width - step + 1; fine < width; fine += 1) await measureAt(fine);
+  }
+  expect(
+    clipped,
+    `${locale} ${RESERVATIONS}: placeholder "${placeholder}" is clipped between ${SEARCH_SCAN.from}px and ${SEARCH_SCAN.to}px`
+  ).toEqual([]);
+}
+
+/**
+ * Opens a gated route as staff in `locale` at `viewport`, and checks that it rendered: no
+ * redirect away, no error boundary, a `main` and a heading. `unmocked` is emptied before the
+ * load, so what it holds afterwards is this route's own.
+ */
+async function openGatedRoute(
+  page: Page,
+  unmocked: string[],
+  locale: StaffLocale,
+  route: string,
+  viewport: { width: number; height: number }
+): Promise<void> {
+  await mockGatedRoutes(page, route);
+  await stageStaffSession(page, locale, route);
+  await page.setViewportSize(viewport);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  // The fixture's own load of the app root answered before these mocks existed.
+  unmocked.splice(0);
+  const path = gatedPath(route);
+  await page.goto(path);
+  await page.waitForLoadState("networkidle");
+  const landing = LANDS_ON[route] ?? path;
+  const requested = new URL(landing, test.info().project.use.baseURL).pathname;
+  const trim = (p: string) => p.replace(/\/$/, "");
+  await expect(page, `${route} redirected away from ${requested}`).toHaveURL(
+    (url) => trim(url.pathname) === trim(requested)
+  );
+  await expect(page.getByText("Unexpected Application Error")).toHaveCount(0);
+  // DashboardLayout's ErrorBoundary fallback is translated, so look for it in the locale.
+  await expect(
+    page.getByText(label(locale, "layout.errorHeading"), { exact: true }),
+    `${route} crashed into the error boundary`
+  ).toHaveCount(0);
+  // A blank, skeleton-only or crashed page has no heading to find.
+  await expect(page.getByRole("main")).toBeVisible();
+  await expect(page.getByRole("heading").first()).toBeVisible();
+}
+
 for (const locale of LOCALES) {
   sweepTest.describe(`locale sweep (authenticated) — ${locale}`, () => {
     for (const route of GATED_ROUTES) {
@@ -811,36 +974,14 @@ for (const locale of LOCALES) {
         sweepTest(
           `${route} @ ${viewport.width}x${viewport.height}`,
           async ({ mockedPage: page, unmocked }) => {
-            await mockGatedRoutes(page, route);
-            await stageStaffSession(page, locale, route);
-            await page.setViewportSize(viewport);
-            await page.emulateMedia({ reducedMotion: "reduce" });
-            // The fixture's own load of the app root answered before these mocks existed.
-            unmocked.splice(0);
-            const path = gatedPath(route);
-            await page.goto(path);
-            await page.waitForLoadState("networkidle");
-            const landing = LANDS_ON[route] ?? path;
-            const requested = new URL(landing, test.info().project.use.baseURL).pathname;
-            const trim = (p: string) => p.replace(/\/$/, "");
-            await expect(page, `${route} redirected away from ${requested}`).toHaveURL(
-              (url) => trim(url.pathname) === trim(requested)
-            );
-            await expect(page.getByText("Unexpected Application Error")).toHaveCount(0);
-            // DashboardLayout's ErrorBoundary fallback is translated, so look for it in the locale.
-            await expect(
-              page.getByText(label(locale, "layout.errorHeading"), { exact: true }),
-              `${route} crashed into the error boundary`
-            ).toHaveCount(0);
-            // A blank, skeleton-only or crashed page has no heading to find.
-            await expect(page.getByRole("main")).toBeVisible();
-            await expect(page.getByRole("heading").first()).toBeVisible();
+            await openGatedRoute(page, unmocked, locale, route, viewport);
             if (route === "waitlist") {
               await expect(page.getByTestId("waitlist-empty")).toHaveCount(0);
               await expect(page.getByText("Priya Shah")).toBeVisible();
             }
             await expect(page.locator("html")).toHaveAttribute("lang", locale);
             await sweep(page, locale, route, null, userTextFor(route));
+            if (route === RESERVATIONS) await expectSearchPlaceholderFits(page, locale, viewport);
             expect(unmocked, `${route}: requests no mock answered`).toEqual([]);
           }
         );
@@ -848,3 +989,19 @@ for (const locale of LOCALES) {
     }
   });
 }
+
+// en-US is the source catalog, so the sweep above has nothing to compare it with and never
+// loads it; its placeholder still has to fit.
+sweepTest.describe("Reservations search placeholder — en-US", () => {
+  for (const viewport of VIEWPORTS) {
+    sweepTest(
+      `${RESERVATIONS} @ ${viewport.width}x${viewport.height}`,
+      async ({ mockedPage: page, unmocked }) => {
+        await openGatedRoute(page, unmocked, "en-US", RESERVATIONS, viewport);
+        await expect(page.locator("html")).toHaveAttribute("lang", "en-US");
+        await expectSearchPlaceholderFits(page, "en-US", viewport);
+        expect(unmocked, `${RESERVATIONS}: requests no mock answered`).toEqual([]);
+      }
+    );
+  }
+});
