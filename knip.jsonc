@@ -172,6 +172,7 @@
         "cloud-session-bootstrap.mjs",
         "collect-queue-efficiency.mjs",
         "dep-graph-discovery.mjs",
+        "dev-speed-report.mjs",
         "fast-path-decision.mjs",
         "gate-slot.mjs",
         "hook-input.mjs",
