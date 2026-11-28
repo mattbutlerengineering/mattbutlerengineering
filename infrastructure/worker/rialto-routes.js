@@ -22,7 +22,11 @@ const PATTERNS = RIALTO_ROUTES.map(toPattern);
 
 /** @param {string} pathname `url.pathname` of a request routed to the rialto app. */
 export function isKnownRialtoPath(pathname) {
-  const unmounted = pathname.replace(/^\/rialto(?=\/|$)/, "") || "/";
+  // React Router matches paths case-insensitively by default (`caseSensitive`
+  // defaults to `false`), so fold case here too — the generated route list is
+  // already lowercase.
+  const lower = pathname.toLowerCase();
+  const unmounted = lower.replace(/^\/rialto(?=\/|$)/, "") || "/";
   const path = unmounted.length > 1 ? unmounted.replace(/\/+$/, "") : unmounted;
   return PATTERNS.some((pattern) => pattern.test(path));
 }

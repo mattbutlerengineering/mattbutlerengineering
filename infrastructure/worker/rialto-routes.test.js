@@ -40,6 +40,12 @@ describe("isKnownRialtoPath", () => {
       expect(isKnownRialtoPath(p), p).toBe(false);
     }
   });
+
+  it("matches known routes case-insensitively (React Router default)", () => {
+    expect(isKnownRialtoPath("/rialto/Privacy")).toBe(true);
+    expect(isKnownRialtoPath("/rialto/Components/Button")).toBe(true);
+    expect(isKnownRialtoPath("/RIALTO/components/button")).toBe(true);
+  });
 });
 
 // Cloudflare-only API; a passthrough is enough to observe status and body.
@@ -80,6 +86,11 @@ describe("edge router rialto status", () => {
   it("does not turn non-HTML assets into 404", async () => {
     const asset = new Response("body{}", { status: 200, headers: { "Content-Type": "text/css" } });
     const res = await get("/rialto/assets/app.css", envWith(asset));
+    expect(res.status).toBe(200);
+  });
+
+  it("keeps 200 for a mixed-case path to a real route", async () => {
+    const res = await get("/rialto/Components/Button", envWith(html("<html>SPA</html>")));
     expect(res.status).toBe(200);
   });
 });
