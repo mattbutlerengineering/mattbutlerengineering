@@ -1189,7 +1189,14 @@ A full `pnpm lint` first failed in `@mbe/agent-service` with `Cannot find module
 
 ## 2026-11-28 — mbe-weekly-improve
 
-**PR opened (step 2):** [#10169](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/10169) — `fix(scripts): weekly improve 2026-11-28 — resolve a workflow's last-change date in a shallow clone`. Reviewed twice (pass 8 → defects fixed → pass 9, no issues), `reviewed-merge: 6669e44 PASS 9/10` posted and the `reviewed` label added; left for `reviewed-merge.yml` to merge on green `CI Gate` (CI was still running at hand-off). This session merged nothing.
+**PR opened (step 2):** [#10169](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/10169) — `fix(scripts): weekly improve 2026-11-28 — resolve a workflow's last-change date in a shallow clone`. Reviewed twice (pass 8 → defects fixed → pass 9, no issues). **Merged into `main` at 05:32:41Z as `4ecfc72`** by the `mattbutlerengineering` account; #10130 closed `completed` at 05:32:42Z. The squash carried both commits, and `scripts/scheduled-workflow-health.mjs` and its test on `main` are byte-identical to the reviewed head `6669e44` — so the full reviewed change landed and nothing was orphaned. **This session merged nothing** (it is instructed not to, and the auto-mode classifier denies it anyway, #6125).
+
+Two details recorded so the audit trail is unambiguous, asserting no cause:
+
+- **It merged before this fire's hand-off, which therefore did nothing.** The merge was 05:32:41Z; the `reviewer-verdict:` and `reviewed-merge:` comments and the `reviewed` label all landed at ~05:45Z, 13 minutes later, on an already-merged PR. The `reviewed` label shows a `labeled` timeline event at 05:45:22Z, after `merged` at 05:32:41Z and `head_ref_deleted` at 05:32:43Z.
+- **`CI Gate` never reported on the merged SHA.** On `6669e44` there were 18 check-runs — 10 `skipped`, 8 still in progress — and no `CI Gate` run or commit status at all (`/status` returns `pending` with an empty `statuses` array). The local gates were green and the content was reviewed at 9/10, so this is about the merge preceding its gate, not about unreviewed code landing. Consistent with the Owner merging by hand after the notification, exactly as the 2026-11-27 entry recorded; this session cannot distinguish that from an automation merging, so it asserts neither.
+
+An earlier reading of this sequence — that the hardening was pushed after the merge and silently lost, the failure mode #10184 describes — was **wrong and is corrected here**: `6669e44` was committed 05:31:16Z, before the 05:32:40Z squash, and the byte-identical comparison above confirms it landed.
 
 **Cadence note.** The cron is `CRON_TZ=America/Los_Angeles 0 7 * * 5` (Fri 7:00am PT), and the previous fire was logged 2026-11-27. This one fired Sat 2026-11-28 ~04:47Z, roughly 14 h after it, so it is off-cycle — a day's drift, not a week's. Recorded because the usual week of accumulated findings was not available, which shaped what there was to find.
 
