@@ -576,8 +576,9 @@ describe("decideCommentAction ordinal rule", () => {
 
 describe("decideCommentAction concurrency, documented", () => {
   it("lets an older run finishing last decline to overwrite a newer run's comment", () => {
-    // rialto-web-e2e.yml declares no `concurrency:` group, so two runs for one
-    // PR can overlap and the older can finish last. Refs are immune by
+    // rialto-web-e2e.yml now cancels a superseded PR run (#10009), but
+    // cancellation is not instantaneous and a re-run attempt still overlaps, so
+    // two runs for one PR can overlap and the older can finish last. Refs are immune by
     // construction (each run writes its own); the comment is the one shared
     // cell, so the guard lives exactly there — and covers every write to it.
     const newerStanding = standing("601", "1");

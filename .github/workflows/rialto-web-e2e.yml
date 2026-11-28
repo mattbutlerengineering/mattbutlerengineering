@@ -85,6 +85,18 @@ on:
       # Main-derived baselines: fetched by `visual` on PRs, published on main.
       - "scripts/visual-baselines.mjs"
 
+concurrency:
+  # A second push to a PR used to leave this workflow's first run executing to
+  # completion, spending runner-minutes on a verdict nothing reads while the
+  # account's concurrent-job cap held `CI Gate` in the queue (#10009). Measured
+  # 2026-11-28: 19 of 100 runs (75.3 h) were still running when a
+  # newer push arrived, spending 118 runner-min past it (11% of this
+  # workflow's runner time). Same key as adr-check/rialto-visual/secret-scan:
+  # `run_id` is unique per run, so a push to main (which publishes the
+  # baselines) gets a group of its own and is never cancelled.
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 

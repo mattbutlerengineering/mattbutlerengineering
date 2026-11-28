@@ -7,6 +7,7 @@ import {
   backlogNow,
   summarizeDeploys,
   verdictRows,
+  verdictSample,
   renderMarkdown,
 } from "../dev-speed-report.mjs";
 import { selectGateSample } from "../collect-sdlc-speed.mjs";
@@ -213,6 +214,27 @@ describe("verdictRows", () => {
       target: null,
       control: null,
     });
+  });
+});
+
+describe("verdictSample", () => {
+  // 150 eligible runs listed newest first, the newest 30 created at or after the merge.
+  const listed = Array.from({ length: 150 }, (_, i) => ({
+    id: i,
+    conclusion: "success",
+    created_at: at(-i),
+  }));
+
+  it("filters to runs created at or after since before striding the sample", () => {
+    const sampled = verdictSample(listed, { since: at(-29), sample: 60 });
+    expect(sampled.map((r) => r.id)).toEqual(Array.from({ length: 30 }, (_, i) => i));
+  });
+
+  it("would under-count if sampled before filtering (the bug this pins)", () => {
+    const sampledFirst = selectGateSample(listed, 60).filter(
+      (r) => Date.parse(r.created_at) >= Date.parse(at(-29))
+    );
+    expect(sampledFirst.length).toBe(10);
   });
 });
 

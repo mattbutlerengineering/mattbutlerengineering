@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach, afterAll } from "vitest";
 import { buildApp } from "../app.js";
+import { perTestClientIp } from "../test/per-test-client-ip.js";
 import type { FastifyInstance } from "fastify";
 import { ReservationEventEmitter } from "../services/events.js";
 import {
@@ -171,17 +172,27 @@ describe("Reservation Routes", () => {
   // Platform admin skips the venue-membership lookup (ADR-020); these suites test wiring, not venue authz.
   const mockJWTPayload = createMockJWTPayload({ permissions: ["admin"] });
 
-  beforeEach(async () => {
+  // One app per file: services are injected mocks cleared per test, the event
+  // emitter is a spy whose calls are cleared per test, and the rate-limit
+  // bucket is rotated per test (perTestClientIp). The membership-lookup suites
+  // below build per test because the lookup is baked in at construction.
+  let nextTest: () => void;
+
+  beforeEach(() => {
+    nextTest();
+    vi.mocked(jwtVerify).mockResolvedValue({
+      payload: mockJWTPayload,
+      protectedHeader: { alg: "RS256" },
+    } as never);
+  });
+
+  beforeAll(async () => {
     process.env = {
       ...originalEnv,
       AUTH_AUTHORITY: "https://test.auth0.com",
       AUTH_AUDIENCE: "https://api.example.com",
       AUTH_BYPASS_IN_TESTS: "true",
     };
-    vi.mocked(jwtVerify).mockResolvedValue({
-      payload: mockJWTPayload,
-      protectedHeader: { alg: "RS256" },
-    } as never);
     stubEvents = new ReservationEventEmitter();
     vi.spyOn(stubEvents, "emitChange");
     // Stub the reminder-jobs scheduler — cancellations tear down reminder jobs.
@@ -206,13 +217,17 @@ describe("Reservation Routes", () => {
       },
     });
     await app.ready();
+    ({ nextTest } = perTestClientIp(app));
   });
 
-  afterEach(async () => {
-    await app.close();
+  afterEach(() => {
     // Linking never goes through findOrCreate (booking-guest-reuse M1.7 (h)).
     expect(guestService.findOrCreate).not.toHaveBeenCalled();
     vi.clearAllMocks();
+  });
+
+  afterAll(async () => {
+    await app.close();
     process.env = originalEnv;
   });
 

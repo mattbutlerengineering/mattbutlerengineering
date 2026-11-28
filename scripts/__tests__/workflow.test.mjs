@@ -78,6 +78,20 @@ describe("parseWorkflow", () => {
     expect(parseWorkflow(text).on.push).toEqual({});
   });
 
+  it("surfaces top-level concurrency, null when the workflow declares none", () => {
+    // scripts/__tests__/pr-workflow-concurrency.test.mjs reads this field to
+    // assert every pull_request workflow cancels its superseded runs, so an
+    // absent block must read as null rather than undefined-by-omission.
+    expect(parseWorkflow("on: push\njobs: {}\n").concurrency).toBeNull();
+    const withBlock = parseWorkflow(
+      "on: push\nconcurrency:\n  group: g-${{ github.ref }}\n  cancel-in-progress: true\njobs: {}\n"
+    );
+    expect(withBlock.concurrency).toEqual({
+      group: "g-${{ github.ref }}",
+      "cancel-in-progress": true,
+    });
+  });
+
   it("returns null for an unknown job and throws on non-mapping input", () => {
     expect(getJob(parseWorkflow("on: push\njobs: {}\n"), "nope")).toBeNull();
     expect(() => parseWorkflow("- just\n- a list\n")).toThrow(/mapping/);

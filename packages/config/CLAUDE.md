@@ -53,6 +53,8 @@ export default defineVitestConfig({
 });
 ```
 
+The react preset also takes `domInclude` (#10158): the globs that need the DOM. When set, the config becomes two vitest projects, `dom` (those globs, jsdom plus `setupFiles`) and `node` (every other `include` file, node environment, no setup files), so a DOM-free test file does not pay for jsdom. The default falls to node so that a DOM-needing file left out of `domInclude` fails with `document is not defined` rather than running slowly unnoticed.
+
 Shipped as hand-authored `.js` runtime + sibling `.d.ts` types (no build step), the same shape as the `eslint/*` and `prettier` presets. **This is deliberate:** a consumer's `vitest.config.ts` is loaded by Vite, which externalizes workspace packages and `require()`s the preset directly. Node 22 strips TS types on `require()`, but older Node majors do not — a raw `.ts` preset throws `SyntaxError: Unexpected token '{'` there. Plain `.js` loads on both. The internal `vitest/base.js` import is resolved through a private `#vitest-base` subpath (package.json `imports` field) rather than a relative specifier, so it works identically under Node's runtime resolution and every consumer's own `tsc` (whatever `moduleResolution` mode they use).
 
 ## Commands
