@@ -12,6 +12,7 @@ import { usePublicApiClient } from "../hooks/usePublicApiClient.js";
 import { useDocumentTitle } from "../hooks/useDocumentTitle.js";
 import styles from "./PublicBookingPage.module.css";
 import { homeUrl } from "../lib/host-brand.js";
+import { PageHeader } from "../components/PageHeader.js";
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? "";
 
@@ -147,11 +148,9 @@ function PublicBookingPageContent() {
   if (isLoading) {
     return (
       <main className={styles.page}>
-        <div className={styles.loadingCenter}>
-          <Text variant="body" color="secondary">
-            {t("publicBooking.loading")}
-          </Text>
-        </div>
+        <header className={styles.header}>
+          <PageHeader title={t("publicBooking.loading")} />
+        </header>
       </main>
     );
   }
@@ -161,19 +160,23 @@ function PublicBookingPageContent() {
   return (
     <main className={styles.page}>
       <header className={styles.header}>
-        <Text variant="display" as="h1" align="center" color="primary">
-          {venue.name}
-        </Text>
-        <Text variant="body" color="secondary" align="center">
-          {t("publicBooking.tagline")}
-        </Text>
-        {menus && menus.length > 0 ? (
-          <Text variant="body" align="center">
-            <Link className={styles.menuLink} to={`/menu/${venueSlug}`}>
-              {t("publicMenu.viewMenu")}
-            </Link>
-          </Text>
-        ) : null}
+        <PageHeader
+          title={venue.name}
+          description={
+            <>
+              <Text variant="body" color="secondary">
+                {t("publicBooking.tagline")}
+              </Text>
+              {menus && menus.length > 0 ? (
+                <Text variant="body">
+                  <Link className={styles.menuLink} to={`/menu/${venueSlug}`}>
+                    {t("publicMenu.viewMenu")}
+                  </Link>
+                </Text>
+              ) : null}
+            </>
+          }
+        />
       </header>
 
       <div className={styles.widgetWrapper}>
