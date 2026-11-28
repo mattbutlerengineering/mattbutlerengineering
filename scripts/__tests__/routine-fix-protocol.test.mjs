@@ -81,6 +81,10 @@ describe("fix protocol (#9947)", () => {
     // branch is already built on, and a shallow clone's boundary commit.
     expect(fix[1]).toContain("git log --format='%h %s' HEAD..origin/main --");
     expect(fix[1]).not.toContain("--since=");
+    // #10188 batches several findings into one PR per fire, so a competitor
+    // for one finding must not discard the others.
+    expect(fix[1]).toContain("drop only that finding's commit");
+    expect(fix[1]).toContain("only when no finding remains");
     expect(fix[1]).toContain("pulls/<N>/files?per_page=100&page=1");
     expect(fix[1]).toMatch(/`page=2`/);
     expect(fix[1]).toMatch(/not on issue numbers or titles/);

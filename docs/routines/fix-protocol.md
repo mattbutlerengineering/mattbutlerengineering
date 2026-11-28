@@ -67,6 +67,11 @@ section 4.
    either `gh api` call, request `page=2` and onward while a page returns 100
    rows. Do not follow a `Link` header: the cloud proxy answers it with 403.
 
+   Your branch can hold several findings (step 8), so apply the rules below to
+   each finding. Where a rule says to open no pull request or discard the
+   branch, drop only that finding's commit and keep the rest; open no pull
+   request only when no finding remains.
+
    - An open pull request shares a path: read its diff with
      `gh api 'repos/mattbutlerengineering/mattbutlerengineering/pulls/<N>' -H 'Accept: application/vnd.github.diff'`.
      If it makes the same fix, open no pull request, discard your branch and
