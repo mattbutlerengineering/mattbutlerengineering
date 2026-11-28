@@ -65,7 +65,10 @@ const batch = selectZoneSpreadBatch(ready, { maxWorkers: 3, strictMain });
 // Never fill with a `security` or `tier:sensitive` issue, an issue with an
 // open `Depends on:`, or a global (`null`) zone issue; those stay solo.
 const isSolo = (issue) =>
-  issueZone(issue) === null || issue.labels.some((l) => l === "security" || l === "tier:sensitive");
+  issueZone(issue) === null ||
+  issue.labels
+    .map((l) => (typeof l === "string" ? l : l?.name)) // gh --json labels gives objects
+    .some((name) => name === "security" || name === "tier:sensitive");
 const claimed = new Set(batch.map((issue) => issue.number));
 const workerBatches = batch.map((lead) => {
   const group = [lead];

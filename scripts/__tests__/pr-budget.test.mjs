@@ -23,6 +23,8 @@ describe("isNonDraftPrCreate", () => {
     ["gh pr create --draft=true --title t", false],
     ["PR_BUDGET_OVERRIDE=1 gh pr create --title t", true],
     ["git fetch && gh pr create --title t", true],
+    [" gh pr create -t x", true],
+    ["git push\ngh pr create -t x", true],
     ['grep -rn "gh pr create" .claude/', false],
     ['git commit -m "docs: mention gh pr create"', false],
     ['echo "gh api -X POST repos/o/r/pulls -f title=t"', false],
