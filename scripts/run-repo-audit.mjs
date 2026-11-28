@@ -28,6 +28,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { BLOCKED_EXIT_CODES } from "./check-rialto-changeset.mjs";
+import { BLOCKED_EXIT_CODES as DESTRUCTIVE_BLOCKED } from "./check-destructive-migrations.js";
 import { UNVERIFIED_EXIT_CODES } from "./check-ready-label-exclusive.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -67,6 +68,10 @@ export const REPO_AUDIT_CHECKS = [
     name: "check-destructive-migrations",
     command: "node",
     args: ["scripts/check-destructive-migrations.js"],
+    blocked: {
+      [DESTRUCTIVE_BLOCKED["base-unresolvable"]]:
+        "base unresolvable — shallow clone or origin/main missing",
+    },
   },
   { name: "check-dockerfile-deps", command: "node", args: ["scripts/check-dockerfile-deps.js"] },
   { name: "check-schema-compat", command: "node", args: ["scripts/check-schema-compat.js"] },
