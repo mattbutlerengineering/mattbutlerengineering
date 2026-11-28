@@ -359,6 +359,7 @@
     "items": {
       "profile": "Profile",
       "settings": "Settings",
+      "terminology": "Terminology",
       "users": "Users",
       "tonightsService": "Tonight's Service",
       "night": "The night in numbers",
