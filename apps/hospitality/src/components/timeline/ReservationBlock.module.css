@@ -61,6 +61,16 @@
   text-overflow: ellipsis;
 }
 
+/* Non-colour status cue (WCAG 1.4.1): a word ahead of party and time, on the on-surface text
+   token; in a narrow block the details line ellipsises, the guest name keeps its row. */
+.statusWord {
+  color: var(--rialto-text-primary);
+  font-weight: var(--rialto-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-inline-end: var(--rialto-space-xs);
+}
+
 /* Status-specific colors */
 .statusPending {
   background: var(--rialto-warning-muted);
@@ -95,7 +105,8 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: var(--rialto-warning);
+  /* On-surface text token, like .block (#10036): the warning hue read 4.21:1 on the pending tint. */
+  color: var(--rialto-text-primary);
 }
 
 /* The On My Way badge sits in the block's bottom strip, clear of the centred name and details. */
