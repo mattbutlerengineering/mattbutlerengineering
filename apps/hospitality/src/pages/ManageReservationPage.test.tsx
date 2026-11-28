@@ -310,6 +310,38 @@ describe("ManageReservationPage", () => {
       expect(screen.queryByText(/matt butler engineering/i)).toBeNull();
     });
   });
+  describe("retryable load-error state", () => {
+    it("shows a retry action for a server error, not the invalid-link message", async () => {
+      mockSearchParams.set("token", "valid-token-abc");
+      mockFetch.mockResolvedValueOnce(
+        makeErrorResponse(500, { status: 500, detail: "Internal Server Error" })
+      );
+
+      renderPage();
+
+      await waitFor(() => {
+        expect(screen.getByText("Something went wrong")).toBeDefined();
+      });
+      expect(screen.queryByText("This link can't be used")).toBeNull();
+      expect(screen.getByRole("button", { name: "Retry" })).toBeDefined();
+    });
+
+    it("reloads the reservation when Retry is clicked after a server error", async () => {
+      mockSearchParams.set("token", "valid-token-abc");
+      mockFetch.mockResolvedValueOnce(
+        makeErrorResponse(500, { status: 500, detail: "Internal Server Error" })
+      );
+
+      renderPage();
+      await waitFor(() => expect(screen.getByRole("button", { name: "Retry" })).toBeDefined());
+
+      mockFetch.mockResolvedValueOnce(makeOkResponse(makeManagedPayload()));
+      fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+      await waitFor(() => expect(screen.getByText("The Oak Table")).toBeDefined());
+    });
+  });
+
   describe("cancelled by the venue", () => {
     const venueCancellation = {
       refundStatus: "done",

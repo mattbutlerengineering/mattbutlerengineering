@@ -196,6 +196,30 @@ describe("InvitePage", () => {
     expect(screen.getByText(/ask the person who invited you/i)).toBeDefined();
   });
 
+  it("renders a retryable error state for a server error, not not-found", async () => {
+    mockFetch.mockResolvedValueOnce(
+      json(500, { type: "about:blank", title: "Internal Server Error", status: 500 })
+    );
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText("Something went wrong")).toBeDefined());
+    expect(screen.queryByText("Invitation not found")).toBeNull();
+    expect(screen.getByRole("button", { name: "Retry" })).toBeDefined();
+  });
+
+  it("reloads the invitation when Retry is clicked after a server error", async () => {
+    mockFetch.mockResolvedValueOnce(
+      json(500, { type: "about:blank", title: "Internal Server Error", status: 500 })
+    );
+    renderPage();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Retry" })).toBeDefined());
+
+    mockFetch.mockResolvedValueOnce(json(200, { data: invite }));
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+    await waitFor(() => expect(screen.getByText("The Oak Table")).toBeDefined());
+  });
+
   it("downloads an .ics built without a cancellation URL", async () => {
     mockFetch.mockResolvedValueOnce(json(200, { data: invite }));
     renderPage();

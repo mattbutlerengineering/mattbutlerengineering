@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
@@ -18,7 +18,7 @@ const API_BASE = import.meta.env.VITE_API_URL ?? "";
 const ASSUMED_DURATION_MS = 2 * 60 * 60 * 1000;
 
 class InviteLoadError extends Error {
-  constructor(public readonly type: "ended" | "notFound") {
+  constructor(public readonly type: "ended" | "notFound" | "error") {
     super(type);
     this.name = "InviteLoadError";
   }
@@ -51,7 +51,15 @@ function buildInviteIcs(invite: InviteData): string {
   return ics.replace(/;TZID=UTC:/g, ":");
 }
 
-function EndedState({ heading, description }: { heading: string; description: string }) {
+function EndedState({
+  heading,
+  description,
+  action,
+}: {
+  heading: string;
+  description: string;
+  action?: ReactNode;
+}) {
   return (
     <main>
       <Stack align="center" justify="center" style={{ minHeight: "100vh", padding: "2rem" }}>
@@ -60,6 +68,7 @@ function EndedState({ heading, description }: { heading: string; description: st
           headingLevel={1}
           heading={heading}
           description={description}
+          action={action}
         />
       </Stack>
     </main>
@@ -88,16 +97,19 @@ function InvitePageContent() {
   const [message, setMessage] = useState<{ kind: "error" | "success"; text: string } | null>(null);
   const [reveal] = useState(() => (prefersReducedMotion() ? "static" : "animated"));
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey,
     queryFn: async (): Promise<InviteData> => {
       try {
         return await api.reservations.getInvite(token);
       } catch (err) {
-        if (err instanceof ApiClientError && err.statusCode === 410) {
-          throw new InviteLoadError("ended");
+        if (err instanceof ApiClientError) {
+          if (err.statusCode === 410) throw new InviteLoadError("ended");
+          // Any other client error (404, etc.) means the token itself is bad; a server
+          // error or network failure (caught below) is transient, not a dead link.
+          if (err.statusCode < 500) throw new InviteLoadError("notFound");
         }
-        throw new InviteLoadError("notFound");
+        throw new InviteLoadError("error");
       }
     },
     enabled: token !== "",
@@ -151,7 +163,17 @@ function InvitePageContent() {
   }
 
   if (!data) {
-    const ended = error instanceof InviteLoadError && error.type === "ended";
+    const kind = error instanceof InviteLoadError ? error.type : "error";
+    if (kind === "error") {
+      return (
+        <EndedState
+          heading={t("invite.errorHeading")}
+          description={t("invite.errorDescription")}
+          action={<Button onClick={() => void refetch()}>{t("errorBanner.retry")}</Button>}
+        />
+      );
+    }
+    const ended = kind === "ended";
     return (
       <EndedState
         heading={ended ? t("invite.endedHeading") : t("invite.notFoundHeading")}
