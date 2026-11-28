@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { act, render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BookingWidget } from "./BookingWidget.js";
 import { MISSING_VENUE_SLUG_ERROR } from "./useBookingFlow.js";
@@ -255,7 +255,7 @@ describe("BookingWidget", () => {
     );
   });
 
-  describe("closed-dates window follows the booking window (#9950)", () => {
+  describe("closed-dates request does not wait on the booking window (#10120)", () => {
     const configWith = (settings: Record<string, number>) => ({
       name: "The Oak Table",
       slug: "the-oak-table",
@@ -277,58 +277,27 @@ describe("BookingWidget", () => {
       (mockApi.availability.getClosedDates.mock.calls.at(-1)?.[1] as { to: string } | undefined)
         ?.to;
 
-    it("asks for closed dates only through the venue's maxAdvanceBooking", async () => {
-      mockApi.venues.getPublicConfig.mockResolvedValue(configWith({ maxAdvanceBooking: 14 }));
+    it("asks for the whole lookahead once, without waiting for the venue config", async () => {
+      mockApi.venues.getPublicConfig.mockReturnValue(new Promise(() => undefined));
       renderWidget();
 
-      const calendarMax = addDays(venueDate(new Date(), "America/New_York"), 14);
       await waitFor(() => expect(mockApi.availability.getClosedDates).toHaveBeenCalled());
       expect(mockApi.availability.getClosedDates).toHaveBeenCalledTimes(1);
-      expect(mockApi.availability.getClosedDates).toHaveBeenCalledWith("the-oak-table", {
-        from: today(),
-        to: calendarMax,
-      });
+      expect(lastClosedDatesTo()).toBe(addDays(today(), 60));
     });
 
-    it("never stops short of a member's wider window", async () => {
+    it("does not ask again when the venue config or a member's lead days arrive", async () => {
       mockApi.venues.getPublicConfig.mockResolvedValue(configWith({ maxAdvanceBooking: 14 }));
       mockApi.publicVenue.memberStatus.mockResolvedValue({ member: true, leadDays: 7 });
       render(<BookingWidget venueId="v1" venueSlug="the-oak-table" memberToken="tok" />);
 
+      // The calendar bounds itself on the config; the feed was already asked for.
       const calendarMax = addDays(venueDate(new Date(), "America/New_York"), 21);
-      await waitFor(() => expect(lastClosedDatesTo()).toBe(calendarMax));
-    });
-
-    it("falls back to the 60-day lookahead when the venue sets no maxAdvanceBooking", async () => {
-      mockApi.venues.getPublicConfig.mockResolvedValue(configWith({}));
-      renderWidget();
-
-      await waitFor(() => expect(mockApi.availability.getClosedDates).toHaveBeenCalled());
+      await waitFor(() =>
+        expect((screen.getByLabelText("Date") as HTMLInputElement).max).toBe(calendarMax)
+      );
+      expect(mockApi.availability.getClosedDates).toHaveBeenCalledTimes(1);
       expect(lastClosedDatesTo()).toBe(addDays(today(), 60));
-    });
-
-    it("falls back to the 60-day lookahead when the venue config fails", async () => {
-      mockApi.venues.getPublicConfig.mockRejectedValue(new Error("down"));
-      renderWidget();
-
-      await waitFor(() => expect(mockApi.availability.getClosedDates).toHaveBeenCalled());
-      expect(lastClosedDatesTo()).toBe(addDays(today(), 60));
-    });
-
-    it("caps the request at the 60-day lookahead for a longer window", async () => {
-      mockApi.venues.getPublicConfig.mockResolvedValue(configWith({ maxAdvanceBooking: 90 }));
-      renderWidget();
-
-      await waitFor(() => expect(mockApi.availability.getClosedDates).toHaveBeenCalled());
-      expect(lastClosedDatesTo()).toBe(addDays(today(), 60));
-    });
-
-    it("uses an explicit maxDate without waiting for the venue config", async () => {
-      mockApi.venues.getPublicConfig.mockReturnValue(new Promise(() => undefined));
-      const maxDate = addDays(today(), 10);
-      render(<BookingWidget venueId="v1" venueSlug="the-oak-table" maxDate={maxDate} />);
-
-      await waitFor(() => expect(lastClosedDatesTo()).toBe(maxDate));
     });
   });
 
@@ -374,36 +343,20 @@ describe("BookingWidget", () => {
       );
     });
 
-    it("keeps disabling a weekly closed day in a member's widened tail when its feed fails (#9950)", async () => {
+    it("keeps disabling a weekly closed day in a member's widened tail when the feed fails", async () => {
       // Public window ends 2026-05-15; the member's runs to 2026-06-14, past FUTURE_DATE.
       mockApi.venues.getPublicConfig.mockResolvedValue({
         ...closedSundayConfig,
         settings: { maxAdvanceBooking: 14 },
       });
-      let resolveMember: (status: { member: true; leadDays: number }) => void = () => undefined;
-      mockApi.publicVenue.memberStatus.mockReturnValue(
-        new Promise((resolve) => {
-          resolveMember = resolve;
-        })
-      );
-      mockApi.availability.getClosedDates
-        .mockResolvedValueOnce([])
-        .mockRejectedValueOnce(new Error("down"));
+      mockApi.publicVenue.memberStatus.mockResolvedValue({ member: true, leadDays: 30 });
+      mockApi.availability.getClosedDates.mockRejectedValue(new Error("down"));
       render(<BookingWidget venueId="v1" venueSlug="the-oak-table" memberToken="tok" />);
 
-      await waitFor(() => expect(mockApi.availability.getClosedDates).toHaveBeenCalledTimes(1));
-      await act(async () => {
-        resolveMember({ member: true, leadDays: 30 });
-      });
-      await waitFor(() => expect(mockApi.availability.getClosedDates).toHaveBeenCalledTimes(2));
-
-      const memberMax = addDays(venueDate(new Date(), "America/New_York"), 44);
-      expect(mockApi.availability.getClosedDates).toHaveBeenLastCalledWith("the-oak-table", {
-        from: venueDate(new Date()),
-        to: memberMax,
-      });
-      // FUTURE_DATE sits inside the member's window, so only the weekly fallback can disable it.
-      expect(FUTURE_DATE < memberMax).toBe(true);
+      // FUTURE_DATE is past the public window, inside the member's: only the weekly fallback can disable it.
+      await waitFor(() =>
+        expect((screen.getByLabelText("Date") as HTMLInputElement).max > FUTURE_DATE).toBe(true)
+      );
       await waitFor(() =>
         expect((screen.getByTestId("probe-day") as HTMLButtonElement).disabled).toBe(true)
       );
