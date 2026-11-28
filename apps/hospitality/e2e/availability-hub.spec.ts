@@ -161,7 +161,7 @@ test.describe("Availability hub", () => {
     await page.getByRole("link", { name: "Open calendar" }).click();
     await expect(layer("Calendar")).toBeChecked();
     await back();
-    // History is a drawer over the hub at its own address (C2.6); Back closes it.
+    // History is a page at its own address (C2.6); Back closes it.
     await page.route(`${base}/availability/changes*`, (route) =>
       route.fulfill({
         status: 200,
@@ -260,9 +260,9 @@ test.describe("Availability hub", () => {
   });
 });
 
-/** Booking rules (breakdown C2.5): a drawer over the hub at its own address. */
+/** Booking rules (breakdown C2.5): a page at its own address. */
 test.describe("Availability hub: Booking rules", () => {
-  const drawer = (page: Page) => page.getByRole("dialog", { name: "Booking rules" });
+  const drawer = (page: Page) => page.getByTestId("booking-rules-page");
   const daysAhead = (page: Page) => drawer(page).getByLabel("How far ahead guests can book (days)");
 
   async function capturePatches(page: Page): Promise<Array<Record<string, unknown>>> {

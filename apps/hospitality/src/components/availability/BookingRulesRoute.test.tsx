@@ -45,7 +45,7 @@ function renderRoute(scope: AvailabilityScope, url = "/availability/booking-rule
         path: "availability",
         element: (
           <main>
-            <h1 tabIndex={-1}>Availability</h1>
+            <h2>Availability</h2>
             <Outlet context={scope} />
           </main>
         ),
@@ -69,7 +69,7 @@ function renderRoute(scope: AvailabilityScope, url = "/availability/booking-rule
 
 const address = (router: ReturnType<typeof renderRoute>) =>
   `${router.state.location.pathname}${router.state.location.search}`;
-const drawer = () => screen.getByRole("dialog", { name: "Booking rules" });
+const page = () => screen.getByTestId("booking-rules-page");
 const daysAhead = () => screen.getByLabelText(/How far ahead guests can book/);
 const prompt = () => screen.queryByRole("alertdialog", { name: "Discard your changes?" });
 
@@ -84,30 +84,32 @@ describe("BookingRulesRoute", () => {
     };
   });
 
-  it("opens the three fields for a Manager who loads the address, with focus inside", async () => {
+  it("shows the fields as a page for a Manager who loads the address, with focus on its heading", async () => {
     renderRoute(scopeOf());
     expect(daysAhead()).toHaveValue(30);
-    expect(within(drawer()).getByText("Changes here are not listed in History.")).toBeVisible();
-    await waitFor(() => expect(drawer()).toContainElement(document.activeElement as HTMLElement));
+    expect(within(page()).getByText("Changes here are not listed in History.")).toBeVisible();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    const heading = within(page()).getByRole("heading", { name: "Booking rules" });
+    await waitFor(() => expect(heading).toHaveFocus());
   });
 
   it("sends a Host to the hub with a replace, and opens nothing", async () => {
     const router = renderRoute(scopeOf({ isManager: false }));
     await waitFor(() => expect(address(router)).toBe("/availability"));
     expect(router.state.historyAction).toBe("REPLACE");
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("booking-rules-page")).not.toBeInTheDocument();
   });
 
-  it("waits for the role: no drawer and no redirect while it is pending", () => {
+  it("waits for the role: no page and no redirect while it is pending", () => {
     const router = renderRoute(scopeOf({ isManager: false, rolePending: true }));
     expect(address(router)).toBe("/availability/booking-rules");
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("booking-rules-page")).not.toBeInTheDocument();
   });
 
   it("opens once the venue's settings are loaded", () => {
     venue.selectedVenue = null;
     renderRoute(scopeOf());
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("booking-rules-page")).not.toBeInTheDocument();
   });
 
   it("closes to the hub without asking when nothing changed, and keeps the way back to Venue Setup", async () => {
@@ -178,8 +180,8 @@ describe("BookingRulesRoute", () => {
     expect(router.state.historyAction).toBe("REPLACE");
     expect(prompt()).not.toBeInTheDocument();
     expect(await screen.findByText("Booking rules saved")).toBeInTheDocument();
-    // Undo outlives the drawer: it puts back the 30 days the save replaced.
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    // Undo outlives the page: it puts back the 30 days the save replaced.
+    expect(screen.queryByTestId("booking-rules-page")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Undo" }));
     await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(2));
     expect(mutateAsync.mock.calls[1]?.[0]).toEqual({

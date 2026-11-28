@@ -391,15 +391,10 @@ const router = createBrowserRouter(
                   ),
                 },
                 {
-                  // A drawer over the hub: the same page, so the rows stay beneath it.
                   path: "booking-rules",
                   element: (
                     <Suspense fallback={<LoadingPage />}>
-                      <AvailabilityHubPage>
-                        <Suspense fallback={null}>
-                          <BookingRulesRoute />
-                        </Suspense>
-                      </AvailabilityHubPage>
+                      <BookingRulesRoute />
                     </Suspense>
                   ),
                 },

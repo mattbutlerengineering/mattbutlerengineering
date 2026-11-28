@@ -395,7 +395,7 @@ test.describe("Availability scenarios (PRD 18)", () => {
     const counter = countInteractions(page);
 
     await counter.page.getByRole("link", { name: "Edit Booking rules" }).click();
-    const drawer = counter.page.getByRole("dialog", { name: "Booking rules" });
+    const drawer = counter.page.getByTestId("booking-rules-page");
     await drawer.getByLabel("How far ahead guests can book (days)").fill("45");
     await drawer.getByLabel("Minimum notice (hours)").fill("3");
     await drawer.getByRole("button", { name: "Save", exact: true }).click();
