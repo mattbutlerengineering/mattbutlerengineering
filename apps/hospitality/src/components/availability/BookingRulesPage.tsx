@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, Button, Drawer, Input, Stack, Text } from "@mattbutlerengineering/rialto";
+import { Alert, Button, Input, Stack, Text } from "@mattbutlerengineering/rialto";
 import { useVenue } from "../../contexts/VenueContext.js";
 import { useBookingRulesUndo } from "../../hooks/useBookingRulesUndo.js";
 import { useUpdateVenue } from "../../hooks/useVenues.js";
-import { useViewport } from "../../hooks/useViewport.js";
+import { useFocusAfter } from "../../hooks/useFocusAfter.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
+import { PageHeader } from "../PageHeader.js";
 import {
   invalidBookingRules,
   toBookingRulesForm,
@@ -16,9 +17,10 @@ import {
 } from "./booking-rules.js";
 import { LeaveGuard } from "./LeaveGuard.js";
 import styles from "./ScheduleFormParts.module.css";
+import pageStyles from "./BookingRulesPage.module.css";
 
-export interface BookingRulesDrawerProps {
-  /** Leaves the drawer's address. With an unsaved change the leave guard asks first. */
+export interface BookingRulesPageProps {
+  /** Leaves the page's address. With an unsaved change the leave guard asks first. */
   readonly onClose: () => void;
 }
 
@@ -29,9 +31,10 @@ export interface BookingRulesDrawerProps {
  *
  * A save offers Undo for 10 seconds (`useBookingRulesUndo`); nothing here reaches History.
  */
-export function BookingRulesDrawer({ onClose }: BookingRulesDrawerProps) {
+export function BookingRulesPage({ onClose }: BookingRulesPageProps) {
   const { t } = useTranslation();
-  const viewport = useViewport();
+  const { focusAfter } = useFocusAfter();
+  useEffect(() => focusAfter({ kind: "pageHeading" }), [focusAfter]);
   const { selectedVenue, selectedVenueId } = useVenue();
   const update = useUpdateVenue();
   const offerUndo = useBookingRulesUndo();
@@ -93,28 +96,11 @@ export function BookingRulesDrawer({ onClose }: BookingRulesDrawerProps) {
 
   return (
     <>
-      <Drawer
-        open
-        onClose={onClose}
-        title={t("availability.bookingRules.title")}
-        description={t("availability.bookingRules.description")}
-        size={viewport === "phone" ? "full" : "default"}
-        footer={
-          <div className={styles.footer}>
-            <Button variant="secondary" onClick={onClose}>
-              {t("availabilitySchedules.cancel")}
-            </Button>
-            <Button
-              variant="primary"
-              disabled={!dirty || invalid.length > 0}
-              isLoading={update.isPending}
-              onClick={() => void saveAndClose()}
-            >
-              {t("availabilitySchedules.save")}
-            </Button>
-          </div>
-        }
-      >
+      <div className={pageStyles.page} data-testid="booking-rules-page">
+        <PageHeader
+          title={t("availability.bookingRules.title")}
+          description={t("availability.bookingRules.description")}
+        />
         <Stack gap="md">
           {failure && (
             <Alert variant="error" title={t("availability.bookingRules.saveError")}>
@@ -155,8 +141,21 @@ export function BookingRulesDrawer({ onClose }: BookingRulesDrawerProps) {
             {t("availabilityHub.bookingRules.notInHistory")}
           </Text>
         </Stack>
-      </Drawer>
-      {/* After the drawer, so its prompt opens above it. Its Save is offered only while the draft
+        <div className={styles.footer}>
+          <Button variant="secondary" onClick={onClose}>
+            {t("availabilitySchedules.cancel")}
+          </Button>
+          <Button
+            variant="primary"
+            disabled={!dirty || invalid.length > 0}
+            isLoading={update.isPending}
+            onClick={() => void saveAndClose()}
+          >
+            {t("availabilitySchedules.save")}
+          </Button>
+        </div>
+      </div>
+      {/* After the page, so its prompt opens above it. Its Save is offered only while the draft
           can be saved: a refused save would close the prompt with nothing saved and nothing said. */}
       <LeaveGuard
         active={dirty}

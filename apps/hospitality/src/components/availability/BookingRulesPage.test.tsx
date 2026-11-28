@@ -13,9 +13,9 @@ vi.mock("../../hooks/useVenues.js", () => ({
 const venueContext = vi.hoisted(() => ({ value: null as unknown }));
 vi.mock("../../contexts/VenueContext.js", () => ({ useVenue: () => venueContext.value }));
 
-import { BookingRulesDrawer } from "./BookingRulesDrawer.js";
+import { BookingRulesPage } from "./BookingRulesPage.js";
 
-function renderDrawer(settings: VenueSettings | null) {
+function renderPage(settings: VenueSettings | null) {
   const venue = {
     id: "venue-1",
     venueGroupId: null,
@@ -45,7 +45,7 @@ function renderDrawer(settings: VenueSettings | null) {
     <QueryClientProvider client={client}>
       <ToastProvider>
         <main>
-          <BookingRulesDrawer onClose={onClose} />
+          <BookingRulesPage onClose={onClose} />
         </main>
       </ToastProvider>
     </QueryClientProvider>
@@ -58,14 +58,14 @@ const notice = () => screen.getByLabelText(/Minimum notice/);
 const largest = () => screen.getByLabelText(/Largest party online/);
 const save = () => screen.getByRole("button", { name: "Save" });
 
-describe("BookingRulesDrawer", () => {
+describe("BookingRulesPage", () => {
   beforeEach(() => {
     mutateAsync.mockReset();
     mutateAsync.mockResolvedValue({ id: "venue-1" });
   });
 
   it("shows the stored rules, and what applies to one that is not set", () => {
-    renderDrawer({ maxAdvanceBooking: 60, maxPartySize: 10 });
+    renderPage({ maxAdvanceBooking: 60, maxPartySize: 10 });
     expect(daysAhead()).toHaveValue(60);
     expect(notice()).toHaveValue(null);
     expect(notice()).toHaveAttribute("placeholder", "None");
@@ -74,12 +74,12 @@ describe("BookingRulesDrawer", () => {
   });
 
   it("says its changes are not listed in History", () => {
-    renderDrawer(null);
+    renderPage(null);
     expect(screen.getByText("Changes here are not listed in History.")).toBeInTheDocument();
   });
 
   it("saves the changed rules with every other setting kept, and clearing one unsets it", async () => {
-    const { onClose } = renderDrawer({
+    const { onClose } = renderPage({
       maxAdvanceBooking: 60,
       maxPartySize: 10,
       profile: { website: "https://oak.example.com" },
@@ -111,7 +111,7 @@ describe("BookingRulesDrawer", () => {
   });
 
   it("says what is wrong with a value that cannot be saved, and keeps Save off", () => {
-    renderDrawer(null);
+    renderPage(null);
     fireEvent.change(largest(), { target: { value: "0" } });
     expect(screen.getByText("Use a whole number from 1 to 100.")).toBeInTheDocument();
     expect(save()).toBeDisabled();
@@ -119,7 +119,7 @@ describe("BookingRulesDrawer", () => {
 
   it("keeps the drawer open with the reason when the save fails", async () => {
     mutateAsync.mockRejectedValueOnce(new Error("Network down"));
-    const { onClose } = renderDrawer(null);
+    const { onClose } = renderPage(null);
     fireEvent.change(daysAhead(), { target: { value: "14" } });
     fireEvent.click(save());
     expect(await screen.findByText("Couldn't save booking rules")).toBeInTheDocument();
@@ -127,7 +127,7 @@ describe("BookingRulesDrawer", () => {
   });
 
   it("sets and clears the kitchen pacing cap on the first pacing rule", async () => {
-    renderDrawer({
+    renderPage({
       maxPartySize: 10,
       pacingRules: [{ maxCoversPerSlot: 20, timeWindowMinutes: 30 }],
     });
@@ -143,7 +143,7 @@ describe("BookingRulesDrawer", () => {
   });
 
   it("refuses a pacing window without a cap", () => {
-    renderDrawer(null);
+    renderPage(null);
     fireEvent.change(screen.getByLabelText(/Window \(minutes\)/), { target: { value: "30" } });
     expect(screen.getByText("Set a cap to use a window.")).toBeInTheDocument();
     expect(save()).toBeDisabled();

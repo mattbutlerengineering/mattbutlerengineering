@@ -251,9 +251,9 @@ test.describe("Setup hierarchy: the layered Availability page", () => {
     // Booking: its drawer, at the address the Availability hub opens it at (availability-hub C2.5).
     await rail(page).getByRole("link", { name: "Booking rules" }).click();
     await expect(page).toHaveURL(/\/availability\/booking-rules$/);
-    await expect(page.getByRole("dialog", { name: "Booking rules" })).toBeVisible();
+    await expect(page.getByTestId("booking-rules-page")).toBeVisible();
     await page.keyboard.press("Escape");
-    await expect(page.getByRole("dialog", { name: "Booking rules" })).toHaveCount(0);
+    await expect(page.getByTestId("booking-rules-page")).toHaveCount(0);
   });
 
   test("(a) editors per resource type: before on 7c051456f, after is one primary editor each", async ({
@@ -308,7 +308,7 @@ test.describe("Setup hierarchy: the layered Availability page", () => {
     await page.keyboard.press("Escape");
     // Booking rules has its own address under the hub (availability-hub C2.5), not a ⋯ entry.
     await page.goto("availability/booking-rules");
-    await expect(page.getByRole("dialog", { name: "Booking rules" })).toBeVisible();
+    await expect(page.getByTestId("booking-rules-page")).toBeVisible();
     await visit(PRIMARY_BOOKING);
     await page.keyboard.press("Escape");
     await page.goto("availability/floor-plans");
@@ -407,9 +407,9 @@ test.describe("Setup hierarchy: the layered Availability page", () => {
     // Booking rules: the hub's row 5, at its own address (availability-hub C2.5).
     await page.goto("availability");
     await page.getByRole("link", { name: "Edit Booking rules" }).click();
-    await expect(page.getByRole("dialog", { name: "Booking rules" })).toBeVisible();
+    await expect(page.getByTestId("booking-rules-page")).toBeVisible();
     await page.keyboard.press("Escape");
-    await expect(page.getByRole("dialog", { name: "Booking rules" })).toHaveCount(0);
+    await expect(page.getByTestId("booking-rules-page")).toHaveCount(0);
     // History: the hub's History link, a drawer at its own address (availability-hub C2.6).
     // Its own Close button, not Escape: Escape pressed before the drawer has taken focus is lost.
     await page.route(/\/api\/v1\/venues\/[^/?]+\/availability\/changes(\?|$)/, (route) =>

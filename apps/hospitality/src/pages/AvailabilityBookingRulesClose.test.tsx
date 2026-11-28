@@ -11,7 +11,7 @@ import type { AvailabilityScope } from "../hooks/useAvailabilityScope.js";
 import { AvailabilityHubPage } from "./AvailabilityHubPage.js";
 
 /**
- * Leaving the booking rules drawer (availability-hub C2.5 review): where focus lands and what
+ * Leaving the booking rules page (availability-hub C2.5 review): where focus lands and what
  * history is left, with the hub and the drawer route mounted as `main.tsx` mounts them.
  */
 
@@ -67,11 +67,7 @@ function renderAt(url: string) {
           { index: true, element: <AvailabilityHubPage /> },
           {
             path: "booking-rules",
-            element: (
-              <AvailabilityHubPage>
-                <BookingRulesRoute />
-              </AvailabilityHubPage>
-            ),
+            element: <BookingRulesRoute />,
           },
         ],
       },
@@ -95,12 +91,12 @@ function renderAt(url: string) {
 const address = (router: ReturnType<typeof renderAt>) =>
   `${router.state.location.pathname}${router.state.location.search}`;
 const editLink = () => screen.getByRole("link", { name: "Edit Booking rules" });
-const drawer = () => screen.getByRole("dialog", { name: "Booking rules" });
+const drawer = () => screen.getByTestId("booking-rules-page");
 const back = async (router: ReturnType<typeof renderAt>) => {
   await act(() => router.navigate(-1));
 };
 
-describe("leaving the booking rules drawer", () => {
+describe("leaving the booking rules page", () => {
   beforeEach(() => {
     mutateAsync.mockReset();
     mutateAsync.mockResolvedValue({ id: "venue-1" });

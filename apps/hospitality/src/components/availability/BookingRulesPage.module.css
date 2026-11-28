@@ -1,0 +1,7 @@
+/* Booking rules: the header, the fields, then Cancel and Save. */
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-md);
+  max-inline-size: 40rem;
+}

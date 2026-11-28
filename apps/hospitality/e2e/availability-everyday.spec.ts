@@ -367,7 +367,7 @@ test.describe("Availability, the everyday edits (R1-R11)", () => {
     const counter = countInteractions(page);
 
     await counter.page.getByRole("link", { name: "Edit Booking rules" }).click();
-    const drawer = counter.page.getByRole("dialog", { name: "Booking rules" });
+    const drawer = counter.page.getByTestId("booking-rules-page");
     await drawer.getByLabel("Largest party online").fill("8");
     await drawer.getByRole("button", { name: "Save", exact: true }).click();
 
