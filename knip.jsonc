@@ -121,6 +121,8 @@
     "services/reservations": {
       // @fastify/rate-limit: never imported here, but its module augmentation types
       // the per-route `config: { rateLimit }` the routes declare.
+      // @mbe/sentry is NOT listed: this service imports it directly
+      // (src/transitions/index.ts), unlike services/agent and services/users.
       "ignoreDependencies": [
         "@prisma/client",
         "@prisma/client-runtime-utils",
