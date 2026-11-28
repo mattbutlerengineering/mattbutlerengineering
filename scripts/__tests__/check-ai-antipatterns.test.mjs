@@ -305,6 +305,18 @@ describe("check-ai-antipatterns", () => {
         "}";
       expect(blockHasAssertion(block)).toBe(false);
     });
+
+    test("does not mistake a method call on a variable merely named like an assertion helper, e.g. expected.push(...) (#10147)", async () => {
+      const { blockHasAssertion } = await import("../check-ai-antipatterns.mjs");
+      const block = '"builds a list", () => { const expected = []; expected.push(1); }';
+      expect(blockHasAssertion(block)).toBe(false);
+    });
+
+    test("does not mistake assertions.push(...) for an assertion call (#10147)", async () => {
+      const { blockHasAssertion } = await import("../check-ai-antipatterns.mjs");
+      const block = '"collects things", () => { const assertions = []; assertions.push(1); }';
+      expect(blockHasAssertion(block)).toBe(false);
+    });
   });
 
   // ── isSwallowedCatchBody ────────────────────────────────────────────────────

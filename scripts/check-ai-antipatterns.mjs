@@ -153,7 +153,10 @@ function countMatches(content, regex) {
  *   - A function merely *named* like an assertion (e.g. a guard helper
  *     `assertDefined()` that just returns a boolean instead of throwing)
  *     would false-positive — same risk the original literal-name rule
- *     already carried for a plain `assert` import.
+ *     already carried for a plain `assert` import. NOT a blind spot: a
+ *     *variable* merely named like one (`const expected = []` then
+ *     `expected.push(1)`) — the helper-name branch requires a direct call,
+ *     no `.method` chain, so that case is excluded on purpose.
  *   - `throw` is anchored to statement position (after `;`, `{`, a newline,
  *     or the start of the block) specifically so it does NOT match the word
  *     inside a test's own quoted description — this repo has ~20 test names
@@ -173,8 +176,14 @@ function countMatches(content, regex) {
 // `{`, a newline, or the start of the block) so it can't fire on the bare
 // word "throw" sitting inside a test's own quoted description, e.g.
 // `it("does not throw when X", () => { render(<Foo />); })` — see #10147.
+// The helper-name branch (`(?:expect|assert|verify)\w+\s*(…)?\(`) requires the
+// call directly on that identifier — no `.chain` — so a same-convention
+// *variable* that merely starts with one of these words (`const expected =
+// []; expected.push(1)`) is not mistaken for a helper call; only the literal
+// `expect`/`assert`/`verify`/`t.assert` branch allows a `.method` chain, for
+// `assert.equal(...)` / `t.assert.ok(...)` / `expect(x).toBe(y)`.
 const ASSERTION_CALL_RE =
-  /\b(?:expect|assert|verify)\w*(?:\.\w+)*\s*(?:<[^()]*>)?\s*\(|\bt\.assert(?:\.\w+)*\s*(?:<[^()]*>)?\s*\(|(?:^|[;{\n])\s*throw\b|\bfixture\.run\s*\(/;
+  /\b(?:expect|assert|verify)(?:\.\w+)*\s*(?:<[^()]*>)?\s*\(|\b(?:expect|assert|verify)\w+\s*(?:<[^()]*>)?\s*\(|\bt\.assert(?:\.\w+)*\s*(?:<[^()]*>)?\s*\(|(?:^|[;{\n])\s*throw\b|\bfixture\.run\s*\(/;
 
 export function blockHasAssertion(block) {
   return ASSERTION_CALL_RE.test(block);
