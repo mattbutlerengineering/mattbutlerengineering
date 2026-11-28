@@ -131,6 +131,19 @@ export const FAMILIES = [
     },
   },
   {
+    id: "rialto-edge-routes",
+    label: "infrastructure/worker/rialto-routes.generated.js (derived from the route inventory)",
+    command: "node scripts/generate-rialto-routes.mjs",
+    outputs: ["infrastructure/worker/rialto-routes.generated.js"],
+    changedBy(path) {
+      return ROUTER_FILES.some((file) => path === file || path.endsWith(`/${file}`)) ||
+        path.endsWith("scripts/ui-quality/derive-path.mjs") ||
+        path === "scripts/generate-rialto-routes.mjs"
+        ? { command: this.command, outputs: this.outputs }
+        : null;
+    },
+  },
+  {
     id: "ui-quality-ledger",
     label: "metrics/ui-quality-ledger.jsonl (route inventory identity columns)",
     command: "node scripts/ui-quality/ledger.mjs generate",

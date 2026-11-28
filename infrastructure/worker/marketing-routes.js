@@ -22,6 +22,9 @@ const SHIPPED_STORY = /^\/shipped\/[^/]+$/;
 
 /** @param {string} pathname `url.pathname` of a request routed to the marketing app. */
 export function isKnownMarketingPath(pathname) {
-  const path = pathname.length > 1 ? pathname.replace(/\/$/, "") : pathname;
+  // React Router matches paths case-insensitively by default (`caseSensitive`
+  // defaults to `false`), so fold case here too — KNOWN_PATHS is lowercase.
+  const lower = pathname.toLowerCase();
+  const path = lower.length > 1 ? lower.replace(/\/$/, "") : lower;
   return KNOWN_PATHS.has(path) || SHIPPED_STORY.test(path);
 }

@@ -42,6 +42,11 @@ describe("isKnownMarketingPath", () => {
       expect(isKnownMarketingPath(p), p).toBe(false);
     }
   });
+
+  it("matches known routes case-insensitively (React Router default)", () => {
+    expect(isKnownMarketingPath("/Status")).toBe(true);
+    expect(isKnownMarketingPath("/Shipped/Some-Story")).toBe(true);
+  });
 });
 
 // Cloudflare-only API; a passthrough is enough to observe status and body.
