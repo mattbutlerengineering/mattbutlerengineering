@@ -25,13 +25,27 @@ permissions:
   pull-requests: read
   checks: read
 
+# GitHub cancels the PENDING run of a concurrency group when a newer run
+# queues, even with `cancel-in-progress: false` (82% of runs cancelled, #10192),
+# and a run the job `if:` skips still counts. So a run that will do nothing, and
+# an arm that is not interchangeable with the sweep, never shares the sweep's
+# group:
+#   - other labels, and CI completions that are not `success`: unique group
+#     (the job below skips them; they must not displace a queued merge run);
+#   - a `reviewed` label: one group per PR (it decides only that PR);
+#   - the cron: its own group, so CI completions cannot starve it;
+#   - the remaining CI completions and manual dispatches: one latest-wins sweep,
+#     which enumerates every `reviewed` PR, so a newer pending run supersedes an
+#     older one without losing work.
+# Never `cancel-in-progress: true`: that would kill a run mid-merge.
+# Pinned by scripts/__tests__/workflow-pending-run-starvation.test.mjs.
 concurrency:
-  group: reviewed-merge
+  group: ${{ (github.event_name == 'pull_request_target' && github.event.label.name != 'reviewed' && format('reviewed-merge-noop-{0}', github.run_id)) || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion != 'success' && format('reviewed-merge-noop-{0}', github.run_id)) || (github.event_name == 'pull_request_target' && format('reviewed-merge-pr-{0}', github.event.pull_request.number)) || (github.event_name == 'schedule' && 'reviewed-merge-schedule') || 'reviewed-merge' }}
   cancel-in-progress: false
 
 jobs:
   merge:
-    if: github.event_name != 'pull_request_target' || github.event.label.name == 'reviewed'
+    if: (github.event_name != 'pull_request_target' || github.event.label.name == 'reviewed') && (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout base

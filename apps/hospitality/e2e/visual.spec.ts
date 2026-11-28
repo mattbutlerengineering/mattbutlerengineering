@@ -266,6 +266,51 @@ const VISUAL_ROUTES: ReadonlyArray<readonly [RegExp, unknown]> = [
   ],
 ];
 
+/**
+ * The availability trace the explain page renders (shape per availability-explain-day.spec.ts):
+ * one bookable time, one removed by pacing, one with no free table.
+ */
+function explainTrace(serviceDate: string, partySize: number) {
+  const at = (minute: number, rest: Record<string, unknown> = {}) => ({
+    serviceId: "vs-dinner",
+    serviceName: "Dinner",
+    minute,
+    time: `${Math.floor(minute / 60)}:00`,
+    startsAt: null,
+    outcome: "bookable",
+    ...rest,
+  });
+  return {
+    serviceDate,
+    partySize,
+    channel: "online",
+    basis: "current_rules",
+    day: {
+      serviceDate,
+      scheduleId: "regular",
+      services: [],
+      closures: [],
+      bookingOpen: { online: true, phone: true, waitlist: false },
+      explanation: [],
+    },
+    times: [
+      at(1020),
+      at(1140, {
+        outcome: "removed",
+        reason: {
+          code: "pacing",
+          scope: "venue",
+          limit: 3,
+          windowMinutes: 15,
+          covers: 3,
+          partySize,
+        },
+      }),
+      at(1200, { outcome: "removed", reason: { code: "no_free_table", suitableTables: 4 } }),
+    ],
+  };
+}
+
 const RESERVATIONS_LIST = new URL("fixtures/reservations-list.json", import.meta.url);
 
 /**
@@ -416,6 +461,17 @@ for (const { route } of pages) {
         /\/(api\/v1\/availability\/[^/?]+(\?|$)|public\/v1\/venues\/[^/]+\/availability)/,
         (r) => r.fulfill({ status: 200, contentType: "application/json", body: slots })
       );
+      // availability/explain (#10047) reads the engine's trace for whatever date and party the
+      // address names; answer from the request so no pair is hard-coded.
+      await page.route(/\/api\/v1\/venues\/[^/?]+\/availability\/trace\?/, (r) => {
+        const params = new URL(r.request().url()).searchParams;
+        const serviceDate = params.get("date") ?? DAY;
+        const partySize = Number(params.get("partySize") ?? 2);
+        return r.fulfill({
+          status: 200,
+          json: { data: explainTrace(serviceDate, partySize) },
+        });
+      });
       if (route === "admin") {
         // RequireAdmin reads the `admin` permission off the OIDC profile.
         await page.addInitScript(() => {

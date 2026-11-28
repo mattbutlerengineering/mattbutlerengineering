@@ -1,9 +1,11 @@
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll } from "vitest";
+import { ensureWorkspaceBuild } from "../lib/ensure-workspace-build.mjs";
 import { getJob, getStep, loadWorkflow } from "../lib/workflow.mjs";
 
 const WORKFLOW = loadWorkflow("e2e.yml");
+const REPO_ROOT = new URL("../..", import.meta.url).pathname;
 const HOSPITALITY = new URL("../../apps/hospitality", import.meta.url).pathname;
 const LOCALE_SWEEP = new URL("../../apps/hospitality/e2e/locale-sweep.spec.ts", import.meta.url);
 
@@ -59,6 +61,13 @@ describe("e2e.yml hospitality shard weights", () => {
   const total = getJob(WORKFLOW, "hospitality-e2e").strategy.matrix.shard.length;
   const weights = getStep(getJob(WORKFLOW, "hospitality-e2e"), "Run E2E tests").env
     .PWTEST_SHARD_WEIGHTS;
+
+  // The specs import rialto's dist/, absent in a fresh cloud session (#10179).
+  // Builds only when missing, so CI (which builds first) pays nothing; throws,
+  // never skips, if the artifact is still absent.
+  beforeAll(() => {
+    ensureWorkspaceBuild({ root: REPO_ROOT });
+  }, 300_000);
 
   const memo = new Map();
   const listShard = (current, shardWeights) => {

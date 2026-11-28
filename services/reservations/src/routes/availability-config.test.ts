@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FastifyInstance } from "fastify";
 import type { VenueRoleLookup } from "@mbe/auth/fastify";
 import {
@@ -13,6 +13,7 @@ import {
   PreviewResultSchema,
 } from "@mbe/types";
 import { buildApp } from "../app.js";
+import { perTestClientIp } from "../test/per-test-client-ip.js";
 
 vi.mock("../services/database.js", async () => {
   const { createMockDatabaseService } = await import("@mbe/database/testing");
@@ -77,7 +78,12 @@ describe("availability config routes", () => {
   let app: FastifyInstance;
   const originalEnv = process.env;
 
-  beforeEach(async () => {
+  // One app per file: every service is an injected mock that resetAllMocks()
+  // clears, and the rate-limit bucket is rotated per test (perTestClientIp).
+  // The few tests that need a different lookup build their own app via appWith().
+  let nextTest: () => void;
+
+  beforeAll(async () => {
     process.env = {
       ...originalEnv,
       AUTH_AUTHORITY: "https://test.auth0.com",
@@ -85,11 +91,19 @@ describe("availability config routes", () => {
       AUTH_BYPASS_IN_TESTS: "true",
     };
     app = await appWith();
+    ({ nextTest } = perTestClientIp(app));
   });
 
-  afterEach(async () => {
-    await app.close();
+  beforeEach(() => {
+    nextTest();
+  });
+
+  afterEach(() => {
     vi.resetAllMocks();
+  });
+
+  afterAll(async () => {
+    await app.close();
     process.env = originalEnv;
   });
 
