@@ -298,3 +298,26 @@ describe("generated-file list no longer names llms.txt (#9057)", () => {
     expect(EXCLUDED_FROM_SIZE.filter((p) => p.includes("llms"))).toEqual([]);
   });
 });
+
+// #10215: the classifier and docs/routines/fix-protocol.md § 3 must agree on
+// the paths an unreviewed PR may never change.
+describe("fix-protocol hold list agrees with the classifier", () => {
+  const doc = readFileSync(resolve(ROOT, "docs/routines/fix-protocol.md"), "utf8");
+  const bullet = doc.match(/changes the automation's own guardrails[\s\S]*?(?=\n\n)/);
+  const tokens = [...(bullet?.[0] ?? "").matchAll(/`([^`]+)`/g)]
+    .map((m) => m[1])
+    .filter((t) => /[/.]/.test(t));
+  const sample = (t) => t.replace(/\*\*$/, "x.md").replace(/\*\*/g, "x");
+
+  it("parses the hold list from the doc", () => {
+    expect(tokens).toContain("scripts/reviewed-merge.mjs");
+    expect(tokens.length).toBeGreaterThanOrEqual(8);
+  });
+
+  it("grades every hold-list path T3 or higher", () => {
+    const low = tokens
+      .map((t) => [t, classifyPaths([sample(t)]).tier])
+      .filter(([, tier]) => tier < 3);
+    expect(low).toEqual([]);
+  });
+});

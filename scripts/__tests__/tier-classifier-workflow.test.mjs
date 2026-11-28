@@ -1002,8 +1002,8 @@ describe("tier-classifier path rules: merge-gate files are T4", () => {
   });
 
   it.each([
-    [".github/workflows/auto-merge-notes.yml", 2],
-    [".github/workflows/merge-queue.yml.bak", 2],
+    [".github/workflows/auto-merge-notes.yml", 3],
+    [".github/workflows/merge-queue.yml.bak", 3],
     ["scripts/resolve-pr-metadata.test.mjs", 2],
     ["scripts/resolve-pr-metadata.mjs.orig", 2],
     ["scripts/merge-queue-eligibility-notes.md", 1],

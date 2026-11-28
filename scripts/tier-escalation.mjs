@@ -147,6 +147,18 @@ export const RULES = [
   },
   { tier: T3, when: (f) => /^scripts\/check-/.test(f), why: "gate-enforcement script" },
   { tier: T3, when: (f) => /^\.husky\//.test(f), why: "pre-commit hook" },
+  // #10215: the guardrail hold list in docs/routines/fix-protocol.md § 3. A reviewer must
+  // never be the only check on an edit to its own rules. The ACMM state file stays T1.
+  {
+    tier: T3,
+    when: (f) =>
+      /^(\.github|docs\/routines)\//.test(f) ||
+      (/^\.claude\//.test(f) && f !== ".claude/acmm/state.json") ||
+      /^(CLAUDE|AGENTS)\.md$/.test(f) ||
+      /^scripts\/(reviewed-merge|fast-path-decision)\.mjs$/.test(f) ||
+      f === "packages/agent-core/src/pr-risk-classifier.ts",
+    why: "automation guardrail (fix-protocol hold list)",
+  },
   { tier: T3, when: (f) => /^apps\/[^/]+\/wrangler\.toml$/.test(f), why: "wrangler config" },
 
   // T2 — standard
