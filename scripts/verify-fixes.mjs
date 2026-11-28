@@ -290,7 +290,13 @@ export function verifyBug(deps) {
     return { verified: false, reason: "Could not verify — CI unavailable", confidence: "skip" };
   }
 
-  const latestCompleted = runs.find((r) => r.status === "completed");
+  // #3538 sibling of verifyCiFix's #6659 fix: a `cancelled` conclusion means
+  // the run was superseded by a later push's run under the workflow's
+  // concurrency group, not that the code failed — must not be read as a
+  // completed outcome.
+  const latestCompleted = runs.find(
+    (r) => r.status === "completed" && (r.conclusion === "success" || r.conclusion === "failure")
+  );
   if (!latestCompleted) {
     // Same missing-data-is-not-a-regression invariant as verifyCiFix's
     // #4246 fix above — no completed run yet is not evidence of a failure.

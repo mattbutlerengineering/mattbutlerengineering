@@ -14,10 +14,12 @@ describe("shouldBootstrapCloudSession", () => {
     ).toBe(true);
   });
 
-  test("cloud session with node_modules → false", () => {
+  // Presence alone no longer settles it: the container image ships a pre-baked
+  // `node_modules`, so an unstated provenance has to repair, not trust.
+  test("cloud session with node_modules but no stated provenance → true", () => {
     expect(
       shouldBootstrapCloudSession({ env: { CLAUDE_CODE_REMOTE: "true" }, hasNodeModules: true })
-    ).toBe(false);
+    ).toBe(true);
   });
 
   test("local session (var unset or not 'true') → false even without node_modules", () => {
@@ -27,6 +29,46 @@ describe("shouldBootstrapCloudSession", () => {
     ).toBe(false);
     expect(
       shouldBootstrapCloudSession({ env: { CLAUDE_CODE_REMOTE: "" }, hasNodeModules: false })
+    ).toBe(false);
+  });
+
+  test("cloud session whose node_modules was installed from another lockfile -> true", () => {
+    expect(
+      shouldBootstrapCloudSession({
+        env: { CLAUDE_CODE_REMOTE: "true" },
+        hasNodeModules: true,
+        installedLockfileMatches: false,
+      })
+    ).toBe(true);
+  });
+
+  test("cloud session installed from this checkout's lockfile -> false", () => {
+    expect(
+      shouldBootstrapCloudSession({
+        env: { CLAUDE_CODE_REMOTE: "true" },
+        hasNodeModules: true,
+        installedLockfileMatches: true,
+      })
+    ).toBe(false);
+  });
+
+  test("unknown provenance repairs rather than trusting the tree", () => {
+    expect(
+      shouldBootstrapCloudSession({
+        env: { CLAUDE_CODE_REMOTE: "true" },
+        hasNodeModules: true,
+        installedLockfileMatches: undefined,
+      })
+    ).toBe(true);
+  });
+
+  test("local session is still a no-op even on a lockfile mismatch", () => {
+    expect(
+      shouldBootstrapCloudSession({
+        env: {},
+        hasNodeModules: true,
+        installedLockfileMatches: false,
+      })
     ).toBe(false);
   });
 
@@ -47,16 +89,57 @@ describe("runCloudSessionBootstrap", () => {
     expect(exec).not.toHaveBeenCalled();
   });
 
-  test("cloud session with node_modules spawns nothing", () => {
+  test("cloud session installed from this checkout's lockfile spawns nothing", () => {
     const exec = vi.fn();
     const result = runCloudSessionBootstrap({
       ...base,
       env: { CLAUDE_CODE_REMOTE: "true" },
       exists: () => true,
+      readText: () => "lockfile-A",
       exec,
     });
     expect(result).toEqual({ ran: false, ok: true });
     expect(exec).not.toHaveBeenCalled();
+  });
+
+  // #8169 gated the install on `node_modules` being absent. The container
+  // image ships a pre-baked `node_modules`, so a cloud session whose checkout
+  // moved past the image skipped the install and ran its gates against a stale
+  // tree: `pnpm lint` and `pnpm typecheck` both failed with 13 TS2307s in
+  // `services/agent`, whose `@modelcontextprotocol/sdk` dependency arrived in
+  // 01373cd (#9734) after the image was baked.
+  test("cloud session with a stale pre-baked node_modules installs and builds", () => {
+    const exec = vi.fn();
+    const log = vi.fn();
+    const result = runCloudSessionBootstrap({
+      ...base,
+      log,
+      env: { CLAUDE_CODE_REMOTE: "true" },
+      exists: () => true,
+      readText: (path) => (path.includes("node_modules") ? "lockfile-OLD" : "lockfile-NEW"),
+      exec,
+    });
+    expect(result).toEqual({ ran: true, ok: true });
+    expect(exec.mock.calls.map(([cmd, args]) => [cmd, ...args].join(" "))).toEqual([
+      "pnpm install --frozen-lockfile",
+      "pnpm build --filter @mbe/cli...",
+    ]);
+    expect(log.mock.calls[0][0]).toContain("lockfile");
+  });
+
+  test("an unreadable last-install lockfile repairs rather than trusting the tree", () => {
+    const exec = vi.fn();
+    const result = runCloudSessionBootstrap({
+      ...base,
+      env: { CLAUDE_CODE_REMOTE: "true" },
+      exists: () => true,
+      readText: () => {
+        throw new Error("ENOENT");
+      },
+      exec,
+    });
+    expect(result).toEqual({ ran: true, ok: true });
+    expect(exec).toHaveBeenCalledTimes(2);
   });
 
   test("cloud session without node_modules runs install then cli build in the repo root", () => {
@@ -65,6 +148,7 @@ describe("runCloudSessionBootstrap", () => {
       ...base,
       env: { CLAUDE_CODE_REMOTE: "true" },
       exists: () => false,
+      readText: () => "unused",
       exec,
     });
     expect(result).toEqual({ ran: true, ok: true });

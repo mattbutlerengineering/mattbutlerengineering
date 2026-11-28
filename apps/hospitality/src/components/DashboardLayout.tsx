@@ -66,6 +66,7 @@ const ROUTE_LABEL_KEYS = {
   onboarding: "layout.routes.onboarding",
   profile: "layout.routes.profile",
   settings: "layout.routes.settings",
+  terminology: "layout.routes.terminology",
   admin: "layout.routes.admin",
   dashboard: "layout.routes.dashboard",
   // `/setup` and `/setup/hours` only redirect to the Availability hub (#10032).

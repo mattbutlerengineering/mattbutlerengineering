@@ -393,6 +393,17 @@ export function SettingsPage() {
               </Stack>
             </Card>
 
+            <Card title={t("settings.help.title")}>
+              <Stack gap="md">
+                <Text variant="caption" color="secondary">
+                  {t("settings.help.description")}
+                </Text>
+                <Button variant="secondary" onClick={() => navigate("/terminology")}>
+                  {t("terminology.title")}
+                </Button>
+              </Stack>
+            </Card>
+
             <VenueThemeCard />
 
             <AccessTokensCard />

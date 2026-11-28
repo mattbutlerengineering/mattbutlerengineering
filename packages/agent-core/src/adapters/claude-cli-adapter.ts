@@ -13,7 +13,12 @@
 
 import { CliAdapterBase } from "./cli-adapter-base.js";
 import type { AdapterConfig } from "../cli-adapter.js";
-import { parseClaudeCliUsage, extractClaudeCliError, type CliUsage } from "./cli-usage-parser.js";
+import {
+  parseClaudeCliUsage,
+  extractClaudeCliError,
+  extractClaudeCliResultText,
+  type CliUsage,
+} from "./cli-usage-parser.js";
 
 export class ClaudeCliAdapter extends CliAdapterBase {
   readonly name = "claude-cli";
@@ -63,5 +68,10 @@ export class ClaudeCliAdapter extends CliAdapterBase {
    */
   protected override parseErrorFromStdout(stdout: string): string | undefined {
     return extractClaudeCliError(stdout);
+  }
+
+  /** The `result` field of a successful run: the agent's final summary (#10137). */
+  protected override parseResultText(stdout: string): string | undefined {
+    return extractClaudeCliResultText(stdout);
   }
 }

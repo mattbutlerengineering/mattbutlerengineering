@@ -64,7 +64,10 @@ The system includes a **Chaos Agent** and **Revert RCA Loop** to ensure high sig
 
 ### Deployment
 
-- Static sites (`apps/*`): `wrangler deploy` to Workers Static Assets.
+- Static sites (`apps/marketing`, `apps/hospitality`, `apps/rialto-web`): `wrangler deploy` to Workers Static Assets.
+- `apps/gen`: Workers Static Assets too, but its Worker is Pulumi-managed (`infrastructure/pulumi/index.ts`), which
+  "[r]eplaces the wrangler deploy in CI" — run `pnpm build --filter=@mbe/gen`, then `pulumi up`. A `wrangler deploy`
+  there pushes a Worker outside Pulumi's state and drifts the stack.
 - API Services (`services/*`): DO App Platform via `doctl`.
 - Infrastructure: Pulumi (TypeScript).
 

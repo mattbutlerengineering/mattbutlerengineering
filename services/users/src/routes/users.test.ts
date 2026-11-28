@@ -495,29 +495,27 @@ describe("Auth fail-closed behavior", () => {
     );
   });
 
-  it("starts without auth in development when env vars are missing", async () => {
-    process.env = {
-      ...originalEnv,
-      NODE_ENV: "development",
-      AUTH_AUTHORITY: undefined,
-      AUTH_AUDIENCE: undefined,
-    };
+  // Negative half of the fail-closed rule above: outside production a missing
+  // auth config boots, and the auth plugin is NOT registered.
+  it.each(["development", "test"])(
+    "boots without the auth plugin in %s when env vars are missing",
+    async (nodeEnv) => {
+      process.env = {
+        ...originalEnv,
+        NODE_ENV: nodeEnv,
+        AUTH_AUTHORITY: undefined,
+        AUTH_AUDIENCE: undefined,
+      };
 
-    const app = await buildApp({ logger: false });
-    await app.ready();
-    await app.close();
-  });
-
-  it("starts without auth in test when env vars are missing", async () => {
-    process.env = {
-      ...originalEnv,
-      NODE_ENV: "test",
-      AUTH_AUTHORITY: undefined,
-      AUTH_AUDIENCE: undefined,
-    };
-
-    const app = await buildApp({ logger: false });
-    await app.ready();
-    await app.close();
-  });
+      const app = await buildApp({ logger: false });
+      try {
+        await expect(app.ready()).resolves.toBeDefined();
+        // @mbe/auth's plugin decorates the instance with authBypassTestMode;
+        // its absence proves the plugin was skipped, not merely that boot worked.
+        expect(app.hasDecorator("authBypassTestMode")).toBe(false);
+      } finally {
+        await app.close();
+      }
+    }
+  );
 });

@@ -495,8 +495,13 @@ describe("TimelineGrid", () => {
     it("does nothing on ArrowRight with empty reservations", () => {
       render(<TimelineGrid {...defaultProps} reservations={[]} />);
       const grid = screen.getByRole("grid");
-      // Should not throw
+
       fireEvent.keyDown(grid, { key: "ArrowRight" });
+
+      // Cell navigation is driven by tables, not reservations, so the ring
+      // still advances with an empty list. The bare fireEvent this replaced
+      // passed even if the ring had wedged.
+      expect(screen.getByTestId("grid-cell-0-1").className).toContain("hourGridLineActive");
     });
   });
 

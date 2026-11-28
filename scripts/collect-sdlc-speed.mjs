@@ -354,7 +354,7 @@ export function upsertSensorRow(jsonlText, entry) {
 
 // ── I/O (CLI only) ───────────────────────────────────────────────────────
 
-function gh(args) {
+export function gh(args) {
   return execFileSync("gh", args, { encoding: "utf-8", maxBuffer: 256 * 1024 * 1024 });
 }
 
@@ -363,7 +363,7 @@ function gh(args) {
  * numeric `repositories/{id}/...` form the Claude Code Remote proxy answers 403
  * to. Page explicitly instead; `jq` must emit exactly one line per item.
  */
-function ghPaged(path, jq, perPage = 100) {
+export function ghPaged(path, jq, perPage = 100) {
   const out = [];
   for (let page = 1; ; page++) {
     const chunk = gh([
