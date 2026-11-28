@@ -35,8 +35,11 @@ on:
 # `cancel-in-progress: false`: no job ever started, so no merged SHA got a CI
 # result and Deploy Services' "Wait for CI" starved (#10194). PR refs still
 # share a group per ref and cancel in progress.
+# #10188: a draft PR run skips every job, so it gets a group of its own (keyed
+# on the run). Sharing the PR's group let a draft `synchronize` run created a
+# second after `ready_for_review` cancel the real run.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.draft && format('draft-{0}', github.run_id) || (github.ref == 'refs/heads/main' && github.sha || github.ref) }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
