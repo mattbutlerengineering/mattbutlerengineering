@@ -91,6 +91,7 @@ module.exports = {
           "(^|/)(vitest|vite|playwright|eslint|prettier|tsup|rollup|tailwind|postcss)[^/]*\\.config\\.",
           "(^|/)prisma/seed\\.ts$",
           "(^|/)setupTests\\.[jt]s$",
+          "(^|/)test-setup\\.[jt]s$",
           "(^|/)\\.[^/]+\\.(js|cjs|mjs|ts)$",
           "(^|/)scripts/",
           "(^|/)infrastructure/pulumi/github\\.ts$",
