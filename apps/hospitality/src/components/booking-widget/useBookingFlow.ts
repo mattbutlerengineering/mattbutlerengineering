@@ -504,8 +504,7 @@ export interface BookingFlowResult {
   currentStepIndex: number;
   /**
    * The last date the calendar lets a guest pick, or undefined when unbounded.
-   * The closed-dates feed asks no further than this (capped at its lookahead),
-   * so it waits for the venue config unless `maxDate` is given (#9950).
+   * The server clamps the closed-dates feed to the booking window itself (#10120).
    */
   bookableThrough?: string;
 }
@@ -672,16 +671,14 @@ export function useBookingFlow({
   // disable and name them before a guest picks one. A failure is non-fatal:
   // `closedDatesLoaded` stays false, so the calendar keeps disabling the
   // venue's weekly closed days (#9949), and the per-date listing still
-  // reports a closure when a date is opened. The window is the calendar's own
-  // (`bookableThrough`), so it waits for the venue config unless that is
-  // already known; until then the weekly fallback covers the calendar (#9950).
-  const closedDatesReady = bookableThrough !== undefined || flowState.data.venueConfigSettled;
+  // reports a closure when a date is opened. It asks for the whole lookahead at
+  // once, without waiting for the venue config: the server clamps the range to
+  // the booking window (widened for a verified member's token), so the dates
+  // past it are never computed, and the calendar disables them itself (#10120).
   useEffect(() => {
-    if (!venueSlug || !closedDatesReady) return;
+    if (!venueSlug) return;
     const from = venueDate(new Date(), venueTimezone);
-    const cap = addDays(from, CLOSED_DATES_LOOKAHEAD_DAYS);
-    const through = bookableThrough ?? cap;
-    const to = through > cap ? cap : through < from ? from : through;
+    const to = addDays(from, CLOSED_DATES_LOOKAHEAD_DAYS);
     let cancelled = false;
     dispatch({ type: "CLOSED_DATES_REQUESTED" });
     api.availability
@@ -697,7 +694,7 @@ export function useBookingFlow({
     return () => {
       cancelled = true;
     };
-  }, [api, venueSlug, venueTimezone, closedDatesReady, bookableThrough]);
+  }, [api, venueSlug, venueTimezone]);
 
   const goToTimeSlot = useCallback(() => {
     const holdId = flowState.data.hold?.id;

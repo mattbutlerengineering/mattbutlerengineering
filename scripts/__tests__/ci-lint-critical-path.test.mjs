@@ -133,3 +133,41 @@ describe("ci.yml test/typecheck parallelism", () => {
     expect(block).toContain("path: .turbo/cache");
   });
 });
+
+/**
+ * #10009: `lint` and `typecheck` ran as two serial `turbo run` invocations in
+ * static-checks. Each task graph has a long single-package tail (the big apps),
+ * so the 4-core runner sat partly idle twice. One invocation lets turbo
+ * schedule both graphs together and fill those cores.
+ *
+ * Measured locally (4 cores, `--only --force`, two trials): serial 257 s / 236 s
+ * versus combined 217 s / 216 s — about 12% off the pair.
+ *
+ * `--continue` is what keeps the protection identical to the two steps it
+ * replaces, which were chained with `if: ${{ !cancelled() }}`: every package's
+ * lint and typecheck still runs even after one fails, and the step still exits
+ * non-zero (verified: a planted TS2322 exits 2, a planted `no-debugger` exits 1,
+ * both with every other task still executed).
+ */
+describe("ci.yml lint/typecheck share one turbo invocation (#10009)", () => {
+  const staticChecks = (() => {
+    const lines = WORKFLOW.split("\n");
+    const start = lines.findIndex((l) => /^ {2}static-checks:\s*$/.test(l));
+    const rest = lines.slice(start + 1);
+    const end = rest.findIndex((l) => /^ {2}\S/.test(l));
+    return rest.slice(0, end === -1 ? undefined : end).join("\n");
+  })();
+
+  it("runs both tasks in a single turbo invocation", () => {
+    expect(staticChecks).toMatch(/run: pnpm turbo run lint typecheck --continue$/m);
+  });
+
+  it("no longer runs them as separate serial steps", () => {
+    expect(staticChecks).not.toMatch(/^ +run: pnpm lint$/m);
+    expect(staticChecks).not.toMatch(/^ +run: pnpm typecheck$/m);
+  });
+
+  it("keeps knip as its own step, so a knip failure stays legible", () => {
+    expect(staticChecks).toMatch(/^ +run: pnpm check:knip$/m);
+  });
+});
