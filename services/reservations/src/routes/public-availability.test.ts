@@ -10,7 +10,7 @@ const venueService = {
 } as unknown as DomainServices["venueService"];
 const availabilityService = {
   getDayAvailability: vi.fn(),
-  getAvailableDates: vi.fn(),
+  getClosedDates: vi.fn(),
 } as unknown as DomainServices["availabilityService"];
 
 const lostDemandService = {
@@ -163,7 +163,7 @@ describe("GET /public/v1/venues/:slug/availability", () => {
         venueId: "venue_1",
         email: "ada@example.com",
       });
-      vi.mocked(availabilityService.getAvailableDates).mockResolvedValueOnce([]);
+      vi.mocked(availabilityService.getClosedDates).mockResolvedValueOnce([]);
 
       await app.inject({
         method: "GET",
@@ -171,7 +171,7 @@ describe("GET /public/v1/venues/:slug/availability", () => {
         headers: { "x-member-token": "t" },
       });
 
-      expect(vi.mocked(availabilityService.getAvailableDates).mock.calls.at(-1)?.[4]).toMatchObject(
+      expect(vi.mocked(availabilityService.getClosedDates).mock.calls.at(-1)?.[4]).toMatchObject(
         { member: true }
       );
     });
@@ -420,15 +420,8 @@ describe("GET /public/v1/venues/:slug/availability", () => {
   describe("GET /:slug/availability/dates", () => {
     it("lists only the closed dates, with their messages", async () => {
       vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
-      vi.mocked(availabilityService.getAvailableDates).mockResolvedValueOnce([
-        { date: "2026-12-23", hasAvailability: true, slotCount: 8 },
-        {
-          date: "2026-12-24",
-          hasAvailability: false,
-          slotCount: 0,
-          closure: { message: "Closed for a private event" },
-        },
-        { date: "2026-12-25", hasAvailability: false, slotCount: 0 },
+      vi.mocked(availabilityService.getClosedDates).mockResolvedValueOnce([
+        { date: "2026-12-24", closure: { message: "Closed for a private event" } },
       ]);
 
       const response = await app.inject({
@@ -440,7 +433,7 @@ describe("GET /public/v1/venues/:slug/availability", () => {
       expect(response.json()).toEqual({
         data: [{ date: "2026-12-24", closure: { message: "Closed for a private event" } }],
       });
-      expect(availabilityService.getAvailableDates).toHaveBeenCalledWith(
+      expect(availabilityService.getClosedDates).toHaveBeenCalledWith(
         "venue_1",
         "2026-12-23",
         "2026-12-25",
