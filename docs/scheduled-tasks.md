@@ -588,21 +588,25 @@ new weekday schedule slot** (see Plan budget below).
 
 > **Prompt:** [`routines/mbe-dev-speed.md`](./routines/mbe-dev-speed.md).
 > This section describes intent; the file is the prompt. Manifest:
-> `scripts/routines/mbe-dev-speed.json` (heartbeat signature, `periodDays: 3`).
+> `scripts/routines/mbe-dev-speed.json` (heartbeat signature, `periodDays: 1`).
 
-- **When:** Mon-Fri 5:41am PT (`CRON_TZ=America/Los_Angeles 41 5 * * 1-5`). Model: opus.
-- **What it does:** measures dev speed from live data (push to `CI Gate`
-  p50/p90, per-job queue wait and run time, PR open to merge), checks whether
-  its previous change moved the number, then fixes the single biggest
-  root-caused bottleneck in one PR of about 150 lines titled `… (mbe-dev-speed)`,
-  per [`routines/fix-protocol.md`](./routines/fix-protocol.md). Feeds #10009
-  (ADR-036: p90 under 15 minutes).
+- **When:** hourly at :57 (`57 * * * *`; Owner, 2026-11-27, #10162). Model: opus.
+- **What it does:** runs `scripts/dev-speed-report.mjs` over 7 days (push to
+  `CI Gate` p50/p90, per-job queue wait and run time, merge to deployed), then
+  rewrites its ledger, the body of #10180: the current bottlenecks, and every
+  change it tried with a `helped`, `flat` or `slower` verdict once 20 post-merge
+  runs exist. It fixes the single biggest root-caused bottleneck in one PR of
+  about 150 lines titled `… (mbe-dev-speed)`, per
+  [`routines/fix-protocol.md`](./routines/fix-protocol.md). It opens PRs, not
+  issues: a draft PR for a larger fix, a revert PR for a `slower` change. Feeds
+  #10009 (ADR-036: p90 under 15 minutes).
 - **Merges:** a fix outside the guardrail paths goes through `reviewed-merge.yml`.
   A fix under `.github/**` or another guardrail path opens with `needs-review`
-  for the Owner (Owner, 2026-11-27, #10044).
+  for the Owner (Owner, 2026-11-27, #10044). It holds the hand-off while `main`
+  is red or a services deploy is undeployed (#9948).
 - **Guardrails:** never weakens a gate for speed (no skipped tests, raised
   timeouts, lowered thresholds or advisory-made required checks); at most two
-  of its PRs open at once.
+  of its PRs open at once; no new PR while the runner backlog is over 15 minutes.
 
 ## Plan budget (Max 20x)
 
@@ -615,7 +619,7 @@ it does **not** count against the claude.ai plan quota):
 - Fri: + `mbe-weekly-improve` (opus) + `mbe-doc-rot` (sonnet) → 7
 - Sun: + `mbe-weekly-retro` (opus) → 6
 - 1st of month: + `mbe-monthly-meta-audit` (opus) → 6 (or briefly 8 if the 1st is a Fri)
-- Mon-Fri: + `mbe-dev-speed` (opus) → 6 on weekdays, 8 on Fridays
+- Hourly: + `mbe-dev-speed` (opus) → up to 24 more runs a day; most refresh the ledger and open nothing
 
 `mbe-feature-drain` (added 2026-10-16) sits on top of that baseline: one hourly
 sonnet trigger (up to 24 fires/day since 2026-11-18, down from 48). A fire with
