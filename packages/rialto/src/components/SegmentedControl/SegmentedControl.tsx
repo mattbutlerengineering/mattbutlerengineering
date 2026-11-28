@@ -19,6 +19,12 @@ import styles from "./SegmentedControl.module.css";
 export interface Segment {
   id: string;
   label: string;
+  /**
+   * Accessible name for the segment, when `label` is shortened to fit and a
+   * screen reader needs the full wording. Keep the visible `label` inside it
+   * (WCAG 2.5.3 Label in Name). Defaults to `label`.
+   */
+  ariaLabel?: string;
   disabled?: boolean;
 }
 
@@ -189,6 +195,7 @@ export const SegmentedControl = forwardRef<HTMLDivElement, SegmentedControlProps
                 className={cn(styles.segment, active && styles.segmentActive)}
                 role="radio"
                 aria-checked={active}
+                aria-label={segment.ariaLabel}
                 tabIndex={segment.id === tabStopId ? 0 : -1}
                 aria-disabled={segment.disabled || undefined}
                 onClick={

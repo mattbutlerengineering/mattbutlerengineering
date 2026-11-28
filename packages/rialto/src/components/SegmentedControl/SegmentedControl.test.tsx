@@ -209,6 +209,27 @@ describe("SegmentedControl", () => {
     });
   });
 
+  describe("segment accessible name (#10238)", () => {
+    // A caller that shortens a label to fit a narrow control (hospitality's
+    // Tonight's Service prints "6–9 PM" on a phone) still owes a screen reader
+    // the full name.
+    const compact: Segment[] = [
+      { id: "all", label: "All" },
+      { id: "dinner", label: "6–9 PM", ariaLabel: "Dinner (6–9 PM)" },
+    ];
+
+    it("names a segment by its ariaLabel while the visible text stays the label", () => {
+      render(<SegmentedControl segments={compact} value="all" onChange={vi.fn()} />);
+      const dinner = screen.getByRole("radio", { name: "Dinner (6–9 PM)" });
+      expect(dinner).toHaveTextContent(/^6–9 PM$/);
+    });
+
+    it("leaves a segment without ariaLabel named by its label, with no aria-label attribute", () => {
+      render(<SegmentedControl segments={compact} value="all" onChange={vi.fn()} />);
+      expect(screen.getByRole("radio", { name: "All" })).not.toHaveAttribute("aria-label");
+    });
+  });
+
   it("does not emit 'undefined' in container className", () => {
     const { container } = render(
       <SegmentedControl segments={segments} value="day" onChange={() => {}} />
