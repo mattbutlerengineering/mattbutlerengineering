@@ -23,7 +23,9 @@ permissions:
 # to completion, the newest push waits behind it, and the pushes in between are
 # dropped because only the newest commit's screenshots are worth having.
 # `cancel-in-progress: true` would let a burst supersede every run mid-flight,
-# so none would finish. Pinned by scripts/__tests__/e2e-screenshots-concurrency.test.mjs.
+# so only the last run of a burst would finish. A manual dispatch on `main`
+# shares this group: a later push can drop it while it is pending, which shows
+# as `cancelled`. Pinned by scripts/__tests__/e2e-screenshots-concurrency.test.mjs.
 concurrency:
   group: e2e-screenshots-${{ github.ref }}
   cancel-in-progress: false
