@@ -8,6 +8,7 @@ import {
   type CreateFloorPlanRequest,
   type UpdateFloorPlanRequest,
   type UpdateTablePositionRequest,
+  type TableShapeMetadata,
   createProblemDetails,
   titleForStatus,
   listFloorPlansQueryJsonSchema,
@@ -305,8 +306,7 @@ export const floorPlanRoutes: FastifyPluginAsync = async (fastify) => {
 
   fastify.post<{
     Params: { tableId: string };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    Body: { floorPlanId: string; shapeMetadata?: any };
+    Body: { floorPlanId: string; shapeMetadata?: TableShapeMetadata };
     Reply: { data: Table } | ProblemDetails;
   }>(
     "/tables/:tableId/assign",
