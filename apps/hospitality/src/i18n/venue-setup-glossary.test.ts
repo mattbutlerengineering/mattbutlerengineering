@@ -3,6 +3,7 @@ import enUS from "./catalogs/en-US.json";
 import esMX from "./catalogs/es-MX.json";
 import frCA from "./catalogs/fr-CA.json";
 import enGB from "./catalogs/en-GB.json";
+import { VENUE_SETUP_GLOSSARY, type GlossaryLocale } from "./venue-setup-glossary.js";
 
 /**
  * Venue Setup glossary (PRD criterion 5). The fixture is the glossary table in
@@ -14,7 +15,7 @@ import enGB from "./catalogs/en-GB.json";
  */
 
 type Catalog = Record<string, unknown>;
-type LocaleId = "en-US" | "es-MX" | "fr-CA";
+type LocaleId = GlossaryLocale;
 
 const CATALOGS: Readonly<Record<LocaleId, Catalog>> = {
   "en-US": enUS,
@@ -34,78 +35,7 @@ function lookup(catalog: Catalog, key: string): string {
   return found[1];
 }
 
-interface Concept {
-  readonly concept: string;
-  /** The term per locale, as the glossary (and its translations) spell it. */
-  readonly term: Readonly<Record<LocaleId, string>>;
-  /** Catalog keys whose whole value is the term (case aside). */
-  readonly exact: readonly string[];
-  /** Catalog keys whose value contains the term (drawer and dialog titles). */
-  readonly contains: readonly string[];
-}
-
-const GLOSSARY: readonly Concept[] = [
-  {
-    concept: "The calendar page",
-    term: { "en-US": "Availability", "es-MX": "Disponibilidad", "fr-CA": "Disponibilité" },
-    exact: [
-      "nav.items.availability",
-      "layout.routes.availability",
-      "layout.routes.hours",
-      "availability.title",
-    ],
-    contains: [],
-  },
-  {
-    concept: "The room page",
-    term: { "en-US": "Floor Plan", "es-MX": "Plano de sala", "fr-CA": "Plan de salle" },
-    exact: [
-      "layout.routes.floorPlan",
-      "floorPlan.list.title",
-      "setup.hub.strip.steps.floorPlan",
-      "timeline.page.floorPlans",
-    ],
-    contains: ["floorPlan.editor.backToList"],
-  },
-  {
-    concept: "Weekly pattern",
-    term: { "en-US": "Regular week", "es-MX": "Semana habitual", "fr-CA": "Semaine habituelle" },
-    exact: [
-      "setup.hub.strip.steps.regularWeek",
-      "availability.regularWeekLine.heading",
-      "availabilitySchedules.regularMarker",
-    ],
-    contains: ["availabilitySchedules.regularWeek.title"],
-  },
-  {
-    concept: "Named alternative week",
-    term: { "en-US": "Schedule", "es-MX": "Horario", "fr-CA": "Horaire" },
-    exact: [],
-    contains: [
-      "availabilitySchedules.title",
-      "availabilitySchedules.tabSchedules",
-      "availabilitySchedules.newTitle",
-    ],
-  },
-  {
-    concept: "Bookable period",
-    term: { "en-US": "Service", "es-MX": "Servicio", "fr-CA": "Service" },
-    exact: [],
-    contains: ["availabilitySchedules.compare.title"],
-  },
-  {
-    concept: "One-date difference",
-    term: { "en-US": "Special dates", "es-MX": "Fechas especiales", "fr-CA": "Dates spéciales" },
-    exact: ["availabilitySpecial.tab"],
-    contains: [],
-  },
-  {
-    concept: "How guests book",
-    term: { "en-US": "Booking", "es-MX": "Reservas", "fr-CA": "Réservations" },
-    exact: [],
-    contains: ["availability.bookingRules.title"],
-  },
-];
+const GLOSSARY = VENUE_SETUP_GLOSSARY;
 
 /** Case-insensitive, accent-folded, with typographic apostrophes straightened. */
 function fold(value: string, locale: LocaleId): string {

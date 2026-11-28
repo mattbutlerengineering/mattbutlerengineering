@@ -64,6 +64,13 @@ describe("the How availability works guide route (#10034)", () => {
   });
 });
 
+describe("the Terminology route (#10031)", () => {
+  it("mounts terminology inside the signed-in layout, lazily", () => {
+    expect(mainTsxSource).toMatch(/path:\s*"terminology",[\s\S]{0,200}TerminologyPage/);
+    expect(mainTsxSource).toMatch(/import\("\.\/pages\/TerminologyPage\.js"\)/);
+  });
+});
+
 describe("hospitality router basename (#7709)", () => {
   it("derives the basename from the serving host rather than a literal /hospitality", () => {
     expect(mainTsxSource).not.toMatch(/basename:\s*"\/hospitality"/);

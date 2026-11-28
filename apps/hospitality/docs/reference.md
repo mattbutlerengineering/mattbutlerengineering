@@ -36,6 +36,7 @@ Build-time env vars (set in CI and `.env`):
 | AvailabilityHubPage   | `/availability`            | Availability rules; `/availability/map`, `/setup` redirect |
 | ProfilePage           | `/profile`                 | User profile                                               |
 | SettingsPage          | `/settings`                | App settings                                               |
+| TerminologyPage       | `/terminology`             | What the app's venue terms mean, from the glossary modules |
 | AdminPage             | `/admin`                   | Admin panel                                                |
 
 ## Key Components
