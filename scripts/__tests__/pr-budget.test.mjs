@@ -20,6 +20,12 @@ describe("isNonDraftPrCreate", () => {
     ["gh api -X PATCH repos/o/r/pulls/12 -f title=t", false],
     ["gh api -X POST repos/o/r/pulls/12/reviews -f event=APPROVE", false],
     ["gh pr view 12", false],
+    ["gh pr create --draft=true --title t", false],
+    ["PR_BUDGET_OVERRIDE=1 gh pr create --title t", true],
+    ["git fetch && gh pr create --title t", true],
+    ['grep -rn "gh pr create" .claude/', false],
+    ['git commit -m "docs: mention gh pr create"', false],
+    ['echo "gh api -X POST repos/o/r/pulls -f title=t"', false],
     ["git push origin HEAD", false],
   ])("%s -> %s", (command, expected) => {
     expect(isNonDraftPrCreate(command)).toBe(expected);

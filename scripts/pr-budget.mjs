@@ -23,9 +23,12 @@ import { fileURLToPath } from "node:url";
 /** Queued + running `ci.yml` pull_request runs at which a non-draft PR is blocked. */
 export const PR_BUDGET_THRESHOLD = 6;
 
-const GH_PR_CREATE = /\bgh\s+pr\s+create\b/;
-const GH_PR_DRAFT_FLAG = /\s(--draft|-d)(\s|$)/;
-const GH_API = /\bgh\s+api\b/;
+// `gh` only at a command position: line start, after ; & | or $( , optionally
+// after VAR=value prefixes. A quoted mention (grep, commit message) never matches.
+const CMD_START = String.raw`(?:^|[;&|]\s*|\$\(\s*)(?:\w+=\S*\s+)*`;
+const GH_PR_CREATE = new RegExp(`${CMD_START}gh\\s+pr\\s+create\\b`);
+const GH_PR_DRAFT_FLAG = /\s(--draft(=true)?|-d)(\s|$)/;
+const GH_API = new RegExp(`${CMD_START}gh\\s+api\\b`);
 // The pulls collection itself, not a single PR or its sub-resources.
 const PULLS_COLLECTION = /\/pulls(\?|\s|$|["'])/;
 const NON_POST_METHOD = /(-X|--method)\s+(GET|PATCH|PUT|DELETE)\b/i;

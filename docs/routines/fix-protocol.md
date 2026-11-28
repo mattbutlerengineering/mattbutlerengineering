@@ -61,6 +61,11 @@ section 4.
    that run. A non-draft PR opened while the CI queue is saturated is blocked
    by `scripts/pr-budget.mjs`.
 
+Never bundle a finding that section 3 holds for the Owner (security, policy, or
+a guardrail path) with fixes `reviewed-merge.yml` can merge: give it its own
+`needs-review` pull request, which does not count against rule 8, or file it
+under section 4.
+
 If one finding's gates cannot go green, drop its commit and keep the rest.
 If none can, open no pull request. Discard the branch and treat each finding
 under section 4, with what you learned in the issue body.

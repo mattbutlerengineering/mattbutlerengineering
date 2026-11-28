@@ -25,8 +25,8 @@
  *   3. Because a skipped root cascades `skipped` to every dependent (which
  *      reads identically to a legitimate skip), the root of the chain is
  *      checked explicitly:
- *        - prepare has no `if:` (it absorbed the old detect-changes job,
- *          #10064), so it must be `success`;
+ *        - prepare's only `if:` is the draft guard (#10188; it absorbed the
+ *          old detect-changes job, #10064), so it must be `success`;
  *        - its has_code output must be exactly "true" or "false";
  *        - every Build-chain job gates on `has_code == 'true'`, so when
  *          has_code is "true" each must be `success`. A skip there would
@@ -69,7 +69,9 @@ function checkRootOfChain(needs) {
 
   const errors = [];
   if (root.result !== "success") {
-    errors.push(`${ROOT_JOB} must succeed (it has no if:), got ${JSON.stringify(root.result)}`);
+    errors.push(
+      `${ROOT_JOB} must succeed (its only if: is the draft guard), got ${JSON.stringify(root.result)}`
+    );
   }
 
   const hasCode = root.outputs?.has_code;

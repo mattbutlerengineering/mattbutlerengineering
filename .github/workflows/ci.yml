@@ -46,7 +46,7 @@ jobs:
   # #10064: change detection used to be its own `detect-changes` job, and
   # Prepare waited on it. Under the concurrent-job cap every serial job pays a
   # full queue wait (measured median 6.2 min for a 0.3 min job), so detection
-  # is now Prepare's first step. Prepare has no `if:` and always runs; on a
+  # is now Prepare's first step. Prepare's only `if:` is the draft guard (#10188); on a
   # docs-only change it stops after detection (every later step is gated on
   # has_code). CI Gate's module requires Prepare to succeed, and every
   # Build-chain job to succeed whenever has_code is "true".
@@ -1385,7 +1385,7 @@ jobs:
         # loop failed only on failure/cancelled, so on 2026-10-05 (PR #6077,
         # run 37363956419 attempt 2) `abandoned` jobs let CI Gate go green with
         # nothing verified. The module also checks the root of the chain:
-        # prepare must succeed (it has no `if:`), and every Build-chain job
+        # prepare must succeed (its only `if:` is the draft guard), and every Build-chain job
         # must succeed whenever has_code == 'true', so a broken root or a
         # mistyped leaf `if:` can't masquerade as a docs-only skip (#10064).
         #
