@@ -5,15 +5,20 @@ import type { FastifyServerOptions } from "fastify";
  * Test-only: lets every `buildApp()` in a vitest worker reuse compiled route
  * schemas instead of recompiling them.
  *
- * Profiling `buildApp()` + `app.ready()` (≈280 ms, repeated by almost every
- * test via `beforeEach`) put ~70% of the time in Fastify compiling the same
- * route schemas again for each fresh app: `fast-json-stringify` response
- * serializers (~42%) and Ajv request validators (~30%). The schemas are
- * identical for every app instance in a worker, so both compilers are
- * module-level here:
+ * Profiling `buildApp()` + `app.ready()` — repeated by almost every test via
+ * `beforeEach`, and ≈860 ms by 2026-11-28 as the route count grew to 144 —
+ * put nearly all of the time in Fastify compiling the same route schemas
+ * again for each fresh app: `fast-json-stringify` response serializers and
+ * Ajv request validators. The schemas are identical for every app instance
+ * in a worker, so both compilers are module-level here:
  *
- * - validators: one `@fastify/ajv-compiler` selector, which already pools
- *   compilers keyed by the external schemas + Ajv options;
+ * - validators: one `@fastify/ajv-compiler` selector, which pools Ajv
+ *   *instances* by external schemas + Ajv options, wrapped in a memo keyed by
+ *   the route schema. The pool alone was not enough: `ValidatorCompiler`
+ *   ends in `ajv.compile(schema)`, and Ajv's own cache is keyed on the schema
+ *   object's identity, which Fastify hands over fresh on every `buildApp()`.
+ *   So every route recompiled — 740 ms of each 800 ms `app.ready()` was Ajv
+ *   (CPU profile, 144 routes, 2026-11-28);
  * - serializers: a memo keyed by external schemas, serializer options and the
  *   route schema, because the stock serializer selector has no pool.
  *
@@ -29,22 +34,44 @@ type RouteSchemaDef = {
   schema: unknown;
   method?: string;
   url?: string;
+  httpPart?: string;
   httpStatus?: string;
   contentType?: string;
 };
 type Serializer = (data: unknown) => string;
 type BuildSerializerFn = (def: RouteSchemaDef) => Serializer;
 type SerializerFactory = (externalSchemas: unknown, opts: unknown) => BuildSerializerFn;
-type ValidatorFactory = (externalSchemas: unknown, opts: unknown) => unknown;
+type Validator = unknown;
+type BuildValidatorFn = (def: RouteSchemaDef) => Validator;
+type ValidatorFactory = (externalSchemas: unknown, opts: unknown) => BuildValidatorFn;
 
 const fastifyRequire = createRequire(createRequire(import.meta.url).resolve("fastify"));
 
-const validatorFactory = (fastifyRequire("@fastify/ajv-compiler") as () => ValidatorFactory)();
+const stockValidatorFactory = (fastifyRequire("@fastify/ajv-compiler") as () => ValidatorFactory)();
 const stockSerializerFactory = (
   fastifyRequire("@fastify/fast-json-stringify-compiler") as () => SerializerFactory
 )();
 
 const serializerCache = new Map<string, Serializer>();
+const validatorCache = new Map<string, Validator>();
+
+const memoizedValidatorFactory: ValidatorFactory = (externalSchemas, opts) => {
+  const build = stockValidatorFactory(externalSchemas, opts);
+  const scope = JSON.stringify([externalSchemas, opts]);
+  return (def) => {
+    // `ValidatorCompiler.buildValidatorFunction` reads only `schema` — it
+    // comments `method`, `url` and `httpPart` out — so the schema and the
+    // Ajv scope are the whole cache key. `httpPart` rides along anyway,
+    // because Fastify lower-cases header schemas and a future compiler could
+    // branch on it.
+    const key = `${scope}${JSON.stringify([def.schema, def.httpPart])}`;
+    const hit = validatorCache.get(key);
+    if (hit) return hit;
+    const validator = build(def);
+    validatorCache.set(key, validator);
+    return validator;
+  };
+};
 
 const memoizedSerializerFactory: SerializerFactory = (externalSchemas, opts) => {
   const build = stockSerializerFactory(externalSchemas, opts);
@@ -67,7 +94,7 @@ export function withSharedSchemaCompilers(opts: FastifyServerOptions = {}): Fast
     schemaController: {
       ...opts.schemaController,
       compilersFactory: {
-        buildValidator: validatorFactory,
+        buildValidator: memoizedValidatorFactory,
         buildSerializer: memoizedSerializerFactory,
         ...opts.schemaController?.compilersFactory,
       } as never,
