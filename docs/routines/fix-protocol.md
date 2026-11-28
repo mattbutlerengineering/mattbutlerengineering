@@ -44,14 +44,26 @@ section 4.
 6. Stage files by explicit path, never `git add -A`, and confirm with
    `git diff --cached --stat`. Use a Conventional Commits message. If an issue
    already tracks the finding, put `Closes #<N>` in the commit body.
-7. Open one pull request per root cause against `main`. Its title ends with
+7. Open one pull request per fire against `main`, holding every finding you
+   fixed this fire (#10188: many small PRs saturate the CI queue). Each root
+   cause is its own commit, with its own test and its own `Closes #<N>` where
+   an issue tracks it. Keep the total diff under about 400 lines; findings
+   beyond that go to section 4. The title summarises the batch and ends with
    ` (<routine name>)`, for example
-   `fix(scripts): skip closed PRs in the stale detector (mbe-auditor)`. The
-   body states the root cause, the evidence and the fix. Verify the base is
+   `fix(scripts): two stale-detector fixes (mbe-auditor)`. The body has one
+   section per finding: its root cause, evidence and fix. Verify the base is
    `main`.
+8. Never open a second pull request while your routine already has one open;
+   finish or hand off the open one first. Open it as a draft (`--draft`;
+   drafts skip CI) while you add commits, and mark it ready once, before the
+   review in section 3. After that, push once per review round. Never push to
+   a pull request whose CI is queued or running, because each push cancels
+   that run. A non-draft PR opened while the CI queue is saturated is blocked
+   by `scripts/pr-budget.mjs`.
 
-If the gates cannot go green, open no pull request. Discard the branch and
-treat the finding under section 4, with what you learned in the issue body.
+If one finding's gates cannot go green, drop its commit and keep the rest.
+If none can, open no pull request. Discard the branch and treat each finding
+under section 4, with what you learned in the issue body.
 
 ## 3. Review, then hand off
 
@@ -104,7 +116,8 @@ File an issue only when one of these is true:
   product or policy decision.
 - The gates could not go green. (A fix the reviewer flagged twice stays open
   as a `needs-review` PR, per section 3; do not also file an issue.)
-- The fix is larger than the routine's per-fire cap allows.
+- The fix is larger than the routine's per-fire cap allows, or would push
+  the fire's one pull request past about 400 lines.
 
 Deduplicate first: search open and recently closed issues, and skip anything
 labeled `vetoed`, `deferred` or `wontfix`. Write self-contained acceptance

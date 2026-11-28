@@ -99,7 +99,7 @@ mbe check-model --issue <N>   # prints the tier on stdout (model ID/reason on st
 
 It honors an explicit `model:` in the issue's ```yaml agent block, otherwise routes by labels + title + body via `model-router.ts` (single source of truth — no inline copy of the rules here).
 
-Dispatch one subagent per issue — **all in a single message** — using the Agent tool with `subagent_type: "implement-queue-worker"`, `isolation: "worktree"`, and `model:` set to the resolved **tier** from `check-model` (`opus`/`sonnet`/`haiku` — the Agent `model:` parameter is a tier enum, not a full model ID). (If `check-model` fails for an issue, omit `model:` — the worker's `sonnet` default applies.)
+**Bundle by zone, then dispatch one worker per zone batch** (#10188: one PR per issue saturated the CI queue). Group the admitted issues by their `selectZoneSpreadBatch` zone; each group of up to 3 issues from the same zone goes to ONE worker, which opens ONE PR closing all of them. Same-zone issues as separate PRs also pay the update-branch and CI re-run tax described above, so bundling removes it. Claim up to 3 issues per zone for up to `max_workers` zones; never bundle across zones, and never bundle a `security` or `tier:sensitive` issue with anything else. Resolve the batch's tier as the highest `check-model` tier among its issues. Dispatch all workers **in a single message** — using the Agent tool with `subagent_type: "implement-queue-worker"`, `isolation: "worktree"`, and `model:` set to the resolved **tier** from `check-model` (`opus`/`sonnet`/`haiku` — the Agent `model:` parameter is a tier enum, not a full model ID). (If `check-model` fails for an issue, omit `model:` — the worker's `sonnet` default applies.)
 
 **Adapter by tier** — when the worker prompt calls `mbe agent run` internally (e.g. for sub-tasks):
 
@@ -115,11 +115,11 @@ Dispatch with `subagent_type: "implement-queue-worker"` (`.claude/agents/impleme
 
 Each agent prompt MUST include:
 
-1. The issue number, title, and full body.
+1. Every issue in the batch: number, title, and full body, in the order to implement them.
 2. **First step: `node scripts/worktree-base-freshness.mjs check`, then `pnpm bootstrap:worktree`** (a worktree's base can be stale or disconnected; worktrees also have no `node_modules` or workspace `dist/`, and the pre-bash guard blocks `pnpm exec vitest` etc. until bootstrap finishes — a bare `pnpm install` leaves `dist/` unbuilt).
 3. TDD: failing test first, then minimal implementation, per vertical slice.
 4. Gates on affected packages before declaring done: `pnpm lint`, `pnpm typecheck`, `pnpm test` (vitest does NOT typecheck — typecheck is mandatory). Before the first push also run `pnpm build --filter @mbe/cli...` then `pnpm regen` (stage any regenerated artifact by path) — push-time `Stale artifacts detected` is otherwise caught after the fact.
-5. Push branch and open a PR with `Closes #<N>` in the body; **verify the PR's base ref is `main`** (worktree agents can branch from the wrong base). Do NOT merge.
+5. Push branch and open one pull request for the whole batch with one `Closes #<N>` line per issue in the body; **verify the PR's base ref is `main`** (worktree agents can branch from the wrong base). Do NOT merge.
 6. Security rules (non-negotiable):
    > Never introduce hardcoded secrets, SQL injection, XSS, or other OWASP Top 10 vulnerabilities. Never commit `.env` files, credentials, or tokens. Parameterized queries only. Validate external data at boundaries. If you discover an existing vulnerability, stop feature work and fix it first.
 
