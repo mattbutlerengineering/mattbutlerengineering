@@ -97,6 +97,23 @@ describe("defineVitestConfig (react preset)", () => {
       expect(config.test?.projects).toBeUndefined();
     });
 
+    it("keeps a caller's exclude in the node project", () => {
+      const config = defineVitestConfig({
+        include: ["src/**/*.test.{ts,tsx}"],
+        domInclude: ["src/**/*.test.tsx"],
+        coverage: { include: ["src/**/*.tsx"], exclude: [], thresholds: { lines: 70 } },
+        extend: { test: { exclude: ["src/slow/**"] } },
+      });
+      const node = config.test?.projects?.find(
+        (entry) => typeof entry === "object" && "test" in entry && entry.test?.name === "node"
+      );
+
+      expect(node && typeof node === "object" && "test" in node && node.test?.exclude).toEqual([
+        "src/slow/**",
+        "src/**/*.test.tsx",
+      ]);
+    });
+
     it("runs the domInclude files under jsdom with the setup files", () => {
       const dom = project("dom");
 

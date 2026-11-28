@@ -37,7 +37,7 @@ function splitByDom(config, domInclude) {
     name: "node",
     environment: "node",
     ...(include ? { include } : {}),
-    exclude: [...configDefaults.exclude, ...domInclude],
+    exclude: [...(shared.exclude ?? configDefaults.exclude), ...domInclude],
   };
   return {
     ...vite,
