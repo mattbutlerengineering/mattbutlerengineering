@@ -144,8 +144,41 @@ jobs:
           echo "CI precondition for $GITHUB_SHA: $verdict"
           echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
           if [ "$(echo "$verdict" | jq -r .rerun)" = "true" ]; then
-            gh run rerun "$(echo "$verdict" | jq -r .runId)"
-            echo "Re-ran the cancelled CI run; the wait step can now resolve."
+            rerun_id=$(echo "$verdict" | jq -r .runId)
+            gh run rerun "$rerun_id"
+            echo "Re-ran the cancelled CI run $rerun_id; verifying it survives."
+
+            # Issuing the rerun is not evidence that `Build` will appear:
+            # it re-enters the same one-pending-slot concurrency group it was
+            # cancelled in, and a merge burst evicts it again (measured 51s on
+            # CI 46108205241 attempt 2), after which the wait below burns its
+            # whole 1800s discovery timeout for nothing.
+            #
+            # Bounded and deliberately short. A rerun merely waiting on a
+            # runner is one that is working — CI queue p90 is ~20 min under
+            # the account's cap — so `queued` at the end of this budget means
+            # "still unknown" and falls through to the normal wait, exactly as
+            # today. Only an observed re-cancellation stops the job.
+            RERUN_VERIFY_SECONDS=150
+            rerun_verdict=""
+            deadline=$(( SECONDS + RERUN_VERIFY_SECONDS ))
+            while [ "$SECONDS" -lt "$deadline" ]; do
+              rerun_json=$(gh api \
+                "repos/${GITHUB_REPOSITORY}/actions/runs/${rerun_id}" \
+                --jq '[{status, conclusion}]' 2>/dev/null) || break
+              rerun_verdict=$(node scripts/deploy-ci-precondition.mjs --after-rerun "$rerun_json")
+              echo "Rerun $rerun_id: $rerun_verdict"
+              # Settled either way -- re-cancelled, or started and therefore
+              # out of the pending slot the cancellation comes from.
+              if [ "$(echo "$rerun_verdict" | jq -r .state)" != "running" ]; then
+                break
+              fi
+              if [ "$(echo "$rerun_json" | jq -r '.[0].status')" = "in_progress" ]; then
+                break
+              fi
+              sleep 10
+            done
+            echo "rerunVerdict=$rerun_verdict" >> "$GITHUB_OUTPUT"
           fi
 
       # #5663: a `workflow_dispatch` recovery run on a commit with zero
@@ -172,6 +205,28 @@ jobs:
           fi
           if [ "$(echo "$VERDICT" | jq -r .failFast)" = "true" ]; then
             echo "::error::No CI run exists for $GITHUB_SHA — deploy-services.yml was dispatched manually, but no push-event workflow run exists for this commit at all (most often a GITHUB_TOKEN-merged automation PR, which GitHub's anti-recursion rule suppresses). Push a code change, or dispatch ci.yml directly for this ref, then retry."
+            exit 1
+          fi
+
+      # Same contract as the step above: NOT continue-on-error, because
+      # stopping `ci-gate` (and so `deploy`, which needs it) is the point.
+      # This weakens nothing — the deploy already could not proceed without a
+      # green `Build`; it just stops paying 30 min to rediscover that. Like
+      # every other `Wait for CI` failure it does not feed the circuit
+      # breaker: #5662 pointed `circuit-breaker-deploy-failures.mjs` at the
+      # `Deploy API Services` job's own conclusion, `skipped` when `ci-gate`
+      # stops first.
+      - name: Fail fast when the re-run CI run was cancelled again
+        env:
+          RERUN_VERDICT: ${{ steps.assess.outputs.rerunVerdict }}
+        run: |
+          set -euo pipefail
+          if [ -z "$RERUN_VERDICT" ]; then
+            echo "No rerun verdict available — proceeding to the normal wait."
+            exit 0
+          fi
+          if [ "$(echo "$RERUN_VERDICT" | jq -r .failFast)" = "true" ]; then
+            echo "::error::CI for $GITHUB_SHA was cancelled, and the recovery re-run was cancelled again before it ran any job — GitHub keeps one pending run per concurrency group on main, so a merge burst evicts it. No Build check can appear for this commit, so waiting 30 minutes would change nothing. Re-run this workflow once main is quiet, or re-run ci.yml for this exact commit, then retry."
             exit 1
           fi
 

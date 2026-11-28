@@ -8,6 +8,7 @@ import {
   shouldRerun,
   rerunTarget,
   shouldFailFast,
+  shouldFailFastAfterRerun,
   CI_RUN_STATES,
 } from "../deploy-ci-precondition.mjs";
 
@@ -144,6 +145,68 @@ describe("shouldFailFast", () => {
     for (const state of ["running", "success", "failed", "cancelled"]) {
       expect(shouldFailFast(state, "workflow_dispatch", false)).toBe(false);
     }
+  });
+});
+
+describe("shouldFailFastAfterRerun", () => {
+  // Measured 2026-11-28 on three consecutive `Wait for CI` failures
+  // (deploy runs 46108205257, 46106352375, 46098634745). Each one
+  // classified its CI run `cancelled`, issued `gh run rerun`, and logged
+  // "Re-ran the cancelled CI run; the wait step can now resolve." The
+  // rerun then entered the SAME single-pending-slot `CI-refs/heads/main`
+  // concurrency group and was cancelled again by the next merge in the
+  // burst -- run 46108205241 attempt 2 started 04:54:04Z and was cancelled
+  // 04:54:55Z having run zero jobs. All three then burned the full 1800s
+  // `checks-discovery-timeout` waiting for a `Build` check that could
+  // never appear, and failed at ~30.5 minutes each.
+  it("fails fast when the rerun was itself cancelled, so Build can never appear", () => {
+    expect(shouldFailFastAfterRerun("cancelled")).toBe(true);
+  });
+
+  it("does not fail fast while the rerun is queued or running", () => {
+    // Under the runner-concurrency cap a legitimately recovering rerun can
+    // sit `queued` for ~20 minutes (measured queue p90 across CI jobs), so
+    // "not yet started" must keep today's waiting behaviour.
+    expect(shouldFailFastAfterRerun("running")).toBe(false);
+  });
+
+  it("does not fail fast when the rerun already succeeded or failed on its own merits", () => {
+    expect(shouldFailFastAfterRerun("success")).toBe(false);
+    expect(shouldFailFastAfterRerun("failed")).toBe(false);
+  });
+
+  it("fails open on an unverifiable rerun, never treating absent as re-cancelled", () => {
+    // Same rule as shouldFailFast: a query that was skipped or itself
+    // errored must not become a hard deploy failure.
+    expect(shouldFailFastAfterRerun("absent")).toBe(false);
+    expect(shouldFailFastAfterRerun(undefined)).toBe(false);
+    expect(shouldFailFastAfterRerun(null)).toBe(false);
+    expect(shouldFailFastAfterRerun("")).toBe(false);
+  });
+
+  it("decides on exactly one of the states classifyCiRun can produce", () => {
+    const failing = CI_RUN_STATES.filter((state) => shouldFailFastAfterRerun(state));
+    expect(failing).toEqual(["cancelled"]);
+  });
+});
+
+describe("CLI --after-rerun", () => {
+  const cli = (args) => JSON.parse(execFileSync("node", [SCRIPT, ...args], { encoding: "utf8" }));
+
+  it("reports failFast for a rerun that was cancelled again", () => {
+    expect(
+      cli(["--after-rerun", JSON.stringify([{ status: "completed", conclusion: "cancelled" }])])
+    ).toEqual({ state: "cancelled", failFast: true });
+  });
+
+  it("reports no failFast for a rerun that is still queued", () => {
+    expect(
+      cli(["--after-rerun", JSON.stringify([{ status: "queued", conclusion: null }])])
+    ).toEqual({ state: "running", failFast: false });
+  });
+
+  it("reports no failFast for an empty or unparseable rerun query", () => {
+    expect(cli(["--after-rerun", "[]"])).toEqual({ state: "absent", failFast: false });
   });
 });
 
@@ -289,6 +352,40 @@ describe("deploy-services workflow wiring", () => {
       DEPLOY_WORKFLOW_CODE.indexOf("lewagon/wait-on-check-action")
     );
     expect(failFastBlock).toMatch(/No CI run exists for.*GITHUB_SHA/);
+  });
+
+  it("verifies the rerun actually started instead of trusting it, then fails fast when it was cancelled again", () => {
+    // The rerun re-enters the same concurrency group it was cancelled in,
+    // so "I issued a rerun" is not evidence that `Build` will appear.
+    const assess = DEPLOY_WORKFLOW_CODE.slice(
+      DEPLOY_WORKFLOW_CODE.indexOf("gh run rerun"),
+      DEPLOY_WORKFLOW_CODE.indexOf("lewagon/wait-on-check-action")
+    );
+    expect(assess).toContain("--after-rerun");
+    expect(assess).toMatch(/rerunVerdict=/);
+  });
+
+  it("stops the job on a re-cancelled rerun, before the 1800s wait", () => {
+    const idx = DEPLOY_WORKFLOW_CODE.indexOf("RERUN_VERDICT");
+    expect(idx).toBeGreaterThan(-1);
+    expect(idx).toBeLessThan(DEPLOY_WORKFLOW_CODE.indexOf("lewagon/wait-on-check-action"));
+    const block = DEPLOY_WORKFLOW_CODE.slice(
+      idx,
+      DEPLOY_WORKFLOW_CODE.indexOf("lewagon/wait-on-check-action")
+    );
+    expect(block).toMatch(/exit 1/);
+    expect(block).not.toContain("continue-on-error");
+  });
+
+  it("bounds the rerun verification so it cannot become a new stall", () => {
+    const assess = DEPLOY_WORKFLOW_CODE.slice(
+      DEPLOY_WORKFLOW_CODE.indexOf("gh run rerun"),
+      DEPLOY_WORKFLOW_CODE.indexOf("lewagon/wait-on-check-action")
+    );
+    expect(assess).toMatch(/RERUN_VERIFY_SECONDS=\d+/);
+    const budget = Number(assess.match(/RERUN_VERIFY_SECONDS=(\d+)/)[1]);
+    expect(budget).toBeGreaterThanOrEqual(60);
+    expect(budget).toBeLessThanOrEqual(300);
   });
 
   it("documents that a fail-fast here does not re-trip the circuit breaker (#5662 narrowed it to the deploy job's own conclusion)", () => {

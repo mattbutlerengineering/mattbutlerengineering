@@ -32,6 +32,20 @@
  * production-dependency bump that merged to `main` and never reached the
  * running services.
  *
+ * A rerun is not self-evidently a recovery, which is why
+ * `shouldFailFastAfterRerun` exists: it re-enters the *same* one-pending-slot
+ * `CI-refs/heads/main` group it was cancelled in, so in a merge burst the
+ * next merge evicts it within a minute, having run no jobs. Measured
+ * 2026-11-28 on deploy runs 46108205257, 46106352375 and 46098634745 — each
+ * issued the rerun, then burned the full 1800s discovery timeout and failed
+ * at ~30.5 min (CI 46108205241 attempt 2: started 04:54:04Z, cancelled
+ * 04:54:55Z, zero jobs). So the rerun's own outcome is checked first; a
+ * re-cancelled one fails in ~a minute with the real reason. Only the speed of
+ * that failure changes — the deploy still requires a green `Build`. Widening
+ * main's concurrency group would remove the cause instead, but it adds
+ * concurrent CI to an account whose runner cap is already the top queue
+ * bottleneck (#10012, #10013) — a spend decision, not this script's.
+ *
  * The recovery is `gh run rerun <id>` rather than `gh workflow run ci.yml`.
  * A rerun re-executes against the exact commit the deploy is gated on; a
  * dispatch runs against whatever the branch points at *now*, which on a busy
@@ -115,6 +129,30 @@ export function shouldRerun(state) {
 }
 
 /**
+ * Whether the wait step should be skipped and the job failed because the
+ * rerun this module just issued was itself cancelled.
+ *
+ * `cancelled` alone, for the same reason `shouldRerun` is: that is the one
+ * state in which CI's `Build` check provably cannot appear for this commit.
+ * Every other state keeps today's waiting behaviour, which matters most for
+ * `running` -- under the runner-concurrency cap a legitimately recovering
+ * rerun sits `queued` for ~20 minutes (measured queue p90), and that is a
+ * rerun that is working, not a stuck one.
+ *
+ * Fails open on anything `classifyCiRun` could not determine: `absent` (the
+ * post-rerun query returned nothing, or was never made) must never be read
+ * as "verified re-cancelled", in keeping with `shouldFailFast`'s tri-state
+ * rule. A missing answer leaves the status quo, never a new hard failure.
+ *
+ * @param {string|null|undefined} state - a `classifyCiRun` state for the
+ *   rerun alone, not for every run on the commit
+ * @returns {boolean}
+ */
+export function shouldFailFastAfterRerun(state) {
+  return state === "cancelled";
+}
+
+/**
  * The run to re-execute: the most recent cancelled one.
  *
  * @param {Array<{databaseId?: number, conclusion?: string|null}>} runs
@@ -173,6 +211,24 @@ export function parseHasCheckRuns(arg) {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
+  // `--after-rerun <runs json>` classifies the rerun on its own and answers
+  // only "should the wait be skipped". It is a separate mode, not an extra
+  // field on the default output, because its input is a different query: one
+  // run id fetched after `gh run rerun`, not every run on the commit.
+  if (process.argv[2] === "--after-rerun") {
+    let state;
+    try {
+      state = classifyCiRun(JSON.parse(process.argv[3] ?? "[]"));
+    } catch {
+      // An unparseable query is "unverified", never "verified re-cancelled".
+      state = "absent";
+    }
+    process.stdout.write(
+      `${JSON.stringify({ state, failFast: shouldFailFastAfterRerun(state) })}\n`
+    );
+    process.exit(0);
+  }
+
   const runs = JSON.parse(process.argv[2] ?? "[]");
   const triggerEvent = process.argv[3] ?? "";
   const hasCheckRuns = parseHasCheckRuns(process.argv[4]);
