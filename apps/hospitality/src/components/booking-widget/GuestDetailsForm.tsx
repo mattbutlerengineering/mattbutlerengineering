@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useId, useReducer, useRef } from "rea
 import { useForm } from "react-hook-form";
 import type { TimeSlot, ReservationHold } from "@mbe/types";
 import { Input, TextArea, Button, Alert, Text, Banner, Badge } from "@mattbutlerengineering/rialto";
+import { fieldHintId } from "@mattbutlerengineering/rialto/hooks";
 import { useTranslation } from "react-i18next";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { useGuestRecognition } from "../../hooks/useGuestRecognition.js";
@@ -274,10 +275,10 @@ export function GuestDetailsForm({
           label={t("bookingWidget.details.phone")}
           error={contactError}
           hint={contactError ? undefined : t("bookingWidget.details.contactHint")}
-          // rialto's useField names the hint region `${id}-hint`. Spread only
+          // fieldHintId is the id rialto's useField gives the hint region. Spread only
           // in the error state: rialto applies rest props after its own
           // wiring, so even an undefined value would drop Phone's own hint.
-          {...(contactError ? { "aria-describedby": `${emailId}-hint` } : {})}
+          {...(contactError ? { "aria-describedby": fieldHintId(emailId) } : {})}
           type="tel"
           autoComplete="tel"
           value={phone}

@@ -13,7 +13,7 @@ export { useThemeState, resolveTheme, THEME_STORAGE_KEY } from "./useThemeState"
 export type { ThemePreference, ThemeState } from "./useThemeState";
 export { useCombobox } from "./useCombobox";
 export type { ComboboxItem, UseComboboxOptions, UseComboboxResult } from "./useCombobox";
-export { useField } from "./useField";
+export { useField, fieldHintId } from "./useField";
 export type {
   UseFieldOptions,
   UseFieldResult,

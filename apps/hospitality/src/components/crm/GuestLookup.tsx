@@ -21,7 +21,7 @@ import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import type { ChangeHandler, RefCallBack } from "react-hook-form";
 import { Input, Text } from "@mattbutlerengineering/rialto";
-import { useCombobox } from "@mattbutlerengineering/rialto/hooks";
+import { fieldHintId, useCombobox } from "@mattbutlerengineering/rialto/hooks";
 import type { Guest } from "@mbe/types";
 import { useGuestLookup } from "../../hooks/useGuestLookup.js";
 import { formatGuestRowDetail } from "./guest-lookup-rows.js";
@@ -184,7 +184,7 @@ export function GuestLookup({
         : t("crm.lookup.results", { count: rows.length });
 
   const describedBy = failureShown
-    ? [hint ? `${inputId}-hint` : undefined, captionId].filter(Boolean).join(" ")
+    ? [hint ? fieldHintId(inputId) : undefined, captionId].filter(Boolean).join(" ")
     : undefined;
 
   return (
