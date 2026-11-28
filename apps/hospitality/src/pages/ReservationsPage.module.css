@@ -88,6 +88,16 @@
   flex-wrap: wrap;
 }
 
+/* The search Input's wrapper is a flex item with no sizing, so it stays at the input's intrinsic
+   width (~20 characters) and clips longer placeholders (fr-CA, es-MX). On a phone it takes the
+   whole row; the date field and New reservation button share the next one. */
+@media (max-width: 480px) {
+  .search {
+    flex: 1 1 100%;
+    min-inline-size: 0;
+  }
+}
+
 /* The compact button keeps a 44px target on touch and phone/tablet widths, like the
    SegmentedControl beside it (a fine-pointer browser resized narrow gets no coarse match). */
 @media (pointer: coarse), (max-width: 1024px) {
