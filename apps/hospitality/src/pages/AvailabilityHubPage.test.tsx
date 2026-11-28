@@ -604,7 +604,7 @@ describe("AvailabilityHubPage", () => {
       const steps = within(strip).getAllByRole("listitem");
       expect(steps.map((step) => step.textContent)).toEqual([
         "Venue basicsDone",
-        "Regular weekNext",
+        "Regular hoursNext",
         "Floor planNot yet",
       ]);
     });

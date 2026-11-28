@@ -26,6 +26,9 @@ jobs:
       hospitality: ${{ steps.filter.outputs.hospitality }}
       rialto: ${{ steps.filter.outputs.rialto-web }}
       any_changed: ${{ steps.check.outputs.any }}
+      # One matrix entry per changed app, so `deploy-preview` starts a runner
+      # only for an app this run will actually deploy (#10009).
+      apps: ${{ steps.check.outputs.apps }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
 
@@ -50,7 +53,20 @@ jobs:
           HOSPITALITY: ${{ steps.filter.outputs.hospitality }}
           RIALTO: ${{ steps.filter.outputs.rialto-web }}
         run: |
-          if [ "$MARKETING" = "true" ] || [ "$HOSPITALITY" = "true" ] || [ "$RIALTO" = "true" ]; then
+          # No `&&` chains here: the default shell is `bash -e`, so a false
+          # test would abort the step rather than skip an app.
+          APPS=""
+          if [ "$MARKETING" = "true" ]; then
+            APPS="${APPS}{\"app\":\"marketing\",\"package\":\"@mbe/marketing\"}"
+          fi
+          if [ "$HOSPITALITY" = "true" ]; then
+            APPS="${APPS:+$APPS,}{\"app\":\"hospitality\",\"package\":\"@mbe/hospitality\"}"
+          fi
+          if [ "$RIALTO" = "true" ]; then
+            APPS="${APPS:+$APPS,}{\"app\":\"rialto-web\",\"package\":\"@mbe/rialto-web\"}"
+          fi
+          echo "apps=[$APPS]" >> "$GITHUB_OUTPUT"
+          if [ -n "$APPS" ]; then
             echo "any=true" >> "$GITHUB_OUTPUT"
           else
             echo "any=false" >> "$GITHUB_OUTPUT"
@@ -72,38 +88,29 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - app: marketing
-            filter: marketing
-            package: "@mbe/marketing"
-          - app: hospitality
-            filter: hospitality
-            package: "@mbe/hospitality"
-          - app: rialto-web
-            filter: rialto
-            package: "@mbe/rialto-web"
+        # Built by `detect-changes`, not a static list of all three apps. A
+        # static matrix started a runner per app and gated each *step* on that
+        # app's filter, so a one-app PR booted three jobs: one that deployed
+        # and two that checked out and exited in 7-8s, each after minutes of
+        # queue wait (runs 46108332395, 46106631247). Those slots count
+        # against the account's concurrent-job cap, which is what sets
+        # ci.yml's queue wait (#10009).
+        include: ${{ fromJSON(needs.detect-changes.outputs.apps) }}
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
 
       - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
-        if: needs.detect-changes.outputs[matrix.filter] == 'true'
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v6
-        if: needs.detect-changes.outputs[matrix.filter] == 'true'
         with:
           node-version: 22
           cache: "pnpm"
 
       - name: Install and build
         env:
-          FILTER: ${{ needs.detect-changes.outputs[matrix.filter] }}
           PKG: ${{ matrix.package }}
         run: |
-          if [ "$FILTER" != "true" ]; then
-            echo "Skipping — no changes"
-            exit 0
-          fi
           pnpm install --frozen-lockfile
           pnpm --filter "$PKG..." build
 
@@ -114,10 +121,8 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           PR_NUM: ${{ github.event.pull_request.number }}
           APP: ${{ matrix.app }}
-          FILTER: ${{ needs.detect-changes.outputs[matrix.filter] }}
         run: |
           set -euo pipefail
-          if [ "$FILTER" != "true" ]; then exit 0; fi
           WORKER_NAME="mbe-preview-${PR_NUM}-${APP}"
           npx wrangler@3.114.17 deploy \
             --config "apps/${APP}/wrangler.toml" \
@@ -137,7 +142,6 @@ jobs:
           echo "$URL" > preview-url.txt
 
       - name: Upload preview URL
-        if: needs.detect-changes.outputs[matrix.filter] == 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: preview-url-${{ matrix.app }}

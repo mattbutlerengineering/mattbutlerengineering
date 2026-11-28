@@ -172,3 +172,55 @@ describe("deploy-static.yml sets every VITE_* variable each app reads", () => {
     expect(missing, `${app} build step is missing: ${missing.join(", ")}`).toEqual([]);
   });
 });
+
+/**
+ * `APPS` above is a hand-written list, and nothing asserted it was complete, so
+ * a new static app joined the repo invisible to every guard in this file.
+ * apps/gen did exactly that: it has a wrangler.toml with an [assets] block like
+ * the other three, but deploy-static.yml has no gen filter or job, so none of
+ * the checks above ever looked at it.
+ *
+ * gen is deployed by Pulumi on purpose -- infrastructure/pulumi/index.ts manages
+ * `mattbutlerengineering-gen` as a WorkersScript and says it "Replaces the
+ * wrangler deploy in CI" -- so the fix is to declare its deploy owner, not to
+ * add it to deploy-static.yml. These two checks make that declaration
+ * mandatory: a static app that is in neither list fails here, and a
+ * Pulumi-deployed app whose runtime closure outgrows pulumi-up.yml's push
+ * trigger fails too. Same property the deploy-static.yml checks above enforce
+ * (#7487), applied to the other deploy path.
+ */
+const PULUMI_DEPLOYED = ["gen"];
+
+/** apps/<name> directories that ship as a Cloudflare Worker with static assets. */
+function staticApps() {
+  return readdirSync(join(ROOT, "apps"))
+    .filter((name) => existsSync(join(ROOT, "apps", name, "wrangler.toml")))
+    .sort();
+}
+
+/** Repo-relative dirs listed under a workflow's push `paths:`. */
+function pushTriggerPaths(workflow, endMarker) {
+  const text = readFileSync(join(ROOT, ".github/workflows", workflow), "utf8");
+  const block = text.slice(text.indexOf("paths:"), text.indexOf(endMarker));
+  return [...block.matchAll(/^\s+-\s+"([^"]+)"/gm)].map((m) => m[1]);
+}
+
+describe("every static app has a declared deploy owner", () => {
+  it("each apps/* with a wrangler.toml is in APPS or PULUMI_DEPLOYED", () => {
+    const declared = [...APPS, ...PULUMI_DEPLOYED].sort();
+    expect(staticApps()).toEqual(declared);
+  });
+
+  it.each(PULUMI_DEPLOYED)("%s: every bundled package triggers Pulumi Deploy", (app) => {
+    const dirs = workspaceDirs();
+    const paths = pushTriggerPaths("pulumi-up.yml", "workflow_run:");
+    const closure = runtimeClosure(app, dirs);
+    // Both sides must be non-trivial, or an empty closure (or an unparsed
+    // trigger block) would make the assertion below pass having checked
+    // nothing.
+    expect(closure).toContain("packages/rialto");
+    expect(paths).toContain(`apps/${app}/**`);
+    const missing = closure.filter((dir) => !paths.includes(`${dir}/**`));
+    expect(missing, `pulumi-up.yml push trigger is missing: ${missing.join(", ")}`).toEqual([]);
+  });
+});

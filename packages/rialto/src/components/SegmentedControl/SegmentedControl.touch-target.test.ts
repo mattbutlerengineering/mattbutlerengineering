@@ -19,7 +19,9 @@ describe("SegmentedControl coarse-pointer touch target", () => {
   it("gives the .sm segment a 44px min-block-size floor under (pointer: coarse)", () => {
     const css = readFileSync(CSS_PATH, "utf-8");
 
-    const coarsePointerBlock = css.match(/@media \(pointer: coarse\)\s*\{([\s\S]*?)\n\}/);
+    const coarsePointerBlock = css.match(
+      /@media \(pointer: coarse\)(?:,\s*\(max-width: 1024px\))?\s*\{([\s\S]*?)\n\}/
+    );
     expect(
       coarsePointerBlock,
       "expected an @media (pointer: coarse) block in SegmentedControl.module.css"
@@ -27,6 +29,18 @@ describe("SegmentedControl coarse-pointer touch target", () => {
 
     const blockBody = coarsePointerBlock?.[1] ?? "";
     expect(blockBody).toMatch(/\.sm \.segment\s*\{[^}]*min-block-size:\s*44px[^}]*\}/);
+  });
+
+  it("also applies the floor at phone/tablet widths for fine-pointer narrow viewports (#10161)", () => {
+    const css = readFileSync(CSS_PATH, "utf-8");
+    const block = css.match(
+      /@media \(pointer: coarse\),\s*\(max-width: 1024px\)\s*\{([\s\S]*?)\n\}/
+    );
+    expect(
+      block,
+      "expected @media (pointer: coarse), (max-width: 1024px) in SegmentedControl.module.css"
+    ).not.toBeNull();
+    expect(block?.[1] ?? "").toMatch(/\.sm \.segment\s*\{[^}]*min-block-size:\s*44px[^}]*\}/);
   });
 
   it("does not change the .sm .segment rule outside the coarse-pointer query", () => {

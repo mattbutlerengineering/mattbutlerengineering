@@ -47,9 +47,9 @@ describe("hospitality adapter", () => {
   const rows = extractApp("hospitality", io);
   const byRoute = Object.fromEntries(rows.map((r) => [r.route, r]));
 
-  it("yields 39 route templates (37 leaf paths + 3 index routes, one of which shares `onboarding`)", () => {
-    expect(rows).toHaveLength(39);
-    expect(new Set(rows.map((r) => r.route)).size).toBe(39);
+  it("yields 40 route templates (38 leaf paths + 3 index routes, one of which shares `onboarding`)", () => {
+    expect(rows).toHaveLength(40);
+    expect(new Set(rows.map((r) => r.route)).size).toBe(40);
   });
 
   it("reads the closing summary at `night` (#9483)", () => {
@@ -113,15 +113,15 @@ describe("hospitality adapter", () => {
     expect(byRoute["reservations/manage"].auth).toBe("public");
     expect(byRoute["timeline"].auth).toBe("auth0");
     expect(byRoute["/"].auth).toBe("auth0");
-    expect(rows.filter((r) => r.auth === "auth0")).toHaveLength(34);
+    expect(rows.filter((r) => r.auth === "auth0")).toHaveLength(35);
   });
 
   it("classifies callback as a redirect and * as not-found", () => {
     expect(byRoute["callback"].kind).toBe("redirect");
     expect(byRoute["*"].kind).toBe("not-found");
     expect(byRoute["timeline"].kind).toBe("page");
-    // 33 since the Availability map became a redirect (#10032); 34 with Explain this day (#10047).
-    expect(rows.filter((r) => r.kind === "page")).toHaveLength(34);
+    // 33 since the Availability map became a redirect (#10032); 34 with Explain this day (#10047), 35 with Terminology (#10031).
+    expect(rows.filter((r) => r.kind === "page")).toHaveLength(35);
     // /setup/hours moved to the Availability page (#7513); the old path stays as a <Navigate>.
     expect(byRoute["setup/hours"].kind).toBe("redirect");
     // /setup moved to the Availability map (#8864), then the hub (#10032); it stays a redirect.
@@ -267,7 +267,7 @@ describe("routes.mjs all", () => {
       .trimEnd()
       .split("\n")
       .map((l) => JSON.parse(l));
-    expect(rows).toHaveLength(39 + 12 + 134);
+    expect(rows).toHaveLength(40 + 12 + 134);
     const keys = rows.map((r) => `${r.app}\u0000${r.route}`);
     expect(keys).toEqual([...keys].sort());
     expect([...new Set(rows.map((r) => r.app))]).toEqual([

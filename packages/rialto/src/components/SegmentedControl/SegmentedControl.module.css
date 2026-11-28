@@ -83,9 +83,10 @@
   font-size: var(--rialto-text-xs);
 }
 
-/* Coarse-pointer (touch) devices need a 44px WCAG 2.5.8 target-size floor on
-   the compact .sm variant; mouse/trackpad density is untouched. */
-@media (pointer: coarse) {
+/* Coarse-pointer (touch) devices and phone/tablet widths need a 44px WCAG 2.5.8
+   target-size floor on the compact .sm variant (a fine-pointer browser resized
+   narrow still gets it); wide mouse/trackpad density is untouched. */
+@media (pointer: coarse), (max-width: 1024px) {
   .sm .segment {
     min-block-size: 44px;
   }

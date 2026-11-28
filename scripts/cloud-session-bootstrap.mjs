@@ -13,11 +13,12 @@
  * installed. The container image ships a pre-baked `node_modules`, so a
  * session whose checkout has moved past the image gated the install on a
  * directory that was already there and ran its gates against a stale tree.
- * Measured 2026-11-28: an image baked on 11-23 against a session on 11-28,
- * after 02f1946 changed `pnpm-lock.yaml` and `services/agent`'s
- * `@modelcontextprotocol/sdk` dependency -- `services/agent` had no link for
- * it, so `pnpm lint` and `pnpm typecheck` both failed with 13 `TS2307`s that
- * had nothing to do with the session's own work.
+ * Measured 2026-11-28: an image baked on 11-23 22:34 against a session on
+ * 11-28. `services/agent` had no link for `@modelcontextprotocol/sdk` even
+ * though the store held it, so `pnpm lint` and `pnpm typecheck` both failed
+ * with 13 `TS2307`s that had nothing to do with the session's own work.
+ * `01373cd` (11-25, #9734) added that dependency and changed the lockfile, so
+ * any image older than it ships a tree that cannot resolve it.
  *
  * So the decision reads provenance, not presence: pnpm records the lockfile it
  * last installed from at `node_modules/.pnpm/lock.yaml`, and a tree installed
@@ -94,9 +95,12 @@ export function runCloudSessionBootstrap({
   log = (msg) => process.stderr.write(`${msg}\n`),
 } = {}) {
   const hasNodeModules = exists(join(repoRoot, "node_modules"));
-  const installedLockfileMatches = hasNodeModules
-    ? installedFromThisLockfile({ repoRoot, readText })
-    : undefined;
+  // Only a cloud session can act on the answer, and the comparison reads two
+  // ~669 KB lockfiles, so a local session never pays for it.
+  const installedLockfileMatches =
+    hasNodeModules && env?.CLAUDE_CODE_REMOTE === "true"
+      ? installedFromThisLockfile({ repoRoot, readText })
+      : undefined;
   if (!shouldBootstrapCloudSession({ env, hasNodeModules, installedLockfileMatches })) {
     return { ran: false, ok: true };
   }
