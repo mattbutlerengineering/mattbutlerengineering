@@ -3779,7 +3779,7 @@
       "description": "Comment les heures habituelles, les heures saisonnières, les dates spéciales, les fermetures, les pauses et les règles de réservation se combinent pour donner les heures qu’un client peut réserver.",
       "overview": {
         "heading": "Aperçu",
-        "intro": "La disponibilité est construite par couches. Chaque couche peut modifier celles du dessous, et la couche la plus haute l’emporte à une date. Utilisez Vérifier une date dans la section Disponibilité pour voir quelles couches s’appliquent à une journée et laquelle l’a emporté.",
+        "intro": "La disponibilité est construite par couches. Chaque couche peut modifier celles du dessous, et la couche la plus haute l’emporte à une date. Utilisez Vérifier une date dans la section Disponibilité pour voir ce que fait une journée et la règle qui en a décidé.",
         "layersLead": "De bas en haut, les couches sont les suivantes :",
         "layers": {
           "regular": "Heures habituelles : votre horaire de la semaine.",
@@ -3807,10 +3807,11 @@
         "overlap": "Quand deux ensembles d’heures couvrent la même date, celui dont la priorité est la plus haute l’emporte. En cas d’égalité, celui qui est listé en premier l’emporte."
       },
       "special": {
-        "what": "Une date spéciale est une date qui diffère des heures qui la couvrent. Une date peut être réglée pour utiliser un autre ensemble d’heures, ou avoir ses propres heures spéciales.",
+        "what": "Une date spéciale est une date qui diffère des heures qui la couvrent. Une date peut avoir ses propres heures spéciales.",
         "replaces": "Les heures spéciales remplacent complètement les services de cette date. Seuls les services listés dans les heures spéciales ont lieu, aux heures indiquées, peu importe ce que disent les heures habituelles ou les heures saisonnières.",
         "repeat": "Une date spéciale peut se répéter certains jours de la semaine. Retirer une date de la répétition, ou modifier une seule date, remplace la répétition à cette date seulement. Une date retirée retourne aux heures qui se trouvent dessous.",
-        "overlap": "Si deux heures spéciales couvrent la même date, une seule est utilisée (la plus récente dans l’ordre enregistré). Il en va de même pour deux dates réglées pour utiliser d’autres heures. Évitez les dates qui se chevauchent."
+        "overlap": "Si deux heures spéciales couvrent la même date, une seule est utilisée (la plus récente dans l’ordre enregistré). Il en va de même pour deux dates réglées pour utiliser d’autres heures. Évitez les dates qui se chevauchent.",
+        "otherHours": "Une date peut plutôt être réglée pour utiliser un autre ensemble d’heures. Ces heures remplacent celles qui couvriraient autrement la date, sauf si la date a aussi des heures spéciales, qui l’emportent sur elles."
       },
       "closures": {
         "what": "Une fermeture retire les clients. Une pause arrête les réservations sur un canal, comme celui en ligne, pendant que les heures restent telles quelles.",
@@ -3889,7 +3890,7 @@
         },
         "pacing": {
           "title": "Le rythme de réservation plafonne une heure chargée",
-          "scenario": "Le vendredi 26 novembre, le souper a un plafond de rythme de quatre couverts par heure, et un groupe de quatre est déjà réservé à 18 h.",
+          "scenario": "Le souper a un plafond de rythme de quatre couverts par heure, et le vendredi 26 novembre un groupe de quatre est déjà réservé à 18 h.",
           "checks": {
             "partyOfTwo": "Vendredi 26 novembre 2027, un client en ligne, groupe de 2"
           },
@@ -3904,10 +3905,10 @@
       },
       "troubleshooting": {
         "heading": "Pourquoi un client ne peut-il pas réserver cette heure?",
-        "lead": "Disons qu’un client ne peut pas réserver à 19 h le vendredi. Parcourez cette liste dans l’ordre, comme les couches s’empilent.",
+        "lead": "Disons qu’un client ne peut pas réserver à 19 h le vendredi. Parcourez cette liste dans l’ordre. Chaque étape nomme la couche ou la règle à vérifier.",
         "steps": {
-          "checkDate": "Vérifier une date : ouvrez ce vendredi dans la section Disponibilité. Vous y voyez les couches qui s’appliquent et laquelle l’a emporté.",
-          "special": "Date spéciale : ce vendredi est-il une date spéciale? Ses heures spéciales remplacent tout ce qui est dessous, alors seuls les services listés là ont lieu, aux heures indiquées.",
+          "checkDate": "Vérifier une date : ouvrez ce vendredi dans la section Disponibilité. Vous y voyez une seule phrase : ce que fait cette date et la règle qui en a décidé.",
+          "special": "Heures spéciales : ce vendredi a-t-il ses propres heures spéciales? Elles remplacent tout ce qui est dessous, alors seuls les services listés là ont lieu, aux heures indiquées.",
           "seasonal": "Heures saisonnières : couvrent-elles ce vendredi, et les vendredis en particulier? Si oui, leurs heures s’appliquent à la place des heures habituelles.",
           "regular": "Heures habituelles : si rien de ce qui précède ne s’applique, le vendredi a-t-il un service ouvert à 19 h, avec 19 h à la dernière prise de table ou avant?",
           "seatEvery": "Prise de table aux : 19 h est-elle une des heures que le service offre? Une prise de table aux 45 minutes à partir de 17 h offre 17 h, 17 h 45, 18 h 30 et 19 h 15, pas 19 h.",
@@ -3917,7 +3918,9 @@
           "tonight": "Ce soir : si la date est aujourd’hui, Fermer plus tôt ou un rythme de réservation plus bas a-t-il été réglé pour ce soir?",
           "tables": "Tables et taille du groupe : une table accueille-t-elle le groupe? La section de cette table est-elle fermée? Chaque table convenable est-elle occupée pendant tout le séjour?",
           "pacing": "Rythme de réservation : 19 h figure-t-elle dans la liste, mais complète parce qu’un plafond de rythme est atteint?",
-          "window": "Fenêtre de réservation : la date est-elle plus loin que ce que les clients peuvent réserver? Cette limite ne fait pas partie des couches ci-dessus."
+          "window": "Fenêtre de réservation : la date est-elle plus loin que ce que les clients peuvent réserver? Cette limite ne fait pas partie des couches ci-dessus.",
+          "otherHours": "Autres heures : cette date est-elle réglée pour utiliser un autre ensemble d’heures? Si oui, ces heures s’appliquent à la place des heures saisonnières ou des heures habituelles, sauf si la date a aussi des heures spéciales.",
+          "whyThisDay": "Pourquoi ce jour : toujours bloqué? Ouvrez ce vendredi dans le Calendrier. Quand plus d’une couche s’applique, cette section les liste, avec ce que chacune change et ce que la retirer ferait."
         }
       }
     }
