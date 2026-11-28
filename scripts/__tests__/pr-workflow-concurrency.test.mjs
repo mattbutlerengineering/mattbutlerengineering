@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { listWorkflowFiles, loadWorkflow } from "../lib/workflow.mjs";
+import { evaluateTemplate } from "../lib/workflow-expression.mjs";
 
 /**
  * Every workflow that re-runs on a PR push must cancel its own superseded run.
@@ -31,7 +32,8 @@ import { listWorkflowFiles, loadWorkflow } from "../lib/workflow.mjs";
  *
  * This asserts only that superseded runs are cancelled, not how the group key
  * is spelled: a workflow that must serialize on a shared external resource
- * (storybook.yml deploys to GitHub Pages) keeps its own group.
+ * (storybook.yml deploys to GitHub Pages) keeps its own group, pinned by
+ * storybook-concurrency.test.mjs.
  */
 
 /** PR event types that a later push to the same branch supersedes. */
@@ -88,33 +90,34 @@ describe("pull_request workflows cancel their superseded runs", () => {
    * those runs on push — which is exactly why this is asserted here and not
    * left to a reader to notice.
    */
-  const PUSH_GROUP_EXEMPT = {
-    "storybook.yml":
-      "serializes on a shared external resource: `group: pages` is GitHub's " +
-      "documented key for Pages deployments, and its deploy job is " +
-      "`if: github.event_name != 'pull_request'`. A PR build sharing that group " +
-      "can still cancel a main Pages deploy — a real hole, but it predates the " +
-      "concurrency blocks this file was added for and changing Pages " +
-      "serialization is its own decision (#10204).",
-  };
-
   const pushCandidates = candidates
     .filter(({ workflow }) => workflow.on.push)
-    .map(({ file }) => file)
-    .filter((file) => !(file in PUSH_GROUP_EXEMPT));
+    .map(({ file }) => file);
 
   it("finds the pull_request workflows that also run on push", () => {
     expect(pushCandidates).toContain("apps-visual.yml");
     expect(pushCandidates).toContain("rialto-web-e2e.yml");
     expect(pushCandidates).toContain("ci.yml");
+    // No exemption: storybook.yml's Pages group is pinned by
+    // storybook-concurrency.test.mjs and must pass here too (#10204).
+    expect(pushCandidates).toContain("storybook.yml");
   });
+
+  /** A push to main, as the `github` context a concurrency expression reads. */
+  const MAIN_PUSH = {
+    event_name: "push",
+    ref: "refs/heads/main",
+    event: { pull_request: {} },
+  };
 
   it.each(pushCandidates)("%s never cancels one push to main with the next", (file) => {
     const { concurrency } = loadWorkflow(file);
     const perRunFallback = String(concurrency?.group ?? "").includes("github.run_id");
-    const notCancelledOnMain = String(concurrency?.["cancel-in-progress"] ?? "").includes(
-      "refs/heads/main"
-    );
+    // Evaluated, not text-matched: `github.ref != 'refs/heads/main'` (ci.yml)
+    // and `github.event_name == 'pull_request'` (storybook.yml) are both false
+    // on a main push, and a literal `true` is not.
+    const notCancelledOnMain =
+      evaluateTemplate(String(concurrency?.["cancel-in-progress"] ?? ""), MAIN_PUSH) === "false";
     expect(perRunFallback || notCancelledOnMain).toBe(true);
   });
 });
