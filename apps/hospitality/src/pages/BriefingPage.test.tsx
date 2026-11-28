@@ -33,6 +33,8 @@ vi.mock("react-router", async (importOriginal) => {
 vi.mock("../contexts/VenueContext.js", () => ({ useVenue: vi.fn() }));
 vi.mock("../hooks/useBriefing.js", () => ({ useBriefing: vi.fn() }));
 vi.mock("../hooks/useStaffTonight.js", () => ({ useStaffTonight: vi.fn() }));
+const viewport = vi.hoisted(() => ({ value: "desktop" as "phone" | "tablet" | "desktop" }));
+vi.mock("../hooks/useViewport.js", () => ({ useViewport: () => viewport.value }));
 
 const tonightAt = (serviceDate: string | null): StaffTonight => ({
   serviceDate,
@@ -560,6 +562,23 @@ describe("BriefingPage", () => {
       expect(screen.getByTestId("segment-early")).toHaveTextContent("Early (before 6 PM)");
       expect(screen.getByTestId("segment-dinner")).toHaveTextContent(/^Dinner \(6\s*–\s*9 PM\)$/);
       expect(screen.getByTestId("segment-late")).toHaveTextContent("Late (from 9 PM)");
+    });
+
+    // #10234: four long labels overflow a 375px segmented control and cut "Late" off, so a phone
+    // gets the boundary alone; the bucket names stay on desktop and tablet.
+    it("a phone prints each boundary without the bucket name so the control fits (#10234)", () => {
+      viewport.value = "phone";
+      try {
+        mockBriefing({ data: night() });
+
+        renderPage();
+
+        expect(screen.getByTestId("segment-early")).toHaveTextContent("Before 6 PM");
+        expect(screen.getByTestId("segment-dinner")).toHaveTextContent(/^6\s*–\s*9 PM$/);
+        expect(screen.getByTestId("segment-late")).toHaveTextContent("From 9 PM");
+      } finally {
+        viewport.value = "desktop";
+      }
     });
 
     it("a 20:30 party files under the segment whose label covers 8:30 PM (#5276)", () => {

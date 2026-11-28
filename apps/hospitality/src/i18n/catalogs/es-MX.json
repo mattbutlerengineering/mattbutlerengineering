@@ -4051,6 +4051,11 @@
       "dinner": "Cena ({{range}})",
       "late": "Tarde (desde las {{hour}})"
     },
+    "segmentsCompact": {
+      "early": "Antes de {{hour}}",
+      "dinner": "{{range}}",
+      "late": "Desde {{hour}}"
+    },
     "noSeatings": {
       "early": "No hay turnos tempranos esta noche.",
       "dinner": "No hay turnos de cena esta noche.",
