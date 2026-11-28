@@ -261,9 +261,46 @@ describe("check-ai-antipatterns", () => {
       expect(blockHasAssertion(block)).toBe(false);
     });
 
-    test("does not recognize a custom throw-based helper (documented limitation)", async () => {
+    test("recognizes a call to a same-file helper named assertKeysMatch (#10147)", async () => {
       const { blockHasAssertion } = await import("../check-ai-antipatterns.mjs");
       const block = '"schemas match", () => { assertKeysMatch("User", zodKeys, jsonKeys); }';
+      expect(blockHasAssertion(block)).toBe(true);
+    });
+
+    test("recognizes an imported helper named expectBroken (#10147)", async () => {
+      const { blockHasAssertion } = await import("../check-ai-antipatterns.mjs");
+      const block =
+        '"admin, no venue", async () => { expectBroken(await asAdmin(ctx), "label", ctx); }';
+      expect(blockHasAssertion(block)).toBe(true);
+    });
+
+    test("recognizes a throw statement reachable directly from the test body (#10147)", async () => {
+      const { blockHasAssertion } = await import("../check-ai-antipatterns.mjs");
+      const block =
+        '"has no breaking changes", () => {\n' +
+        "  const { breaking } = compareSchema(schemaId, base, schemaObj);\n" +
+        "  if (breaking.length > 0) {\n" +
+        '    throw new Error("Breaking schema changes detected: " + breaking.join(", "));\n' +
+        "  }\n" +
+        "}";
+      expect(blockHasAssertion(block)).toBe(true);
+    });
+
+    test("does not mistake the word 'throw' inside a test title for a throw statement", async () => {
+      const { blockHasAssertion } = await import("../check-ai-antipatterns.mjs");
+      const block = '"does not throw on empty input", () => { doSomething(); }';
+      expect(blockHasAssertion(block)).toBe(false);
+    });
+
+    test("recognizes a delegated fixture.run(ctx) call (#10147)", async () => {
+      const { blockHasAssertion } = await import("../check-ai-antipatterns.mjs");
+      const block = "`[${fixture.kind}] ${routeKey}`, async () => { await fixture.run(ctx); }";
+      expect(blockHasAssertion(block)).toBe(true);
+    });
+
+    test("still flags a genuinely empty-bodied test (comments only)", async () => {
+      const { blockHasAssertion } = await import("../check-ai-antipatterns.mjs");
+      const block = '"renders without crashing", () => {\n  // TODO: add real assertions\n}';
       expect(blockHasAssertion(block)).toBe(false);
     });
   });

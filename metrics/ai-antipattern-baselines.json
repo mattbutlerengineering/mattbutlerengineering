@@ -9,7 +9,7 @@
       "description": "Empty or comment-only catch blocks that swallow errors silently"
     },
     "noopTestAssertions": {
-      "count": 12,
+      "count": 0,
       "description": "Test functions containing no recognized assertion call (expect(), assert(), assert.<method>(), or t.assert.<method>())"
     },
     "hardcodedRoutes": {

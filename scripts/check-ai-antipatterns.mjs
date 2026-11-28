@@ -121,10 +121,35 @@ function countMatches(content, regex) {
  * `TestContext` assertion namespace, e.g. `t.assert.ok(...)`), optionally
  * followed by `.method` (`assert.equal(...)`, `t.assert.deepStrictEqual(...)`).
  *
- * Known blind spots (intentional — see issue #4197, not fixed here):
- *   - Custom throw-based assertion helpers (e.g. a local `assertKeysMatch()`
- *     that throws on mismatch) are invisible to this rule; it only
- *     recognizes calls literally named expect/assert/t.assert.
+ * Three more forms count as asserting, added for #10147 (12 of the repo's 15
+ * `noopTestAssertions` hits were false positives the rules below now close):
+ *   - A call to any helper — same-file or imported — whose own name starts
+ *     with `assert`/`expect`/`verify` (`assertKeysMatch(...)`,
+ *     `expectBroken(...)`), via ASSERTION_HELPER_CALL_RE. This does not
+ *     resolve the helper's body; it trusts the name, same as this file
+ *     already trusts `t.assert.*` by name rather than by following `t`.
+ *   - A `throw` statement that starts its own line in the test body — e.g. a
+ *     schema-compat test that computes a diff and throws a descriptive
+ *     `Error` instead of calling `expect()` — via THROW_STATEMENT_RE.
+ *     Anchored to line start (`^[ \t]*throw\b`, multiline) specifically so it
+ *     does NOT match the word "throw" inside a title string like
+ *     `it("does not throw on empty input", ...)`; see the test for that
+ *     exact collision. A throw string split across lines so that a bare
+ *     "throw" opens a line by coincidence would still false-positive, but
+ *     there are zero such cases in this repo today.
+ *   - A delegated `<something>.run(...)` call, via DELEGATE_RUN_CALL_RE —
+ *     the `RouteFixture["run"]` convention in
+ *     services/reservations/src/routes/rls-route-sweep.fixtures*.ts, where a
+ *     test's entire body is `await fixture.run(ctx)` and the `expect()`
+ *     calls live one property-hop away, in a fixture table this file never
+ *     reads. Narrow and name-based like the rule above, not real call-graph
+ *     resolution.
+ *
+ * Known blind spots (intentional, not fixed here):
+ *   - None of the three new rules verify that the named helper/property
+ *     actually asserts anything — a helper merely *named* `verifyFoo()` that
+ *     does nothing, or an unrelated `.run()` method (e.g. a migration
+ *     runner), would false-negative (read as asserting when it isn't).
  *   - Other assertion libraries/styles (chai `.should`, `.to.equal(...)`
  *     chains, custom matcher DSLs) are not recognized.
  *   - A variable merely *named* `assert` that isn't an assertion library
@@ -139,8 +164,19 @@ function countMatches(content, regex) {
 const ASSERTION_CALL_RE =
   /\b(?:expect|expectTypeOf|assert|assertType|t\.assert)(?:\.\w+)*\s*(?:<[^()]*>)?\s*\(/;
 
+const ASSERTION_HELPER_CALL_RE = /\b(?:assert|expect|verify)\w*\s*\(/;
+
+const THROW_STATEMENT_RE = /^[ \t]*throw\b/m;
+
+const DELEGATE_RUN_CALL_RE = /\.\s*run\s*\(/;
+
 export function blockHasAssertion(block) {
-  return ASSERTION_CALL_RE.test(block);
+  return (
+    ASSERTION_CALL_RE.test(block) ||
+    ASSERTION_HELPER_CALL_RE.test(block) ||
+    THROW_STATEMENT_RE.test(block) ||
+    DELEGATE_RUN_CALL_RE.test(block)
+  );
 }
 
 /**
@@ -278,6 +314,12 @@ const SCANNERS = {
   noopTestAssertions(files) {
     // Test files with it/test functions that contain no recognized assertion
     // call. See blockHasAssertion() above for exactly what counts.
+    //
+    // The three genuinely assertion-free "does not throw" smoke tests #10147
+    // found alongside the 12 false positives (the baseline was 15 at filing)
+    // are counted deliberately: #10172 landed first and gave them real
+    // assertions, so none remain live in the repo as of this fix (measured:
+    // baseline is 0 with the rules below applied).
     let total = 0;
     const testFiles = files.filter(isTestFile);
     for (const f of testFiles) {
