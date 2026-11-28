@@ -323,6 +323,8 @@
   --rialto-focus-ring: #d4a23a;
   /* Velvet error red: the base #b84a3c is under 3:1 on velvet */
   --rialto-error: #ff9a8a;
+  /* Dark label: the inherited ivory is 2.0:1 on the velvet error red */
+  --rialto-text-on-error: #1a1918;
 }
 
 [data-theme="dark"] [data-surface="velvet"] {
@@ -335,6 +337,7 @@
   --rialto-border-strong: rgb(255 255 255 / 0.6);
   --rialto-focus-ring: #d4a23a;
   --rialto-error: #ff9a8a;
+  --rialto-text-on-error: #1a1918;
 }
 
 [data-theme="dark"] [data-theme="light"] [data-surface="velvet"] {
@@ -349,4 +352,6 @@
   --rialto-focus-ring: #d4a23a;
   /* Velvet error red: the base #b84a3c is under 3:1 on velvet */
   --rialto-error: #ff9a8a;
+  /* Dark label: the inherited ivory is 2.0:1 on the velvet error red */
+  --rialto-text-on-error: #1a1918;
 }
