@@ -68,6 +68,65 @@ describe("fix protocol (#9947)", () => {
     expect(protocol).toMatch(/File an issue only when/);
   });
 
+  it("re-checks open and merged PRs by touched path right before opening the PR (#10195)", () => {
+    const fix = /## 2\. Fix it([\s\S]*?)\n## 3\./.exec(protocol);
+    expect(fix, "section 2").not.toBeNull();
+    expect(fix[1]).toMatch(/Immediately before you open the pull request/);
+    expect(fix[1]).toContain("git diff --name-only origin/main...HEAD");
+    expect(fix[1]).toContain("pulls?state=open");
+    // Merged work is read from git, not the closed-PR list: 50 rows of that
+    // list covered under 3 of the 6 hours when measured (#10195 review).
+    expect(fix[1]).not.toContain("pulls?state=closed");
+    // HEAD..origin/main, not a time window: a window also prints commits the
+    // branch is already built on, and a shallow clone's boundary commit.
+    expect(fix[1]).toContain("git log --format='%h %s' HEAD..origin/main --");
+    expect(fix[1]).not.toContain("--since=");
+    // #10188 batches several findings into one PR per fire, so a competitor
+    // for one finding must not discard the others.
+    expect(fix[1]).toContain("drop only that finding's commit");
+    expect(fix[1]).toContain("only when no finding remains");
+    expect(fix[1]).toContain("pulls/<N>/files?per_page=100&page=1");
+    expect(fix[1]).toMatch(/`page=2`/);
+    expect(fix[1]).toMatch(/not on issue numbers or titles/);
+    expect(fix[1]).toMatch(/already landed/);
+    expect(fix[1]).toMatch(/comments-only/);
+    expect(fix[1]).toContain("`git diff origin/main...HEAD`");
+    expect(fix[1]).toContain("git rebase --abort");
+    expect(fix[1]).toMatch(/[Oo]therwise continue to step 8/);
+  });
+
+  it("never follows a Link header, which the cloud proxy answers with 403", () => {
+    expect(protocol).not.toContain("--paginate");
+  });
+
+  it("never pushes a review-driven fix to a PR that has closed or merged (#10184)", () => {
+    const review = /## 3\. Review, then hand off([\s\S]*?)\n## 4\./.exec(protocol);
+    expect(review, "section 3").not.toBeNull();
+    expect(review[1]).toMatch(/confirm the PR is still open/);
+    expect(review[1]).toContain("pulls/<N>' --jq");
+    expect(review[1]).toContain("`open false`");
+    // Every output of the state call has a route, including a PR that is
+    // still open after a push that did not reach it (no re-push loop).
+    expect(review[1]).toContain("If the call still prints `open false`");
+    expect(review[1]).toContain("do not push again");
+    expect(review[1]).toContain(".head.sha");
+    expect(review[1]).toMatch(/follow-up pull request/);
+    // Captured verbatim from the push that lost e9c6431 (#10184): a push to a
+    // deleted branch succeeds and reads exactly like a first push.
+    expect(review[1]).toContain("`* [new branch]`");
+    expect(review[1]).toContain("git merge-base --is-ancestor");
+    expect(review[1]).toContain("origin/main");
+    // "Shipped" needs all three: #10176 was merged and on main, yet the lost
+    // fix was never its head.
+    expect(review[1]).toContain(String.raw`--jq '"\(.merged) \(.head.sha) \(.merge_commit_sha)"'`);
+    expect(review[1]).toMatch(/`\.head\.sha` equals the SHA you pushed/);
+    expect(review[1]).toMatch(/after 10 seconds/);
+  });
+
+  it("gives routines no GraphQL-backed gh call, which answers 403 in cloud sessions", () => {
+    expect(protocol).not.toMatch(/gh (pr|issue) (list|view)/);
+  });
+
   it.each(FIXING_ROUTINES)("%s's prompt points at the protocol", (name) => {
     expect(promptOf(name)).toContain(PROTOCOL);
   });

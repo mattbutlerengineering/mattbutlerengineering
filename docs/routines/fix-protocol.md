@@ -28,6 +28,8 @@ section 4.
 
 1. Before you start, search open pull requests for one that already touches
    the same files or the same issue. If one exists, leave the finding to it.
+   This search cannot see a competitor that merges while you work, so step 7
+   checks again.
 2. Branch off a fresh `origin/main` as `fix/<routine>-<slug>`. Run
    `pnpm install --frozen-lockfile` once per fire, in its own Bash call.
 3. Use TDD. Write one failing test that encodes the fix and confirm it fails.
@@ -44,7 +46,51 @@ section 4.
 6. Stage files by explicit path, never `git add -A`, and confirm with
    `git diff --cached --stat`. Use a Conventional Commits message. If an issue
    already tracks the finding, put `Closes #<N>` in the commit body.
-7. Open one pull request per fire against `main`, holding every finding you
+7. Immediately before you open the pull request, check again for a competing
+   pull request, open or merged (#10195). A pull request that merged while you
+   worked is no longer open, so the search in step 1 misses it. Key the check
+   on the paths your diff touches, not on issue numbers or titles: a
+   competitor can close a different issue under an unrelated title.
+
+   ```bash
+   git diff --name-only origin/main...HEAD
+   git fetch origin main
+   git log --format='%h %s' HEAD..origin/main -- <your paths>
+   gh api 'repos/mattbutlerengineering/mattbutlerengineering/pulls?state=open&per_page=100&page=1' --jq '.[].number'
+   gh api 'repos/mattbutlerengineering/mattbutlerengineering/pulls/<N>/files?per_page=100&page=1' --jq '.[].filename'
+   ```
+
+   The `git log` call covers merged work with no API call. Every merge here is
+   a squash commit whose subject ends `(#N)`, so each line it prints names a
+   pull request that merged into your paths after your branch left `main`. Run the last
+   call for every open pull request and compare its paths with yours. For
+   either `gh api` call, request `page=2` and onward while a page returns 100
+   rows. Do not follow a `Link` header: the cloud proxy answers it with 403.
+
+   Your branch can hold several findings (step 8), so apply the rules below to
+   each finding. Where a rule says to open no pull request or discard the
+   branch, drop only that finding's commit and keep the rest; open no pull
+   request only when no finding remains.
+
+   - An open pull request shares a path: read its diff with
+     `gh api 'repos/mattbutlerengineering/mattbutlerengineering/pulls/<N>' -H 'Accept: application/vnd.github.diff'`.
+     If it makes the same fix, open no pull request, discard your branch and
+     leave the finding to it. Otherwise continue to step 8.
+   - `git log` prints a commit: run `git rebase origin/main`, then read
+     `git diff origin/main...HEAD` in full. `git diff --stat` cannot show
+     whether what remains is comments-only. If the diff is now empty or
+     comments-only, the substance has already landed. Open no pull request,
+     discard the branch and name the pull request that landed the fix in your
+     report. If a real change remains, re-run the gates in step 5 on the
+     rebased branch and continue to step 8.
+   - The rebase conflicts, because the competitor edited the same lines: run
+     `git rebase --abort`, then read the competitor's diff with
+     `git show <its commit>`. If it makes the same fix, open no pull request
+     and name it in your report. Otherwise branch fresh off `origin/main`,
+     re-apply the remaining change, re-run the gates in step 5 and continue to
+     step 8.
+
+8. Open one pull request per fire against `main`, holding every finding you
    fixed this fire (#10188: many small PRs saturate the CI queue). Each root
    cause is its own commit, with its own test and its own `Closes #<N>` where
    an issue tracks it. Keep the total diff under about 400 lines; findings
@@ -53,7 +99,7 @@ section 4.
    `fix(scripts): two stale-detector fixes (mbe-auditor)`. The body has one
    section per finding: its root cause, evidence and fix. Verify the base is
    `main`.
-8. Never open a second pull request while your routine already has one open;
+9. Never open a second pull request while your routine already has one open;
    finish or hand off the open one first. Open it as a draft (`--draft`;
    drafts skip CI) while you add commits, and mark it ready once, before the
    review in section 3. After that, push once per review round. Never push to
@@ -79,8 +125,9 @@ under section 4, with what you learned in the issue body.
    below it. The queueEfficiency sensor counts a PR as reviewed only from this
    line.
 3. On a flag or a score below 7, fix what it found, re-run the gates and
-   review once more. If it is still flagged, label the PR `needs-review` and
-   move on.
+   review once more. Before you push that fix, follow "Before every later
+   push" below. If it is still flagged, label the PR `needs-review` and move
+   on.
 4. On a pass with a score of 7 or higher, post a second PR comment whose
    first line is exactly
    `reviewed-merge: <head SHA, all 40 characters> PASS <score>/10`, then add
@@ -90,6 +137,43 @@ under section 4, with what you learned in the issue body.
 5. Never call the merge endpoint yourself and never enable auto-merge. The
    cloud auto-mode classifier denies merges from routine sessions (#6125), and
    `reviewed-merge.yml` is the merge path.
+
+**Before every later push, confirm the PR is still open (#10184).** Someone
+else can merge or close the PR while the review runs, and a merge deletes its
+head branch. `git push` to a deleted branch does not fail. It recreates the
+branch and prints `* [new branch]`, exactly as a first push does, so the
+commit sits on a branch that no PR reads.
+
+- Before the push, run
+  `gh api 'repos/mattbutlerengineering/mattbutlerengineering/pulls/<N>' --jq '"\(.state) \(.merged)"'`.
+  Push only when it prints `open false`.
+- After the push, run the same call with `--jq '"\(.state) \(.head.sha)"'`. It
+  must print `open` and the SHA that `git rev-parse HEAD` prints. The API's
+  `.head.sha` can lag a push by a few seconds, so on a mismatch run the call
+  once more after 10 seconds. If it still does not print `open` and your SHA,
+  or if the push printed `* [new branch]` for a branch that already had a PR,
+  the fix did not reach the PR: run the before-the-push call again and follow
+  the `closed true` or `closed false` route below.
+- If the call prints `closed true`, the PR merged. Do not push to its branch.
+  Run `git fetch origin main`, branch `fix/<routine>-<slug>-followup` off
+  `origin/main`, apply the fix there, and open a follow-up pull request under
+  section 2 that names the merged PR. Review it under this section.
+- If the call prints `closed false`, the PR was closed without merging. Do not
+  push and do not reopen it. Say so in your report.
+- If the call still prints `open false`, the PR is open but your push did not
+  become its head. Label the PR `needs-review`, report the fix as not shipped,
+  and do not push again.
+- "Pushed to the branch" is not "reachable from `main`". Report a fix as
+  shipped only when all three of these hold. Run
+  `gh api 'repos/mattbutlerengineering/mattbutlerengineering/pulls/<N>' --jq '"\(.merged) \(.head.sha) \(.merge_commit_sha)"'`.
+  - `.merged` is `true`.
+  - `.head.sha` equals the SHA you pushed, the one `git rev-parse HEAD`
+    printed at push time. A PR that merged before your push keeps its older
+    head, so a merged PR alone proves nothing about your fix.
+  - After `git fetch origin main`,
+    `git merge-base --is-ancestor <.merge_commit_sha> origin/main` exits 0.
+    Merges here are squashed, so test the PR's merge commit, not the SHA you
+    pushed.
 
 **Hold these for the Owner.** Label the PR `needs-review` and do not add the
 `reviewed` label when the PR does any of these:
