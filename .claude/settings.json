@@ -5,6 +5,7 @@
     }
   },
   "enabledPlugins": { "idea-to-prod@skills": true },
+  "env": { "VITEST_MAX_WORKERS": "6" },
   "permissions": {
     "allow": [
       "Bash(pnpm test:*)",
@@ -72,6 +73,11 @@
             "type": "command",
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/pre-push-typecheck.sh\"",
             "timeout": 120
+          },
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/gate-slot.mjs\"",
+            "timeout": 600
           }
         ]
       }
