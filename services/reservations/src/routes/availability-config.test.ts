@@ -9,6 +9,7 @@ import {
   AvailabilityConfigStateSchema,
   AvailabilityDaySummarySchema,
   ClosureImpactSchema,
+  DayTraceResultSchema,
   PreviewResultSchema,
 } from "@mbe/types";
 import { buildApp } from "../app.js";
@@ -47,6 +48,7 @@ const svc = {
   listDays: vi.fn(),
   save: vi.fn(),
   check: vi.fn(),
+  traceDay: vi.fn(),
   preview: vi.fn(),
 };
 const impactSvc = { impact: vi.fn() };
@@ -711,6 +713,101 @@ describe("availability config routes", () => {
       const res = await post(CHECK_BODY, {});
       expect(res.statusCode).toBe(401);
       expect(svc.check).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("GET /trace", () => {
+    const TRACE = {
+      serviceDate: "2026-11-06",
+      partySize: 4,
+      channel: "online",
+      day: {
+        serviceDate: "2026-11-06",
+        scheduleId: "sch-1",
+        services: [],
+        closures: [],
+        bookingOpen: { online: true, phone: true, waitlist: true },
+        explanation: [],
+      },
+      times: [
+        {
+          serviceId: "vs-1",
+          serviceName: "Dinner",
+          minute: 1020,
+          time: "5:00 PM",
+          startsAt: "2026-11-07T01:00:00.000Z",
+          outcome: "removed",
+          reason: { code: "no_free_table", suitableTables: 1 },
+        },
+      ],
+      basis: "current_rules",
+    };
+    const get = (
+      query = "date=2026-11-06&partySize=4",
+      headers: Record<string, string> = ADMIN,
+      target: FastifyInstance = app
+    ) => target.inject({ method: "GET", url: `${BASE}/trace?${query}`, headers });
+
+    it("returns the day trace for the venue, date and party", async () => {
+      svc.traceDay.mockResolvedValueOnce(TRACE);
+
+      const res = await get();
+
+      expect(res.statusCode).toBe(200);
+      expect(DayTraceResultSchema.parse(res.json().data)).toEqual(TRACE);
+      expect(svc.traceDay).toHaveBeenCalledWith("venue-1", "2026-11-06", 4, expect.any(Date));
+    });
+
+    it("labels a past date as what today's rules produce", async () => {
+      svc.traceDay.mockResolvedValueOnce({ ...TRACE, basis: "current_rules_past_date" });
+      const res = await get("date=2020-01-01&partySize=2");
+      expect(res.statusCode).toBe(200);
+      expect(res.json().data.basis).toBe("current_rules_past_date");
+    });
+
+    it("400s a date more than a year ahead and a malformed query", async () => {
+      expect((await get("date=2999-01-01&partySize=2")).statusCode).toBe(400);
+      expect((await get("date=nope&partySize=2")).statusCode).toBe(400);
+      expect((await get("date=2026-11-06&partySize=0")).statusCode).toBe(400);
+      expect(svc.traceDay).not.toHaveBeenCalled();
+    });
+
+    it("404s an unknown venue", async () => {
+      svc.traceDay.mockResolvedValueOnce(null);
+      expect((await get()).statusCode).toBe(404);
+    });
+
+    it("401s without auth", async () => {
+      expect((await get("date=2026-11-06&partySize=4", {})).statusCode).toBe(401);
+      expect(svc.traceDay).not.toHaveBeenCalled();
+    });
+
+    it("403s staff of another venue", async () => {
+      vi.mocked(jwtVerify).mockResolvedValueOnce({
+        payload: {
+          sub: "auth0|other",
+          iss: "https://test.auth0.com/",
+          aud: "https://api.example.com",
+          permissions: [],
+        },
+        protectedHeader: { alg: "RS256" },
+      } as never);
+      const other = await appWith({
+        venueRoleLookup: vi.fn(async () => null),
+        venueMembershipLookup: vi.fn(async () => false),
+      });
+
+      const res = await get(
+        "date=2026-11-06&partySize=4",
+        {
+          authorization: "Bearer other",
+        },
+        other
+      );
+
+      expect(res.statusCode).toBe(403);
+      expect(svc.traceDay).not.toHaveBeenCalled();
+      await other.close();
     });
   });
 

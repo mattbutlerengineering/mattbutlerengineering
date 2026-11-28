@@ -8,6 +8,7 @@ import type { Prisma } from "../generated/prisma/index.js";
 import { referenceIssues } from "./availability-config-plan.js";
 import { findStrandedReservations } from "./availability-config-checks.js";
 import { checkAvailability } from "./availability-check.js";
+import { traceAvailabilityDay } from "./availability-trace.js";
 import { touchedIssues } from "./availability-touched-issues.js";
 import { inAvailabilityTransaction, refuse, Refused } from "./availability-refusal.js";
 import { ConfigRowConflict, writeConfigDiff } from "./availability-config-rows.js";
@@ -272,6 +273,7 @@ export async function saveAvailabilityConfig(
 /** The store as a domain-service record, for the `buildApp({ services })` seam. */
 export const availabilityConfigService = {
   check: checkAvailability,
+  traceDay: traceAvailabilityDay,
   get: getAvailabilityConfig,
   listDays: listAvailabilityDays,
   save: saveAvailabilityConfig,
