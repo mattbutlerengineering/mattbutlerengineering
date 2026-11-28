@@ -69,6 +69,7 @@ export function parseWorkflow(text) {
   return {
     name: doc.name ?? null,
     on: normalizeOn(rawOn),
+    concurrency: doc.concurrency ?? null,
     permissions: doc.permissions ?? null,
     env: doc.env ?? {},
     jobs: Object.fromEntries(
