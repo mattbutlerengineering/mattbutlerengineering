@@ -64,6 +64,7 @@ export const AVAILABILITY_GLOSSARY: readonly GlossaryEntry[] = [
 export const AVAILABILITY_NAMESPACES: readonly string[] = [
   "availability",
   "availabilityHub",
+  "availabilityExplain",
   "availabilitySchedules",
   "availabilitySpecial",
 ];

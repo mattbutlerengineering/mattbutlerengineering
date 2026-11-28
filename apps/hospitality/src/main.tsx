@@ -115,6 +115,11 @@ const AvailabilitySeasonalEditorPage = lazy(() =>
 const AvailabilityHoursPage = lazy(() =>
   import("./pages/AvailabilityHoursPage.js").then((m) => ({ default: m.AvailabilityHoursPage }))
 );
+const AvailabilityExplainPage = lazy(() =>
+  import("./pages/AvailabilityExplainPage.js").then((m) => ({
+    default: m.AvailabilityExplainPage,
+  }))
+);
 const AvailabilityGuidePage = lazy(() =>
   import("./pages/AvailabilityGuidePage.js").then((m) => ({ default: m.AvailabilityGuidePage }))
 );
@@ -469,6 +474,15 @@ const router = createBrowserRouter(
                   element: (
                     <Suspense fallback={<LoadingPage />}>
                       <AvailabilityClosuresPage />
+                    </Suspense>
+                  ),
+                },
+                {
+                  // Read by a Host too: the trace is read-only.
+                  path: "explain",
+                  element: (
+                    <Suspense fallback={<LoadingPage />}>
+                      <AvailabilityExplainPage />
                     </Suspense>
                   ),
                 },

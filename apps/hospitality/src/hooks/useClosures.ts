@@ -17,6 +17,7 @@ import type { AvailabilityClient } from "@mbe/api-client";
 import {
   AVAILABILITY_CONFIG_QUERY_KEY,
   AVAILABILITY_DAYS_QUERY_KEY,
+  AVAILABILITY_DAY_TRACE_QUERY_KEY,
   CLOSURE_SUMMARIES_QUERY_KEY,
 } from "./useAvailability.js";
 import { trackOwnSave } from "../components/availability/use-reload-hold.js";
@@ -118,6 +119,7 @@ export const useCreateClosure = createMutationHook<CreateClosureVariables, Closu
   invalidateKeys: [
     AVAILABILITY_CONFIG_QUERY_KEY,
     AVAILABILITY_DAYS_QUERY_KEY,
+    AVAILABILITY_DAY_TRACE_QUERY_KEY,
     CLOSURE_SUMMARIES_QUERY_KEY,
   ],
   mutationFn: (api, { venueId, body, idempotencyKey }) =>
@@ -176,6 +178,7 @@ export const useReopenClosure = createMutationHook<ReopenClosureVariables, Reope
   invalidateKeys: [
     AVAILABILITY_CONFIG_QUERY_KEY,
     AVAILABILITY_DAYS_QUERY_KEY,
+    AVAILABILITY_DAY_TRACE_QUERY_KEY,
     CLOSURE_SUMMARIES_QUERY_KEY,
   ],
   mutationFn: (api, { venueId, ruleId, tellCancelledGuests, seen, date }) =>
@@ -217,6 +220,7 @@ export const useCreateClosures = createMutationHook<CreateClosuresVariables, Clo
   invalidateKeys: [
     AVAILABILITY_CONFIG_QUERY_KEY,
     AVAILABILITY_DAYS_QUERY_KEY,
+    AVAILABILITY_DAY_TRACE_QUERY_KEY,
     CLOSURE_SUMMARIES_QUERY_KEY,
   ],
   mutationFn: (api, { venueId, body, idempotencyKey }) =>

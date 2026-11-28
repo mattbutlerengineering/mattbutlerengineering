@@ -76,6 +76,16 @@
       "limit": "4.5 kB"
     },
     {
+      "name": "Explain this day page (lazy chunk: the controls, the per-service time list and the reason copy built from the slot trace, #10047; 2.63 kB measured)",
+      "path": "dist/assets/AvailabilityExplainPage-*.js",
+      "limit": "3.2 kB"
+    },
+    {
+      "name": "Day drawer (a chunk of its own once the Calendar page and Explain this day both load it, #10047; 13.85 kB measured: code that was inside the Calendar page's chunk, not new weight)",
+      "path": "dist/assets/AvailabilityDayDrawer-*.js",
+      "limit": "14.8 kB"
+    },
+    {
       "name": "How availability works guide (lazy chunk: the page, its section lists and the worked-example data the page and its test share, #10034; 2.63 kB measured)",
       "path": "dist/assets/AvailabilityGuidePage-*.js",
       "limit": "3 kB"

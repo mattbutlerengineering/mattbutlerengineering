@@ -1,0 +1,62 @@
+/* Explain this day: the header, the date and party controls, then the rules and every time. */
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-md);
+}
+
+/* Side by side where there is room, stacked on a phone. */
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--rialto-space-md);
+}
+
+.controls > * {
+  flex: 1 1 12rem;
+  max-inline-size: 20rem;
+}
+
+.times {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-sm);
+}
+
+/* Time and outcome first; the reason and its link wrap beneath on a narrow screen. */
+.time {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--rialto-space-sm) var(--rialto-space-md);
+  padding-block: var(--rialto-space-xs);
+}
+
+.reason {
+  flex: 1 1 16rem;
+  min-inline-size: 0;
+}
+
+/* As the hub's links: underlined text with a target of at least 24 px. */
+.link {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: var(--rialto-space-lg);
+  min-inline-size: var(--rialto-space-lg);
+  color: var(--rialto-text-primary);
+  text-decoration: underline;
+}
+
+.link:hover {
+  color: var(--rialto-text-secondary);
+}
+
+.link:focus-visible {
+  outline: none;
+  border-radius: var(--rialto-radius-default);
+  box-shadow: var(--rialto-shadow-focus);
+}
