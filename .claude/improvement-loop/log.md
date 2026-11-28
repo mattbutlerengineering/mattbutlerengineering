@@ -1200,7 +1200,7 @@ where the guards themselves cannot see.
 | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | -------------------------------- |
 | **#10163** (step 2) | `check-ready-label-exclusive` read the queue with GraphQL-backed `gh issue list`, so the gate reported UNVERIFIED in **every** cloud routine — the sessions that decide what `ready` hands an agent. Now reads REST. Measured: exit 13 → exit 0 PASS over 6 real rows. | pass 9/10 | merged                           |
 | **#10176**          | `cloud-session-bootstrap` gated its install on `node_modules` merely _existing_, but the container image ships a pre-baked one. Decides on provenance (`node_modules/.pnpm/lock.yaml` vs the checkout's lockfile) instead.                                             | pass 8/10 | merged at the pre-correction SHA |
-| **#10178**          | Dead `@mbe/sentry` `ignoreDependencies` entry for `services/reservations`, which imports it directly. knip hints 2 → 1.                                                                                                                                                | pass 9/10 | merged                           |
+| **#10178**          | Aimed at the dead `@mbe/sentry` `ignoreDependencies` entry for `services/reservations`, which imports it directly. **Collided with #10171 — see below.** What landed is two explanatory comment lines (`+2/-0`).                                                       | pass 9/10 | merged                           |
 | **#10182**          | The correction #10176 lost (see below).                                                                                                                                                                                                                                | pass 9/10 | reviewed, handed off             |
 
 ### Issues filed
@@ -1209,7 +1209,7 @@ where the guards themselves cannot see.
 - **#10184** `ready` — a review-driven fix pushed after its PR merged is silently lost (fix-protocol §3 gap). Filed from this fire's own lost commit.
 - **#10187** `ready` — `eval-dep-bump-js-yaml` is unpassable by construction.
 
-### Two things this fire got wrong, and what they cost
+### Three things this fire got wrong, and what they cost
 
 **A false claim, caught by review.** #10176's docstring attributed the stale
 tree to `02f1946`, derived from `git log -- pnpm-lock.yaml`. This checkout is a
@@ -1227,11 +1227,30 @@ _succeeded_, printing `* [new branch]`, silently recreating the deleted ref.
 --is-ancestor` showed it reached nothing, and `main` carried the false claim
 until #10182. That silent-success shape is what #10184 is about.
 
-Not claimed: all four PRs show `merged_by: mattbutlerengineering`, the identity
-the Owner and the automation share, and **#10169** — titled "weekly improve
+**#10178 duplicated work another driver had already landed.** `a15ef36b5`
+(#10171, closing #10153) merged at 05:26:43 and removed **both** stale knip
+entries — `@mbe/sentry` and `.claude/skills/sentry-triage/scripts/triage.mjs` —
+taking hints 2 → **0**. #10178's commit was authored at 05:26:38, five seconds
+earlier, so by the time it squash-merged at 05:28:19 the deletion was already on
+`main` and only its two comment lines landed (`4ab517daa`, `+2/-0`). The hint
+reduction belongs to #10171, not to this routine. The open-PR search in
+fix-protocol §2.1 was run at the start of the fire, before #10171 existed, and
+was not re-run before opening #10178 — which is what would have caught this.
+
+A knowable consequence: #10178's body and verdict comment argue that knip's
+`triage.mjs` hint must be kept because `knip-entry-roots.test.mjs` requires it.
+That is no longer true — #10171 added a
+`.filter((script) => !workflows.includes(...))` to the test's `skillScripts`
+derivation (`.github/workflows/sentry-triage.yml` runs that script), so the test
+now **agrees** with knip. Those two comments are already posted and are wrong on
+that point.
+
+Not claimed: the PRs show `merged_by: mattbutlerengineering`, the identity the
+Owner and the automation share, and **#10169** — titled "weekly improve
 2026-11-28" and _not_ opened by this session — merged in the same window. So
 another driver was active; a manual merge cannot be distinguished from an
-automated one, and #10184 says so rather than guessing.
+automated one, and #10184 says so rather than guessing. (#10182 was still open
+when this entry was first written; it merged at 05:50:32.)
 
 ### Weekly eval checkpoint
 
@@ -1246,8 +1265,9 @@ api-equivalent` — CLI-reported, not billed), mean 10 turns. Identical to
 
 Two rows need recording rather than glossing:
 
-- `eval-dep-bump-js-yaml` — 0.75, judge `passed: false`, `evaluationFailed:
-null` (a genuine judge fail, not a judge that could not run), every
+- `eval-dep-bump-js-yaml` — 0.75, judge `passed: false`, with no `evaluationFailed`
+  key on the row at all (so a genuine judge fail, not a judge that could not
+  run), every
   deterministic check true. The same task has failed identically in all five
   judged runs. Root-caused this fire: `tools/cli/package.json` pins `^5.5.0`
   and `5.5.0` is the highest 5.x, so the task's own documented success path is
@@ -1271,12 +1291,18 @@ null` (a genuine judge fail, not a judge that could not run), every
 
 ### Not fixed, deliberately
 
-- knip's remaining hint (`.claude/skills/sentry-triage/scripts/triage.mjs`) is
-  required by `knip-entry-roots.test.mjs:110-112`'s exact-equality assertion,
-  so knip's heuristic and a repo invariant genuinely disagree. Left alone.
 - `metrics-freshness` still reports queue-telemetry cost coverage as
   uninstrumented (0/156 rows with a known `cost_usd`) — already tracked by
   #5627 / #9098.
-- The depcruiser `no-orphans` warning on `packages/hospitality-sidenav/src/test-setup.ts`
-  is already covered by open PR #10129.
-- `E2E Screenshots` flapping at 43.8% is already covered by #10132.
+- `E2E Screenshots` flapping at 43.8% is already covered by #10132 (open).
+
+Two items noted earlier in this fire as pending were in fact already **fixed on
+`main`**, recorded here so the next reader does not re-chase them:
+
+- knip reports **zero** hints at this head (`knip --reporter json` →
+  `{"issues":[]}`); #10171 removed both stale entries.
+- The depcruiser `no-orphans` warning on
+  `packages/hospitality-sidenav/src/test-setup.ts` is fixed, not pending: #10129
+  merged at 05:02:35 and `.dependency-cruiser.cjs` now allowlists
+  `(^|/)test-setup\.[jt]s$`. An earlier note in this fire called #10129 open; it
+  was not.
