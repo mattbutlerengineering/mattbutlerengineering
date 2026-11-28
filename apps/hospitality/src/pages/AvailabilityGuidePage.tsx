@@ -320,6 +320,11 @@ function Troubleshooting() {
     >
       <Paragraphs keys={["availabilityHub.guide.troubleshooting.lead"]} />
       <Items keys={TROUBLESHOOTING} ordered />
+      <Text variant="body" color="primary" className={styles.prose}>
+        <Link to={availabilityPath({ view: "explain" })} className={styles.link}>
+          {t("availabilityExplain.guideLink")}
+        </Link>
+      </Text>
     </GuideSection>
   );
 }

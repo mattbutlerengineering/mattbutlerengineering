@@ -49,6 +49,8 @@ type AvailabilityView =
     }
   | { readonly view: "bookingRules" }
   | { readonly view: "history" }
+  /** Explain this day: `date` and `partySize` ride in the address so the page can be shared. */
+  | { readonly view: "explain"; readonly date?: string; readonly partySize?: number }
   | { readonly view: "map" };
 
 /** A view, plus the dialog to open over it and whether the visit came from the Availability map. */
@@ -121,6 +123,7 @@ const PAGE_TAB: Readonly<Record<AvailabilityView["view"], AvailabilityTab | unde
   calendar: "calendar",
   bookingRules: undefined,
   history: undefined,
+  explain: undefined,
   map: undefined,
 };
 
@@ -154,6 +157,30 @@ const SEASONAL = `${ROUTE}/seasonal`;
 /** Closures and pauses, a page of its own. */
 const CLOSURES = `${ROUTE}/closures`;
 
+/** Explain this day, a page of its own. */
+const EXPLAIN = `${ROUTE}/explain`;
+/** The party Explain this day starts with, and the largest the trace accepts (`TRACE_PARTY_MAX`). */
+const EXPLAIN_DEFAULT_PARTY = 2;
+export const EXPLAIN_PARTY_MAX = 20;
+
+/**
+ * The date and party size an Explain this day address names. A date that is not a real day is
+ * `null` (the page then asks); a party outside 1 to 20 reads as the default.
+ */
+export function readExplainAddress(location: { readonly search: string }): {
+  readonly date: string | null;
+  readonly partySize: number;
+} {
+  const params = new URLSearchParams(location.search);
+  const date = params.get("date");
+  const party = Number(params.get("partySize"));
+  const valid = Number.isInteger(party) && party >= 1 && party <= EXPLAIN_PARTY_MAX;
+  return {
+    date: date !== null && isDate(date) ? date : null,
+    partySize: valid ? party : EXPLAIN_DEFAULT_PARTY,
+  };
+}
+
 /**
  * The views with a path of their own: the hub, the drawers over it, regular hours, and Closures
  * and pauses. The Availability map is retired (#10032): the rail in the sidebar shows the same
@@ -165,6 +192,7 @@ const OWN_PATHS: Readonly<Partial<Record<AvailabilityView["view"], string>>> = {
   bookingRules: BOOKING_RULES,
   history: HISTORY,
   closures: CLOSURES,
+  explain: EXPLAIN,
   map: ROUTE,
 };
 
@@ -237,6 +265,10 @@ export function availabilityPath(target: AvailabilityTarget): string {
     if (target.view === "hours" && target.service) params.set("service", target.service);
     if (target.view === "seasonal" && target.screen === "new" && target.copy) {
       params.set("copy", target.copy);
+    }
+    if (target.view === "explain") {
+      if (target.date && isDate(target.date)) params.set("date", target.date);
+      if (target.partySize) params.set("partySize", String(target.partySize));
     }
     setOverlay(params, target);
     return withSearch(ownPath, params);

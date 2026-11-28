@@ -80,6 +80,12 @@ describe("WaitlistPage row layout on phone and tablet (#10035)", () => {
     expect(touch[".actions > button"]?.["min-inline-size"]).toBe("44px");
   });
 
+  it("keeps 44px touch targets on the party-size chips (#10038)", () => {
+    const touch = sheet.media["@media (pointer: coarse), (max-width: 1024px)"] ?? {};
+    expect(touch[".partySizeRow > button"]?.["min-block-size"]).toBe("44px");
+    expect(touch[".partySizeRow > button"]?.["min-inline-size"]).toBe("44px");
+  });
+
   it("never introduces horizontal scroll", () => {
     expect(CSS).not.toMatch(/overflow-x:\s*(auto|scroll)/);
   });
@@ -90,5 +96,9 @@ describe("WaitlistPage row layout on desktop", () => {
     expect(sheet.rules[".row"]?.["flex-wrap"]).toBeUndefined();
     expect(sheet.rules[".actions"]?.["flex-wrap"]).toBeUndefined();
     expect(sheet.rules[".actions"]?.["flex-basis"]).toBeUndefined();
+  });
+
+  it("keeps the party-size chips at their compact desktop size", () => {
+    expect(sheet.rules[".partySizeRow > button"]).toBeUndefined();
   });
 });

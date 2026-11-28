@@ -1773,7 +1773,11 @@
   },
   "notFound": {
     "message": "Cette table n'est pas sur le plan de salle de ce soir. Cette page n'a jamais été inscrite au livre des réservations.",
-    "back": "Retour au service de ce soir"
+    "back": "Retour au service de ce soir",
+    "guestTitle": "Page introuvable",
+    "guestMessage": "Il n’y a rien à cette adresse. Le lien est peut-être mal saisi, ou la page a été déplacée.",
+    "guestHome": "Aller à la page d’accueil",
+    "guestDocumentTitle": "Page introuvable - {{brand}}"
   },
   "chat": {
     "title": "Clavardage",
@@ -3523,6 +3527,72 @@
       "openDay": "{{change}}, voir la journée",
       "empty": "Rien d’autre ne change dans les 7 prochains jours",
       "saveFailed": "Enregistrement impossible."
+    }
+  },
+  "availabilityExplain": {
+    "title": "Expliquer cette journée",
+    "description": "Ce que font les règles à une date, et pourquoi chaque heure est réservable ou non.",
+    "open": "Expliquer cette journée",
+    "guideLink": "Ouvrir Expliquer cette journée pour n’importe quelle date",
+    "dateLabel": "Date",
+    "partySizeLabel": "Taille du groupe",
+    "loading": "Vérification de chaque heure de cette journée",
+    "loadError": "Impossible d’expliquer cette journée",
+    "closedAllDay": "Fermé toute la journée, donc aucune heure à expliquer.",
+    "rulesHeading": "Règles qui fixent les heures",
+    "timesHeading": "Résultat pour chaque heure",
+    "pastDate": "Voici ce que produisent les règles d’aujourd’hui. Cette date est passée : les clients ne se sont peut-être pas vu offrir les mêmes heures.",
+    "outcome": {
+      "bookable": "Réservable",
+      "removed": "Non réservable"
+    },
+    "link": {
+      "closures": "Modifier les fermetures",
+      "regularHours": "Modifier les heures habituelles",
+      "bookingRules": "Modifier les règles de réservation",
+      "floorPlan": "Modifier le plan de salle",
+      "calendar": "Ouvrir cette journée dans le Calendrier",
+      "label": "{{link}}, pour {{time}}"
+    },
+    "summary": {
+      "bookable_one": "{{count}} heure réservable pour un groupe de {{partySize}}.",
+      "bookable_other": "{{count}} heures réservables pour un groupe de {{partySize}}.",
+      "bookable_many": "{{count}} heures réservables pour un groupe de {{partySize}}.",
+      "commonReason": "La raison la plus courante pour laquelle des heures manquent est {{reason}}."
+    },
+    "reasonName": {
+      "booking_paused": "une pause",
+      "channel_not_offered": "un service qui ne se réserve pas ainsi",
+      "closure": "une fermeture",
+      "nonexistent_local_time": "un changement d’heure",
+      "no_suitable_table": "l’absence de table assez grande pour le groupe",
+      "before_earliest": "le préavis minimal des règles de réservation",
+      "after_latest_date": "le délai maximal de réservation à l’avance",
+      "no_free_table": "des tables déjà réservées",
+      "pacing": "le rythme"
+    },
+    "reason": {
+      "booking_paused": "Pause : la réservation {{channel}} est en pause.",
+      "channel_not_offered": "{{service}} ne se réserve pas {{channel}}.",
+      "closure": {
+        "venue": "Fermeture : l’établissement est fermé {{window}}.",
+        "service": "Fermeture : {{service}} est fermé {{window}}.",
+        "booking": "Fermeture : les réservations sont fermées {{window}}.",
+        "tables": "Fermeture : les tables sont bloquées {{window}}."
+      },
+      "window": {
+        "allDay": "toute la journée",
+        "range": "de {{from}} à {{to}}"
+      },
+      "nonexistent_local_time": "Cette heure n’existe pas à cette date en raison du changement d’heure.",
+      "no_suitable_table": "Aucune table n’accueille un groupe de {{partySize}}.",
+      "before_earliest": "Trop tôt : les clients peuvent réserver à partir de {{earliest}}.",
+      "after_latest_date": "Trop à l’avance : les clients peuvent réserver jusqu’au {{latest}}.",
+      "no_free_table": "Toutes les tables adaptées sont réservées. Tables pour ce groupe : {{tables}}.",
+      "pacing": {
+        "venue": "Rythme : {{covers}} couverts sur {{limit}} déjà réservés à {{time}}, donc un groupe de {{partySize}} dépasserait la limite.",
+        "service": "Rythme de {{service}} : {{covers}} couverts sur {{limit}} déjà réservés à {{time}}, donc un groupe de {{partySize}} dépasserait la limite."
+      }
     }
   },
   "availabilityHub": {

@@ -196,3 +196,11 @@
     flex-direction: column;
   }
 }
+
+/* Quick actions stay finger-sized on touch screens and phone/tablet widths (WCAG 2.5.8, #10038). */
+@media (pointer: coarse), (max-width: 1024px) {
+  .actionsRow > button {
+    min-block-size: 44px;
+    min-inline-size: 44px;
+  }
+}

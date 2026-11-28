@@ -261,7 +261,9 @@ export async function runCliAdapterSession(
     tokenUsage,
     durationMs: adapterResult?.durationMs ?? 0,
     numTurns,
-    resultText: "",
+    // The adapter's final summary, so the eval judge can see the evidence a
+    // declared no-op relies on (#10137); "" when the backend reports none.
+    resultText: adapterResult?.resultText ?? "",
     errors,
     // Same projection as result-builder.ts's evalSummary on the SDK path.
     ...(gatewayEvaluation

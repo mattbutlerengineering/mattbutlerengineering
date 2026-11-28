@@ -34,8 +34,11 @@ export function dayNotices(
   snapshot: BookingSnapshot,
   serviceDate: ServiceDate,
   phone: string | null,
-  /** Online seatings `listSlots` found for the date, booked or not. */
-  seatingCount: number,
+  /**
+   * Online seatings `listSlots` found for the date, booked or not. A function is
+   * called only for a date a rule closes, so a caller can skip listing open dates.
+   */
+  seatingCount: number | (() => number),
   /** The venue never set hours: no services is "not set up", not "closed" (staff may still book by phone). */
   unconfigured = false
 ): DayNotices {
@@ -60,6 +63,7 @@ export function dayNotices(
     day.closures.some((band) => band.targetKind !== "tables");
   if (!closedByRule) return {};
   // Any seating left on the online channel means the date is open, if shorter.
-  if (seatingCount > 0) return {};
+  const seatings = typeof seatingCount === "function" ? seatingCount() : seatingCount;
+  if (seatings > 0) return {};
   return { closure: { message: day.guestMessage ?? DEFAULT_CLOSURE_MESSAGE } };
 }

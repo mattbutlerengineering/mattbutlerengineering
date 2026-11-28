@@ -446,6 +446,31 @@ describe("verifyBug", () => {
     expect(capturedArgs[capturedArgs.indexOf("--workflow") + 1]).toBe("CI");
   });
 
+  // #3538 sibling of verifyCiFix's #6659 fix: rapid successive
+  // automation-authored pushes to `main` get their CI run cancelled by
+  // GitHub's own concurrency group, superseded by the next push's run —
+  // not a code failure. `latestCompleted` used to accept any `completed`
+  // status regardless of conclusion, so a cancelled run read as a
+  // definite "not verified" and reopened an already-fixed `bug` issue.
+  it("abstains (does not comment or reopen) when the only completed run was cancelled by concurrency", () => {
+    const runs = [{ status: "completed", conclusion: "cancelled" }];
+    const result = verifyBug(depsWithRuns(runs));
+
+    expect(result.verified).toBe(false);
+    expect(result.confidence).toBe("skip");
+    expect(shouldActOnResult(result)).toBe(false);
+  });
+
+  it("skips past a leading cancelled run to the latest real success/failure", () => {
+    const runs = [
+      { status: "completed", conclusion: "cancelled" },
+      { status: "completed", conclusion: "success" },
+    ];
+    const result = verifyBug(depsWithRuns(runs));
+
+    expect(result.verified).toBe(true);
+  });
+
   it("reproduces the false-positive shape: a bug-labeled issue with clean CI-workflow history must not be reopened by a dip in unrelated-workflow noise", () => {
     // Mirrors the verifyCiFix regression test above — same false-positive
     // class (#4211/#4208), same fix, sibling verifier.

@@ -261,6 +261,27 @@ describe("runCliAdapterSession", () => {
     expect(result.numTurns).toBe(0);
   });
 
+  it("surfaces the adapter's final summary as SessionResult.resultText so the eval judge can see a no-op's evidence (#10137)", async () => {
+    const adapter = makeCliAdapter("claude-cli", {
+      success: true,
+      resultText: "js-yaml is already the latest 5.x patch; no change needed.",
+    });
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(false);
+
+    const result = await runCliAdapterSession(adapter, makeSessionConfig(), undefined, deps);
+
+    expect(result.resultText).toBe("js-yaml is already the latest 5.x patch; no change needed.");
+  });
+
+  it("defaults SessionResult.resultText to empty when the adapter reports no summary", async () => {
+    const adapter = makeCliAdapter("gemini", {});
+    vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(false);
+
+    const result = await runCliAdapterSession(adapter, makeSessionConfig(), undefined, deps);
+
+    expect(result.resultText).toBe("");
+  });
+
   it("still creates a draft PR when a gate fails, matching the claude path's draft-PR outcome", async () => {
     const adapter = makeCliAdapter("gemini", { success: true });
     vi.mocked(deps.worktreeManager.hasChanges).mockResolvedValue(true);

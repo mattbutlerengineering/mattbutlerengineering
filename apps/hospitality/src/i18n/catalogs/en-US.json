@@ -1734,7 +1734,11 @@
   },
   "notFound": {
     "message": "This table's not on tonight's floor plan. That page never made the reservation book.",
-    "back": "Back to tonight's service"
+    "back": "Back to tonight's service",
+    "guestTitle": "Page not found",
+    "guestMessage": "There's nothing at this address. The link may be mistyped, or the page may have moved.",
+    "guestHome": "Go to the home page",
+    "guestDocumentTitle": "Page not found - {{brand}}"
   },
   "chat": {
     "title": "Chat",
@@ -3423,6 +3427,72 @@
       "openDay": "{{change}}, show the day",
       "empty": "Nothing else changes in the next 7 days",
       "saveFailed": "Couldn't save."
+    }
+  },
+  "availabilityExplain": {
+    "title": "Explain this day",
+    "description": "What the rules do on one date, and why each time is or is not bookable.",
+    "open": "Explain this day",
+    "guideLink": "Open Explain this day for any date",
+    "dateLabel": "Date",
+    "partySizeLabel": "Party size",
+    "loading": "Checking every time on this day",
+    "loadError": "Couldn't explain this day",
+    "closedAllDay": "Closed all day, so there are no times to explain.",
+    "rulesHeading": "Rules that set the hours",
+    "timesHeading": "Result for every time",
+    "pastDate": "This is what today's rules produce. This date has passed, so guests may not have been offered the same times.",
+    "outcome": {
+      "bookable": "Bookable",
+      "removed": "Not bookable"
+    },
+    "link": {
+      "closures": "Edit closures",
+      "regularHours": "Edit regular hours",
+      "bookingRules": "Edit booking rules",
+      "floorPlan": "Edit the floor plan",
+      "calendar": "Open this day in the Calendar",
+      "label": "{{link}}, for {{time}}"
+    },
+    "summary": {
+      "bookable_one": "{{count}} time bookable for a party of {{partySize}}.",
+      "bookable_other": "{{count}} times bookable for a party of {{partySize}}.",
+      "bookable_many": "{{count}} times bookable for a party of {{partySize}}.",
+      "commonReason": "The most common reason times are missing is {{reason}}."
+    },
+    "reasonName": {
+      "booking_paused": "a pause",
+      "channel_not_offered": "a service that is not booked this way",
+      "closure": "a closure",
+      "nonexistent_local_time": "a clock change",
+      "no_suitable_table": "no table big enough for the party",
+      "before_earliest": "the minimum notice in Booking rules",
+      "after_latest_date": "how far ahead guests can book",
+      "no_free_table": "tables already booked",
+      "pacing": "pacing"
+    },
+    "reason": {
+      "booking_paused": "Pause: {{channel}} booking is paused.",
+      "channel_not_offered": "{{service}} does not take {{channel}} booking.",
+      "closure": {
+        "venue": "Closure: the venue is closed {{window}}.",
+        "service": "Closure: {{service}} is closed {{window}}.",
+        "booking": "Closure: booking is closed {{window}}.",
+        "tables": "Closure: tables are blocked {{window}}."
+      },
+      "window": {
+        "allDay": "all day",
+        "range": "from {{from}} to {{to}}"
+      },
+      "nonexistent_local_time": "This time does not exist on this date because the clocks change.",
+      "no_suitable_table": "No table seats a party of {{partySize}}.",
+      "before_earliest": "Too soon: guests can book from {{earliest}}.",
+      "after_latest_date": "Too far ahead: guests can book up to {{latest}}.",
+      "no_free_table": "Every suitable table is booked. Tables that seat this party: {{tables}}.",
+      "pacing": {
+        "venue": "Pacing: {{covers}} of {{limit}} covers already booked at {{time}}, so a party of {{partySize}} would go over.",
+        "service": "{{service}} pacing: {{covers}} of {{limit}} covers already booked at {{time}}, so a party of {{partySize}} would go over."
+      }
     }
   },
   "availabilityHub": {

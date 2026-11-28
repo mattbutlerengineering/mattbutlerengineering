@@ -287,7 +287,9 @@ to a single worker without worktree isolation in cloud and keep the local
   Off-hour and off-minute, away from the on-the-hour scheduled fleet.
 - **Why it is not a routine:** the collector it runs needs exactly what a
   cloud routine does not have. `scripts/acmm/review-burden-metrics.js` shells
-  out to `gh`, which does not exist in a CCR session at all
+  out to `gh pr list --json ...,reviews,...`, a GraphQL-backed `gh` subcommand
+  that a CCR session's `gh` cannot run — `gh` itself is present there, but
+  GraphQL-backed subcommands answer HTTP 403 and only `gh api` REST calls work
   (`.claude/rules/gotchas.md` § Claude Code Remote). Nothing ran it at all
   after one manual run on 2026-06-14. (A booking-funnel `domain-metrics`
   collector used to run here too; it was retired in #5561 — it needed a
@@ -602,6 +604,21 @@ new weekday schedule slot** (see Plan budget below).
   timeouts, lowered thresholds or advisory-made required checks); at most two
   of its PRs open at once.
 
+## `mbe-hourly-fix`
+
+> **Prompt:** [`routines/mbe-hourly-fix.md`](./routines/mbe-hourly-fix.md).
+> This section describes intent; the file is the prompt. Manifest:
+> `scripts/routines/mbe-hourly-fix.json` (heartbeat signature, `periodDays: 1`).
+
+- **When:** hourly at `:27` (`27 * * * *`). Model: sonnet.
+- **What it does:** picks a lens from the UTC hour (end user, development
+  speed, development quality), finds one root-caused problem, and fixes it in
+  one PR of about 150 lines titled `… (mbe-hourly-fix)`, per
+  [`routines/fix-protocol.md`](./routines/fix-protocol.md) (#10151).
+- **Merges:** every PR goes through `reviewed-merge.yml`. Findings whose fix
+  needs a guardrail path, a security fix or a product decision become issues.
+- **Guardrails:** at most two of its PRs open at once; never weakens a gate.
+
 ## Plan budget (Max 20x)
 
 The Max 20x plan has far more scheduled-run headroom than Max 5x, shared with
@@ -614,6 +631,8 @@ it does **not** count against the claude.ai plan quota):
 - Sun: + `mbe-weekly-retro` (opus) → 6
 - 1st of month: + `mbe-monthly-meta-audit` (opus) → 6 (or briefly 8 if the 1st is a Fri)
 - Mon-Fri: + `mbe-dev-speed` (opus) → 6 on weekdays, 8 on Fridays
+
+`mbe-hourly-fix` (added 2026-11-28, #10151) adds up to 24 sonnet fires a day; a fire at its WIP cap exits after one heartbeat.
 
 `mbe-feature-drain` (added 2026-10-16) sits on top of that baseline: one hourly
 sonnet trigger (up to 24 fires/day since 2026-11-18, down from 48). A fire with

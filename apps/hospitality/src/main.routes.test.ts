@@ -24,6 +24,11 @@ describe("hospitality catch-all route", () => {
     expect(catchAllMatch?.[0]).toContain("NotFoundPage");
   });
 
+  it("tags the catch-all with the not-found handle App reads before the auth gate (#9990)", () => {
+    const catchAllMatch = mainTsxSource.match(/path:\s*"\*",[\s\S]{0,200}/);
+    expect(catchAllMatch?.[0]).toMatch(/handle:\s*NOT_FOUND_ROUTE_HANDLE/);
+  });
+
   it("lazily imports NotFoundPage", () => {
     expect(mainTsxSource).toMatch(/import\("\.\/pages\/NotFoundPage\.js"\)/);
   });

@@ -20,6 +20,7 @@ import { localeRuntime, LocaleBridge } from "./i18n/runtime.js";
 import { ToastLocaleOverride } from "./components/booking-widget/ToastLocaleOverride.js";
 import { availabilityPath } from "./components/availability/availability-address.js";
 import { SetupRedirect } from "./components/availability/SetupRedirect.js";
+import { NOT_FOUND_ROUTE_HANDLE } from "./hooks/useIsNotFoundRoute.js";
 
 initSentry({
   appName: "hospitality",
@@ -113,6 +114,11 @@ const AvailabilitySeasonalEditorPage = lazy(() =>
 );
 const AvailabilityHoursPage = lazy(() =>
   import("./pages/AvailabilityHoursPage.js").then((m) => ({ default: m.AvailabilityHoursPage }))
+);
+const AvailabilityExplainPage = lazy(() =>
+  import("./pages/AvailabilityExplainPage.js").then((m) => ({
+    default: m.AvailabilityExplainPage,
+  }))
 );
 const AvailabilityGuidePage = lazy(() =>
   import("./pages/AvailabilityGuidePage.js").then((m) => ({ default: m.AvailabilityGuidePage }))
@@ -472,6 +478,15 @@ const router = createBrowserRouter(
                   ),
                 },
                 {
+                  // Read by a Host too: the trace is read-only.
+                  path: "explain",
+                  element: (
+                    <Suspense fallback={<LoadingPage />}>
+                      <AvailabilityExplainPage />
+                    </Suspense>
+                  ),
+                },
+                {
                   // The retired Availability map (#10032): old links land on the hub.
                   path: "map",
                   element: <Navigate to={availabilityPath({ view: "hub" })} replace />,
@@ -555,7 +570,9 @@ const router = createBrowserRouter(
               element: <Navigate to={availabilityPath({ view: "hub" })} replace />,
             },
             {
+              // The handle lets App show a signed-out visitor this page, not the sign-in gate (#9990).
               path: "*",
+              handle: NOT_FOUND_ROUTE_HANDLE,
               element: (
                 <Suspense fallback={<LoadingPage />}>
                   <NotFoundPage />

@@ -2,17 +2,34 @@
 
 /**
  * cloud-session-bootstrap.mjs — SessionStart hook body (#8169). Cloud/CCR
- * sessions start with no `node_modules` and no built workspace `dist/`, so
- * `@mbe/*` imports fail until `pnpm install --frozen-lockfile` +
- * `pnpm build --filter @mbe/cli...` are run by hand. This runs them once,
- * only when `CLAUDE_CODE_REMOTE=true` AND `node_modules` is absent; local
- * sessions and already-installed cloud sessions are a no-op that spawns
- * nothing. Never fails the session: errors are logged and exit is 0.
+ * sessions start with no built workspace `dist/` and often no `node_modules`,
+ * so `@mbe/*` imports fail until `pnpm install --frozen-lockfile` +
+ * `pnpm build --filter @mbe/cli...` are run by hand. This runs them once, only
+ * when `CLAUDE_CODE_REMOTE=true`; local sessions and cloud sessions already
+ * installed from this checkout's lockfile are a no-op that spawns nothing.
+ * Never fails the session: errors are logged and exit is 0.
+ *
+ * `node_modules` existing is NOT evidence that the checkout's dependencies are
+ * installed. The container image ships a pre-baked `node_modules`, so a
+ * session whose checkout has moved past the image gated the install on a
+ * directory that was already there and ran its gates against a stale tree.
+ * Measured 2026-11-28: an image baked on 11-23 against a session on 11-28,
+ * after 02f1946 changed `pnpm-lock.yaml` and `services/agent`'s
+ * `@modelcontextprotocol/sdk` dependency -- `services/agent` had no link for
+ * it, so `pnpm lint` and `pnpm typecheck` both failed with 13 `TS2307`s that
+ * had nothing to do with the session's own work.
+ *
+ * So the decision reads provenance, not presence: pnpm records the lockfile it
+ * last installed from at `node_modules/.pnpm/lock.yaml`, and a tree installed
+ * from a different one (or one whose provenance cannot be read) is repaired.
+ * `pnpm install --frozen-lockfile` is idempotent and took 4.6 s on an
+ * already-current tree, so the cost of being wrong in this direction is small
+ * and the cost of being wrong in the other is a spuriously red gate.
  *
  * Linked worktrees are handled separately (`pnpm bootstrap:worktree`).
  */
 
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -25,12 +42,43 @@ export const CLOUD_BOOTSTRAP_COMMANDS = Object.freeze([
   Object.freeze({ cmd: "pnpm", args: Object.freeze(["build", "--filter", "@mbe/cli..."]) }),
 ]);
 
-/** True only for a cloud session (`CLAUDE_CODE_REMOTE=true`) lacking `node_modules`. */
-export function shouldBootstrapCloudSession({ env, hasNodeModules }) {
+/** Where pnpm records the lockfile it last installed from, relative to the repo root. */
+export const LAST_INSTALL_LOCKFILE = join("node_modules", ".pnpm", "lock.yaml");
+
+/**
+ * True for a cloud session (`CLAUDE_CODE_REMOTE=true`) whose `node_modules` is
+ * absent, was installed from a different lockfile than this checkout carries,
+ * or cannot be traced to one.
+ *
+ * `installedLockfileMatches` is `undefined` when the provenance is unreadable;
+ * that repairs rather than trusts the tree, because a pre-baked `node_modules`
+ * is indistinguishable from a current one by presence alone.
+ *
+ * @param {{env?: Record<string,string|undefined>, hasNodeModules: boolean, installedLockfileMatches?: boolean}} args
+ */
+export function shouldBootstrapCloudSession({ env, hasNodeModules, installedLockfileMatches }) {
   if (typeof hasNodeModules !== "boolean") {
     throw new TypeError("shouldBootstrapCloudSession: hasNodeModules must be a boolean");
   }
-  return env?.CLAUDE_CODE_REMOTE === "true" && !hasNodeModules;
+  if (env?.CLAUDE_CODE_REMOTE !== "true") return false;
+  if (!hasNodeModules) return true;
+  return installedLockfileMatches !== true;
+}
+
+/**
+ * Whether `node_modules` was installed from the lockfile this checkout
+ * carries. `undefined` when either file cannot be read -- provenance unknown.
+ *
+ * @returns {boolean|undefined}
+ */
+function installedFromThisLockfile({ repoRoot, readText }) {
+  try {
+    return (
+      readText(join(repoRoot, LAST_INSTALL_LOCKFILE)) === readText(join(repoRoot, "pnpm-lock.yaml"))
+    );
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -41,13 +89,23 @@ export function runCloudSessionBootstrap({
   env = process.env,
   repoRoot = REPO_ROOT,
   exists = existsSync,
+  readText = (path) => readFileSync(path, "utf8"),
   exec = execFileSync,
   log = (msg) => process.stderr.write(`${msg}\n`),
 } = {}) {
   const hasNodeModules = exists(join(repoRoot, "node_modules"));
-  if (!shouldBootstrapCloudSession({ env, hasNodeModules })) return { ran: false, ok: true };
+  const installedLockfileMatches = hasNodeModules
+    ? installedFromThisLockfile({ repoRoot, readText })
+    : undefined;
+  if (!shouldBootstrapCloudSession({ env, hasNodeModules, installedLockfileMatches })) {
+    return { ran: false, ok: true };
+  }
 
-  log("cloud-session-bootstrap: no node_modules — installing and building @mbe/cli...");
+  log(
+    hasNodeModules
+      ? "cloud-session-bootstrap: node_modules was not installed from this checkout's lockfile — installing and building @mbe/cli..."
+      : "cloud-session-bootstrap: no node_modules — installing and building @mbe/cli..."
+  );
   try {
     for (const { cmd, args } of CLOUD_BOOTSTRAP_COMMANDS) {
       exec(cmd, args, { cwd: repoRoot, stdio: ["ignore", 2, 2] });
