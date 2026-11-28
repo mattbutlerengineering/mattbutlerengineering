@@ -79,6 +79,8 @@ export function AvailabilityLayout() {
     [railConfig, timezone, now, today, floorPlans.data, isManager]
   );
   const selectedId = selectedRailId(rail, location);
+  // The canvas editor needs the width, so the rail steps aside while one plan is open (#9944).
+  const onFloorPlanEditor = /^\/availability\/floor-plans\/[^/]+\/?$/.test(location.pathname);
   const dialogs = useAvailabilityDialogs();
   const { openClose, openPause } = dialogs;
 
@@ -116,6 +118,7 @@ export function AvailabilityLayout() {
     <>
       <Outlet context={scope} />
       {subnav?.slot &&
+        !onFloorPlanEditor &&
         createPortal(
           <AvailabilityRail groups={rail} selectedId={selectedId} onPick={subnav.onPick} />,
           subnav.slot

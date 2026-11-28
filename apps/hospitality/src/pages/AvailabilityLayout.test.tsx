@@ -84,7 +84,11 @@ function renderLayout(url = "/availability/calendar") {
       {
         path: "availability",
         element: <AvailabilityLayout />,
-        children: [{ path: "calendar", element: <ScopeProbe /> }],
+        children: [
+          { path: "calendar", element: <ScopeProbe /> },
+          { path: "floor-plans", element: <ScopeProbe /> },
+          { path: "floor-plans/:id", element: <ScopeProbe /> },
+        ],
       },
     ],
     { initialEntries: [url] }
@@ -220,6 +224,15 @@ describe("AvailabilityLayout", () => {
         "href",
         "/availability/floor-plans/fp-1"
       );
+    });
+
+    it("hides while the floor plan canvas editor is open, and shows on the floor plan list", () => {
+      const name = "Availability sections";
+      const editor = renderLayout("/availability/floor-plans/fp-1");
+      expect(screen.queryByRole("navigation", { name })).not.toBeInTheDocument();
+      editor.unmount();
+      renderLayout("/availability/floor-plans");
+      expect(screen.getByRole("navigation", { name })).toBeInTheDocument();
     });
 
     it("leaves regular and seasonal hours out for a Host", () => {
