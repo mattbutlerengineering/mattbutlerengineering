@@ -105,7 +105,7 @@ describe("useRegularWeekEdit", () => {
     const { result } = setup({ defaultStart: TODAY, offerUndo });
     act(() => result.current.setStartsOn("2026-11-02"));
     await act(() => result.current.submit());
-    expect(offerUndo).toHaveBeenCalledWith("Regular week changed from Nov 2", {
+    expect(offerUndo).toHaveBeenCalledWith("Regular hours changed from Nov 2", {
       version: 8,
       changeId: "chg",
     });

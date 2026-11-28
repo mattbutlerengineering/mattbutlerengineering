@@ -88,7 +88,7 @@ describe("Undo after a schedule save", () => {
     revert.mockResolvedValue({ version: 9, changeId: "chg2" });
   });
 
-  it("offers Undo after Change regular week, reverting that save", async () => {
+  it("offers Undo after Change regular hours, reverting that save", async () => {
     render(
       <main>
         <ChangeRegularWeekDrawer
@@ -145,7 +145,7 @@ describe("Undo after a schedule save", () => {
     fireEvent.click(screen.getByRole("combobox", { name: "Booking" }));
     fireEvent.click(screen.getByRole("option", { name: "Phone only" }));
     fireEvent.click(screen.getByRole("button", { name: "Apply to 1 selected" }));
-    fireEvent.click(screen.getByRole("button", { name: "Save 1 schedule" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save 1 seasonal hours" }));
     (await undoOffered())();
     await waitFor(() => expect(revert).toHaveBeenCalledWith(REVERT_ARGS));
   });

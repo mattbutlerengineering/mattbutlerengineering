@@ -586,7 +586,7 @@ describe("AvailabilityCalendar quiet month cells and legend (PRD 8)", () => {
   const DECEMBER = Array.from({ length: 31 }, (_, i) => dec(i + 1)).map((date) =>
     weekday(date) <= 3
       ? day(date, { label: "Weeknights", scheduleId: "wk" })
-      : day(date, { label: "Regular week", scheduleId: "reg" })
+      : day(date, { label: "Regular hours", scheduleId: "reg" })
   );
   const EVE = day(dec(24), {
     label: "Weeknights",
@@ -653,13 +653,13 @@ describe("AvailabilityCalendar quiet month cells and legend (PRD 8)", () => {
       const { container } = renderCalendar({
         anchor: "2026-11-26",
         today: "2026-11-20",
-        days: [day("2026-11-26", { label: "Regular week", scheduleId: "reg" })],
+        days: [day("2026-11-26", { label: "Regular hours", scheduleId: "reg" })],
       });
       const cell = container.querySelector('button[data-date="2026-11-26"]');
-      // Visible text reads "26 Thanksgiving Regular week …"; the name must carry
+      // Visible text reads "26 Thanksgiving Regular hours …"; the name must carry
       // "26 Thanksgiving" together, before the details, not with the holiday at the end.
-      expect(cell?.textContent).toMatch(/^26 Thanksgiving Regular week/);
-      expect(cell).toHaveAccessibleName(/^Thursday, November 26 Thanksgiving: Regular week/);
+      expect(cell?.textContent).toMatch(/^26 Thanksgiving Regular hours/);
+      expect(cell).toHaveAccessibleName(/^Thursday, November 26 Thanksgiving: Regular hours/);
     });
 
     it("takes no booking chip on a regular-closed day: the muted Closed text alone", async () => {
@@ -820,8 +820,8 @@ describe("AvailabilityCalendar quiet month cells and legend (PRD 8)", () => {
   });
 
   it("says the month is the regular week when no day differs", () => {
-    month({ days: DECEMBER.map((d) => ({ ...d, label: "Regular week", scheduleId: "reg" })) });
-    expect(screen.getByText("This month: your regular week")).toBeInTheDocument();
+    month({ days: DECEMBER.map((d) => ({ ...d, label: "Regular hours", scheduleId: "reg" })) });
+    expect(screen.getByText("This month: your regular hours")).toBeInTheDocument();
     expect(screen.queryByRole("list")).toBeNull();
   });
 

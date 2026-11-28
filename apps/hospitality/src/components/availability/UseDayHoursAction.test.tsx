@@ -81,7 +81,7 @@ function renderAction(
 }
 
 async function applyOneDate(name: RegExp) {
-  fireEvent.click(screen.getByRole("combobox", { name: "Schedule" }));
+  fireEvent.click(screen.getByRole("combobox", { name: "Seasonal hours" }));
   fireEvent.click(screen.getByRole("option", { name: "Summer hours" }));
   fireEvent.click(screen.getByRole("button", { name }));
 }
@@ -115,7 +115,7 @@ describe("UseDayHoursAction: Use other hours… (ux.md F2 drawer actions, #8691)
     fireEvent.click(screen.getByRole("button", { name: "Use other hours…" }));
     // Nothing is selected here: the title says which date, not "the selected dates".
     expect(
-      screen.getByRole("dialog", { name: "Use a schedule on Friday, Oct 30" })
+      screen.getByRole("dialog", { name: "Use seasonal hours on Friday, Oct 30" })
     ).toBeInTheDocument();
     await applyOneDate(/^Apply to 1 date$/);
     await waitFor(() => expect(onFinished).toHaveBeenCalledOnce());
@@ -217,7 +217,9 @@ describe("UseDayHoursAction after a regular-week save (#8688)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Use other hours…" }));
     const dialog = screen.getByRole("dialog", { name: TITLE_DAY });
     expect(within(dialog).getByLabelText("Copy hours from")).toBeInTheDocument();
-    expect(within(dialog).queryByRole("combobox", { name: "Schedule" })).not.toBeInTheDocument();
+    expect(
+      within(dialog).queryByRole("combobox", { name: "Seasonal hours" })
+    ).not.toBeInTheDocument();
   });
 
   it("does not offer the replaced week in the schedule picker", () => {
@@ -226,9 +228,9 @@ describe("UseDayHoursAction after a regular-week save (#8688)", () => {
     const old = supersededWeekOf(state.config);
     renderAction(state);
     fireEvent.click(screen.getByRole("button", { name: "Use other hours…" }));
-    fireEvent.click(screen.getByRole("combobox", { name: "Schedule" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Seasonal hours" }));
     const offered = screen.getAllByRole("option").map((o) => o.textContent);
-    expect(offered).toEqual(["Summer hours", "Regular week"]);
+    expect(offered).toEqual(["Summer hours", "Regular hours"]);
     expect(offered).not.toContain(old.name);
   });
 });

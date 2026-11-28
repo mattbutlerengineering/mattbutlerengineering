@@ -100,7 +100,7 @@ describe("AvailabilityDayDrawer: use another day's hours (#7981)", () => {
   it("is a Manager's action: a Host does not get it", () => {
     renderDrawer({ role: "host" });
     expect(
-      screen.queryByRole("button", { name: /Use other hours|Use another day|Use schedule/ })
+      screen.queryByRole("button", { name: /Use other hours|Use another day|Use seasonal hours/ })
     ).toBeNull();
   });
 
@@ -116,8 +116,8 @@ describe("AvailabilityDayDrawer: use another day's hours (#7981)", () => {
 
   it("saves the date and tells the page it is done, so the drawer closes", async () => {
     const { onFinished } = renderDrawer({ extraSchedule: true });
-    await openCopyFrom(/Use a schedule/);
-    fireEvent.click(screen.getByRole("combobox", { name: "Schedule" }));
+    await openCopyFrom(/Use seasonal hours/);
+    fireEvent.click(screen.getByRole("combobox", { name: "Seasonal hours" }));
     fireEvent.click(screen.getByRole("option", { name: "Summer hours" }));
     fireEvent.click(screen.getByRole("button", { name: "Apply to 1 date" }));
     await waitFor(() => expect(onFinished).toHaveBeenCalledWith(true));
@@ -135,8 +135,8 @@ describe("AvailabilityDayDrawer: use another day's hours (#7981)", () => {
       },
     });
     const { onFinished, onStale } = renderDrawer({ extraSchedule: true });
-    await openCopyFrom(/Use a schedule/);
-    fireEvent.click(screen.getByRole("combobox", { name: "Schedule" }));
+    await openCopyFrom(/Use seasonal hours/);
+    fireEvent.click(screen.getByRole("combobox", { name: "Seasonal hours" }));
     fireEvent.click(screen.getByRole("option", { name: "Summer hours" }));
     fireEvent.click(screen.getByRole("button", { name: "Apply to 1 date" }));
     await waitFor(() => expect(onStale).toHaveBeenCalledOnce());

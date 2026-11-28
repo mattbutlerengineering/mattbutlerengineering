@@ -548,7 +548,7 @@ describe("AvailabilityPage", () => {
   });
 
   describe("the entry contract (?tab=, ?closeSection=, ?from=setup)", () => {
-    const schedulesTab = () => screen.queryByRole("radio", { name: "Schedules" });
+    const schedulesTab = () => screen.queryByRole("radio", { name: "Seasonal hours" });
 
     it("shows a Manager the Schedules tab on a one-schedule venue", () => {
       renderPage();
@@ -564,7 +564,7 @@ describe("AvailabilityPage", () => {
     it("opens Schedules for ?tab=schedules", () => {
       renderPage("/availability/calendar?tab=schedules");
       expect(schedulesTab()).toBeChecked();
-      expect(screen.getByRole("heading", { level: 2, name: "Regular week" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { level: 2, name: "Regular hours" })).toBeInTheDocument();
       expect(screen.queryByRole("grid")).not.toBeInTheDocument();
     });
 
@@ -578,7 +578,7 @@ describe("AvailabilityPage", () => {
     it("renders the default page for garbage params", () => {
       renderPage("/availability/calendar?tab=%00&closeSection=&from=nowhere&x=1");
       // No valid tab: a Manager lands on Schedules.
-      expect(screen.getByRole("radio", { name: "Schedules" })).toBeChecked();
+      expect(screen.getByRole("radio", { name: "Seasonal hours" })).toBeChecked();
       expect(screen.queryByRole("link", { name: "Back to Availability" })).not.toBeInTheDocument();
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
@@ -628,15 +628,15 @@ describe("AvailabilityPage", () => {
 
     it("opens the seeded schedule editor on Schedules for ?action=addSchedule, once", async () => {
       renderPage("/availability/calendar?action=addSchedule&from=setup");
-      expect(await screen.findByRole("dialog", { name: "New schedule" })).toBeInTheDocument();
-      expect(screen.getByRole("radio", { name: "Schedules" })).toBeChecked();
+      expect(await screen.findByRole("dialog", { name: "New seasonal hours" })).toBeInTheDocument();
+      expect(screen.getByRole("radio", { name: "Seasonal hours" })).toBeChecked();
       expect(screen.getByLabelText("Starting")).toHaveValue("");
       expect(screen.getByTestId("location")).toHaveTextContent("/availability/calendar?from=setup");
     });
 
     it("opens no editor for ?action=addSchedule on another layer", () => {
       renderPage("/availability/calendar?tab=calendar&action=addSchedule");
-      expect(screen.queryByRole("dialog", { name: "New schedule" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("dialog", { name: "New seasonal hours" })).not.toBeInTheDocument();
       expect(screen.getByTestId("location")).toHaveTextContent(
         "/availability/calendar?tab=calendar"
       );
@@ -647,13 +647,13 @@ describe("AvailabilityPage", () => {
       const view = renderPage("/availability/calendar?action=addSchedule");
       configSource.value = "rows";
       view.rerender(page("/availability/calendar?action=addSchedule"));
-      expect(screen.queryByRole("dialog", { name: "New schedule" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("dialog", { name: "New seasonal hours" })).not.toBeInTheDocument();
     });
 
     it("opens no editor for a Host who follows ?action=addSchedule", () => {
       team.value = { viewerRole: "host" };
       renderPage("/availability/calendar?action=addSchedule");
-      expect(screen.queryByRole("dialog", { name: "New schedule" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("dialog", { name: "New seasonal hours" })).not.toBeInTheDocument();
       expect(screen.getByRole("radio", { name: "Calendar" })).toBeChecked();
     });
   });
@@ -677,7 +677,7 @@ describe("AvailabilityPage", () => {
     it("tells a Host a manager sets the week, with no card", () => {
       team.value = { viewerRole: "host" };
       renderPage();
-      expect(screen.getByText(/A manager sets the regular week here/)).toBeInTheDocument();
+      expect(screen.getByText(/A manager sets the regular hours here/)).toBeInTheDocument();
       expect(screen.queryByRole("region", { name: "Quick setup" })).not.toBeInTheDocument();
       expect(
         screen.queryByRole("complementary", { name: "Guest preview" })
@@ -688,7 +688,7 @@ describe("AvailabilityPage", () => {
       team.value = undefined;
       renderPage();
       expect(screen.queryByRole("region", { name: "Quick setup" })).not.toBeInTheDocument();
-      expect(screen.queryByText(/A manager sets the regular week here/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/A manager sets the regular hours here/)).not.toBeInTheDocument();
     });
 
     it("has no axe violations", async () => {
@@ -742,7 +742,7 @@ describe("AvailabilityPage", () => {
 
   it("ignores a ?date= beside another layer, and leaves no day for Calendar to open later", async () => {
     renderPage("/availability/calendar?tab=schedules&date=2026-10-30");
-    expect(screen.getByRole("radio", { name: "Schedules" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "Seasonal hours" })).toBeChecked();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     await waitFor(() =>
       expect(screen.getByTestId("location")).toHaveTextContent(
@@ -1386,7 +1386,7 @@ describe("AvailabilityPage", () => {
       ).toEqual([
         "Pause online booking",
         "Compare services",
-        "Duplicate regular week…",
+        "Duplicate regular hours…",
         "Go to date",
       ]);
     });
@@ -1422,7 +1422,7 @@ describe("AvailabilityPage", () => {
     });
   });
 
-  it("hands focus to the calendar when quick setup's save lands on a layer with no Regular week heading", () => {
+  it("hands focus to the calendar when quick setup's save lands on a layer with no Regular hours heading", () => {
     configSource.value = "empty";
     const { rerender } = renderPage("/availability/calendar?tab=calendar");
     configSource.value = "rows";
@@ -1430,13 +1430,13 @@ describe("AvailabilityPage", () => {
     expect(document.activeElement).toHaveAttribute("data-date");
   });
 
-  it("hands focus to the Regular week heading when quick setup's save removes the focused button (#7980)", () => {
+  it("hands focus to the Regular hours heading when quick setup's save removes the focused button (#7980)", () => {
     configSource.value = "empty";
     const { rerender } = renderPage("/availability/calendar");
     configSource.value = "rows";
     rerender(page("/availability/calendar"));
     expect(document.activeElement).toBe(
-      screen.getByRole("heading", { level: 2, name: "Regular week" })
+      screen.getByRole("heading", { level: 2, name: "Regular hours" })
     );
   });
 
@@ -1627,7 +1627,7 @@ describe("AvailabilityPage layers", () => {
 
   it("lands a Manager on Schedules", () => {
     renderPage("/availability/calendar");
-    expect(layerRadio("Schedules")).toBeChecked();
+    expect(layerRadio("Seasonal hours")).toBeChecked();
     expect(screen.getByTestId("week-panel")).toBeInTheDocument();
     expect(screen.queryByRole("grid")).not.toBeInTheDocument();
   });
@@ -1636,10 +1636,10 @@ describe("AvailabilityPage layers", () => {
     team.value = { viewerRole: "host" };
     renderPage("/availability/calendar");
     expect(layerRadio("Calendar")).toBeChecked();
-    expect(screen.queryByRole("radio", { name: "Schedules" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("radio", { name: "Seasonal hours" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Close…" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Pause online booking" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Add a schedule…" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add seasonal hours…" })).not.toBeInTheDocument();
     fireEvent.click(headerButton("More actions"));
     expect(
       within(screen.getByRole("menu"))
@@ -1656,7 +1656,7 @@ describe("AvailabilityPage layers", () => {
       within(screen.getByRole("radiogroup", { name: "Availability view" }))
         .getAllByRole("radio")
         .map((r) => r.textContent)
-    ).toEqual(["Schedules", "Calendar", "Special dates"]);
+    ).toEqual(["Seasonal hours", "Calendar", "Special dates"]);
   });
 
   it("first paint for a Manager on a one-schedule venue has 7 controls outside the week panel", () => {
@@ -1670,10 +1670,10 @@ describe("AvailabilityPage layers", () => {
       "Close…",
       "Pause online booking",
       "⋯",
-      "Schedules",
+      "Seasonal hours",
       "Calendar",
       "Special dates",
-      "Add a schedule…",
+      "Add seasonal hours…",
     ]);
   });
 
@@ -1717,7 +1717,7 @@ describe("AvailabilityPage layers", () => {
       fireEvent.click(headerButton("More actions"));
       fireEvent.click(screen.getByRole("menuitem", { name: "Compare services" }));
       expect(await screen.findByRole("heading", { name: "Compare services" })).toBeInTheDocument();
-      expect(layerRadio("Schedules")).toBeChecked();
+      expect(layerRadio("Seasonal hours")).toBeChecked();
     });
 
     it("shows the paused banner above the layer control", () => {
@@ -1766,11 +1766,11 @@ describe("AvailabilityPage layers", () => {
     });
   });
 
-  it("Duplicate regular week… opens the schedule editor from ⋯", async () => {
+  it("Duplicate regular hours… opens the schedule editor from ⋯", async () => {
     renderPage("/availability/calendar?tab=calendar");
     fireEvent.click(headerButton("More actions"));
-    fireEvent.click(screen.getByRole("menuitem", { name: "Duplicate regular week…" }));
-    expect(await screen.findByRole("textbox", { name: /Schedule name/ })).toHaveValue(
+    fireEvent.click(screen.getByRole("menuitem", { name: "Duplicate regular hours…" }));
+    expect(await screen.findByRole("textbox", { name: /Seasonal hours name/ })).toHaveValue(
       "Weeknight (copy)"
     );
   });
@@ -1783,7 +1783,7 @@ describe("AvailabilityPage layers", () => {
     fireEvent.click(layerRadio("Calendar"));
     const ask = screen.getByRole("alertdialog", { name: "Discard your changes?" });
     fireEvent.click(within(ask).getByRole("button", { name: "Keep editing" }));
-    expect(layerRadio("Schedules")).toBeChecked();
+    expect(layerRadio("Seasonal hours")).toBeChecked();
     fireEvent.click(layerRadio("Calendar"));
     fireEvent.click(
       within(screen.getByRole("alertdialog", { name: "Discard your changes?" })).getByRole(
@@ -1802,7 +1802,7 @@ describe("AvailabilityPage layers", () => {
 
     it("writes the open layer to the address, so the rail can mark it", () => {
       renderPage("/availability/calendar");
-      expect(layerRadio("Schedules")).toBeChecked();
+      expect(layerRadio("Seasonal hours")).toBeChecked();
       expect(where()).toContain("tab=schedules");
       fireEvent.click(layerRadio("Calendar"));
       expect(where()).toContain("tab=calendar");
@@ -1828,7 +1828,7 @@ describe("AvailabilityPage layers", () => {
       fireEvent.click(within(rail()).getByRole("link", { name: "Calendar" }));
       const ask = screen.getByRole("alertdialog", { name: "Discard your changes?" });
       fireEvent.click(within(ask).getByRole("button", { name: "Keep editing" }));
-      expect(layerRadio("Schedules")).toBeChecked();
+      expect(layerRadio("Seasonal hours")).toBeChecked();
       expect(where()).toContain("tab=schedules");
       expect(within(rail()).getByRole("link", { name: "Regular hours" })).toHaveAttribute(
         "aria-current",

@@ -136,12 +136,16 @@ const ONE_COVER: DateRule = {
 };
 const EDGES = () => dayOf(withSchedules(fixtureConfig(ALL_CHANNELS, ONE_COVER), "Regular week"));
 
+// The engine words the seeded regular schedule by its stored name; the drawer shows the catalog's
+// glossary term for it (day-summary.ts localizes that one name).
+const shown = (label: string) => (label === "Regular week" ? "Regular hours" : label);
+
 const CASES = [
   {
     tag: "fr-CA" as const,
     catalog: frCA,
     stacked: [
-      ["Semaine habituelle", "Lunch 11 h 30 – 15 h 00, Dinner 17 h 00 – 23 h 00"],
+      ["Heures habituelles", "Lunch 11 h 30 – 15 h 00, Dinner 17 h 00 – 23 h 00"],
       ["Utiliser Summer", "Lunch 11 h 30 – 15 h 00"],
       [
         "Série ignorée : Fermé · vendredis · 2026-10-01 – 2026-12-31",
@@ -152,12 +156,12 @@ const CASES = [
       ["Ce soir", "Ferme à 21 h 00"],
     ],
     edges: [
-      ["Semaine habituelle", "Lunch 11 h 30 – 15 h 00, Dinner 17 h 00 – 23 h 00"],
+      ["Heures habituelles", "Lunch 11 h 30 – 15 h 00, Dinner 17 h 00 – 23 h 00"],
       ["Réservation fermée : en ligne, par téléphone et liste d'attente", "Toute la journée"],
       ["Ce soir", "Cadence de 1 couvert"],
     ],
     bareClosed: [
-      ["Semaine habituelle", "Fermé"],
+      ["Heures habituelles", "Fermé"],
       ["Horaire spécial", "Lunch 11 h 30 – 15 h 00, Dinner 17 h 00 – 22 h 00"],
       ["Fermé", "Toute la journée"],
       ["Ce soir", "Arrêté 21 h 00 – 21 h 30"],
@@ -168,7 +172,7 @@ const CASES = [
     tag: "es-MX" as const,
     catalog: esMX,
     stacked: [
-      ["Semana habitual", "Lunch 11:30 a.m. – 3:00 p.m., Dinner 5:00 p.m. – 11:00 p.m."],
+      ["Horario habitual", "Lunch 11:30 a.m. – 3:00 p.m., Dinner 5:00 p.m. – 11:00 p.m."],
       ["Usar Summer", "Lunch 11:30 a.m. – 3:00 p.m."],
       ["Serie omitida: Cerrado · viernes · 2026-10-01 – 2026-12-31", "Reservable como siempre"],
       ["Cerrado: Lunch", "12:00 p.m. – 1:00 p.m."],
@@ -176,12 +180,12 @@ const CASES = [
       ["Esta noche", "Cierra a las 9:00 p.m."],
     ],
     edges: [
-      ["Semana habitual", "Lunch 11:30 a.m. – 3:00 p.m., Dinner 5:00 p.m. – 11:00 p.m."],
+      ["Horario habitual", "Lunch 11:30 a.m. – 3:00 p.m., Dinner 5:00 p.m. – 11:00 p.m."],
       ["Reservas cerradas: en línea, por teléfono y lista de espera", "Todo el día"],
       ["Esta noche", "Ritmo de 1 cubierto"],
     ],
     bareClosed: [
-      ["Semana habitual", "Cerrado"],
+      ["Horario habitual", "Cerrado"],
       ["Horario especial", "Lunch 11:30 a.m. – 3:00 p.m., Dinner 5:00 p.m. – 10:00 p.m."],
       ["Cerrado", "Todo el día"],
       ["Esta noche", "Detenido 9:00 p.m. – 9:30 p.m."],
@@ -194,7 +198,7 @@ describe("AvailabilityDayDrawer layers in en-US", () => {
   it("read exactly as the engine words them", async () => {
     await localeRuntime.i18n.changeLanguage("en-US");
     const day = STACKED();
-    expect(rowsOf(day)).toEqual(day.explanation.map((l) => [l.label, l.effect]));
+    expect(rowsOf(day)).toEqual(day.explanation.map((l) => [shown(l.label), l.effect]));
   });
 
   it.each([
@@ -203,7 +207,7 @@ describe("AvailabilityDayDrawer layers in en-US", () => {
   ])("read exactly as the engine words %s", async (_name, make) => {
     await localeRuntime.i18n.changeLanguage("en-US");
     const day = make();
-    expect(rowsOf(day)).toEqual(day.explanation.map((l) => [l.label, l.effect]));
+    expect(rowsOf(day)).toEqual(day.explanation.map((l) => [shown(l.label), l.effect]));
   });
 });
 

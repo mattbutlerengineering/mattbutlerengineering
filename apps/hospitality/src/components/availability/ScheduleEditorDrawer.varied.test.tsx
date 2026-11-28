@@ -59,7 +59,7 @@ const ticked = (scope: HTMLElement) =>
     .filter((c) => (c as HTMLInputElement).checked)
     .map((c) => c.getAttribute("aria-label") ?? c.closest("label")?.textContent);
 
-describe("New and Edit schedule use the quick-setup rows", () => {
+describe("New and Edit seasonal hours use the quick-setup rows", () => {
   beforeAll(() => {
     window.HTMLElement.prototype.scrollIntoView = vi.fn();
   });
@@ -68,7 +68,7 @@ describe("New and Edit schedule use the quick-setup rows", () => {
     save.mockResolvedValue({ version: 8, changeId: "chg" });
   });
 
-  it("saves one service Mon–Fri with different Friday hours, and Edit schedule reopens the same rows", async () => {
+  it("saves one service Mon–Fri with different Friday hours, and Edit seasonal hours reopens the same rows", async () => {
     const config = fixtureConfig();
     render(
       <main>
@@ -81,7 +81,9 @@ describe("New and Edit schedule use the quick-setup rows", () => {
         />
       </main>
     );
-    fireEvent.change(screen.getByLabelText(/Schedule name/), { target: { value: "Late Fridays" } });
+    fireEvent.change(screen.getByLabelText(/Seasonal hours name/), {
+      target: { value: "Late Fridays" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Dinner" }));
     fireEvent.click(screen.getByRole("button", { name: "Weekdays" }));
     fireEvent.click(screen.getByRole("button", { name: "Different hours on some days" }));
@@ -110,7 +112,7 @@ describe("New and Edit schedule use the quick-setup rows", () => {
     expect(again.upsert.scheduleServices).toEqual([row]);
   });
 
-  it("opens a varied period saved from Change regular week with its sets intact", () => {
+  it("opens a varied period saved from Change regular hours with its sets intact", () => {
     const config = fixtureConfig();
     const changes = buildRegularWeekChanges({
       config,

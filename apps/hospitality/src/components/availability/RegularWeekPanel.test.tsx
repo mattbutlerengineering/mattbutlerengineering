@@ -120,7 +120,7 @@ describe("RegularWeekPanel", () => {
     expect(screen.getByRole("button", { name: "Starting later…" })).toBeEnabled();
     expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Discard" })).not.toBeInTheDocument();
-    expect(screen.queryByText(/This becomes your regular week/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/This becomes your regular hours/)).not.toBeInTheDocument();
   });
 
   it("pins the footer while the form is dirty, and only then", () => {
@@ -137,7 +137,7 @@ describe("RegularWeekPanel", () => {
     fireEvent.click(lunchMonday());
     expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Discard" })).toBeInTheDocument();
-    expect(screen.getByText("This becomes your regular week: open Tue–Sun.")).toBeInTheDocument();
+    expect(screen.getByText("This becomes your regular hours: open Tue–Sun.")).toBeInTheDocument();
     expect(screen.getByText("Monday is closed.")).toBeInTheDocument();
   });
 

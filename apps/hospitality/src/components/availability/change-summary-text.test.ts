@@ -98,7 +98,7 @@ describe("changeSummaryText from a code", () => {
     expect(await textOf("fr-CA", reopened)).toMatch(/^Rouvert jeu\. 24 déc\.$/);
     expect(
       await textOf("en-US", { ...reopened, detail: { ...reopened.detail!, reverted: true } })
-    ).toBe("Reverted: Reopened Thu, Dec 24");
+    ).toBe("Undone: Reopened Thu, Dec 24");
     const open = change("Closure reopened (2026-12-24)", {
       code: "closure_reopened",
       startsOn: "2026-12-24",
@@ -109,7 +109,7 @@ describe("changeSummaryText from a code", () => {
 
   it("words a regular-week change from its start date and weekdays, in each language", async () => {
     const friday = change(
-      "Regular week changed on Fri from 2026-11-06: 0 added, 1 changed, 0 removed",
+      "Regular hours changed on Fri from 2026-11-06: 0 added, 1 changed, 0 removed",
       {
         code: "regular_week_changed",
         startsOn: "2026-11-06",
@@ -119,10 +119,10 @@ describe("changeSummaryText from a code", () => {
         removed: 0,
       }
     );
-    expect(await textOf("en-US", friday)).toBe("Changed regular week from Nov 6: Fri");
-    expect(await textOf("es-MX", friday)).toMatch(/^Semana habitual cambiada desde el 6 nov: vie/);
+    expect(await textOf("en-US", friday)).toBe("Changed regular hours from Nov 6: Fri");
+    expect(await textOf("es-MX", friday)).toMatch(/^Horario habitual cambiado desde el 6 nov: vie/);
     expect(await textOf("fr-CA", friday)).toMatch(
-      /^Semaine habituelle modifiée dès le 6 nov\. : ven/
+      /^Heures habituelles modifiées dès le 6 nov\. : ven/
     );
     // Days read as runs, Monday first, so Sunday joins Saturday.
     const weekend = change("…", {
@@ -130,23 +130,23 @@ describe("changeSummaryText from a code", () => {
       startsOn: "2026-11-06",
       weekdays: [0, 5, 6],
     });
-    expect(await textOf("en-US", weekend)).toBe("Changed regular week from Nov 6: Fri–Sun");
+    expect(await textOf("en-US", weekend)).toBe("Changed regular hours from Nov 6: Fri–Sun");
     // All seven read as the regular-week line and Schedules list say them.
     const week = change("…", {
       code: "regular_week_changed",
       startsOn: "2026-11-06",
       weekdays: [0, 1, 2, 3, 4, 5, 6],
     });
-    expect(await textOf("en-US", week)).toBe("Changed regular week from Nov 6: every day");
+    expect(await textOf("en-US", week)).toBe("Changed regular hours from Nov 6: every day");
     expect(await textOf("fr-CA", week)).toMatch(/: tous les jours$/);
     expect(
       await textOf("en-US", { ...friday, detail: { ...friday.detail!, reverted: true } })
-    ).toBe("Reverted: Changed regular week from Nov 6: Fri");
+    ).toBe("Undone: Changed regular hours from Nov 6: Fri");
   });
 
   it("falls back to the English summary for a regular-week change missing its data, and for unknown codes", async () => {
     const noDays = change(
-      "Regular week changed on Fri from 2026-11-06: 0 added, 1 changed, 0 removed",
+      "Regular hours changed on Fri from 2026-11-06: 0 added, 1 changed, 0 removed",
       {
         code: "regular_week_changed",
         startsOn: "2026-11-06",
@@ -192,9 +192,9 @@ describe("changeSummaryText from a code", () => {
   });
 
   it("marks a revert, wording the change it undid", async () => {
-    const c = change("Reverted: Tonight change ended", { code: "tonight_ended", reverted: true });
-    expect(await textOf("en-US", c)).toBe("Reverted: Tonight change ended");
-    expect(await textOf("es-MX", c)).toBe("Revertido: Se terminó el cambio de esta noche");
+    const c = change("Undone: Tonight change ended", { code: "tonight_ended", reverted: true });
+    expect(await textOf("en-US", c)).toBe("Undone: Tonight change ended");
+    expect(await textOf("es-MX", c)).toBe("Deshecho: Se terminó el cambio de esta noche");
   });
 });
 

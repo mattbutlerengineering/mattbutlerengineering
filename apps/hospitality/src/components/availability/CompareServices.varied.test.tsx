@@ -86,13 +86,13 @@ describe("Compare services on a varied week", () => {
     save.mockResolvedValue({ version: 8, changeId: "chg" });
   });
 
-  it("marks a scoped row with its base hours and + different hours, and the link opens Edit schedule", () => {
+  it("marks a scoped row with its base hours and + different hours, and the link opens Edit seasonal hours", () => {
     const onEditSchedule = renderCompare();
     const rows = screen.getAllByRole("listitem");
     const regular = rows.find((r) => within(r).queryByText("+ different hours"))!;
     expect(regular).toBeDefined();
     expect(rows.filter((r) => within(r).queryByText("+ different hours"))).toHaveLength(1);
-    fireEvent.click(within(regular).getByRole("button", { name: "Edit schedule" }));
+    fireEvent.click(within(regular).getByRole("button", { name: "Edit seasonal hours" }));
     expect(onEditSchedule).toHaveBeenCalledWith("demo-regular");
   });
 
@@ -100,7 +100,7 @@ describe("Compare services on a varied week", () => {
     renderCompare();
     fireEvent.click(screen.getByRole("combobox", { name: "Regular week · Booking" }));
     fireEvent.click(screen.getByRole("option", { name: "Phone only" }));
-    fireEvent.click(screen.getByRole("button", { name: /^Save 1 schedule/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Save 1 seasonal hours/ }));
     await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
     const [row] = save.mock.calls[0]![0].body.changes.upsert.scheduleServices;
     expect(row.id).toBe("demo-ss-dinner");
@@ -109,7 +109,7 @@ describe("Compare services on a varied week", () => {
     expect(row.dayHours.sets[0].weekdays).toEqual([5, 6]);
   });
 
-  it("the Schedules tab opens Edit schedule from the link", () => {
+  it("the Schedules tab opens Edit seasonal hours from the link", () => {
     render(
       <ToastProvider>
         <main>
@@ -119,7 +119,7 @@ describe("Compare services on a varied week", () => {
     );
     fireEvent.click(screen.getByRole("combobox", { name: "Service" }));
     fireEvent.click(screen.getByRole("option", { name: "Dinner" }));
-    fireEvent.click(screen.getByRole("button", { name: "Edit schedule" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit seasonal hours" }));
     expect(screen.getByRole("dialog", { name: /Edit .*Regular week/ })).toBeInTheDocument();
   });
 });

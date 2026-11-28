@@ -254,7 +254,7 @@ describe("AvailabilityHoursPage", () => {
     fireEvent.click(lunchMonday());
     fireEvent.click(saveButton());
     await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
-    expect(offerUndo).toHaveBeenCalledWith("Regular week changed from Oct 25", {
+    expect(offerUndo).toHaveBeenCalledWith("Regular hours changed from Oct 25", {
       version: 8,
       changeId: "chg",
     });

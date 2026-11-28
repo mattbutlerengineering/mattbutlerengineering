@@ -257,7 +257,7 @@ describe("AvailabilityDayDrawer: what copying hours writes", () => {
     it("Every week… saves nothing itself: it opens the regular hours form with the days filled in", async () => {
       const { dialog } = await copyToSaturday(venueConfig());
       fireEvent.click(within(dialog).getByRole("button", { name: "Every week…" }));
-      expect(await screen.findByRole("dialog", { name: /regular week/i })).toBeInTheDocument();
+      expect(await screen.findByRole("dialog", { name: /regular hours/i })).toBeInTheDocument();
       expect(save).not.toHaveBeenCalled();
     });
   });
@@ -324,8 +324,8 @@ describe("AvailabilityDayDrawer: what copying hours writes", () => {
     it("writes a rule for this date only that follows those hours, replacing its special hours", async () => {
       const config = withSummer(venueConfig(ownHours("own-fri", FIXTURE_DATE)));
       const { onFinished } = renderDrawer(config);
-      const dialog = await openCopyFrom(/Use a schedule/);
-      fireEvent.click(within(dialog).getByRole("combobox", { name: "Schedule" }));
+      const dialog = await openCopyFrom(/Use seasonal hours/);
+      fireEvent.click(within(dialog).getByRole("combobox", { name: "Seasonal hours" }));
       fireEvent.click(screen.getByRole("option", { name: "Summer hours" }));
       expect(save).not.toHaveBeenCalled();
       fireEvent.click(within(dialog).getByRole("button", { name: "Apply to 1 date" }));

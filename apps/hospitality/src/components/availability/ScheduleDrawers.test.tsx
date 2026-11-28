@@ -129,7 +129,7 @@ describe("schedule drawers", () => {
 
     it("asks before Escape throws away an edit, and Keep editing keeps it", () => {
       const onClose = renderEdit();
-      fireEvent.change(screen.getByRole("textbox", { name: /Schedule name/ }), {
+      fireEvent.change(screen.getByRole("textbox", { name: /Seasonal hours name/ }), {
         target: { value: "Summer" },
       });
       fireEvent.keyDown(document, { key: "Escape" });
@@ -138,12 +138,12 @@ describe("schedule drawers", () => {
       expect(within(dialog).getByText("Discard your changes?")).toBeInTheDocument();
       fireEvent.click(within(dialog).getByRole("button", { name: "Keep editing" }));
       expect(onClose).not.toHaveBeenCalled();
-      expect(screen.getByRole("textbox", { name: /Schedule name/ })).toHaveValue("Summer");
+      expect(screen.getByRole("textbox", { name: /Seasonal hours name/ })).toHaveValue("Summer");
     });
 
     it("Cancel asks too, and Discard closes", () => {
       const onClose = renderEdit();
-      fireEvent.change(screen.getByRole("textbox", { name: /Schedule name/ }), {
+      fireEvent.change(screen.getByRole("textbox", { name: /Seasonal hours name/ }), {
         target: { value: "Summer" },
       });
       fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
@@ -159,7 +159,7 @@ describe("schedule drawers", () => {
       expect(onClose).toHaveBeenCalledTimes(1);
     });
 
-    it("asks before Escape closes Change regular week once a date is chosen", () => {
+    it("asks before Escape closes Change regular hours once a date is chosen", () => {
       const onClose = vi.fn();
       render(
         <main>
@@ -328,14 +328,14 @@ describe("schedule drawers", () => {
       });
       expect(within(dialog).getByRole("button", { name: "Overwrite" })).toBeDisabled();
       fireEvent.click(within(dialog).getByRole("button", { name: "Review their change" }));
-      expect(within(dialog).getByText(/was deleted, so your changes can’t be saved/)).toBeTruthy();
+      expect(within(dialog).getByText(/were deleted, so your changes can’t be saved/)).toBeTruthy();
       expect(within(dialog).getByRole("button", { name: "Reapply my changes" })).toBeDisabled();
       fireEvent.click(within(dialog).getByRole("button", { name: "Start over" }));
       expect(props.onClose).toHaveBeenCalledTimes(1);
     });
   });
 
-  describe("Change regular week", () => {
+  describe("Change regular hours", () => {
     const renderWeek = (config = tueSat()) =>
       render(
         <main>
@@ -355,7 +355,7 @@ describe("schedule drawers", () => {
       fireEvent.change(screen.getByLabelText("Starting"), { target: { value: "2026-11-02" } });
       fireEvent.change(screen.getByLabelText("Ending"), { target: { value: "2026-11-30" } });
       fireEvent.click(screen.getByRole("button", { name: "Use “Fall hours”" }));
-      expect(screen.getByLabelText(/Schedule name/)).toHaveValue("Fall hours");
+      expect(screen.getByLabelText(/Seasonal hours name/)).toHaveValue("Fall hours");
       expect(screen.queryByRole("button", { name: /^Use “/ })).toBeNull();
       fireEvent.click(screen.getByRole("button", { name: /^Save/ }));
       await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
@@ -366,15 +366,19 @@ describe("schedule drawers", () => {
     it("never overwrites a name the Manager typed", () => {
       renderWeek();
       fireEvent.change(screen.getByLabelText("Ending"), { target: { value: "2026-11-30" } });
-      fireEvent.change(screen.getByLabelText(/Schedule name/), { target: { value: "Patio" } });
+      fireEvent.change(screen.getByLabelText(/Seasonal hours name/), {
+        target: { value: "Patio" },
+      });
       fireEvent.change(screen.getByLabelText("Starting"), { target: { value: "2026-11-02" } });
       expect(screen.queryByRole("button", { name: /^Use “/ })).toBeNull();
-      expect(screen.getByLabelText(/Schedule name/)).toHaveValue("Patio");
+      expect(screen.getByLabelText(/Seasonal hours name/)).toHaveValue("Patio");
     });
 
     it("shows the days the regular week runs, and saves only those", async () => {
       renderWeek();
-      expect(screen.getByText("This becomes your regular week: open Tue–Sat.")).toBeInTheDocument();
+      expect(
+        screen.getByText("This becomes your regular hours: open Tue–Sat.")
+      ).toBeInTheDocument();
       fireEvent.change(screen.getByLabelText("Starting"), { target: { value: "2026-11-02" } });
       fireEvent.click(screen.getByRole("button", { name: /^Save/ }));
       await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
@@ -394,14 +398,18 @@ describe("schedule drawers", () => {
       // A period is a schedule and is named.
       fireEvent.change(screen.getByLabelText("Ending"), { target: { value: "2026-12-31" } });
       expect(screen.getByText("Name this period to save.")).toBeInTheDocument();
-      fireEvent.change(screen.getByLabelText(/Schedule name/), { target: { value: "Winter" } });
+      fireEvent.change(screen.getByLabelText(/Seasonal hours name/), {
+        target: { value: "Winter" },
+      });
       expect(screen.queryByText(/to save\.$/)).not.toBeInTheDocument();
     });
 
     it("refuses a start date after the end date, and says so (#7979)", () => {
       renderWeek();
       fireEvent.change(screen.getByLabelText("Ending"), { target: { value: "2026-11-02" } });
-      fireEvent.change(screen.getByLabelText(/Schedule name/), { target: { value: "Winter" } });
+      fireEvent.change(screen.getByLabelText(/Seasonal hours name/), {
+        target: { value: "Winter" },
+      });
       fireEvent.change(screen.getByLabelText("Starting"), { target: { value: "2026-11-30" } });
       expect(screen.getByRole("button", { name: /^Save/ })).toBeDisabled();
       expect(screen.getByText("The end date is before the start date.")).toBeInTheDocument();
@@ -417,7 +425,7 @@ describe("schedule drawers", () => {
     });
   });
 
-  describe("New schedule, why Save is off (#7979)", () => {
+  describe("New seasonal hours, why Save is off (#7979)", () => {
     const renderNew = () =>
       render(
         <main>
@@ -440,8 +448,10 @@ describe("schedule drawers", () => {
     it("names what is missing, then the date order", () => {
       renderNew();
       expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
-      expect(screen.getByText("Name this schedule to save.")).toBeInTheDocument();
-      fireEvent.change(screen.getByLabelText(/Schedule name/), { target: { value: "Winter" } });
+      expect(screen.getByText("Name these seasonal hours to save.")).toBeInTheDocument();
+      fireEvent.change(screen.getByLabelText(/Seasonal hours name/), {
+        target: { value: "Winter" },
+      });
       expect(whySaveIsOff()).toBe("Give this service a name.");
       fireEvent.change(screen.getByRole("textbox", { name: /Service name/ }), {
         target: { value: "Brunch" },
@@ -517,7 +527,7 @@ describe("schedule drawers", () => {
 
       rerenderWith(autumnRegular(opened), 8);
       fireEvent.click(await screen.findByRole("button", { name: "Review their change" }));
-      expect(screen.getByText("The regular week is now Autumn")).toBeInTheDocument();
+      expect(screen.getByText("The regular hours are now Autumn")).toBeInTheDocument();
       expect(screen.queryByText(/^Added:/)).not.toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: "Reapply my changes" }));
       fireEvent.click(screen.getByRole("button", { name: /^Save/ }));
@@ -540,7 +550,7 @@ describe("schedule drawers", () => {
       expect(props.onClose).toHaveBeenCalledTimes(1);
     });
 
-    it("Change regular week keeps Overwrite off: a press sends nothing", async () => {
+    it("Change regular hours keeps Overwrite off: a press sends nothing", async () => {
       const opened = tueSat();
       save.mockRejectedValueOnce(
         Object.assign(conflict(), {
@@ -562,21 +572,23 @@ describe("schedule drawers", () => {
       expect(save).toHaveBeenCalledTimes(1);
     });
 
-    it("Start over in Change regular week clears the name and dates too", async () => {
+    it("Start over in Change regular hours clears the name and dates too", async () => {
       const opened = tueSat();
       save.mockRejectedValueOnce(conflict());
       const { props, rerenderWith } = renderWeek(opened);
       fireEvent.click(screen.getByRole("button", { name: "Remove service 1" }));
       fireEvent.change(screen.getByLabelText("Starting"), { target: { value: "2026-11-02" } });
       fireEvent.change(screen.getByLabelText("Ending"), { target: { value: "2026-11-30" } });
-      fireEvent.change(screen.getByLabelText(/Schedule name/), { target: { value: "Winter" } });
+      fireEvent.change(screen.getByLabelText(/Seasonal hours name/), {
+        target: { value: "Winter" },
+      });
       fireEvent.click(screen.getByRole("button", { name: /^Save/ }));
       await waitFor(() => expect(props.onStale).toHaveBeenCalledTimes(1));
       rerenderWith(tueSat(), 8);
       fireEvent.click(await screen.findByRole("button", { name: "Review their change" }));
       fireEvent.click(screen.getByRole("button", { name: "Start over" }));
       // Ending is clear again, so the period's name is not asked for.
-      expect(screen.queryByLabelText(/Schedule name/)).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/Seasonal hours name/)).not.toBeInTheDocument();
       expect(screen.getByLabelText("Starting")).toHaveValue("");
       expect(screen.getByLabelText("Ending")).toHaveValue("");
       expect(screen.getAllByRole("button", { name: /^Remove service/ })).toHaveLength(2);
@@ -607,7 +619,7 @@ describe("schedule drawers", () => {
       return { props, rerenderWith };
     }
 
-    it("New schedule opens with no field errors and its days open, until a service is started", () => {
+    it("New seasonal hours opens with no field errors and its days open, until a service is started", () => {
       renderNew("new", fixtureConfig());
       expect(screen.queryByText("Give this service a name.")).not.toBeInTheDocument();
       expect(screen.queryByText("Choose a time.")).not.toBeInTheDocument();
@@ -618,7 +630,7 @@ describe("schedule drawers", () => {
       expect(screen.getByText("Choose at least one day.")).toBeInTheDocument();
     });
 
-    describe("Add a schedule… (seeded from the regular week)", () => {
+    describe("Add seasonal hours… (seeded from the regular week)", () => {
       const serviceNames = () =>
         screen
           .getAllByRole("textbox", { name: /Service name/ })
@@ -630,7 +642,7 @@ describe("schedule drawers", () => {
         // The regular week runs Fridays; the new schedule is used nowhere until it has dates.
         expect(screen.getByRole("checkbox", { name: "Friday" })).not.toBeChecked();
         expect(
-          screen.queryByRole("button", { name: "Start from your regular week" })
+          screen.queryByRole("button", { name: "Start from your regular hours" })
         ).not.toBeInTheDocument();
       });
 
@@ -653,7 +665,7 @@ describe("schedule drawers", () => {
 
       it("never saves days without dates: with no Starting the days stay empty and Save is off", () => {
         renderNew("new", fixtureConfig(), "regular");
-        fireEvent.change(screen.getByRole("textbox", { name: /Schedule name/ }), {
+        fireEvent.change(screen.getByRole("textbox", { name: /Seasonal hours name/ }), {
           target: { value: "Summer hours" },
         });
         expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
@@ -687,7 +699,7 @@ describe("schedule drawers", () => {
         );
         expect(dayChecks()).toHaveLength(0);
         expect(screen.queryByText(/^Days:/)).not.toBeInTheDocument();
-        fireEvent.change(screen.getByRole("textbox", { name: /Schedule name/ }), {
+        fireEvent.change(screen.getByRole("textbox", { name: /Seasonal hours name/ }), {
           target: { value: "Summer hours" },
         });
         expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
@@ -701,7 +713,7 @@ describe("schedule drawers", () => {
           weekOf((i) => i !== 1),
           "regular"
         );
-        fireEvent.change(screen.getByRole("textbox", { name: /Schedule name/ }), {
+        fireEvent.change(screen.getByRole("textbox", { name: /Seasonal hours name/ }), {
           target: { value: "Summer hours" },
         });
         expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
@@ -715,7 +727,7 @@ describe("schedule drawers", () => {
       it("saves an undated schedule on days the Manager picks, as a named week for those days (C13)", async () => {
         // The regular week runs Fridays, so weekends add a week of their own without replacing it.
         renderNew("new", fixtureConfig(), "regular");
-        fireEvent.change(screen.getByRole("textbox", { name: /Schedule name/ }), {
+        fireEvent.change(screen.getByRole("textbox", { name: /Seasonal hours name/ }), {
           target: { value: "Weekends" },
         });
         fireEvent.click(screen.getByRole("button", { name: "Weekends" }));
@@ -748,7 +760,7 @@ describe("schedule drawers", () => {
 
       it("saves the followed days with the dates once Starting and Ending are set", async () => {
         renderNew("new", fixtureConfig(), "regular");
-        fireEvent.change(screen.getByRole("textbox", { name: /Schedule name/ }), {
+        fireEvent.change(screen.getByRole("textbox", { name: /Seasonal hours name/ }), {
           target: { value: "Summer hours" },
         });
         fireEvent.change(screen.getByLabelText("Starting"), { target: { value: "2026-11-02" } });
@@ -765,11 +777,11 @@ describe("schedule drawers", () => {
       });
     });
 
-    it("New schedule: names no change to these hours, and Start over clears every field", async () => {
+    it("New seasonal hours: names no change to these hours, and Start over clears every field", async () => {
       const opened = fixtureConfig();
       save.mockRejectedValueOnce(conflict());
       const { props, rerenderWith } = renderNew("new", opened);
-      fireEvent.change(screen.getByRole("textbox", { name: /Schedule name/ }), {
+      fireEvent.change(screen.getByRole("textbox", { name: /Seasonal hours name/ }), {
         target: { value: "Pop-up" },
       });
       fireEvent.click(screen.getByRole("button", { name: "Lunch" }));
@@ -785,18 +797,18 @@ describe("schedule drawers", () => {
       expect(screen.getByRole("button", { name: "Reapply my changes" })).toBeEnabled();
 
       fireEvent.click(screen.getByRole("button", { name: "Start over" }));
-      expect(screen.getByRole("textbox", { name: /Schedule name/ })).toHaveValue("");
+      expect(screen.getByRole("textbox", { name: /Seasonal hours name/ })).toHaveValue("");
       expect(screen.getByRole("checkbox", { name: "Monday" })).not.toBeChecked();
       expect(screen.getByRole("textbox", { name: /Service name/ })).toHaveValue("");
       fireEvent.keyDown(document, { key: "Escape" });
       expect(props.onClose).toHaveBeenCalledTimes(1);
     });
 
-    it("New schedule: Reapply my changes saves the draft against the winning version", async () => {
+    it("New seasonal hours: Reapply my changes saves the draft against the winning version", async () => {
       const opened = fixtureConfig();
       save.mockRejectedValueOnce(conflict());
       const { props, rerenderWith } = renderNew("new", opened);
-      fireEvent.change(screen.getByRole("textbox", { name: /Schedule name/ }), {
+      fireEvent.change(screen.getByRole("textbox", { name: /Seasonal hours name/ }), {
         target: { value: "Pop-up" },
       });
       fireEvent.click(screen.getByRole("button", { name: "Lunch" }));
@@ -834,7 +846,7 @@ describe("schedule drawers", () => {
     });
 
     // The regular week always gives way to a schedule: a copy on all its days with no end would
-    // take it over for good, and Change regular week would reach no date afterwards.
+    // take it over for good, and Change regular hours would reach no date afterwards.
     it("Duplicate of the regular week cannot save with no end on every day it runs", () => {
       renderNew("duplicate", fixtureConfig());
       const saveButton = screen.getByRole("button", { name: "Save" });
@@ -842,7 +854,7 @@ describe("schedule drawers", () => {
       expect(saveButton).toBeDisabled();
       expect(
         screen.getByText(
-          "With no end date, this replaces your regular week. Add an end date, or use Change regular week…"
+          "With no end date, this replaces your regular hours. Add an end date, or use Change regular hours…"
         )
       ).toBeInTheDocument();
       fireEvent.click(saveButton);
@@ -859,7 +871,7 @@ describe("schedule drawers", () => {
       expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
     });
 
-    it("the Ending picker on New schedule can be taken back with No end", () => {
+    it("the Ending picker on New seasonal hours can be taken back with No end", () => {
       renderNew("new", fixtureConfig());
       expect(screen.queryByRole("button", { name: "No end" })).not.toBeInTheDocument();
       fireEvent.change(screen.getByLabelText("Ending"), { target: { value: "2026-11-30" } });
@@ -895,7 +907,7 @@ describe("schedule drawers", () => {
   });
 
   describe("Schedules tab", () => {
-    /** Spare is used by no weekday, only by a Use schedule rule for Dec 24. */
+    /** Spare is used by no weekday, only by a Use seasonal hours rule for Dec 24. */
     function usedByRule(): AvailabilityConfig {
       const base = fixtureConfig();
       return {
@@ -933,14 +945,14 @@ describe("schedule drawers", () => {
         </main>
       );
 
-    it("a schedule a Use schedule rule points at is not 'Not used yet', and its Delete says why", () => {
+    it("a schedule a Use seasonal hours rule points at is not 'Not used yet', and its Delete says why", () => {
       renderTab(usedByRule());
       expect(screen.queryByText("Not used yet")).not.toBeInTheDocument();
-      expect(screen.getByText("Used by 1 Use schedule rule")).toBeInTheDocument();
+      expect(screen.getByText("Used by 1 Use seasonal hours rule")).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Delete Spare" })).toBeDisabled();
     });
 
-    it("a copy of a schedule only a Use schedule rule runs needs days before it can save (it would otherwise win every day)", async () => {
+    it("a copy of a schedule only a Use seasonal hours rule runs needs days before it can save (it would otherwise win every day)", async () => {
       render(
         <main>
           <ScheduleEditorDrawer
@@ -953,7 +965,7 @@ describe("schedule drawers", () => {
           />
         </main>
       );
-      fireEvent.change(screen.getByRole("textbox", { name: /Schedule name/ }), {
+      fireEvent.change(screen.getByRole("textbox", { name: /Seasonal hours name/ }), {
         target: { value: "Holiday copy" },
       });
       const saveButton = screen.getByRole("button", { name: "Save" });

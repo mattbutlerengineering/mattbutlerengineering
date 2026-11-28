@@ -154,7 +154,7 @@ describe("a refused Undo on the Availability page", () => {
         </ToastProvider>
       </MemoryRouter>
     );
-    fireEvent.click(screen.getByRole("radio", { name: "Schedules" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Seasonal hours" }));
     fireEvent.click(await screen.findByRole("button", { name: "Save a schedule" }));
     fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
 
