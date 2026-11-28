@@ -33,6 +33,7 @@ import {
   buildDeployFailureBody,
   runScheduledWorkflowHealthCheck,
   resolveWorkflowModifiedAt,
+  resolveWorkflowModifiedAtViaApi,
   classifyRunRecency,
   extractScheduleCrons,
   estimateCronPeriodDays,
@@ -529,6 +530,12 @@ describe("resolveWorkflowModifiedAt", () => {
       "2026-11-02T04:17:01Z"
     );
 
+    // #4502 pinned mechanically, not via a throw: the outer catch plus the API
+    // fallback would swallow an illegal `git log`, so a mutant that consulted
+    // git before the shallow check would still return the right date and stay
+    // green. Only a negative assertion catches it.
+    expect(calls.filter(([cmd, args]) => cmd === "git" && args.includes("log"))).toHaveLength(0);
+
     // The fallback asks the API for exactly that path's newest commit.
     const api = calls.find(([cmd]) => cmd === "gh");
     expect(api).toBeDefined();
@@ -567,6 +574,23 @@ describe("resolveWorkflowModifiedAt", () => {
     };
     expect(
       resolveWorkflowModifiedAt(".github/workflows/chaos-agent.yml", { exec })
+    ).toBeUndefined();
+  });
+
+  // The branch whose failure would SUPPRESS a genuine streak: a truthy
+  // non-string date flowing into `Date.parse`. GitHub omits `committer.date`
+  // on some unverified/ghost-author commits, so this is a real response shape.
+  it("returns undefined when the API returns a commit with no committer date", () => {
+    const exec = () => JSON.stringify([{ commit: { committer: {} } }]);
+    expect(
+      resolveWorkflowModifiedAtViaApi(".github/workflows/chaos-agent.yml", { exec })
+    ).toBeUndefined();
+  });
+
+  it("returns undefined when the API returns a non-array body", () => {
+    const exec = () => JSON.stringify({ message: "Not Found" });
+    expect(
+      resolveWorkflowModifiedAtViaApi(".github/workflows/chaos-agent.yml", { exec })
     ).toBeUndefined();
   });
 

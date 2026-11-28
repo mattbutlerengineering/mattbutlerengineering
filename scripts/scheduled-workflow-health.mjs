@@ -1263,13 +1263,26 @@ function main() {
   );
 
   const ghClient = createGhClient();
+
+  // Resolved once per workflow path, not once per orchestrator: all three
+  // (scheduled, deploy, main-push) ask for every workflow before classifying
+  // it, and in a shallow checkout each miss is a network round-trip. Same
+  // reason as `scheduledRunsCache` below.
+  const modifiedAtCache = new Map();
+  const getWorkflowModifiedAtCached = (workflowPath) => {
+    if (!modifiedAtCache.has(workflowPath)) {
+      modifiedAtCache.set(workflowPath, resolveWorkflowModifiedAt(workflowPath));
+    }
+    return modifiedAtCache.get(workflowPath);
+  };
+
   const commonDeps = {
     threshold,
     searchCiFixIssues: () =>
       ghClient.issue.list(["--label", "ci-fix", "--state", "all", "--json", "number,title"]),
     ...ghIssueDeps(ghClient),
     log: (msg) => console.error(msg),
-    getWorkflowModifiedAt: (workflowPath) => resolveWorkflowModifiedAt(workflowPath),
+    getWorkflowModifiedAt: getWorkflowModifiedAtCached,
   };
 
   // Memoized so the recency check below can reuse the exact same fetch
