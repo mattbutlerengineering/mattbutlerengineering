@@ -56,7 +56,7 @@ function normalizeJob(job) {
 
 /**
  * @param {string} text raw workflow YAML
- * @returns {{name: string|null, on: Record<string, object>, permissions: any, env: object, jobs: Record<string, any>}}
+ * @returns {{name: string|null, on: Record<string, object>, concurrency: any, permissions: any, env: object, jobs: Record<string, any>}}
  */
 export function parseWorkflow(text) {
   const doc = loadYaml(text);
@@ -69,6 +69,7 @@ export function parseWorkflow(text) {
   return {
     name: doc.name ?? null,
     on: normalizeOn(rawOn),
+    concurrency: doc.concurrency ?? null,
     permissions: doc.permissions ?? null,
     env: doc.env ?? {},
     jobs: Object.fromEntries(

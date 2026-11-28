@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach, afterAll } from "vitest";
 import { buildApp } from "../app.js";
+import { perTestClientIp } from "../test/per-test-client-ip.js";
 import type { FastifyInstance } from "fastify";
 import type { DomainServices } from "../services/domain-services.js";
 import { ReservationEventEmitter } from "../services/events.js";
@@ -122,7 +123,13 @@ describe("Table Routes", () => {
   let stubEvents: ReservationEventEmitter;
   const originalEnv = process.env;
 
-  beforeEach(async () => {
+  // One app per file: services are injected mocks cleared per test, the event
+  // emitter is a spy whose calls are cleared per test, and the rate-limit
+  // bucket is rotated per test (perTestClientIp). The later suites that need
+  // a specific membership lookup still build their own app.
+  let nextTest: () => void;
+
+  beforeAll(async () => {
     process.env = {
       ...originalEnv,
       AUTH_AUTHORITY: "https://test.auth0.com",
@@ -137,11 +144,19 @@ describe("Table Routes", () => {
       services: { tableService, floorPlanService },
     });
     await app.ready();
+    ({ nextTest } = perTestClientIp(app));
   });
 
-  afterEach(async () => {
-    await app.close();
+  beforeEach(() => {
+    nextTest();
+  });
+
+  afterEach(() => {
     vi.clearAllMocks();
+  });
+
+  afterAll(async () => {
+    await app.close();
     process.env = originalEnv;
   });
 

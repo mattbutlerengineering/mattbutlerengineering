@@ -36,7 +36,7 @@ import { frCA as rialtoFrCA } from "@mattbutlerengineering/rialto/locales/fr-CA"
 import { atLocal, localDay } from "./local-day.js";
 import { test, expect } from "./fixtures.js";
 import { pickBookingDate } from "./booking-date.js";
-import { hasReadableLiteral } from "./fixtures/locale-sweep-readable.js";
+import { hasReadableLiteral, matcherFor } from "./fixtures/locale-sweep-readable.js";
 
 // A third of the suite, so CI's shards would come out 241 and 115 tests if it
 // stayed whole (#8038). Runs still use one worker, so nothing here overlaps;
@@ -104,15 +104,6 @@ const SAME_AS_EN_US: Record<Locale, ReadonlySet<string>> = {
 };
 
 const normalize = (text: string) => text.replace(/\s+/g, " ").trim();
-
-/** A catalog value as a full-text matcher; `{{placeholders}}` match any run of text. */
-function matcherFor(value: string): RegExp {
-  const source = normalize(value)
-    .split(/\{\{\w+\}\}/)
-    .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
-    .join(".+?");
-  return new RegExp(`^${source}$`);
-}
 
 /** en-US values the locale must not show: translated differently, or reverted without an acknowledgement. */
 function forbiddenEnglish(
@@ -740,6 +731,54 @@ async function mockGatedRoutes(page: Page, route: string): Promise<void> {
   for (const [pattern, data] of answers) {
     await page.route(pattern, (r) => r.fulfill(ok(data)));
   }
+  // `availability/explain` (#10047) reads the engine's trace for the date and party its address
+  // names, so the answer echoes the request. One bookable time and two removed for different
+  // reasons (the shape availability-explain-day.spec.ts serves), so the reason copy is swept.
+  await page.route(/\/api\/v1\/venues\/[^/?]+\/availability\/trace(\?.*)?$/, (r) => {
+    const params = new URL(r.request().url()).searchParams;
+    const serviceDate = params.get("date") ?? day;
+    const partySize = Number(params.get("partySize") ?? 2);
+    const at = (minute: number, rest: Record<string, unknown> = {}) => ({
+      serviceId: "vs-dinner",
+      serviceName: "Dinner",
+      minute,
+      time: `${Math.floor(minute / 60)}:00`,
+      startsAt: null,
+      outcome: "bookable",
+      ...rest,
+    });
+    return r.fulfill(
+      ok({
+        serviceDate,
+        partySize,
+        channel: "online",
+        basis: "current_rules",
+        day: {
+          serviceDate,
+          scheduleId: "regular",
+          services: [],
+          closures: [],
+          bookingOpen: { online: true, phone: true, waitlist: false },
+          explanation: [],
+        },
+        times: [
+          at(1020),
+          at(1140, {
+            outcome: "removed",
+            reason: {
+              code: "pacing",
+              scope: "venue",
+              limit: 3,
+              windowMinutes: 15,
+              covers: 3,
+              partySize,
+            },
+          }),
+          at(1200, { outcome: "removed", reason: { code: "no_free_table", suitableTables: 4 } }),
+        ],
+      })
+    );
+  });
   if (route === "floor-plans/:id") {
     await page.route(/\/api\/v1\/floor-plans\/[^/?]+(\?.*)?$/, (r) => r.fulfill(ok(EDITOR_PLAN)));
   }
