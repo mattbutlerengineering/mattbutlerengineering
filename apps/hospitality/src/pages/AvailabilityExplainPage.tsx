@@ -23,6 +23,7 @@ import {
   destinationOf,
   destinationPath,
   groupByService,
+  isManagerOnly,
   reasonText,
   summaryText,
 } from "../components/availability/explain-day.js";
@@ -136,6 +137,12 @@ function TraceBody(props: {
       stale={trace.isPlaceholderData === true}
       config={scope.state?.config ?? null}
       timezone={scope.timezone}
+      configFailure={
+        scope.load === "error"
+          ? { detail: scope.loadError ?? t("availabilityHub.hub.loadErrorDetail") }
+          : null
+      }
+      onRetryConfig={scope.refresh}
     />
   );
 }
@@ -149,8 +156,12 @@ function TraceResult(props: {
   /** The config and zone the day's layers resolve against, as the day drawer resolves them. */
   readonly config: AvailabilityConfig | null;
   readonly timezone: string;
+  /** Set when the config read failed: the rules cannot be resolved, so the banner stands in. */
+  readonly configFailure: { readonly detail: string } | null;
+  readonly onRetryConfig: () => void;
 }) {
   const { venueId, result, past, isManager, stale, config, timezone } = props;
+  const { configFailure, onRetryConfig } = props;
   const { t } = useTranslation();
   const day = useMemo(
     () => (config ? resolveDay({ timezone, config }, result.serviceDate) : null),
@@ -173,7 +184,13 @@ function TraceResult(props: {
         <Heading level={2} size={4} id="explain-rules">
           {t("availabilityExplain.rulesHeading")}
         </Heading>
-        {day ? (
+        {configFailure ? (
+          <ErrorRetryBanner
+            title={t("availability.loadError")}
+            error={configFailure.detail}
+            onRetry={onRetryConfig}
+          />
+        ) : day ? (
           <DayBody
             day={day}
             date={result.serviceDate}
@@ -233,8 +250,7 @@ function TimeRow(props: {
   const label = minuteText(time.minute, t, format);
   const reason = time.reason;
   const destination = reason ? destinationOf(reason) : null;
-  // Regular hours is an editor's page: a Host who followed it would land on the hub.
-  const linked = destination !== null && (isManager || destination !== "regularHours");
+  const linked = destination !== null && (isManager || !isManagerOnly(destination));
   const linkText = destination ? t(`availabilityExplain.link.${destination}`) : "";
   return (
     <li className={styles.time} data-outcome={time.outcome}>

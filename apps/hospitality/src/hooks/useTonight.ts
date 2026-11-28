@@ -1,6 +1,16 @@
 import type { ReopenResult, TonightResult } from "@mbe/types";
 import type { AvailabilityClient } from "@mbe/api-client";
-import { AVAILABILITY_CONFIG_QUERY_KEY, AVAILABILITY_DAYS_QUERY_KEY } from "./useAvailability.js";
+import {
+  AVAILABILITY_CONFIG_QUERY_KEY,
+  AVAILABILITY_DAYS_QUERY_KEY,
+  AVAILABILITY_DAY_TRACE_QUERY_KEY,
+} from "./useAvailability.js";
+
+const INVALIDATE = [
+  AVAILABILITY_CONFIG_QUERY_KEY,
+  AVAILABILITY_DAYS_QUERY_KEY,
+  AVAILABILITY_DAY_TRACE_QUERY_KEY,
+];
 import { trackOwnSave } from "../components/availability/use-reload-hold.js";
 import { createMutationHook } from "./create-mutation-hook.js";
 
@@ -11,14 +21,14 @@ export const useSetTonight = createMutationHook<
   { venueId: string; body: SetTonightRequest },
   TonightResult
 >({
-  invalidateKeys: [AVAILABILITY_CONFIG_QUERY_KEY, AVAILABILITY_DAYS_QUERY_KEY],
+  invalidateKeys: INVALIDATE,
   mutationFn: (api, { venueId, body }) =>
     trackOwnSave(venueId, () => api.availability.setTonight(venueId, body)),
 });
 
 /** Ends a Tonight change early (a header chip's ✕). */
 export const useEndTonight = createMutationHook<{ venueId: string; ruleId: string }, ReopenResult>({
-  invalidateKeys: [AVAILABILITY_CONFIG_QUERY_KEY, AVAILABILITY_DAYS_QUERY_KEY],
+  invalidateKeys: INVALIDATE,
   mutationFn: (api, { venueId, ruleId }) =>
     trackOwnSave(venueId, () => api.availability.endTonight(venueId, ruleId)),
 });

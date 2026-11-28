@@ -29,6 +29,19 @@ const DESTINATION: Readonly<Record<Code, ExplainDestination>> = {
   pacing: "bookingRules",
 };
 
+/**
+ * The screens only a Manager can open (a Host who followed one lands on the hub, or on the
+ * dashboard). A Host keeps the links to Closures and the Calendar, which both read for a Host.
+ */
+const MANAGER_ONLY: ReadonlySet<ExplainDestination> = new Set([
+  "regularHours",
+  "bookingRules",
+  "floorPlan",
+]);
+
+export const isManagerOnly = (destination: ExplainDestination): boolean =>
+  MANAGER_ONLY.has(destination);
+
 export const destinationOf = (reason: TraceReason): ExplainDestination => DESTINATION[reason.code];
 
 const FLOOR_PLAN_PATH = "/floor-plans";

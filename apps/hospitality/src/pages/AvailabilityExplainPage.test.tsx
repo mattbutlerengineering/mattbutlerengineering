@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { createMemoryRouter, Outlet, RouterProvider } from "react-router";
 import { axe } from "vitest-axe";
 import type { DayTraceResult } from "@mbe/types";
@@ -173,6 +173,40 @@ describe("AvailabilityExplainPage", () => {
       "href",
       "/floor-plans"
     );
+  });
+
+  it("gives a Host no link to a screen only a Manager can open, and keeps the ones a Host can", () => {
+    trace.value = {
+      ...trace.value,
+      data: {
+        ...RESULT,
+        times: [
+          ...RESULT.times,
+          time(1260, { outcome: "removed", reason: { code: "booking_paused", channel: "online" } }),
+          time(1320, { outcome: "removed", reason: { code: "nonexistent_local_time" } }),
+        ],
+      },
+    };
+    renderPage(undefined, scopeOf({ isManager: false }));
+    const rows = screen.getAllByRole("listitem").filter((el) => el.hasAttribute("data-outcome"));
+    expect(rows).toHaveLength(5);
+    // Pacing (booking rules) and no free table (floor plan) open Manager-only screens.
+    expect(within(rows[1]!).queryByRole("link")).toBeNull();
+    expect(within(rows[2]!).queryByRole("link")).toBeNull();
+    expect(within(rows[3]!).getByRole("link")).toHaveAttribute("href", "/availability/closures");
+    expect(within(rows[4]!).getByRole("link")).toHaveAttribute(
+      "href",
+      "/availability/calendar?date=2026-12-04"
+    );
+  });
+
+  it("says when the hours could not be read, with a retry, instead of waiting on them", () => {
+    const refresh = vi.fn();
+    renderPage(undefined, scopeOf({ state: null, load: "error", loadError: "boom", refresh }));
+    expect(screen.getByText("Couldn't load availability")).toBeInTheDocument();
+    expect(screen.queryByRole("status", { name: /./ })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(refresh).toHaveBeenCalled();
   });
 
   it("says when the venue is closed all day", () => {

@@ -56,19 +56,47 @@ const TRACE = {
   ],
 };
 
-async function serveTrace(page: Page, body: unknown = TRACE): Promise<string[]> {
+/** The trace the engine would answer for the date and party the request names. */
+function traceFor(date: string, partySize: number, times: readonly unknown[]) {
+  const forParty = (time: unknown) => {
+    const entry = time as { reason?: { partySize?: number } };
+    return entry.reason?.partySize === undefined
+      ? time
+      : { ...entry, reason: { ...entry.reason, partySize } };
+  };
+  return {
+    ...TRACE,
+    serviceDate: date,
+    partySize,
+    day: { ...TRACE.day, serviceDate: date },
+    times: times.map(forParty),
+  };
+}
+
+async function serveTrace(page: Page, times: readonly unknown[] = TRACE.times): Promise<string[]> {
   await mockClosures(page);
   const urls: string[] = [];
   await page.route(`${base}/availability/trace?*`, (route) => {
-    urls.push(route.request().url());
+    const url = new URL(route.request().url());
+    urls.push(url.toString());
+    const date = url.searchParams.get("date") ?? DATE;
+    const partySize = Number(url.searchParams.get("partySize") ?? 2);
     return route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ data: body }),
+      body: JSON.stringify({ data: traceFor(date, partySize, times) }),
     });
   });
   return urls;
 }
+
+/** "Monday, December 7": the day drawer's title for a date. */
+const DAY_NAME = new Intl.DateTimeFormat("en-US", {
+  weekday: "long",
+  month: "long",
+  day: "numeric",
+  timeZone: "UTC",
+}).format(new Date(`${DATE}T00:00:00Z`));
 
 test.describe("Explain this day", () => {
   test("opens from the day drawer with the date and party in the address, and explains every time", async ({
@@ -76,7 +104,10 @@ test.describe("Explain this day", () => {
   }) => {
     const urls = await serveTrace(mockedPage);
     await mockedPage.goto(`availability/calendar?date=${DATE}`);
-    await mockedPage.getByRole("dialog").getByRole("button", { name: "Explain this day" }).click();
+    await mockedPage
+      .getByRole("dialog", { name: new RegExp(DAY_NAME) })
+      .getByRole("button", { name: "Explain this day" })
+      .click();
 
     await expect(mockedPage).toHaveURL(new RegExp(`/availability/explain\\?date=${DATE}`));
     await expect(
@@ -109,10 +140,15 @@ test.describe("Explain this day", () => {
     await mockedPage.goto(`availability/explain?date=${DATE}&partySize=6`);
     await expect(mockedPage.locator("li[data-outcome]")).toHaveCount(3);
     expect(urls.some((url) => url.includes("partySize=6"))).toBe(true);
+    // The answer and the reason both speak for the party the address names.
+    await expect(mockedPage.getByText(/^1 time bookable for a party of 6\./)).toBeVisible();
+    await expect(mockedPage.locator("li[data-outcome]").nth(1)).toContainText(
+      "so a party of 6 would go over"
+    );
   });
 
   test("says when the venue is closed all day", async ({ mockedPage }) => {
-    await serveTrace(mockedPage, { ...TRACE, times: [] });
+    await serveTrace(mockedPage, []);
     await mockedPage.goto(`availability/explain?date=${DATE}`);
     await expect(
       mockedPage.getByText("Closed all day, so there are no times to explain.")
