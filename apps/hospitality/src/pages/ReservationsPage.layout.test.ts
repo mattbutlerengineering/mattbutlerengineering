@@ -31,7 +31,9 @@ function braceBody(source: string, from: number): string {
 }
 
 /** Declarations of every top-level rule in `source` whose selector is exactly `selector`. */
-function declarationsOf(source: string, selector: string): string {
+function declarationsOf(withComments: string, selector: string): string {
+  // A comment between two rules would otherwise be read as part of the next selector.
+  const source = withComments.replace(/\/\*[\s\S]*?\*\//g, "");
   const found: string[] = [];
   const rule = /(^|\})\s*([^{}@]+?)\s*\{/g;
   for (let m = rule.exec(source); m; m = rule.exec(source)) {
@@ -40,29 +42,47 @@ function declarationsOf(source: string, selector: string): string {
   return found.join(";");
 }
 
-/** The body of the one `@media <query>` block, or "" when there is none. */
-function mediaBody(query: string): string {
-  const at = CSS.indexOf(`@media ${query} {`);
-  return at === -1 ? "" : braceBody(CSS, CSS.indexOf("{", at));
+/** The `<Input … />` element in the page that carries `attribute`, or "" when there is none. */
+function inputElementWith(attribute: string): string {
+  const elements = TSX.match(/<Input\b[\s\S]*?\/>/g) ?? [];
+  return elements.find((element) => element.includes(attribute)) ?? "";
 }
 
-describe("ReservationsPage search field on a phone", () => {
+/**
+ * Width the longest search placeholder needs, in rem. es-MX and fr-CA are both 31 characters;
+ * es-MX measured 232.8px in a real browser at the input's 16px, plus 26px of padding and border
+ * (#10244). ch would overshoot: "0" is far wider than this font's average glyph.
+ */
+const LONGEST_PLACEHOLDER_REM = (232.8 + 26) / 16;
+
+describe("ReservationsPage search field", () => {
   // The Input's wrapper is a flex item with no sizing, so it stays at the input's intrinsic
-  // width (~20 characters) and clips the fr-CA / es-MX placeholder at 375px (#10241).
-  const phone = mediaBody("(max-width: 480px)");
+  // width (~20 characters) and clips the fr-CA / es-MX placeholder at every width (#10241,
+  // #10244). The fix is one rule outside any media query, so it holds from phone to desktop.
+  const search = declarationsOf(CSS, ".search");
 
-  it("takes the whole toolbar row at phone width", () => {
-    const search = declarationsOf(phone, ".search");
-    expect(search).toMatch(/flex:\s*1 1 100%/);
-    expect(search).toMatch(/min-inline-size:\s*0/);
+  it("has a flex basis that fits the longest placeholder, and grows", () => {
+    const basis = search.match(/flex:\s*1 1 ([\d.]+)rem/);
+    expect(Number(basis?.[1])).toBeGreaterThanOrEqual(LONGEST_PLACEHOLDER_REM);
   });
 
-  it("leaves the tablet and desktop toolbar rule free of search sizing", () => {
+  it("never shrinks below that width, except to fit a narrower toolbar", () => {
+    const floor = search.match(/min-inline-size:\s*min\(100%,\s*([\d.]+)rem\)/);
+    expect(Number(floor?.[1])).toBeGreaterThanOrEqual(LONGEST_PLACEHOLDER_REM);
+  });
+
+  it("is sized by that one rule: no breakpoint resizes it, and 480px is gone", () => {
+    expect(CSS.match(/\.search \{/g)).toHaveLength(1);
+    expect(CSS).toMatch(/\n\.search \{/);
+    expect(CSS).not.toMatch(/480px/);
+  });
+
+  it("leaves the toolbar rule itself free of search sizing", () => {
     expect(declarationsOf(CSS, ".toolbar")).not.toMatch(/flex-basis|inline-size/);
-    expect(CSS).not.toMatch(/\n\.search \{/);
   });
 
-  it("applies the class to the search Input's wrapper", () => {
-    expect(TSX).toMatch(/className=\{styles\.search\}/);
+  it("applies the class to the Input that carries the search label", () => {
+    const searchInput = inputElementWith('aria-label={t("reservations.search.label")}');
+    expect(searchInput).toMatch(/className=\{styles\.search\}/);
   });
 });

@@ -89,13 +89,15 @@
 }
 
 /* The search Input's wrapper is a flex item with no sizing, so it stays at the input's intrinsic
-   width (~20 characters) and clips longer placeholders (fr-CA, es-MX). On a phone it takes the
-   whole row; the date field and New reservation button share the next one. */
-@media (max-width: 480px) {
-  .search {
-    flex: 1 1 100%;
-    min-inline-size: 0;
-  }
+   width (~20 characters) and clips longer placeholders. The longest (es-MX, 31 characters) needs
+   16.2rem with the input's padding, so a 17rem basis fits it at every width, and the field
+   grows into whatever its row has left. In rem, not ch: 31ch is over 20rem in this font, which
+   pushes the fr-CA button off the single desktop row. No breakpoint: on a phone the basis is
+   wider than the room beside the date field, so the search wraps to a row of its own and fills
+   it. min() lets it shrink only when the toolbar itself is narrower than 17rem. */
+.search {
+  flex: 1 1 17rem;
+  min-inline-size: min(100%, 17rem);
 }
 
 /* The compact button keeps a 44px target on touch and phone/tablet widths, like the
