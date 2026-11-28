@@ -3,6 +3,15 @@ import { FormContext } from "../components/Form/FormContext";
 import styles from "./useField.module.css";
 
 /**
+ * The id of the hint/error region `useField` renders for a control with the
+ * given id. Use it to point another element's `aria-describedby` at a rialto
+ * field's hint instead of repeating the suffix.
+ */
+export function fieldHintId(controlId: string): string {
+  return `${controlId}-hint`;
+}
+
+/**
  * Options for the useField hook.
  */
 export interface UseFieldOptions {
@@ -146,7 +155,7 @@ export function useField({
 
   // A single hint/error region id. When error=true this element serves as
   // the error message region; when error=false it is the description region.
-  const hintId = `${id}-hint`;
+  const hintId = fieldHintId(id);
 
   // aria-describedby is set only when the hint element will be rendered (hint text present).
   // When error=true, aria-invalid signals the invalid state; the hint text (if any) doubles

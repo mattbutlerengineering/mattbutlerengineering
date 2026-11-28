@@ -8,7 +8,19 @@
 import { createElement, type ReactNode } from "react";
 import { render, renderHook } from "@testing-library/react";
 import { FormContext } from "../components/Form/FormContext";
-import { useField } from "./useField";
+import { fieldHintId, useField } from "./useField";
+
+describe("fieldHintId", () => {
+  it("appends the -hint suffix", () => {
+    expect(fieldHintId("x")).toBe("x-hint");
+  });
+
+  it("is the id useField gives the hint and error regions", () => {
+    const { result } = renderHook(() => useField({ id: "email", hint: "h", error: true }));
+    expect(result.current.descriptionProps.id).toBe(fieldHintId("email"));
+    expect(result.current.errorProps.id).toBe(fieldHintId(result.current.controlProps.id));
+  });
+});
 
 describe("useField", () => {
   describe("id generation", () => {
