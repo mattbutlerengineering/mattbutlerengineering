@@ -281,13 +281,13 @@ describe("ci.yml — storybook-tests job (promoted from rialto-visual.yml, #8117
   });
 
   it("skips (which the gate counts as pass) unless rialto-relevant files changed", () => {
-    expect(job.needs).toContain("detect-changes");
-    expect(job.if).toContain("needs.detect-changes.outputs.has_rialto == 'true'");
-    expect(ci.jobs["detect-changes"].outputs).toHaveProperty("has_rialto");
+    expect(job.needs).toContain("prepare");
+    expect(job.if).toContain("needs.prepare.outputs.has_rialto == 'true'");
+    expect(ci.jobs.prepare.outputs).toHaveProperty("has_rialto");
   });
 
-  it("detect-changes flags the files that define the suite", () => {
-    const run = jobRunText(ci.jobs["detect-changes"]);
+  it("prepare's change detection flags the files that define the suite", () => {
+    const run = jobRunText(ci.jobs.prepare);
     for (const path of [
       "packages/rialto/",
       "scripts/storybook-test-gate.mjs",

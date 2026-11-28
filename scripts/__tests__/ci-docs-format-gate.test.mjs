@@ -6,7 +6,7 @@ const WORKFLOW = loadWorkflow("ci.yml");
 /**
  * Guards the docs-only formatting hole measured on 2026-08-31.
  *
- * `detect-changes` sets `has_code=false` for a PR touching only `docs/**` /
+ * `prepare` (which absorbed `detect-changes`, #10064) sets `has_code=false` for a PR touching only `docs/**` /
  * `**.md`, and the whole Build chain — which is where `pnpm repo-audit` runs
  * `prettier --check .` — is gated on `has_code == 'true'`. So a docs-only PR
  * merged with `CI Gate` green having never had its markdown formatted, and the
@@ -64,8 +64,8 @@ describe("ci.yml docs-only formatting gate", () => {
 
   it("runs exactly when the Build chain does NOT, so it is not redundant work", () => {
     const block = requireJob(JOB);
-    expect(block.needs).toEqual(["detect-changes"]);
-    expect(block.if).toMatch(/needs\.detect-changes\.outputs\.has_code != 'true'/);
+    expect(block.needs).toEqual(["prepare"]);
+    expect(block.if).toMatch(/needs\.prepare\.outputs\.has_code != 'true'/);
   });
 
   it("also runs on a docs-only push to main, not just on PRs", () => {
@@ -83,8 +83,8 @@ describe("ci.yml docs-only formatting gate", () => {
     // success, and a skipped job is neither. Without the has_code gate, the
     // first docs push after a red code run would report main healthy.
     const block = requireJob("report-health");
-    expect(block.needs).toContain("detect-changes");
-    expect(block.if).toMatch(/needs\.detect-changes\.outputs\.has_code == 'true'/);
+    expect(block.needs).toContain("prepare");
+    expect(block.if).toMatch(/needs\.prepare\.outputs\.has_code == 'true'/);
   });
 
   it("is gated by CI Gate, not advisory", () => {

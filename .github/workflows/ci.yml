@@ -3,10 +3,10 @@ name: CI
 on:
   push:
     branches: [main]
-    # `docs/**` and `**.md` are deliberately NOT ignored. `detect-changes` sets
-    # has_code=false for a docs-only commit and every expensive job chains to
-    # `prepare`, which is gated on has_code == 'true' — so such a push runs
-    # only detect-changes + docs-format + containers + ci-gate. Ignoring them here
+    # `docs/**` and `**.md` are deliberately NOT ignored. `prepare` sets
+    # has_code=false for a docs-only commit and skips its install; every
+    # expensive job is gated on has_code == 'true' — so such a push runs
+    # only prepare + docs-format + containers + ci-gate. Ignoring them here
     # instead meant a docs-only commit reaching main (by merge or by direct
     # push) was never prettier-checked, and the dirty files then failed "Run
     # Full Repository Audit" on the next code PR (#4787 -> #4790/#4792/#4797
@@ -35,8 +35,15 @@ permissions:
   contents: read
 
 jobs:
-  detect-changes:
-    name: Detect Changes
+  # #10064: change detection used to be its own `detect-changes` job, and
+  # Prepare waited on it. Under the concurrent-job cap every serial job pays a
+  # full queue wait (measured median 6.2 min for a 0.3 min job), so detection
+  # is now Prepare's first step. Prepare has no `if:` and always runs; on a
+  # docs-only change it stops after detection (every later step is gated on
+  # has_code). CI Gate's module requires Prepare to succeed, and every
+  # Build-chain job to succeed whenever has_code is "true".
+  prepare:
+    name: Prepare
     runs-on: ubuntu-latest
     outputs:
       has_code: ${{ steps.filter.outputs.has_code }}
@@ -87,18 +94,13 @@ jobs:
             echo "has_code=false" >> "$GITHUB_OUTPUT"
           fi
 
-  prepare:
-    name: Prepare
-    needs: [detect-changes]
-    if: needs.detect-changes.outputs.has_code == 'true'
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
-
+      # Every step below is gated on has_code: a docs-only change needs no
+      # install or library build (#10064).
       - uses: ./.github/actions/setup-workspace
+        if: steps.filter.outputs.has_code == 'true'
 
       - name: Cache Prisma clients
+        if: steps.filter.outputs.has_code == 'true'
         id: cache-prisma
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -106,7 +108,7 @@ jobs:
           key: prisma-clients-${{ hashFiles('services/*/prisma/schema.prisma') }}
 
       - name: Generate Prisma clients
-        if: steps.cache-prisma.outputs.cache-hit != 'true'
+        if: steps.filter.outputs.has_code == 'true' && steps.cache-prisma.outputs.cache-hit != 'true'
         run: |
           # Derive service list from the workspace — no hardcoded names
           for SERVICE in $(node scripts/discover-prisma-services.mjs); do
@@ -115,10 +117,12 @@ jobs:
           done
 
       - name: Cache for Turbo
+        if: steps.filter.outputs.has_code == 'true'
         # #6665: see the Typecheck job's identical step for rationale.
         uses: rharkor/caching-for-turbo@760158c05c47e7a764f78e9a22ca3b5a6ed8c52e # v2.5.2
 
       - name: Restore turbo local cache
+        if: steps.filter.outputs.has_code == 'true'
         # #6665: Prepare is the one job that saves this key now. Typecheck and
         # Test restore it exactly (same sha) once Prepare ends, so none of them
         # rebuilds the `^build` closure.
@@ -130,6 +134,7 @@ jobs:
             ${{ runner.os }}-turbo-${{ hashFiles('pnpm-lock.yaml') }}-
 
       - name: Build library packages
+        if: steps.filter.outputs.has_code == 'true'
         # #6665: produces the `^build` outputs Typecheck, Lint and every Test
         # leg replay as `cache hit`, so Test no longer waits on Typecheck for
         # them. Packages and services are every `^build` target; edge-worker is
@@ -157,8 +162,8 @@ jobs:
   # already covers that case and duplicating it would just spend a runner.
   docs-format:
     name: Docs Formatting
-    needs: [detect-changes]
-    if: needs.detect-changes.outputs.has_code != 'true'
+    needs: [prepare]
+    if: needs.prepare.outputs.has_code != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -202,6 +207,7 @@ jobs:
     name: Static Checks
     runs-on: ubuntu-latest
     needs: [prepare]
+    if: needs.prepare.outputs.has_code == 'true'
     timeout-minutes: 20
 
     steps:
@@ -278,6 +284,7 @@ jobs:
     # Not `build`: every check below reads committed files on this runner and
     # Build hands it no artifact (scripts/__tests__/ci-lint-critical-path.test.mjs).
     needs: [prepare]
+    if: needs.prepare.outputs.has_code == 'true'
     runs-on: ubuntu-latest
     # Dependency Sync alone measured 3m39s on main (run 33219164956).
     timeout-minutes: 20
@@ -330,8 +337,8 @@ jobs:
   # true off pull_request. A skipped run is a pass for CI Gate.
   containers:
     name: Container Checks
-    needs: [detect-changes]
-    if: needs.detect-changes.outputs.has_container_changes == 'true'
+    needs: [prepare]
+    if: needs.prepare.outputs.has_container_changes == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -468,6 +475,7 @@ jobs:
     # `architecture-audit` either: it builds the CLI on its own runner and
     # hands this job nothing; CI Gate still requires it.
     needs: [prepare]
+    if: needs.prepare.outputs.has_code == 'true'
     # #9924: `issues: read` lets repo-audit's check-ready-label-exclusive query
     # live labels. A job-level block replaces the workflow default, so
     # `contents: read` is restated.
@@ -582,7 +590,7 @@ jobs:
   a11y-attribution:
     name: Accessibility AI Attribution
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' && (startsWith(github.head_ref, 'agent-') || startsWith(github.head_ref, 'worktree-agent-'))
+    if: needs.prepare.outputs.has_code == 'true' && github.event_name == 'pull_request' && (startsWith(github.head_ref, 'agent-') || startsWith(github.head_ref, 'worktree-agent-'))
     needs: [prepare]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
@@ -648,6 +656,7 @@ jobs:
     # requires typecheck. Not `lint` or `architecture-audit` either: neither
     # hands this job anything (scripts/__tests__/ci-lint-critical-path.test.mjs).
     needs: [prepare]
+    if: needs.prepare.outputs.has_code == 'true'
 
     strategy:
       fail-fast: false
@@ -760,6 +769,7 @@ jobs:
     name: Validate Migrations
     runs-on: ubuntu-latest
     needs: [prepare] # not lint/typecheck: nothing here consumes their output (#10010)
+    if: needs.prepare.outputs.has_code == 'true'
 
     services:
       postgres:
@@ -931,6 +941,7 @@ jobs:
     name: RLS Integration (owner role, #5369)
     runs-on: ubuntu-latest
     needs: [prepare] # not lint; Prepare builds the workspace closure
+    if: needs.prepare.outputs.has_code == 'true'
     timeout-minutes: 15
 
     services:
@@ -1082,13 +1093,13 @@ jobs:
 
   report-health:
     name: Report CI Health
-    needs: [detect-changes, static-checks, build, test, migrations]
+    needs: [prepare, static-checks, build, test, migrations]
     # has_code is load-bearing, not decoration. The loop below treats anything
     # that is not `failure`/`cancelled` as success, and `skipped` is neither —
     # so on a docs-only push (where static-checks/build/test/migrations all
     # skip) this would write conclusion=success to ci/latest and mask a red
     # code run that preceded it. Only report health for runs that tested code.
-    if: always() && github.ref == 'refs/heads/main' && needs.detect-changes.outputs.has_code == 'true'
+    if: always() && github.ref == 'refs/heads/main' && needs.prepare.outputs.has_code == 'true'
     runs-on: ubuntu-latest
 
     steps:
@@ -1175,8 +1186,8 @@ jobs:
   # code, and is itself the failing step.
   storybook-tests:
     name: Storybook browser tests (rialto)
-    needs: [detect-changes]
-    if: needs.detect-changes.outputs.has_rialto == 'true'
+    needs: [prepare]
+    if: needs.prepare.outputs.has_rialto == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -1217,7 +1228,6 @@ jobs:
     if: always()
     needs:
       [
-        detect-changes,
         prepare,
         static-checks,
         repo-checks,
@@ -1352,9 +1362,9 @@ jobs:
         # loop failed only on failure/cancelled, so on 2026-10-05 (PR #6077,
         # run 37363956419 attempt 2) `abandoned` jobs let CI Gate go green with
         # nothing verified. The module also checks the root of the chain:
-        # detect-changes must succeed, and prepare must succeed whenever
-        # has_code == 'true' (its only `if:`), so a broken root can't
-        # masquerade as a legitimate docs-only skip cascade.
+        # prepare must succeed (it has no `if:`), and every Build-chain job
+        # must succeed whenever has_code == 'true', so a broken root or a
+        # mistyped leaf `if:` can't masquerade as a docs-only skip (#10064).
         #
         # toJSON(needs) rather than a hand-listed env var per job: a job added
         # to `needs:` above is gated automatically.
