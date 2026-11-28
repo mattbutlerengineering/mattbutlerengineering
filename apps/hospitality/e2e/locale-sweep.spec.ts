@@ -24,7 +24,7 @@
  *  4. A CLIPPED PLACEHOLDER — rule 3 walks text nodes, and a placeholder is not
  *     one. On the gated Reservations route the search placeholder is measured
  *     against its input's content box, in en-US as well as the swept locales,
- *     at both viewports and at every 16px between them (#10250).
+ *     at both viewports and across the widths between them (#10250).
  *
  * Runs through the bare `test:e2e` script like the other public-route specs
  * (playwright.config.ts auto-discovers e2e/*.spec.ts; workflow-coverage.test.ts
@@ -833,8 +833,9 @@ async function placeholderFit(input: Locator): Promise<PlaceholderFit> {
       pseudo.getPropertyValue(property) || own.getPropertyValue(property);
     const font = ["font-style", "font-weight", "font-size", "font-family"].map(read).join(" ");
     const placeholder = el.placeholder;
-    // Before the webfont arrives the canvas would measure a fallback face.
-    await document.fonts.load(font, placeholder);
+    // Before the webfont arrives the canvas would measure a fallback face. A failed font
+    // fetch is not this check's failure: canvas and input then fall back to the same face.
+    await document.fonts.load(font, placeholder).catch(() => []);
     await document.fonts.ready;
     const context = document.createElement("canvas").getContext("2d");
     if (!context) throw new Error("no 2d canvas context to measure the placeholder with");
@@ -861,14 +862,24 @@ const RESERVATIONS = "reservations";
  * that is too small only clips in the bands where the field shares a row and has nothing left to
  * grow into (measured for #10250: with a 12rem basis nothing clips at 375 or 1280, and es-MX
  * clips across most of 416 to 1216). Resized in place, so no route is loaded a second time.
+ *
+ * A coarse pass every `step` px, refined to 1px where a clip could hide between two samples.
+ * While the field shares a row its width is its basis plus the row's leftover; the leftover is 0
+ * at the width where the field first fits on that row and grows by 1px per viewport px above it
+ * (less, if something else on the row grows too). A basis `d` px too small therefore clips only
+ * in the `d` px just ABOVE each such wrap point, which a 16px grid hits by luck when `d` is 2 or
+ * 3. The first sample above a wrap point sits at most `step` px past it, so its spare room is
+ * under `step`: that is the trigger, and the band it betrays lies wholly in the gap BELOW that
+ * sample. Nothing can hide just above a sample: a wrap point there leaves the next sample within
+ * `step` of it, and that one triggers.
  */
 const SEARCH_SCAN = { from: 320, to: DESKTOP.width, step: 16 } as const;
 
 /**
  * The Reservations search placeholder has been clipped twice (#10241, #10244). Only this input is
  * checked: `placeholderFit` works on any input, but run over every gated route it finds the Admin
- * and Guests search placeholders clipped today (measured for #10250), so widening this to every
- * route waits on those fixes.
+ * and Guests search placeholders clipped today (#10262), so widening this to every route waits on
+ * those fixes.
  */
 async function expectSearchPlaceholderFits(
   page: Page,
@@ -892,8 +903,9 @@ async function expectSearchPlaceholderFits(
   ).toBeLessThanOrEqual(room);
   if (viewport.width !== DESKTOP.width) return;
 
+  const { from, to, step } = SEARCH_SCAN;
   const clipped: string[] = [];
-  for (let width = SEARCH_SCAN.from; width <= SEARCH_SCAN.to; width += SEARCH_SCAN.step) {
+  const measureAt = async (width: number): Promise<PlaceholderFit> => {
     await page.setViewportSize({ width, height: viewport.height });
     const at = await placeholderFit(input);
     if (at.textWidth > at.room) {
@@ -901,11 +913,58 @@ async function expectSearchPlaceholderFits(
         `${width}px wide: needs ${at.textWidth.toFixed(1)}px, room for ${at.room.toFixed(1)}px`
       );
     }
+    return at;
+  };
+  for (let width = from; width <= to; width += step) {
+    const at = await measureAt(width);
+    // Fits here with less than a step to spare: a narrower band may clip in the gap below
+    // (see SEARCH_SCAN). A sample that is itself clipped has already failed the test.
+    const nearClip = at.textWidth <= at.room && at.room < at.textWidth + step;
+    if (!nearClip || width === from) continue;
+    for (let fine = width - step + 1; fine < width; fine += 1) await measureAt(fine);
   }
   expect(
     clipped,
     `${locale} ${RESERVATIONS}: placeholder "${placeholder}" is clipped between ${SEARCH_SCAN.from}px and ${SEARCH_SCAN.to}px`
   ).toEqual([]);
+}
+
+/**
+ * Opens a gated route as staff in `locale` at `viewport`, and checks that it rendered: no
+ * redirect away, no error boundary, a `main` and a heading. `unmocked` is emptied before the
+ * load, so what it holds afterwards is this route's own.
+ */
+async function openGatedRoute(
+  page: Page,
+  unmocked: string[],
+  locale: StaffLocale,
+  route: string,
+  viewport: { width: number; height: number }
+): Promise<void> {
+  await mockGatedRoutes(page, route);
+  await stageStaffSession(page, locale, route);
+  await page.setViewportSize(viewport);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  // The fixture's own load of the app root answered before these mocks existed.
+  unmocked.splice(0);
+  const path = gatedPath(route);
+  await page.goto(path);
+  await page.waitForLoadState("networkidle");
+  const landing = LANDS_ON[route] ?? path;
+  const requested = new URL(landing, test.info().project.use.baseURL).pathname;
+  const trim = (p: string) => p.replace(/\/$/, "");
+  await expect(page, `${route} redirected away from ${requested}`).toHaveURL(
+    (url) => trim(url.pathname) === trim(requested)
+  );
+  await expect(page.getByText("Unexpected Application Error")).toHaveCount(0);
+  // DashboardLayout's ErrorBoundary fallback is translated, so look for it in the locale.
+  await expect(
+    page.getByText(label(locale, "layout.errorHeading"), { exact: true }),
+    `${route} crashed into the error boundary`
+  ).toHaveCount(0);
+  // A blank, skeleton-only or crashed page has no heading to find.
+  await expect(page.getByRole("main")).toBeVisible();
+  await expect(page.getByRole("heading").first()).toBeVisible();
 }
 
 for (const locale of LOCALES) {
@@ -915,30 +974,7 @@ for (const locale of LOCALES) {
         sweepTest(
           `${route} @ ${viewport.width}x${viewport.height}`,
           async ({ mockedPage: page, unmocked }) => {
-            await mockGatedRoutes(page, route);
-            await stageStaffSession(page, locale, route);
-            await page.setViewportSize(viewport);
-            await page.emulateMedia({ reducedMotion: "reduce" });
-            // The fixture's own load of the app root answered before these mocks existed.
-            unmocked.splice(0);
-            const path = gatedPath(route);
-            await page.goto(path);
-            await page.waitForLoadState("networkidle");
-            const landing = LANDS_ON[route] ?? path;
-            const requested = new URL(landing, test.info().project.use.baseURL).pathname;
-            const trim = (p: string) => p.replace(/\/$/, "");
-            await expect(page, `${route} redirected away from ${requested}`).toHaveURL(
-              (url) => trim(url.pathname) === trim(requested)
-            );
-            await expect(page.getByText("Unexpected Application Error")).toHaveCount(0);
-            // DashboardLayout's ErrorBoundary fallback is translated, so look for it in the locale.
-            await expect(
-              page.getByText(label(locale, "layout.errorHeading"), { exact: true }),
-              `${route} crashed into the error boundary`
-            ).toHaveCount(0);
-            // A blank, skeleton-only or crashed page has no heading to find.
-            await expect(page.getByRole("main")).toBeVisible();
-            await expect(page.getByRole("heading").first()).toBeVisible();
+            await openGatedRoute(page, unmocked, locale, route, viewport);
             if (route === "waitlist") {
               await expect(page.getByTestId("waitlist-empty")).toHaveCount(0);
               await expect(page.getByText("Priya Shah")).toBeVisible();
@@ -961,13 +997,7 @@ sweepTest.describe("Reservations search placeholder — en-US", () => {
     sweepTest(
       `${RESERVATIONS} @ ${viewport.width}x${viewport.height}`,
       async ({ mockedPage: page, unmocked }) => {
-        await mockGatedRoutes(page, RESERVATIONS);
-        await stageStaffSession(page, "en-US", RESERVATIONS);
-        await page.setViewportSize(viewport);
-        // The fixture's own load of the app root answered before these mocks existed.
-        unmocked.splice(0);
-        await page.goto(gatedPath(RESERVATIONS));
-        await page.waitForLoadState("networkidle");
+        await openGatedRoute(page, unmocked, "en-US", RESERVATIONS, viewport);
         await expect(page.locator("html")).toHaveAttribute("lang", "en-US");
         await expectSearchPlaceholderFits(page, "en-US", viewport);
         expect(unmocked, `${RESERVATIONS}: requests no mock answered`).toEqual([]);
