@@ -77,8 +77,12 @@ describe("app.ts — health and API routes registration", () => {
 
   it("builds app with default options (logger enabled)", async () => {
     const app = await buildApp();
-    await app.ready();
-    await app.close();
+    try {
+      await expect(app.ready()).resolves.toBeDefined();
+      expect(app.log.level).not.toBe("silent");
+    } finally {
+      await app.close();
+    }
   });
 
   it("shuts the database down when the app closes (#6373)", async () => {
