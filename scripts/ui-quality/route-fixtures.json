@@ -3,6 +3,7 @@
     "availability/seasonal/:scheduleId": "/availability/seasonal/sch_e2e_1",
     "book/:venueSlug": "/book/e2e-test-bistro",
     "floor-plans/:id": "/floor-plans/fp_e2e_001",
+    "availability/floor-plans/:id": "/availability/floor-plans/fp_e2e_001",
     "i/:token": "/i/ui-quality-invite",
     "menu/:venueSlug": "/menu/e2e-test-bistro",
     "menu/:venueSlug/:menuSlug": "/menu/e2e-test-bistro/dinner",
