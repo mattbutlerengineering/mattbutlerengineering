@@ -223,4 +223,13 @@ describe("every static app has a declared deploy owner", () => {
     const missing = closure.filter((dir) => !paths.includes(`${dir}/**`));
     expect(missing, `pulumi-up.yml push trigger is missing: ${missing.join(", ")}`).toEqual([]);
   });
+
+  // An edit to the deploy workflow itself must redeploy, as deploy-static.yml
+  // does (#8894, #10167). pulumi-up.yml has one job and no per-job path filter,
+  // so the push trigger is the only place this can be lost.
+  it("pulumi-up.yml's push trigger lists the workflow's own path", () => {
+    const paths = pushTriggerPaths("pulumi-up.yml", "workflow_run:");
+    expect(paths).toContain("infrastructure/pulumi/**");
+    expect(paths).toContain(".github/workflows/pulumi-up.yml");
+  });
 });

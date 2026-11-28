@@ -12,6 +12,7 @@ import {
   replayRow,
   runReplay,
 } from "../tier-escalation.mjs";
+import { isAutoMergeEligible } from "../merge-queue-eligibility.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const f = (path, additions) => ({ path, additions });
@@ -178,6 +179,54 @@ describe("classifyPaths: acmm-regression PR (#9125)", () => {
       classifyPaths(["apps/marketing/public/metrics.json", "packages/types/src/a.ts"]).tier
     ).toBeGreaterThanOrEqual(2);
   });
+});
+
+// #10174: agent-instruction files graded T1 let an unreviewed merge path land edits
+// to the review rules themselves. Hold list authority: docs/routines/fix-protocol.md § 3.
+describe("classifyPaths: agent-instruction files are above T1 (#10174)", () => {
+  const GUARDRAIL_PATHS = [
+    "CLAUDE.md",
+    "AGENTS.md",
+    ".claude/rules/gotchas.md",
+    ".claude/settings.json",
+    ".claude/hooks/pre-push-typecheck.sh",
+    ".claude/skills/local-ci-precheck/SKILL.md",
+    ".claude/implement-queue.md",
+    "docs/routines/fix-protocol.md",
+    "docs/routines/mbe-weekly-improve.md",
+    "docs/claude-reference.md",
+    "docs/agents-reference.md",
+  ];
+
+  it.each(GUARDRAIL_PATHS)("%s classifies T3, never T1", (path) => {
+    expect(classifyPaths([path]).tier).toBe(3);
+  });
+
+  it("a guardrail path beside a markdown file takes the higher tier", () => {
+    expect(classifyPaths(["README.md", "CLAUDE.md"]).tier).toBe(3);
+  });
+
+  it("keeps ordinary markdown at T1 (the markdown default is unchanged)", () => {
+    expect(classifyPaths(["docs/notes.md", "README.md"]).tier).toBe(1);
+  });
+
+  it("keeps the automation-only ACMM state file at T1 (#9125)", () => {
+    expect(classifyPaths([".claude/acmm/state.json"]).tier).toBe(1);
+  });
+
+  it.each(GUARDRAIL_PATHS)(
+    "a %s PR with has-pr and no needs-review is not auto-mergeable",
+    (path) => {
+      const { tier } = classifyPaths([path]);
+      const tierLabel = {
+        1: "tier:trivial",
+        2: "tier:standard",
+        3: "tier:sensitive",
+        4: "tier:critical",
+      }[tier];
+      expect(isAutoMergeEligible(["has-pr", tierLabel]).eligible).toBe(false);
+    }
+  );
 });
 
 describe("docs/change-tiers.md agrees with the module", () => {

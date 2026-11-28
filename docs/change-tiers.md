@@ -43,6 +43,8 @@ Rules are evaluated against the PR diff. Each rule maps a path glob (or a struct
 - Changes to `eslint.config.js`, `tsconfig*.json`, `turbo.json`, or other root-level build/lint config.
 - Changes to `scripts/check-*.js` (the gate-enforcement scripts).
 - Changes to `.husky/*` (pre-commit hook).
+- Changes to files that instruct agents (the automation's own guardrails, #10174): the root `CLAUDE.md` and `AGENTS.md`, their extracted reference docs `docs/claude-reference.md` and `docs/agents-reference.md`, `docs/routines/**`, and `.claude/**` except the automation-only `.claude/acmm/state.json`. The authority on which paths count is the hold list in [`docs/routines/fix-protocol.md`](./routines/fix-protocol.md) § 3; the classifier rule is `isAgentInstructionPath()` in `scripts/tier-escalation.mjs`. These are therefore never T1, so no unreviewed merge path can land them on CI signal alone.
+- Changes to the remaining fix-protocol hold-list paths (#10215): `.github/**` (workflows not already T4), `scripts/reviewed-merge.mjs`, `scripts/fast-path-decision.mjs` and `packages/agent-core/src/pr-risk-classifier.ts`.
 - Changes to `apps/*/wrangler.toml` (Cloudflare Worker config).
 - Database migration that _adds_ a column or table (no destructive ops, but still mutates schema).
 - Any `*.test.ts` deletion or `it.skip`/`describe.skip` addition (loosens test coverage).
@@ -59,7 +61,7 @@ Rules are evaluated against the PR diff. Each rule maps a path glob (or a struct
 
 ### T1 — trivial
 
-- Documentation-only changes: `*.md` outside `docs/SECURITY-AI.md`, `docs/change-tiers.md`, `docs/review-criteria.md`, and active ADRs.
+- Documentation-only changes: `*.md` outside `docs/SECURITY-AI.md`, `docs/change-tiers.md`, `docs/review-criteria.md`, active ADRs, and the agent-instruction files listed under T3.
 - Comment changes, JSDoc updates, README typo fixes.
 - Test-only additions (no production code change in the diff): `*.test.ts|tsx|js|jsx`. `*.test.mjs`/`.cjs` under `scripts/` are T2 (`repo script`) by design.
 - Changeset additions (`.changeset/*.md`) that don't modify code.
@@ -102,7 +104,7 @@ These signals can shift a PR's tier independent of file paths.
 
 This section governs **unreviewed** merge paths — workflows that merge on CI signal alone. For those, **only T1 PRs with all CI checks green are auto-mergeable**. The merge queue workflow (`.github/workflows/merge-queue.yml`) auto-merges PRs labeled `has-pr` (and not `needs-review`) when all CI checks pass, gated by `isAutoMergeEligible()` in `scripts/merge-queue-eligibility.mjs`.
 
-On those paths, T2 and above always require human approval. The user (Matt) is the only required reviewer.
+On those paths, T2 and above always require human approval. That includes every agent-instruction file (T3, see above): `isAutoMergeEligible()` checks labels only and consults no path, so the guarantee comes from the tier the classifier assigns, pinned by `scripts/__tests__/tier-escalation.test.mjs`. The user (Matt) is the only required reviewer.
 
 ### Exemption: agent sessions that run the review gate
 
