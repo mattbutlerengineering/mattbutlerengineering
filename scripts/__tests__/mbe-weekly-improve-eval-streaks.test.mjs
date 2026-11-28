@@ -55,11 +55,25 @@ describe("docs/routines/mbe-weekly-improve.md runs the eval task-streak check", 
     expect(step).toContain("eval-task-streak:<taskId>");
     expect(step).toContain("docs/routines/fix-protocol.md");
     expect(step).toMatch(/ONE issue per task/);
-    expect(step).toContain(
-      'gh api "search/issues?q=repo:mattbutlerengineering/mattbutlerengineering+is:issue+is:open+'
-    );
     expect(step).not.toMatch(/gh (issue|pr) (list|view)/);
-    expect(step).not.toContain("--paginate");
+  });
+
+  it("deduplicates from the repo-scoped issue listing, never the search API", () => {
+    // `search/*` answers 403 in Claude Code Remote and `--paginate` follows a
+    // Link header the proxy rejects (scripts/collect-sdlc-speed.mjs).
+    expect(block).not.toContain("search/issues");
+    expect(block).not.toContain("--paginate");
+    const issues = "gh api 'repos/mattbutlerengineering/mattbutlerengineering/issues?";
+    expect(step).toContain(`${issues}state=open&labels=ci-fix&per_page=100&page=1'`);
+    expect(step).toContain(
+      `${issues}state=closed&labels=ci-fix&sort=updated&direction=desc&per_page=100&page=1'`
+    );
+    expect(step).toContain("select(.pull_request == null)");
+    expect(step).toContain('contains("eval-task-streak:<taskId>")');
+    expect(step).toMatch(/`page=2` and onward while a page returns 100 rows/);
+    for (const label of ["`wontfix`", "`vetoed`", "`deferred`"]) {
+      expect(step, `closed match labeled ${label} is not re-filed`).toContain(label);
+    }
   });
 
   it("never reads missing or unreadable history as no streaks", () => {
