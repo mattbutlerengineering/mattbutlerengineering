@@ -120,7 +120,7 @@ const PAGE_TAB: Readonly<Record<AvailabilityView["view"], AvailabilityTab | unde
   hub: undefined,
   hours: undefined,
   seasonal: "schedules",
-  specialDates: "special",
+  specialDates: undefined,
   closures: undefined,
   calendar: "calendar",
   bookingRules: undefined,
@@ -160,6 +160,9 @@ const SEASONAL = `${ROUTE}/seasonal`;
 /** The floor plans, a page of its own; a plan's editor at `:id`. Managers only (#9944 S3). */
 const FLOOR_PLANS = `${ROUTE}/floor-plans`;
 
+/** Special dates and holidays, a page of its own (#9944 S2c). */
+const SPECIAL_DATES = `${ROUTE}/special-dates`;
+
 /** Closures and pauses, a page of its own. */
 const CLOSURES = `${ROUTE}/closures`;
 
@@ -198,6 +201,7 @@ const OWN_PATHS: Readonly<Partial<Record<AvailabilityView["view"], string>>> = {
   bookingRules: BOOKING_RULES,
   history: HISTORY,
   closures: CLOSURES,
+  specialDates: SPECIAL_DATES,
   explain: EXPLAIN,
   map: ROUTE,
 };

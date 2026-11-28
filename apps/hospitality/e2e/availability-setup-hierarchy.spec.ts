@@ -245,7 +245,7 @@ test.describe("Setup hierarchy: the layered Availability page", () => {
 
     // Special dates: the Special dates layer.
     await rail(page).getByRole("link", { name: "Special dates" }).click();
-    await expect(page).toHaveURL(/\/availability\/calendar\?tab=special/);
+    await expect(page).toHaveURL(/\/availability\/special-dates/);
     await expect(layerOption(page, "Special dates")).toBeChecked();
 
     // Booking: its drawer, at the address the Availability hub opens it at (availability-hub C2.5).
@@ -673,7 +673,7 @@ test.describe("The demo runs as written (PRD 9)", () => {
     // Special dates, through the rail, names the section, not a table list.
     await page.goto("availability");
     await rail(page).getByRole("link", { name: "Special dates" }).click();
-    await expect(page).toHaveURL(/\/availability\/calendar\?tab=special/);
+    await expect(page).toHaveURL(/\/availability\/special-dates/);
     await expect(page.getByRole("main")).toContainText("Bar");
   });
 });
