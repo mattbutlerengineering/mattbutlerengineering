@@ -296,6 +296,15 @@ describe("check-ai-antipatterns", () => {
       const block = '"[ok] tables", async () => { await fixture.run(ctx); }';
       expect(blockHasAssertion(block)).toBe(true);
     });
+
+    test("does not mistake the word 'throw' in a test's own description for a throw statement (#10147)", async () => {
+      const { blockHasAssertion } = await import("../check-ai-antipatterns.mjs");
+      const block =
+        '"does not throw when onSigninCallback prop is not provided", () => {\n' +
+        "  render(<Foo />);\n" +
+        "}";
+      expect(blockHasAssertion(block)).toBe(false);
+    });
   });
 
   // ── isSwallowedCatchBody ────────────────────────────────────────────────────

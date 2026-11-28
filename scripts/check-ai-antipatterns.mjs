@@ -140,6 +140,13 @@ function countMatches(content, regex) {
  *      hide real no-op tests elsewhere that happen to call an unrelated
  *      `.run()` method, so this does not generalize past the literal name.
  *
+ * At issue-filing time (#10147) the `noopTestAssertions` baseline also carried
+ * three "does not throw" smoke tests whose only coverage was an unhandled
+ * `await app.ready()` rejection, left deliberately undecided pending this fix.
+ * #10172 landed first and gave those three real, explicit `expect()`
+ * assertions, so by the time this rule shipped there was nothing left to
+ * decide for them — they are now covered by signal 1 like any other test.
+ *
  * Known blind spots (intentional):
  *   - Other assertion libraries/styles (chai `.should`, `.to.equal(...)`
  *     chains, custom matcher DSLs) are not recognized.
@@ -147,10 +154,14 @@ function countMatches(content, regex) {
  *     `assertDefined()` that just returns a boolean instead of throwing)
  *     would false-positive — same risk the original literal-name rule
  *     already carried for a plain `assert` import.
- *   - `throw` matches anywhere in the block text, including inside a string
- *     or comment that only mentions the word; there are no such comments in
- *     this repo today (see the "genuinely empty" fixture in
- *     check-ai-antipatterns.test.mjs, which carries none).
+ *   - `throw` is anchored to statement position (after `;`, `{`, a newline,
+ *     or the start of the block) specifically so it does NOT match the word
+ *     inside a test's own quoted description — this repo has ~20 test names
+ *     containing the bare word "throw" (e.g. "does not throw when ..."), and
+ *     every one of them also has a real `expect()` elsewhere in its body, so
+ *     today's count is unaffected either way. A throw statement written on
+ *     the same line as other code with no `;`/`{`/newline before it (rare in
+ *     this repo's formatting) would still be missed.
  *
  * @param {string} block - test block body text (as sliced by the caller)
  * @returns {boolean}
@@ -158,8 +169,12 @@ function countMatches(content, regex) {
 // `expectTypeOf` / `assertType` are vitest's type-level assertions, enforced by
 // tsc wherever a package's tsconfig includes its tests; the optional `<...>`
 // admits a type argument before the call (`assertType<string>(value)`).
+// The throw alternative is anchored to statement position (right after `;`,
+// `{`, a newline, or the start of the block) so it can't fire on the bare
+// word "throw" sitting inside a test's own quoted description, e.g.
+// `it("does not throw when X", () => { render(<Foo />); })` — see #10147.
 const ASSERTION_CALL_RE =
-  /\b(?:expect|assert|verify)\w*(?:\.\w+)*\s*(?:<[^()]*>)?\s*\(|\bt\.assert(?:\.\w+)*\s*(?:<[^()]*>)?\s*\(|\bthrow\b|\bfixture\.run\s*\(/;
+  /\b(?:expect|assert|verify)\w*(?:\.\w+)*\s*(?:<[^()]*>)?\s*\(|\bt\.assert(?:\.\w+)*\s*(?:<[^()]*>)?\s*\(|(?:^|[;{\n])\s*throw\b|\bfixture\.run\s*\(/;
 
 export function blockHasAssertion(block) {
   return ASSERTION_CALL_RE.test(block);
