@@ -6,6 +6,7 @@ import {
   parseOmpUsage,
   extractOpenCodeError,
   extractClaudeCliError,
+  extractClaudeCliResultText,
   extractGrokError,
   extractOmpError,
 } from "../cli-usage-parser.js";
@@ -227,6 +228,31 @@ describe("extractClaudeCliError", () => {
 
   it("returns undefined when stdout is not JSON", () => {
     expect(extractClaudeCliError("plain text stderr-style output")).toBeUndefined();
+  });
+});
+
+describe("extractClaudeCliResultText", () => {
+  it("returns the agent's final summary from a successful run (#10137)", () => {
+    const stdout = JSON.stringify({
+      type: "result",
+      subtype: "success",
+      is_error: false,
+      result: "js-yaml ^5.5.0 is already the latest 5.x patch; no change needed.",
+    });
+
+    expect(extractClaudeCliResultText(stdout)).toBe(
+      "js-yaml ^5.5.0 is already the latest 5.x patch; no change needed."
+    );
+  });
+
+  it("returns undefined for an error run, whose result is a failure message", () => {
+    const stdout = JSON.stringify({ is_error: true, result: "boom" });
+    expect(extractClaudeCliResultText(stdout)).toBeUndefined();
+  });
+
+  it("returns undefined when stdout is not JSON or has no result", () => {
+    expect(extractClaudeCliResultText("plain text")).toBeUndefined();
+    expect(extractClaudeCliResultText(JSON.stringify({ is_error: false }))).toBeUndefined();
   });
 });
 

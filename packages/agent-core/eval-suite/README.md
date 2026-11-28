@@ -63,6 +63,13 @@ prompt) over `judgeCriteria` wherever you can — they need no LLM call, so they
 free, fast, and reproducible. Reach for `judgeCriteria` only for the part a
 passing test can't prove.
 
+> **Trap: criteria that permit a no-op.** The judge sees the diff plus the agent's
+> final summary (`session.resultText`), never the transcript. A task whose
+> criteria allow a no-op must make the agent state its evidence in the summary,
+> and the adapter must carry that summary into `resultText` — the `claude-cli`
+> adapter did not until #10137, so `eval-dep-bump-js-yaml` failed every week on
+> "the diff is empty". An unjustified empty diff still fails.
+
 ### Worked example
 
 ```json
