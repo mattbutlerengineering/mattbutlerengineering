@@ -22,3 +22,17 @@ describe("PublicBookingPage not-found link contrast", () => {
     expect(body).not.toContain("color: var(--rialto-surface)");
   });
 });
+
+// #10118: the header must share the booking card's left edge. The card is
+// capped at 28rem (BookingWidget.module.css); a wider header column starts
+// left of it.
+describe("PublicBookingPage header alignment", () => {
+  it("caps the header at the booking card's 28rem width", () => {
+    const widget = readFileSync(
+      resolve(process.cwd(), "src/components/booking-widget/BookingWidget.module.css"),
+      "utf8"
+    );
+    expect(widget).toMatch(/max-inline-size:\s*28rem/);
+    expect(ruleBody(".header")).toContain("max-inline-size: 28rem");
+  });
+});
