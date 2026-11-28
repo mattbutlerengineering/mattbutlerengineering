@@ -1,5 +1,25 @@
 # @mattbutlerengineering/rialto
 
+## 3.1.17
+
+### Patch Changes
+
+- [#10042](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/10042) [`5e14e33`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/5e14e33e9ff5c05d8e7b5cd1d2bba8e713703ef1) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - A Button marked `aria-disabled="true"` keeps its disabled look but receives pointer presses again, so its `onClick` runs on a mouse or touch tap (only native `disabled` sets `pointer-events: none`).
+
+- [#10072](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/10072) [`b845859`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/b845859187c904429547537ec2cda36ead6edbc3) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - DataTable's scrolling wrapper becomes a keyboard tab stop, named by the table `label` (or "Scrollable content"), only while the grid overflows horizontally, with the rialto focus ring. Matches what Table already does and clears axe `scrollable-region-focusable` on narrow screens.
+
+- [#10096](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/10096) [`818b4db`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/818b4dbbcc3a502d9b83c1292d0f7de585e1f39b) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - feat(useField): export `fieldHintId(controlId)`, the id of a field's hint/error region, so consumers can point `aria-describedby` at it without repeating the `-hint` suffix ([#10021](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/10021)).
+
+- [#10005](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/10005) [`53a0282`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/53a028269bba5cebd8a343009a9226502ea86fe4) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - fix(Hero): the actions slot settles into place without fading from opacity 0, so the CTAs stay readable if the entrance animation stalls or the animation clock is throttled ([#9972](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/9972)).
+
+- [#10069](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/10069) [`8e04ad1`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/8e04ad1194f9b70a8451780aac1b385858649cc8) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - fix(tokens): light-mode `--rialto-error` (#b84a3c to #a94134) and `--rialto-text-tertiary` ([#747070](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/747070) to #6c6868) clear 4.5:1 on the recessed surface (and error on the tinted band too); dark mode unchanged. New `--rialto-text-on-error` (light #fdfcfa, dark #1a1918) is the text on an error fill, used by the destructive ConfirmDialog button, so the darker error red keeps 4.5:1 under its label ([#9979](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/9979)).
+
+- [#10183](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/10183) [`80c1ea8`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/80c1ea8c74e3aa166e0f872f2aeedf279a24607a) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - SegmentedControl `sm` keeps its 44px touch-target floor on narrow viewports with a fine pointer, not only on coarse pointers.
+
+- [#10148](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/10148) [`6d69084`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/6d69084a811a38c7c15de4a39bcddd859793b8ab) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - SegmentedControl's compact `size="sm"` segments now get a 44px WCAG 2.5.8 touch-target floor under `(pointer: coarse)`, matching the fix already shipped for `Button.sm` ([#4989](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/4989)); mouse/trackpad density is unchanged.
+
+- [#10100](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/10100) [`dd4456b`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/dd4456bc2edbf2e8bdf3bc056bbb47d8c7547ed0) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - A destructive control rendered inside a `data-surface="velvet"` band now gets a dark `--rialto-text-on-error` label, so its text keeps 4.5:1 contrast on the velvet error red (the inherited ivory was 2.0:1).
+
 ## 3.1.16
 
 ### Patch Changes

@@ -36,9 +36,10 @@ jobs:
   # cancelled rerun also comes here and is confirmed when the attempt before
   # it had failed. A cancelled first attempt is still ignored.
   #
-  # Known side effect (#8826): a queued rerun sits in ci.yml's concurrency
-  # group and can cancel a pending main run for a newer commit (seen as run
-  # 43141205557). Inherent to that group; accepted rather than worked around.
+  # History (#8826): a queued rerun used to sit in ci.yml's shared `main`
+  # concurrency group and could cancel a pending main run for a newer commit
+  # (seen as run 43141205557). ci.yml now groups `main` runs per SHA (#10194),
+  # so a rerun only shares a group with its own commit.
   confirm-red:
     runs-on: ubuntu-latest
     if: ${{ github.event_name == 'workflow_run' && (github.event.workflow_run.conclusion == 'failure' || (github.event.workflow_run.conclusion == 'cancelled' && github.event.workflow_run.run_attempt > 1)) }}

@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
     paths:
+      - ".github/workflows/pulumi-up.yml"
       - "infrastructure/pulumi/**"
       - "infrastructure/worker/**"
       - "apps/gen/**"

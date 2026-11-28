@@ -82,6 +82,20 @@ export function decideSizeEscalation({ files, highestTier }) {
 const isTestFile = (f) => /\.test\.[tj]sx?$/.test(f);
 const isCode = (f) => !/\.md$/.test(f) && !isTestFile(f);
 
+// CLAUDE.md and AGENTS.md delegate instruction content to the two reference docs
+// (instruction-budget extraction), so those count as instructions too.
+const AGENT_INSTRUCTION_FILES = new Set([
+  "CLAUDE.md",
+  "AGENTS.md",
+  "docs/claude-reference.md",
+  "docs/agents-reference.md",
+]);
+
+const isAgentInstructionPath = (f) =>
+  AGENT_INSTRUCTION_FILES.has(f) ||
+  /^docs\/routines\//.test(f) ||
+  (/^\.claude\//.test(f) && f !== ".claude/acmm/state.json");
+
 export const RULES = [
   // T4 — critical
   {
@@ -147,6 +161,23 @@ export const RULES = [
   },
   { tier: T3, when: (f) => /^scripts\/check-/.test(f), why: "gate-enforcement script" },
   { tier: T3, when: (f) => /^\.husky\//.test(f), why: "pre-commit hook" },
+  // #10174: files that instruct agents are the review rules themselves; a reviewer
+  // must never be the only check on an edit to its own rules. Hold list authority:
+  // docs/routines/fix-protocol.md § 3. The ACMM state file stays T1 (automation output).
+  {
+    tier: T3,
+    when: (f) => isAgentInstructionPath(f),
+    why: "agent-instruction file (the automation's own guardrails)",
+  },
+  // #10215: the rest of the hold list that isAgentInstructionPath does not cover.
+  {
+    tier: T3,
+    when: (f) =>
+      /^\.github\//.test(f) ||
+      /^scripts\/(reviewed-merge|fast-path-decision)\.mjs$/.test(f) ||
+      f === "packages/agent-core/src/pr-risk-classifier.ts",
+    why: "automation guardrail (fix-protocol hold list)",
+  },
   { tier: T3, when: (f) => /^apps\/[^/]+\/wrangler\.toml$/.test(f), why: "wrangler config" },
 
   // T2 — standard

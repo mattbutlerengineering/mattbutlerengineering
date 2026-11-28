@@ -16,6 +16,20 @@ on:
 permissions:
   contents: read
 
+# One group per ref, never cancel-in-progress. Without a group, a merge burst
+# ran five of these 40-45 minute jobs at once (2026-11-28: 5 of 13 in-progress
+# runs while 174 waited for a runner, #10132). GitHub keeps only the newest
+# PENDING run of a group, which is what this workflow wants: one run executes
+# to completion, the newest push waits behind it, and the pushes in between are
+# dropped because only the newest commit's screenshots are worth having.
+# `cancel-in-progress: true` would let a burst supersede every run mid-flight,
+# so only the last run of a burst would finish. A manual dispatch on `main`
+# shares this group: a later push can drop it while it is pending, which shows
+# as `cancelled`. Pinned by scripts/__tests__/e2e-screenshots-concurrency.test.mjs.
+concurrency:
+  group: e2e-screenshots-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   screenshots:
     name: Capture E2E Screenshots

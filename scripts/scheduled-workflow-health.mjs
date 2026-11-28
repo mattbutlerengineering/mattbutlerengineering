@@ -117,9 +117,13 @@ export function classifyScheduledWorkflowHealth({
 
   const isFailure = (run) =>
     run.conclusion === "failure" || (cancelledCountsAsFailure && run.conclusion === "cancelled");
+  // A run with no conclusion yet (queued / in progress) is not evidence either
+  // way: counted, a merge burst's always-running head run breaks every streak
+  // (#10220). Same rule as `classifyFailureRate` below.
   const relevant = (runs ?? []).filter(
     (run) =>
-      !EXCLUDED_CONCLUSIONS.has(run?.conclusion) || (cancelledCountsAsFailure && isFailure(run))
+      Boolean(run?.conclusion) &&
+      (!EXCLUDED_CONCLUSIONS.has(run.conclusion) || (cancelledCountsAsFailure && isFailure(run)))
   );
 
   if (relevant.length < effectiveThreshold) {
@@ -411,7 +415,14 @@ export function findMainPushWorkflows(workflowsDir) {
  * Pure: the `gh run list` args for the main-push arm. `--branch main --event
  * push` keeps PR runs out — they fail for PR-specific reasons and must not
  * count (same lesson as the `ciHealth` sensor's `--branch main` fix, #4538).
+ *
+ * The limit is a floor of `MAIN_PUSH_STREAK_FETCH_LIMIT`, not `threshold + 5`:
+ * a shared concurrency group cancels pending runs in a merge burst, and the
+ * classifier drops `cancelled` runs, so a narrow fetch left too few usable
+ * runs to see a red streak (#10220). Still one API call (one page is 100).
  */
+export const MAIN_PUSH_STREAK_FETCH_LIMIT = 50;
+
 export function mainPushRunArgs(workflowName, threshold) {
   return [
     "--workflow",
@@ -421,7 +432,7 @@ export function mainPushRunArgs(workflowName, threshold) {
     "--event",
     "push",
     "--limit",
-    String(threshold + 5),
+    String(Math.max(threshold + 5, MAIN_PUSH_STREAK_FETCH_LIMIT)),
     "--json",
     "conclusion,url,createdAt",
   ];
@@ -1017,7 +1028,7 @@ export function classifyFailureRate({
 
 /**
  * Pure: same as `mainPushRunArgs`, but for the failure-rate arm, which needs
- * a wider sample than the streak arm's `threshold + 5` to make a rate
+ * a wider sample than the streak arm's fetch to make a rate
  * meaningful (apps-visual.yml's real episode spans 156 runs over a week).
  */
 export function mainPushRateRunArgs(workflowName, minSample) {
