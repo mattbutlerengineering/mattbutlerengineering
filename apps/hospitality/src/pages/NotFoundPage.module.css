@@ -15,3 +15,7 @@
 .primaryLink {
   text-decoration: none;
 }
+
+.guestLink {
+  color: var(--rialto-link-color);
+}

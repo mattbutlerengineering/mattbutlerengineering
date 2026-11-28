@@ -36,4 +36,29 @@ describe("NotFoundPage", () => {
     const anchor = backLink.closest("a");
     expect(anchor).toHaveAttribute("href", "/timeline");
   });
+
+  describe("guest variant (#9990)", () => {
+    it("says the page was not found and links home, with no staff wording", () => {
+      render(
+        <MemoryRouter>
+          <NotFoundPage guest />
+        </MemoryRouter>
+      );
+      expect(screen.getByRole("heading", { name: "Page not found" })).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Go to the home page" })).toHaveAttribute(
+        "href",
+        "/"
+      );
+      expect(screen.queryByText(/tonight's service/i)).toBeNull();
+    });
+
+    it("titles the tab as a missing page", () => {
+      render(
+        <MemoryRouter>
+          <NotFoundPage guest />
+        </MemoryRouter>
+      );
+      expect(document.title).toBe("Page not found - Matt Butler Engineering");
+    });
+  });
 });

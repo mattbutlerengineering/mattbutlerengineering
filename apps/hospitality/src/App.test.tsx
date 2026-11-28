@@ -5,7 +5,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { useThemeServerHydration } from "./hooks/use-theme.js";
 import { useCurrentUser } from "./hooks/useUsers.js";
-import { MemoryRouter } from "react-router";
+import { createMemoryRouter, RouterProvider } from "react-router";
+import { NotFoundPage } from "./pages/NotFoundPage.js";
+import { NOT_FOUND_ROUTE_HANDLE } from "./hooks/useIsNotFoundRoute.js";
 import { useAuth, useAuthGate } from "@mbe/auth/react";
 import type { AuthGate } from "@mbe/auth/react";
 import { describeAuthError } from "./lib/describe-auth-error.js";
@@ -156,14 +158,70 @@ describe("App", () => {
   /** A staff deep link: signed out there, a visitor gets the plain gate, not the landing. */
   const DEEP_LINK = "/reservations";
 
+  /** A slice of main.tsx's route tree: App wraps the routes, and the catch-all carries its handle. */
   const renderAt = (gate: AuthGate, path = "/") => {
     vi.mocked(useAuthGate).mockReturnValue(gate);
-    return render(
-      <MemoryRouter initialEntries={[path]}>
-        <App />
-      </MemoryRouter>
+    const router = createMemoryRouter(
+      [
+        {
+          element: <App />,
+          children: [
+            { index: true, element: <div data-testid="timeline-page" /> },
+            { path: "reservations", element: <div data-testid="reservations-page" /> },
+            { path: "*", handle: NOT_FOUND_ROUTE_HANDLE, element: <NotFoundPage /> },
+          ],
+        },
+      ],
+      { initialEntries: [path] }
     );
+    return render(<RouterProvider router={router} />);
   };
+
+  describe("unknown URLs (#9990)", () => {
+    const UNKNOWN = "/no-such-page";
+
+    it("shows a signed-out visitor the not-found page, not the staff sign-in", async () => {
+      renderAt({ phase: "signed-out", afterSignOut: false }, UNKNOWN);
+      expect(await screen.findByText("Page not found")).toBeDefined();
+      expect(screen.queryByTestId("login-prompt")).toBeNull();
+      expect(screen.queryByRole("button", { name: "Sign In" })).toBeNull();
+    });
+
+    it("gives the signed-out visitor a way home that does not imply signing in", async () => {
+      renderAt({ phase: "signed-out", afterSignOut: false }, UNKNOWN);
+      expect(await screen.findByRole("link", { name: "Go to the home page" })).toHaveAttribute(
+        "href",
+        "/"
+      );
+      expect(screen.queryByText("Back to tonight's service")).toBeNull();
+    });
+
+    it("keeps the signed-out not-found page in the public shell, noindex", async () => {
+      renderAt({ phase: "signed-out", afterSignOut: false }, UNKNOWN);
+      expect(screen.getByRole("main")).toContainElement(await screen.findByText("Page not found"));
+      expect(screen.getByRole("contentinfo")).toBeDefined();
+      expect(robotsContent()).toBe("noindex, nofollow");
+    });
+
+    it("still sends a signed-out visitor on a real protected route to the sign-in gate", () => {
+      renderAt({ phase: "signed-out", afterSignOut: false }, DEEP_LINK);
+      expect(screen.getByTestId("login-prompt")).toBeDefined();
+      expect(screen.queryByText("Page not found")).toBeNull();
+    });
+
+    it("shows signed-in staff the not-found page inside the app shell", () => {
+      renderAt({ phase: "ready" }, UNKNOWN);
+      const shell = screen.getByTestId("auth-layout");
+      expect(shell).toHaveTextContent("Back to tonight's service");
+      expect(screen.queryByTestId("login-prompt")).toBeNull();
+    });
+
+    it("renders real routes for signed-in staff, not the not-found page", () => {
+      renderAt({ phase: "ready" }, DEEP_LINK);
+      expect(screen.getByTestId("reservations-page")).toBeDefined();
+      expect(screen.queryByText("Back to tonight's service")).toBeNull();
+    });
+  });
 
   it("renders the loading page for the loading phase", () => {
     renderAt({ phase: "loading" });

@@ -20,6 +20,7 @@ import { localeRuntime, LocaleBridge } from "./i18n/runtime.js";
 import { ToastLocaleOverride } from "./components/booking-widget/ToastLocaleOverride.js";
 import { availabilityPath } from "./components/availability/availability-address.js";
 import { SetupRedirect } from "./components/availability/SetupRedirect.js";
+import { NOT_FOUND_ROUTE_HANDLE } from "./hooks/useIsNotFoundRoute.js";
 
 initSentry({
   appName: "hospitality",
@@ -555,7 +556,9 @@ const router = createBrowserRouter(
               element: <Navigate to={availabilityPath({ view: "hub" })} replace />,
             },
             {
+              // The handle lets App show a signed-out visitor this page, not the sign-in gate (#9990).
               path: "*",
+              handle: NOT_FOUND_ROUTE_HANDLE,
               element: (
                 <Suspense fallback={<LoadingPage />}>
                   <NotFoundPage />
