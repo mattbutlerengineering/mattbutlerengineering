@@ -1060,6 +1060,10 @@ const availabilityFixtures: Record<string, RouteFixture> = {
     (venueId) =>
       `${AVAILABILITY_CONFIG_PREFIX}/${venueId}/availability/days?from=2026-10-01&to=2026-10-07`
   ),
+  "GET /api/v1/venues/:id/availability/trace": okAvailabilityByParam(
+    (venueId) =>
+      `${AVAILABILITY_CONFIG_PREFIX}/${venueId}/availability/trace?date=2026-10-01&partySize=2`
+  ),
   // Read-only (the draft is never saved), so it may run against the shared
   // venues. The member leg proves the cross-venue denial; the Manager-role admission
   // is pinned by `venue-scope-manager.test.ts`.

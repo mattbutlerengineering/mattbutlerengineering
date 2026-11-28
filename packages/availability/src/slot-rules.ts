@@ -131,13 +131,21 @@ export function checkTableConflict(
   );
 }
 
+/** Why a slot's pacing is full: the cap that refused it, and the covers already counted against it. */
+export interface PacingRefusal {
+  scope: "venue" | "service";
+  limit: number;
+  windowMinutes: number;
+  covers: number;
+}
+
 /**
  * Covers starting in the pacing window, plus this party, against the cap: the
  * venue's first pacing rule, lowered by `coverCap` (Tonight) when given. A
  * `servicePacing` cap is checked on its own window besides, so a service can
- * only lower what the venue accepts.
+ * only lower what the venue accepts. Returns the first cap that refuses, or null.
  */
-export function checkPacingForSlot(
+export function pacingRefusal(
   startTime: Date,
   partySize: number,
   settings: EngineSettings | null | undefined,
@@ -146,8 +154,12 @@ export function checkPacingForSlot(
   now: Date,
   coverCap?: number,
   servicePacing?: { covers: number; windowMinutes: number }
-): boolean {
-  const fits = (cap: number, windowMinutes: number): boolean => {
+): PacingRefusal | null {
+  const refuses = (
+    scope: PacingRefusal["scope"],
+    cap: number,
+    windowMinutes: number
+  ): PacingRefusal | null => {
     const windowEnd = new Date(startTime.getTime() + windowMinutes * MS_PER_MINUTE);
     const inWindow = (s: { startTime: Date }) =>
       s.startTime >= startTime && s.startTime < windowEnd;
@@ -157,18 +169,23 @@ export function checkPacingForSlot(
     const holdCovers = holds
       .filter((h) => h.expiresAt > now && inWindow(h))
       .reduce((sum, h) => sum + h.partySize, 0);
-    return reservationCovers + holdCovers + partySize <= cap;
+    const covers = reservationCovers + holdCovers;
+    return covers + partySize <= cap ? null : { scope, limit: cap, windowMinutes, covers };
   };
 
   const rule = settings?.pacingRules?.[0];
   const cap = Math.min(rule?.maxCoversPerSlot ?? Infinity, coverCap ?? Infinity);
   const windowMinutes =
     rule?.timeWindowMinutes ?? settings?.slotIntervalMinutes ?? DEFAULT_SLOT_INTERVAL;
-  const venueOk = cap === Infinity || fits(cap, windowMinutes);
-  return (
-    venueOk &&
-    (servicePacing === undefined || fits(servicePacing.covers, servicePacing.windowMinutes))
-  );
+  const venue = cap === Infinity ? null : refuses("venue", cap, windowMinutes);
+  if (venue) return venue;
+  return servicePacing === undefined
+    ? null
+    : refuses("service", servicePacing.covers, servicePacing.windowMinutes);
+}
+
+export function checkPacingForSlot(...args: Parameters<typeof pacingRefusal>): boolean {
+  return pacingRefusal(...args) === null;
 }
 
 export function selectBestTable<T extends TableCandidate>(

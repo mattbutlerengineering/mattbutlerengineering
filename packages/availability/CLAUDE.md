@@ -20,6 +20,7 @@ src/
 ├── diff-days.ts        # diffDays — per-date seating minutes added/removed between two snapshots (preview)
 ├── slot-rules.ts       # duration, table fit, conflict, pacing — moved from the reservations service
 ├── slots.ts            # listSlots and judge (ok / soft / hard) over a BookingSnapshot
+├── trace-day.ts        # traceDay — every candidate time of a day with the first rule that removed it (reasons as data)
 ├── rebook.ts           # rebookOffers — ≤3 open slots in 14 days nearest the original time, else picker
 ├── legacy-hours.ts     # normalizeLegacyHours — reads the legacy operatingHours shapes; unknown shape/version is a typed failure
 ├── legacy-migration.ts # buildLegacyConfig — legacy hours + interval + buffer → validated config rows (pure)

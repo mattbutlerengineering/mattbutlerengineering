@@ -86,7 +86,7 @@ export interface BookingRequest {
 }
 
 /** Seatings from opening to last seating — never at or after close, so judge accepts every one. */
-function seatingMinutes(service: ResolvedService): number[] {
+export function seatingMinutes(service: ResolvedService): number[] {
   const { opensAt, lastSeatingAt, closesAt, seating } = service;
   const bookable = (m: number) => m >= opensAt && m <= lastSeatingAt && m < closesAt;
   if ("interval" in seating) {
@@ -104,7 +104,7 @@ function inBand(band: ResolvedClosure, minute: number): boolean {
 }
 
 /** Does a closure band stop a seating of this service on this channel? Table bands only block tables. */
-function closesSeating(
+export function closesSeating(
   band: ResolvedClosure,
   minute: number,
   venueServiceId: string,
@@ -131,7 +131,7 @@ function blockedTables(day: ResolvedDaySummary, minute: number): Set<string> {
   );
 }
 
-function freeTables(
+export function freeTables(
   snapshot: BookingSnapshot,
   day: ResolvedDaySummary,
   minute: number,

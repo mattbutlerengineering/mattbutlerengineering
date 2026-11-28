@@ -109,6 +109,32 @@ describe("AvailabilityClient config API", () => {
     );
   });
 
+  it("traceDay reads one date's trace for a party size", async () => {
+    const trace = {
+      serviceDate: "2026-11-06",
+      partySize: 4,
+      channel: "online",
+      day: {
+        serviceDate: "2026-11-06",
+        scheduleId: null,
+        services: [],
+        closures: [],
+        bookingOpen: { online: true, phone: true, waitlist: true },
+        explanation: [],
+      },
+      times: [],
+      basis: "current_rules",
+    };
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: trace }));
+
+    const result = await client().traceDay("v1", { date: "2026-11-06", partySize: 4 });
+
+    expect(result).toEqual(trace);
+    expect(mockFetch.mock.calls[0]?.[0]).toBe(
+      "https://api.test.com/api/v1/venues/v1/availability/trace?date=2026-11-06&partySize=4"
+    );
+  });
+
   it("listChanges reads a filtered page of the history endpoint", async () => {
     mockFetch.mockResolvedValueOnce(jsonResponse({ data: { total: 0, offset: 0, items: [] } }));
 

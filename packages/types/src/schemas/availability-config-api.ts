@@ -11,6 +11,7 @@ import {
   ScheduleAssignmentSchema,
   ScheduleSchema,
   ScheduleServiceSchema,
+  SeatingSchema,
   ServiceDateSchema,
   VenueServiceSchema,
   WindowSchema,
@@ -533,6 +534,130 @@ export const AvailabilityCheckResultSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("hard"), reason: HardReasonSchema, message: z.string() }),
 ]);
 
+// ── Day trace ───────────────────────────────────────────────────────────────
+
+/** Largest party a day trace can be asked about (the preview's limit). */
+export const TRACE_PARTY_MAX = 20;
+
+/** `GET …/availability/trace`: one service date and the party the trace is run for. */
+export const TraceDayQuerySchema = z.object({
+  date: ServiceDateSchema,
+  partySize: z.coerce.number().int().min(1).max(TRACE_PARTY_MAX).default(2),
+});
+
+const LayerTargetSchema = z.object({
+  kind: DateRuleTargetKindSchema,
+  serviceName: z.string().optional(),
+  sectionId: z.string().optional(),
+  bookingTypes: z.array(z.enum(RULE_BOOKING_TYPES)).optional(),
+});
+
+const LayerDetailSchema = z.object({
+  scheduleName: z.string().optional(),
+  regularWeek: z.literal(true).optional(),
+  hours: z
+    .array(z.object({ name: z.string(), opensAt: z.number(), closesAt: z.number() }))
+    .optional(),
+  target: LayerTargetSchema.optional(),
+  window: z.object({ from: z.number(), to: z.number() }).optional(),
+  skippedFrom: z
+    .object({
+      target: LayerTargetSchema,
+      weekdays: z.array(z.number().int()).optional(),
+      startsOn: z.string(),
+      endsOn: z.string().optional(),
+    })
+    .optional(),
+  tonight: z
+    .union([
+      z.object({ closeAt: z.number() }),
+      z.object({ stop: z.object({ from: z.number(), to: z.number() }) }),
+      z.object({ pacingCovers: z.number() }),
+    ])
+    .optional(),
+});
+
+const ResolvedDaySummarySchema = z.object({
+  serviceDate: ServiceDateSchema,
+  scheduleId: z.string().nullable(),
+  services: z.array(
+    z.object({
+      scheduleServiceId: z.string().nullable(),
+      venueServiceId: z.string(),
+      name: z.string(),
+      opensAt: z.number(),
+      lastSeatingAt: z.number(),
+      closesAt: z.number(),
+      seating: SeatingSchema,
+      bookingTypes: z.array(z.enum(RULE_BOOKING_TYPES)),
+      pacing: z.object({ covers: z.number(), windowMinutes: z.number() }).optional(),
+    })
+  ),
+  closures: AvailabilityDaySummarySchema.shape.closures,
+  bookingOpen: AvailabilityDaySummarySchema.shape.bookingOpen,
+  pacingCovers: z.number().optional(),
+  guestMessage: z.string().optional(),
+});
+
+/** One "Why this day" layer, as `resolveDay` returns it. */
+export const TraceLayerSchema = LayerDetailSchema.extend({
+  kind: z.enum(["schedule", "closure", "special_hours", "skip", "tonight", "use_schedule"]),
+  id: z.string(),
+  label: z.string(),
+  effect: z.string(),
+  removalResult: ResolvedDaySummarySchema,
+});
+
+const BookingChannelSchema = z.enum(["online", "phone"]);
+
+/** The first rule that removed a time, as a stable code plus the rule's facts (never prose). */
+export const TraceReasonSchema = z.discriminatedUnion("code", [
+  z.object({ code: z.literal("booking_paused"), channel: BookingChannelSchema }),
+  z.object({ code: z.literal("channel_not_offered"), channel: BookingChannelSchema }),
+  z.object({
+    code: z.literal("closure"),
+    ruleId: z.string(),
+    targetKind: DateRuleTargetKindSchema,
+    from: z.number().int(),
+    to: z.number().int(),
+  }),
+  z.object({ code: z.literal("nonexistent_local_time") }),
+  z.object({ code: z.literal("no_suitable_table"), partySize: z.number().int() }),
+  z.object({ code: z.literal("before_earliest"), earliest: z.string() }),
+  z.object({ code: z.literal("after_latest_date"), latestLocalDate: z.string() }),
+  z.object({ code: z.literal("no_free_table"), suitableTables: z.number().int() }),
+  z.object({
+    code: z.literal("pacing"),
+    scope: z.enum(["venue", "service"]),
+    limit: z.number(),
+    windowMinutes: z.number(),
+    covers: z.number(),
+    partySize: z.number().int(),
+  }),
+]);
+
+export const TracedTimeSchema = z.object({
+  serviceId: z.string(),
+  serviceName: z.string(),
+  /** Minutes past the service day's midnight; may exceed 1440. */
+  minute: z.number().int(),
+  time: z.string(),
+  startsAt: z.string().nullable(),
+  outcome: z.enum(["bookable", "removed"]),
+  reason: TraceReasonSchema.optional(),
+});
+
+export const DayTraceResultSchema = z.object({
+  serviceDate: ServiceDateSchema,
+  partySize: z.number().int(),
+  channel: BookingChannelSchema,
+  /** The day's layer stack, bottom-up, exactly as `resolveDay` explains it. */
+  day: ResolvedDaySummarySchema.extend({ explanation: z.array(TraceLayerSchema) }),
+  times: z.array(TracedTimeSchema),
+  /** The trace is what today's rules produce; a past date was not necessarily offered so. */
+  basis: z.enum(["current_rules", "current_rules_past_date"]),
+});
+
 // ── Preview ─────────────────────────────────────────────────────────────────
 
 /** Days of per-date added/removed times a preview returns, from `focusDate`. */
@@ -882,4 +1007,7 @@ export type ClosureSummary = z.infer<typeof ClosureSummarySchema>;
 export type RetryRefundsResult = z.infer<typeof RetryRefundsResultSchema>;
 export type ClosureCallListEntry = z.infer<typeof CallListEntrySchema>;
 export type AvailabilityCheckBody = z.infer<typeof AvailabilityCheckBodySchema>;
+export type TraceReason = z.infer<typeof TraceReasonSchema>;
+export type TracedTime = z.infer<typeof TracedTimeSchema>;
+export type DayTraceResult = z.infer<typeof DayTraceResultSchema>;
 export type AvailabilityCheckResult = z.infer<typeof AvailabilityCheckResultSchema>;

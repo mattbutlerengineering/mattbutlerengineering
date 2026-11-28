@@ -21,6 +21,9 @@ import { venueScoped } from "./venue-scope.js";
 
 const VENUE_NOT_FOUND = "Venue not found";
 
+/** How far ahead a day trace may look. */
+const TRACE_MAX_DAYS_AHEAD = 366;
+
 /** The venue is the path's `:id`, as on the other `/api/v1/venues/:id/*` routes. */
 const VENUE_FROM_ID = { venue: { from: "params", field: "id" } } as const;
 
@@ -135,6 +138,38 @@ export const availabilityConfigRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.code(404).send(createProblemDetails(404, "Not Found", VENUE_NOT_FOUND));
       }
       return { data: days };
+    }),
+  });
+
+  registerEndpoint(fastify, availabilityConfigEndpoints.traceDay, {
+    docs: {
+      summary: "Trace one day's bookable times",
+      operationId: "traceAvailabilityDay",
+      description: `Every candidate time the venue's services produce on \`date\` for the party, as the guest listing sees them, with the first rule that removed each one (a stable code plus the rule's facts) and the day's "Why this day" layers. Works for any date up to ${TRACE_MAX_DAYS_AHEAD} days ahead; a past date is traced against today's rules (\`basis: current_rules_past_date\`). Read-only.`,
+      tags: ["Availability"],
+      security: [{ bearerAuth: [] }],
+    },
+    preHandler: requireAuth,
+    handler: venueScoped(VENUE_FROM_ID, async (request, reply, { venueId }) => {
+      const { date, partySize } = request.query;
+      const now = new Date();
+      // The venue's own date is unknown until it loads; UTC today is within a day of it.
+      if (addDays(now.toISOString().slice(0, 10), TRACE_MAX_DAYS_AHEAD) < date) {
+        return reply
+          .code(400)
+          .send(
+            createProblemDetails(
+              400,
+              "Bad Request",
+              `\`date\` can be at most ${TRACE_MAX_DAYS_AHEAD} days ahead.`
+            )
+          );
+      }
+      const trace = await availabilityConfigService.traceDay(venueId, date, partySize, now);
+      if (!trace) {
+        return reply.code(404).send(createProblemDetails(404, "Not Found", VENUE_NOT_FOUND));
+      }
+      return { data: trace };
     }),
   });
 
