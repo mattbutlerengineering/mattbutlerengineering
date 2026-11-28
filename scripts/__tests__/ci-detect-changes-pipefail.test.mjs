@@ -1,39 +1,27 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
-import { resolve, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { getJob, getStep, loadWorkflow } from "../lib/workflow.mjs";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const ROOT = resolve(__dirname, "../..");
-const WORKFLOW = readFileSync(resolve(ROOT, ".github/workflows/ci.yml"), "utf8");
+const CI = loadWorkflow("ci.yml");
 
 /**
- * Extract the `run: |` block of the detect-changes "Check for code changes"
- * step. Parsed textually (no YAML dependency in scripts/), matching
- * ci-node-matrix.test.mjs.
+ * Change detection runs as the first step of `prepare` (#10064: it was its own
+ * `detect-changes` job, which cost a whole queued hop on the required path).
+ * A failing `git diff` must fail the step, never fall through to has_code=false
+ * and skip CI.
  */
-function detectChangesRunBlock(source) {
-  const lines = source.split("\n");
-  const jobStart = lines.findIndex((l) => /^ {2}detect-changes:\s*$/.test(l));
-  if (jobStart === -1) throw new Error("ci.yml has no `detect-changes:` job");
-  const runIdx = lines.findIndex((l, i) => i > jobStart && /^\s+run: \|\s*$/.test(l));
-  if (runIdx === -1) throw new Error("detect-changes has no `run: |` block");
-  const indent = lines[runIdx + 1].match(/^\s*/)[0].length;
-  const block = [];
-  for (const line of lines.slice(runIdx + 1)) {
-    if (line.trim() !== "" && line.match(/^\s*/)[0].length < indent) break;
-    block.push(line);
-  }
-  return block.join("\n");
-}
-
-describe("ci.yml detect-changes fail-closed", () => {
-  const run = detectChangesRunBlock(WORKFLOW);
+describe("ci.yml change detection fail-closed", () => {
+  const step = getStep(getJob(CI, "prepare"), "Check for code changes");
 
   it("enables errexit and pipefail before the git diff, so a failing diff fails the job", () => {
+    const run = step.run;
     const setIdx = run.search(/^\s*set -euo pipefail\s*$/m);
     const diffIdx = run.search(/^\s*CODE_CHANGES=.*git diff/m);
     expect(setIdx).toBeGreaterThanOrEqual(0);
     expect(diffIdx).toBeGreaterThan(setIdx);
+  });
+
+  it("is never conditional, so has_code is always set", () => {
+    expect(step.if).toBeNull();
+    expect(step["continue-on-error"]).toBeUndefined();
   });
 });

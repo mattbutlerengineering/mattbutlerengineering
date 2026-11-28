@@ -19,17 +19,19 @@
  *      cancelled, abandoned, neutral, timed_out, action_required, stale,
  *      empty, missing, anything GitHub invents later — fails.
  *   2. `skipped` stays allowed because it is legitimate: docs-only PRs skip
- *      the whole Build chain (detect-changes sets has_code=false), and jobs
- *      like a11y-attribution and containers (and the PR-only steps of
+ *      the whole Build chain (prepare sets has_code=false), and jobs like
+ *      a11y-attribution and containers (and the PR-only steps of
  *      repo-checks / migrations) skip by their own `if:` conditions.
  *   3. Because a skipped root cascades `skipped` to every dependent (which
  *      reads identically to a legitimate skip), the root of the chain is
  *      checked explicitly:
- *        - detect-changes has no `if:`, so it must be `success`;
+ *        - prepare has no `if:` (it absorbed the old detect-changes job,
+ *          #10064), so it must be `success`;
  *        - its has_code output must be exactly "true" or "false";
- *        - prepare's only condition is `if: has_code == 'true'`, so when
- *          has_code is "true", prepare must be `success`. When has_code is
- *          "false" it legitimately skips (docs-only).
+ *        - every Build-chain job gates on `has_code == 'true'`, so when
+ *          has_code is "true" each must be `success`. A skip there would
+ *          mean a broken or mistyped `if:` dropped a check. When has_code is
+ *          "false" they legitimately skip (docs-only).
  *
  * The workflow passes `${{ toJSON(needs) }}` rather than a hand-listed set
  * of env vars, so a job added to `needs:` is covered automatically instead
@@ -45,32 +47,41 @@ import { fileURLToPath } from "node:url";
 /** The only job results that let `CI Gate` pass. */
 export const PASSING_RESULTS = new Set(["success", "skipped"]);
 
-const ROOT_JOB = "detect-changes";
-const PREPARE_JOB = "prepare";
+const ROOT_JOB = "prepare";
+
+/** ci.yml jobs gated only on `needs.prepare.outputs.has_code == 'true'`. */
+export const BUILD_CHAIN_JOBS = [
+  "static-checks",
+  "repo-checks",
+  "build",
+  "test",
+  "migrations",
+  "rls-integration",
+];
 
 function isPlainObject(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function checkRootOfChain(needs) {
+  const root = needs[ROOT_JOB];
+  if (!isPlainObject(root)) return [`${ROOT_JOB} is missing from needs`];
+
   const errors = [];
-  const detect = needs[ROOT_JOB];
-  const prepare = needs[PREPARE_JOB];
-
-  if (!isPlainObject(detect)) return [`${ROOT_JOB} is missing from needs`];
-  if (!isPlainObject(prepare)) return [`${PREPARE_JOB} is missing from needs`];
-
-  if (detect.result !== "success") {
-    errors.push(`${ROOT_JOB} must succeed (it has no if:), got ${JSON.stringify(detect.result)}`);
+  if (root.result !== "success") {
+    errors.push(`${ROOT_JOB} must succeed (it has no if:), got ${JSON.stringify(root.result)}`);
   }
 
-  const hasCode = detect.outputs?.has_code;
+  const hasCode = root.outputs?.has_code;
   if (hasCode !== "true" && hasCode !== "false") {
     errors.push(`${ROOT_JOB} has_code must be "true" or "false", got ${JSON.stringify(hasCode)}`);
-  } else if (hasCode === "true" && prepare.result !== "success") {
-    errors.push(
-      `has_code is "true" so ${PREPARE_JOB} must succeed, got ${JSON.stringify(prepare.result)}`
-    );
+  } else if (hasCode === "true") {
+    for (const job of BUILD_CHAIN_JOBS) {
+      const result = needs[job]?.result;
+      if (result !== "success") {
+        errors.push(`has_code is "true" so ${job} must succeed, got ${JSON.stringify(result)}`);
+      }
+    }
   }
   return errors;
 }
