@@ -12,8 +12,32 @@
   margin: 0 0 var(--rialto-space-xl) 0;
 }
 
+/* A single link styled as rialto's primary button (no button nested in a link). */
 .primaryLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--rialto-space-xs) var(--rialto-space-md);
+  border: 1px solid var(--rialto-accent);
+  border-radius: var(--rialto-radius-default);
+  background: linear-gradient(180deg, var(--rialto-accent-hover) 0%, var(--rialto-accent) 100%);
+  color: var(--rialto-text-on-accent);
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-sm);
+  font-weight: var(--rialto-weight-medium);
+  letter-spacing: var(--rialto-tracking-wide);
+  line-height: var(--rialto-leading-tight);
   text-decoration: none;
+  white-space: nowrap;
+}
+
+.primaryLink:hover {
+  box-shadow: 0 0 20px var(--rialto-accent-glow);
+}
+
+.primaryLink:focus-visible {
+  outline: none;
+  box-shadow: var(--rialto-shadow-focus);
 }
 
 .guestLink {

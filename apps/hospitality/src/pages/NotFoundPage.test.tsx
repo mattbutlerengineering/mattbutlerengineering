@@ -37,6 +37,15 @@ describe("NotFoundPage", () => {
     expect(anchor).toHaveAttribute("href", "/timeline");
   });
 
+  it("renders one interactive element for the primary action, no button inside the link (#10116)", () => {
+    const { container } = renderNotFoundPage();
+    const link = screen.getByRole("link", { name: "Back to tonight's service" });
+    expect(link).toHaveAttribute("href", "/timeline");
+    expect(link.querySelector("button")).toBeNull();
+    expect(screen.queryByRole("button")).toBeNull();
+    expect(container.querySelectorAll("a, button, [tabindex]")).toHaveLength(1);
+  });
+
   describe("guest variant (#9990)", () => {
     it("says the page was not found and links home, with no staff wording", () => {
       render(
