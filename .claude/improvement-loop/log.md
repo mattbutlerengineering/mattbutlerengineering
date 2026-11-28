@@ -1,9 +1,3 @@
-## 2026-11-14 — mbe-evening (implement-queue)
-
-Phase 0 preflight: `main` green (0 failures in last 5 runs), `main-strictness.mjs` → `strict: true`, base-freshness → `fresh` (0 commits behind, ~2h old). No open PRs or `in-progress` issues needed straggler handling (merge train empty).
-
-Phase 1 claim: **0 issues claimed.** Only one `ready` issue existed (#8864 "Availability hierarchy"), and it carries `needs-human` — a page redefinition call ("this isn't really venue setup... redefine what it actually is"), not an independently implementable task. No batch composed, no workers dispatched, no `metrics/queue-telemetry.jsonl` rows to persist this iteration.
-
 ## 2026-11-14 — mbe-evening (progress-tracker)
 
 ### Metrics
@@ -1186,3 +1180,103 @@ A full `pnpm lint` first failed in `@mbe/agent-service` with `Cannot find module
 **AI issue feedback:** budgets refreshed (90d window, 200 total across categories). `agent-failed` halved to budget 1 (50% rejection, n=2); all other categories default budget=3.
 **Skill proposals:** 0 — not the configured skill-extraction day (Friday; today is Saturday).
 **Threshold notes:** false positive rate (wontfix+rejected)/total over all-time feedback = 27.5% (43 wontfix + 12 rejected / 200) — healthy, under the 30% loosen-threshold line (down from 29.0% last run). Fix effectiveness (last 30d, non-skip verifications) = 66.7% (12/18) — below last run's 80% (12/15), but 3 of this window's non-skip entries are today's confirmed false positives from the `verifyBug` bug just fixed; excluding them gives 80% (12/15), flat with last run and above the 50% review-trigger line either way. No threshold-tuning action needed. `verify-fixes.mjs`'s own auto-tuner applied 2 headroom adjustments: `acmm` 1.974→1.999, `ci-fix` 1.315→1.321.
+
+## 2026-11-28 — mbe-weekly-improve
+
+The `improve` and `improve-codebase-architecture` skills are not in this
+checkout (not in `.claude/skills/`, not in `plugins/acmm`), so the equivalent
+analysis was run directly: `pnpm repo-audit` (36/37 verified), `check:knip`,
+`check:ai-antipatterns`, `audit-markdown.mjs`, `detect-instruction-rot.mjs`,
+`check-instruction-budget.mjs`, `metrics-freshness.mjs`,
+`scheduled-workflow-health.mjs`, plus a sweep of the 34 scripts the routine
+docs invoke for GraphQL-backed `gh` calls.
+
+Most of the repo's own guards were already green, so the findings came from
+where the guards themselves cannot see.
+
+### PRs opened
+
+| PR                  | Finding                                                                                                                                                                                                                                                                | Verdict   | Outcome                          |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | -------------------------------- |
+| **#10163** (step 2) | `check-ready-label-exclusive` read the queue with GraphQL-backed `gh issue list`, so the gate reported UNVERIFIED in **every** cloud routine — the sessions that decide what `ready` hands an agent. Now reads REST. Measured: exit 13 → exit 0 PASS over 6 real rows. | pass 9/10 | merged                           |
+| **#10176**          | `cloud-session-bootstrap` gated its install on `node_modules` merely _existing_, but the container image ships a pre-baked one. Decides on provenance (`node_modules/.pnpm/lock.yaml` vs the checkout's lockfile) instead.                                             | pass 8/10 | merged at the pre-correction SHA |
+| **#10178**          | Dead `@mbe/sentry` `ignoreDependencies` entry for `services/reservations`, which imports it directly. knip hints 2 → 1.                                                                                                                                                | pass 9/10 | merged                           |
+| **#10182**          | The correction #10176 lost (see below).                                                                                                                                                                                                                                | pass 9/10 | reviewed, handed off             |
+
+### Issues filed
+
+- **#10179** `ready` — `e2e-hospitality-shards` fails in any cloud session because `packages/rialto/dist` is never built. Three candidate fixes with real trade-offs, so it needs a design call rather than a guess.
+- **#10184** `ready` — a review-driven fix pushed after its PR merged is silently lost (fix-protocol §3 gap). Filed from this fire's own lost commit.
+- **#10187** `ready` — `eval-dep-bump-js-yaml` is unpassable by construction.
+
+### Two things this fire got wrong, and what they cost
+
+**A false claim, caught by review.** #10176's docstring attributed the stale
+tree to `02f1946`, derived from `git log -- pnpm-lock.yaml`. This checkout is a
+51-commit **shallow clone** and `02f1946` is the graft root with no parents, so
+it appears to introduce every file and is the only commit that query can ever
+return locally. The real commit is `01373cd` (#9734, 2026-11-25), whose patch
+is literally `+ "@modelcontextprotocol/sdk": "^1.31.0"`. Exactly the
+`gotchas.md` trap "a stale primary checkout reads clean and plausible". The fix
+itself never rested on git history, so it stood; only the commentary was wrong.
+
+**The correction was then lost to a race.** #10176 merged at 05:28:47 and its
+branch was deleted 3 seconds later. The fix was pushed at 05:32 — the push
+_succeeded_, printing `* [new branch]`, silently recreating the deleted ref.
+`git rev-parse origin/<branch>` confirmed the commit; `git merge-base
+--is-ancestor` showed it reached nothing, and `main` carried the false claim
+until #10182. That silent-success shape is what #10184 is about.
+
+Not claimed: all four PRs show `merged_by: mattbutlerengineering`, the identity
+the Owner and the automation share, and **#10169** — titled "weekly improve
+2026-11-28" and _not_ opened by this session — merged in the same window. So
+another driver was active; a manual merge cannot be distinguished from an
+automated one, and #10184 says so rather than guessing.
+
+### Weekly eval checkpoint
+
+`node tools/cli/dist/index.js agent eval --adapter claude-cli` — **exit 0**,
+~52 min, `nonRunCount: 0`, row `eval-1147` appended and pushed to
+`metrics-data` as `def1ce8` (`chore(metrics): eval baseline 2026-11-28`).
+
+Pass rate **0.8**, mean score **0.95**, mean cost $0.37 (`costBasis:
+api-equivalent` — CLI-reported, not billed), mean 10 turns. Identical to
+2026-11-06, 11-13, 11-20 and 11-27: five consecutive judged runs at exactly
+0.8 / 0.95. No drift.
+
+Two rows need recording rather than glossing:
+
+- `eval-dep-bump-js-yaml` — 0.75, judge `passed: false`, `evaluationFailed:
+null` (a genuine judge fail, not a judge that could not run), every
+  deterministic check true. The same task has failed identically in all five
+  judged runs. Root-caused this fire: `tools/cli/package.json` pins `^5.5.0`
+  and `5.5.0` is the highest 5.x, so the task's own documented success path is
+  a noted no-op — an empty diff — and the judge is given the diff, not the
+  summary the prompt tells the agent to write. Unpassable by construction →
+  **#10187**. Exit 0 is correct here: this is a measurement bug, not a quality
+  regression, so no regression issue was filed.
+- `eval-refactor-cancellation-fee` — scored 1 and passed, but its row carries a
+  `sessionErrors` list, so it is recorded here per the routine's rule. Row
+  committed unedited; its line reads:
+
+  > `session errors: Verification failed: tests: his for local Stripe CLI testing.` …
+  > `@mbe/reservations-service:test: [WARN] MANAGE_TOKEN_SECRET is not set. Manage tokens wil`
+
+  The text is a truncated tail of the task's own test log (a `MANAGE_TOKEN_SECRET`
+  warning and a Fastify `disableRequestLogging` deprecation), mid-sentence at both
+  ends. Worth noting that a row can carry `sessionErrors` while every
+  deterministic check and the judge pass, which makes "`sessionErrors` ⇒ scored
+  failure" and "`passed: true`" disagree on this row; not filed, since the
+  signal is a truncated log rather than a failure anyone can act on.
+
+### Not fixed, deliberately
+
+- knip's remaining hint (`.claude/skills/sentry-triage/scripts/triage.mjs`) is
+  required by `knip-entry-roots.test.mjs:110-112`'s exact-equality assertion,
+  so knip's heuristic and a repo invariant genuinely disagree. Left alone.
+- `metrics-freshness` still reports queue-telemetry cost coverage as
+  uninstrumented (0/156 rows with a known `cost_usd`) — already tracked by
+  #5627 / #9098.
+- The depcruiser `no-orphans` warning on `packages/hospitality-sidenav/src/test-setup.ts`
+  is already covered by open PR #10129.
+- `E2E Screenshots` flapping at 43.8% is already covered by #10132.
