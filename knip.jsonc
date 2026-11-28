@@ -39,6 +39,7 @@
         // Explicit, not globs: knip-entry-roots.test.mjs asserts each hook is wired in
         // .claude/settings.json (or imported by a hook) and each skill script is named
         // in its SKILL.md, and that no new one is missing from this list.
+        ".claude/hooks/gate-slot.mjs",
         ".claude/hooks/hook-input.mjs",
         ".claude/hooks/secret-scan.mjs",
         ".claude/skills/sentry-triage/scripts/fetch-issues.mjs",
@@ -172,6 +173,7 @@
         "collect-queue-efficiency.mjs",
         "dep-graph-discovery.mjs",
         "fast-path-decision.mjs",
+        "gate-slot.mjs",
         "hook-input.mjs",
         "instruction-budget-hook.mjs",
         "issue-zone.mjs",
