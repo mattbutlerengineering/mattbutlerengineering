@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from "vitest";
 import { buildApp } from "../app.js";
 import type { DomainServices } from "../services/domain-services.js";
 import type { FastifyInstance, InjectOptions } from "fastify";
@@ -124,6 +124,7 @@ import { confirmHold } from "../services/confirm-hold.js";
 import { guestService } from "../services/guest.js";
 import { getCurrentVenueId } from "../services/venue-context-store.js";
 import { resetRateLimitState } from "../middleware/public-rate-limit.js";
+import { perTestClientIp } from "../test/per-test-client-ip.js";
 
 // Route constants (kept out of individual tests so the AI-antipattern
 // ratchet's hardcodedRoutes count doesn't grow with every new test).
@@ -170,7 +171,13 @@ const mockReservation = {
 describe("Hold Routes", () => {
   let app: FastifyInstance;
 
-  beforeEach(async () => {
+  let nextTest: () => void;
+
+  // One app per file: the hold service is an injected mock cleared per test,
+  // the public limiter's counters are reset below, and the global rate-limit
+  // bucket is rotated per test (perTestClientIp). The "venue membership" suite
+  // below needs its own apps because its membership lookup is baked in.
+  beforeAll(async () => {
     // The auth plugin only registers (and only honours the x-auth-bypass
     // header) when both authority and audience resolve — without them
     // `requireAuth` 401s every request, bypass header or not.
@@ -179,6 +186,11 @@ describe("Hold Routes", () => {
     process.env.AUTH_BYPASS_IN_TESTS = "true";
     app = await buildApp({ logger: false, services: { holdService } });
     await app.ready();
+    ({ nextTest } = perTestClientIp(app));
+  });
+
+  beforeEach(() => {
+    nextTest();
     vi.clearAllMocks();
     // The public rate-limit hook's counters are module-global (unlike the
     // per-app-instance @fastify/rate-limit store), so reset them per test.
@@ -189,7 +201,7 @@ describe("Hold Routes", () => {
     vi.mocked(holdService.getVenueId).mockResolvedValue("venue-123");
   });
 
-  afterEach(async () => {
+  afterAll(async () => {
     await app.close();
   });
 
@@ -898,23 +910,36 @@ describe("Hold Routes", () => {
     };
     const CONFIRM_PAYLOAD = { guestName: "John Doe", guestEmail: "john@example.com" };
 
-    let scopedApp: FastifyInstance | undefined;
+    // The membership lookup is baked in at construction, so there is one app
+    // per answer (member / non-member), built on first use and shared by the
+    // tests that need it. Each lookup is a mock cleared per test by the outer
+    // beforeEach, and each test sends at most 3 requests (far under the
+    // global rate-limit cap).
+    const scopedApps = new Map<
+      boolean,
+      { app: FastifyInstance; lookup: ReturnType<typeof vi.fn<VenueMembershipLookup>> }
+    >();
     let lookup: ReturnType<typeof vi.fn<VenueMembershipLookup>>;
 
-    afterEach(async () => {
-      await scopedApp?.close();
-      scopedApp = undefined;
+    afterAll(async () => {
+      await Promise.all([...scopedApps.values()].map((entry) => entry.app.close()));
     });
 
-    /** Builds an app whose membership lookup answers `isMember` for every venue. */
+    /** Returns an app whose membership lookup answers `isMember` for every venue. */
     const buildScopedApp = async (isMember: boolean) => {
+      const cached = scopedApps.get(isMember);
+      if (cached) {
+        lookup = cached.lookup;
+        return cached.app;
+      }
       lookup = vi.fn<VenueMembershipLookup>().mockResolvedValue(isMember);
-      scopedApp = await buildApp({
+      const scopedApp = await buildApp({
         logger: false,
         venueMembershipLookup: lookup,
         services: { holdService },
       });
       await scopedApp.ready();
+      scopedApps.set(isMember, { app: scopedApp, lookup });
       return scopedApp;
     };
 

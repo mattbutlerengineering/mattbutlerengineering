@@ -94,6 +94,19 @@ describe("buildNavSections", () => {
     });
   });
 
+  describe("Terminology link (#10110)", () => {
+    it("links the Terminology page from Account in both readiness states", () => {
+      for (const readiness of [SETUP_READINESS, OPERATIONAL_READINESS]) {
+        const account = buildNavSections(readiness, false).find((s) =>
+          s.items.some((i) => i.id === "profile")
+        );
+        const item = account?.items.find((i) => i.id === "terminology");
+        expect(item?.label).toBe("Terminology");
+        expect(item?.action).toEqual({ type: "route", path: "/terminology" });
+      }
+    });
+  });
+
   describe("same destination, same label in both readiness states", () => {
     it("shows one 'Availability' item at the hub before and after launch, and no map", () => {
       const items = (r: VenueReadiness) => buildNavSections(r, false).flatMap((s) => s.items);

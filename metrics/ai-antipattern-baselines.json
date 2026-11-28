@@ -9,8 +9,8 @@
       "description": "Empty or comment-only catch blocks that swallow errors silently"
     },
     "noopTestAssertions": {
-      "count": 12,
-      "description": "Test functions containing no recognized assertion call (expect(), assert(), assert.<method>(), or t.assert.<method>())"
+      "count": 0,
+      "description": "Test functions containing no recognized assertion call (expect()/assert()/verify()-named calls including helpers like assertKeysMatch(), t.assert.<method>(), a reachable throw, or the rls-route-sweep fixture.run() delegate)"
     },
     "hardcodedRoutes": {
       "count": 259,

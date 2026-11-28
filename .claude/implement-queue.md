@@ -46,19 +46,42 @@ State transitions (`ready`/`in-progress`/`has-pr`/`agent-failed`/`agent-skip`) a
 
 ## compose
 
-**Compose the batch — spread across zones (ADR-023, amended by ADR-027).** Feed the priority-sorted, independence-filtered candidates into `selectZoneSpreadBatch` (`scripts/issue-zone.mjs`) so the batch maximizes **distinct** merge-train zones. Same-zone stacking incurs an N² `update-branch`/CI re-run tax against `strict` main (ADR-016): each merge makes its siblings out-of-date. The selector consumes the priority tiers as its input order (security > feature > ci-fix > audit), takes at most one issue per zone when main is strict (`null` = global counts as a single occupancy — two globals are never co-scheduled), and defers same-zone surplus to a later batch.
+**Compose the batch — spread across zones (ADR-023, amended by ADR-027).** Feed the priority-sorted, independence-filtered candidates into `selectZoneSpreadBatch` (`scripts/issue-zone.mjs`) so the batch maximizes **distinct** merge-train zones. Same-zone stacking incurs an N² `update-branch`/CI re-run tax against `strict` main (ADR-016): each merge makes its siblings out-of-date. The selector consumes the priority tiers as its input order (security > feature > ci-fix > audit), takes at most one issue per zone when main is strict (`null` = global counts as a single occupancy — two globals are never co-scheduled), and defers same-zone surplus to a later batch. The selector now picks each worker's **lead** issue; the fill step below then adds same-zone surplus to that lead's worker (#10188), since one worker and one PR per zone batch pays no N² tax at all.
 
 **Probe main's strictness every iteration** (branch protection is repo state, not code) with `scripts/main-strictness.mjs` and pass the result as `strictMain`. The probe fails closed: only a successfully parsed literal `strict: false` yields `strictMain: false`; an error, non-JSON, or missing field yields `true`. When `strictMain` is `false`, a zone may admit further issues whose extracted file paths are non-empty and prefix-aware disjoint from those already admitted in that zone; the per-zone merge-train lock still serializes the merges themselves. Even when `strictMain` is `false`, `selectZoneSpreadBatch` admits at most one issue per shared registry path — `.claude/rules/gotchas.md`, `CLAUDE.md`, `.claude/settings.json`, `.claude/implement-queue.md`, `docs/scheduled-tasks.md`, `scripts/routine-manifest.mjs`, `docs/factory/costs.jsonl` — and per `.github/workflows/*.yml` file, across zones.
 
 ```js
-import { selectZoneSpreadBatch } from "./scripts/issue-zone.mjs";
+import { selectZoneSpreadBatch, issueZone } from "./scripts/issue-zone.mjs";
 import { probeMainStrictness } from "./scripts/main-strictness.mjs";
 
 // `ready` = candidates already priority-sorted (Sort above) and
 // independence-filtered, each { number, title, labels, body }.
 const { strictMain } = probeMainStrictness(); // CLI: node scripts/main-strictness.mjs
 const batch = selectZoneSpreadBatch(ready, { maxWorkers: 3, strictMain });
-// → ≤3 issues, priority order preserved; distinct zones when strict.
+// → ≤3 lead issues, priority order preserved; distinct zones when strict.
+
+// Fill (#10188): each lead takes up to 2 more `ready` issues from its own zone,
+// in priority order, so one worker opens one PR for the whole zone batch.
+// Never fill with a `security` or `tier:sensitive` issue, an issue with an
+// open `Depends on:`, or a global (`null`) zone issue; those stay solo.
+const isSolo = (issue) =>
+  issueZone(issue) === null ||
+  issue.labels
+    .map((l) => (typeof l === "string" ? l : l?.name)) // gh --json labels gives objects
+    .some((name) => name === "security" || name === "tier:sensitive");
+const claimed = new Set(batch.map((issue) => issue.number));
+const workerBatches = batch.map((lead) => {
+  const group = [lead];
+  if (isSolo(lead)) return group;
+  for (const issue of ready) {
+    if (group.length === 3) break;
+    if (claimed.has(issue.number) || isSolo(issue)) continue;
+    if (issueZone(issue) !== issueZone(lead)) continue;
+    claimed.add(issue.number);
+    group.push(issue);
+  }
+  return group;
+});
 ```
 
 Each issue's zone is estimated from its conventional-commit scope via `issueZone(issue)`, which reuses the shared zone vocabulary (`scripts/zone-vocabulary.mjs`, `WORKSPACE_ROOTS` + `zoneForPath`) — there is no second, divergent zone list.
@@ -99,7 +122,7 @@ mbe check-model --issue <N>   # prints the tier on stdout (model ID/reason on st
 
 It honors an explicit `model:` in the issue's ```yaml agent block, otherwise routes by labels + title + body via `model-router.ts` (single source of truth — no inline copy of the rules here).
 
-Dispatch one subagent per issue — **all in a single message** — using the Agent tool with `subagent_type: "implement-queue-worker"`, `isolation: "worktree"`, and `model:` set to the resolved **tier** from `check-model` (`opus`/`sonnet`/`haiku` — the Agent `model:` parameter is a tier enum, not a full model ID). (If `check-model` fails for an issue, omit `model:` — the worker's `sonnet` default applies.)
+**Bundle by zone, then dispatch one worker per zone batch** (#10188: one PR per issue saturated the CI queue). Group the admitted issues by their `selectZoneSpreadBatch` zone; each group of up to 3 issues from the same zone goes to ONE worker, which opens ONE PR closing all of them. Same-zone issues as separate PRs also pay the update-branch and CI re-run tax described above, so bundling removes it. Claim every issue in `workerBatches` (the compose step's fill); never bundle across zones, and never bundle a `security` or `tier:sensitive` issue with anything else. Resolve the batch's tier as the highest `check-model` tier among its issues. Dispatch all workers **in a single message** — using the Agent tool with `subagent_type: "implement-queue-worker"`, `isolation: "worktree"`, and `model:` set to the resolved **tier** from `check-model` (`opus`/`sonnet`/`haiku` — the Agent `model:` parameter is a tier enum, not a full model ID). (If `check-model` fails for an issue, omit `model:` — the worker's `sonnet` default applies.)
 
 **Adapter by tier** — when the worker prompt calls `mbe agent run` internally (e.g. for sub-tasks):
 
@@ -115,15 +138,15 @@ Dispatch with `subagent_type: "implement-queue-worker"` (`.claude/agents/impleme
 
 Each agent prompt MUST include:
 
-1. The issue number, title, and full body.
+1. Every issue in the batch: number, title, and full body, in the order to implement them.
 2. **First step: `node scripts/worktree-base-freshness.mjs check`, then `pnpm bootstrap:worktree`** (a worktree's base can be stale or disconnected; worktrees also have no `node_modules` or workspace `dist/`, and the pre-bash guard blocks `pnpm exec vitest` etc. until bootstrap finishes — a bare `pnpm install` leaves `dist/` unbuilt).
 3. TDD: failing test first, then minimal implementation, per vertical slice.
 4. Gates on affected packages before declaring done: `pnpm lint`, `pnpm typecheck`, `pnpm test` (vitest does NOT typecheck — typecheck is mandatory). Before the first push also run `pnpm build --filter @mbe/cli...` then `pnpm regen` (stage any regenerated artifact by path) — push-time `Stale artifacts detected` is otherwise caught after the fact.
-5. Push branch and open a PR with `Closes #<N>` in the body; **verify the PR's base ref is `main`** (worktree agents can branch from the wrong base). Do NOT merge.
+5. Push branch and open one pull request for the whole batch with one `Closes #<N>` line per issue in the body; **verify the PR's base ref is `main`** (worktree agents can branch from the wrong base). Do NOT merge.
 6. Security rules (non-negotiable):
    > Never introduce hardcoded secrets, SQL injection, XSS, or other OWASP Top 10 vulnerabilities. Never commit `.env` files, credentials, or tokens. Parameterized queries only. Validate external data at boundaries. If you discover an existing vulnerability, stop feature work and fix it first.
 
-**Outcome labels as each agent finishes:**
+**Outcome labels as each agent finishes** — apply the row to every issue in the worker's batch, except an issue the worker reports as dropped (it already went back to `ready`):
 
 | Outcome                      | Command                                                                                               |
 | ---------------------------- | ----------------------------------------------------------------------------------------------------- |
@@ -280,7 +303,7 @@ GitHub merges once CI Gate is green and the branch is up to date. The session do
 
 **If the plain merge call is still denied by the session runtime** (`denied, reason: [Merge Without Review]`, #6125 — the classifier was consulted, so first check the call matched the allow rule exactly): do not retry it, via this or any other tool, for the rest of the session. Post the review verdict as a PR comment and record the PR as "reviewed, green, awaiting human merge" in the run summary, then continue with the remaining PRs' review gates. See [gotchas.md § Claude Code Remote](rules/gotchas.md#claude-code-remote--cloud-sessions).
 
-**On `"flag"` verdict (Reviewer) or `block` (specialized reviewer):** apply the retry policy (default: one retry — dispatch a new worker session on the same branch with `--no-pr`; if retry also flags, label the linked issue `needs-review` and **do not enqueue**). See [Reviewer Contract](../docs/agents/reviewer-contract.md) for the full policy.
+**On `"flag"` verdict (Reviewer) or `block` (specialized reviewer):** apply the retry policy (default: one retry — dispatch a new worker session on the same branch with `--no-pr`; if retry also flags, label every linked issue in the batch `needs-review` and **do not enqueue**). See [Reviewer Contract](../docs/agents/reviewer-contract.md) for the full policy.
 
 **Manual verification path (after `needs-review`):** the Reviewer's full output is in the PR comment. A human (or a new agent session pointed at the issue) reads the flagged issues, fixes the code, pushes to the branch, and manually enqueues with `gh pr merge <N> --auto --squash --delete-branch` once satisfied.
 
@@ -360,7 +383,7 @@ Recurring use: `/loop 30m /idea-to-prod:implement-queue`.
 
 ## telemetry
 
-After each worker completes, append one row to the queue-telemetry sink (`.metrics-data/queue-telemetry.jsonl`; `resolvePath("queue-telemetry")`) via `appendTelemetryRow` from `scripts/queue-telemetry-store.mjs`. The writer is a pure function with dependency injection — safe to call from the orchestrator without touching other files.
+After each worker completes, append one row **per issue in its batch** (#10188) to the queue-telemetry sink. Put the worker's `subagent_tokens`, `cost_usd` and `tool_uses` on the first issue's row only and `0`/`null` on the others, so the agentCost sensor counts the spend once. Append each row (`.metrics-data/queue-telemetry.jsonl`; `resolvePath("queue-telemetry")`) via `appendTelemetryRow` from `scripts/queue-telemetry-store.mjs`. The writer is a pure function with dependency injection — safe to call from the orchestrator without touching other files.
 
 ```js
 import { appendTelemetryRow } from "./scripts/queue-telemetry-store.mjs";

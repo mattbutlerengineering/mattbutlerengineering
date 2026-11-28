@@ -13,9 +13,13 @@
  * deploys if it happens to touch one of this workflow's `paths:` filters, so
  * a merged change can sit undeployed indefinitely with `main` green.
  *
- * How CI gets cancelled on `main` without anyone cancelling it: `ci.yml`
- * declares `concurrency: {group: CI-<ref>, cancel-in-progress: <ref is not
- * main>}`. On `main` that resolves to `cancel-in-progress: false`, which
+ * History (#10194): ci.yml now groups `main` runs per SHA, so the cancellation
+ * described next no longer happens; this check stays as a safety net.
+ *
+ * How CI used to get cancelled on `main` without anyone cancelling it: `ci.yml`
+ * declared `concurrency: {group: CI-<ref>, cancel-in-progress: <ref is not
+ * main>}`, one shared group for every `main` push. On `main` that resolved to
+ * `cancel-in-progress: false`, which
  * reads as "never cancel" but does not mean it — an in-progress run is
  * protected, while a *pending* one is not. When a third push arrives while
  * the first is still running, GitHub cancels the queued middle run to make

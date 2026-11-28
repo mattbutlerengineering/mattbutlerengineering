@@ -17,6 +17,9 @@ on:
       - "LICENSE"
   pull_request:
     branches: [main]
+    # #10188: drafts skip CI (see `prepare` and `ci-gate`), so marking a PR
+    # ready must start the full run.
+    types: [opened, synchronize, reopened, ready_for_review]
   merge_group:
     branches: [main]
   # Bare workflow_dispatch trigger — lets other workflows (e.g. drift-fix.yml)
@@ -27,8 +30,16 @@ on:
   # still completes and reports CI Gate on the dispatched ref's head SHA.
   workflow_dispatch:
 
+# Each push to `main` gets its own group (keyed on the SHA). A shared `main`
+# group made every merge discard the previous merge's PENDING run, even with
+# `cancel-in-progress: false`: no job ever started, so no merged SHA got a CI
+# result and Deploy Services' "Wait for CI" starved (#10194). PR refs still
+# share a group per ref and cancel in progress.
+# #10188: a draft PR run skips every job, so it gets a group of its own (keyed
+# on the run). Sharing the PR's group let a draft `synchronize` run created a
+# second after `ready_for_review` cancel the real run.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.draft && format('draft-{0}', github.run_id) || (github.ref == 'refs/heads/main' && github.sha || github.ref) }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
@@ -38,12 +49,18 @@ jobs:
   # #10064: change detection used to be its own `detect-changes` job, and
   # Prepare waited on it. Under the concurrent-job cap every serial job pays a
   # full queue wait (measured median 6.2 min for a 0.3 min job), so detection
-  # is now Prepare's first step. Prepare has no `if:` and always runs; on a
+  # is now Prepare's first step. Prepare's only `if:` is the draft guard (#10188); on a
   # docs-only change it stops after detection (every later step is gated on
   # has_code). CI Gate's module requires Prepare to succeed, and every
   # Build-chain job to succeed whenever has_code is "true".
   prepare:
     name: Prepare
+    # #10188: a draft PR costs no CI. Every other job needs `prepare`, so this
+    # one guard skips the whole chain. `ci-gate` still runs (always()) and
+    # fails closed on the skipped root with a "draft PR" message, so a guard
+    # that misfired on a ready PR can never read as a pass. A draft cannot
+    # merge, and `ready_for_review` runs everything on the head SHA.
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     outputs:
       has_code: ${{ steps.filter.outputs.has_code }}
@@ -1371,7 +1388,7 @@ jobs:
         # loop failed only on failure/cancelled, so on 2026-10-05 (PR #6077,
         # run 37363956419 attempt 2) `abandoned` jobs let CI Gate go green with
         # nothing verified. The module also checks the root of the chain:
-        # prepare must succeed (it has no `if:`), and every Build-chain job
+        # prepare must succeed (its only `if:` is the draft guard), and every Build-chain job
         # must succeed whenever has_code == 'true', so a broken root or a
         # mistyped leaf `if:` can't masquerade as a docs-only skip (#10064).
         #
@@ -1379,6 +1396,7 @@ jobs:
         # to `needs:` above is gated automatically.
         env:
           NEEDS_JSON: ${{ toJSON(needs) }}
+          IS_DRAFT_PR: ${{ github.event.pull_request.draft == true }}
         run: |
           set -euo pipefail
           node scripts/ci-gate-required-results.mjs
@@ -1401,7 +1419,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           SHA: ${{ steps.target-sha.outputs.sha }}
           OUTCOME: ${{ steps.gate-check.outcome }}
+          # #10188: a draft run checked nothing. Publishing its red verdict
+          # could overwrite a ready run's green status on the same SHA when the
+          # draft run finishes last. A draft cannot merge, so publish nothing.
+          DRAFT_SKIP: ${{ github.event.pull_request.draft == true && needs.prepare.result == 'skipped' }}
         run: |
+          if [ "$DRAFT_SKIP" = true ]; then
+            echo "Draft PR: no CI Gate commit status published (#10188)."
+            exit 0
+          fi
           STATE=$(node scripts/ci-gate-commit-status.mjs state --outcome "$OUTCOME")
           # Retry transient failures only — a real 4xx rejection (bad token,
           # bad payload, etc.) should fail fast rather than burning three
