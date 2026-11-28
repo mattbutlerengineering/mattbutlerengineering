@@ -10,15 +10,16 @@
  *
  * Base resolution: `DESTRUCTIVE_MIGRATION_BASE` env override, else the
  * `[base-ref]` argument, else `origin/main`, narrowed to
- * `git merge-base HEAD <ref>`. An unresolvable base FAILS the check rather
- * than passing: this gate only sees a migration by diffing against a base, so
+ * `git merge-base HEAD <ref>`. An unresolvable base BLOCKS the check (exit 10,
+ * BLOCKED in repo-audit) rather than passing: this gate only sees a migration by diffing against a base, so
  * a base it cannot resolve means it inspected nothing. It used to swallow that
  * failure and print "No new migration files found", which reads exactly like a
  * real all-clear. Same fail-closed stance, and wording, as
  * check-rialto-changeset.mjs.
  *
  * Usage: node scripts/check-destructive-migrations.js [base-ref]
- * Exit code: 0 if safe, 1 if destructive operations found without approval marker
+ * Exit code: 0 if safe, 1 if destructive operations found without approval marker,
+ *   10 if the diff base is unresolvable (BLOCKED in repo-audit; never a pass)
  */
 
 import { execFileSync } from "node:child_process";
