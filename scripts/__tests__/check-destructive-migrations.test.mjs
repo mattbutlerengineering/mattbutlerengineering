@@ -98,7 +98,66 @@ describe("check-destructive-migrations", () => {
 
       expect(result.status).toBe(0);
     });
+
+    // This gate can only see a migration by diffing HEAD against a base, so a
+    // base it cannot resolve means it inspected nothing — the only honest
+    // answer is to fail. It used to swallow the failure, fall back to an
+    // (empty) `--cached` diff and print "No new migration files found", which
+    // is indistinguishable from a real all-clear at the exit code. Measured:
+    // the same unapproved `DROP COLUMN` exits 1 against a resolvable base and
+    // exited 0 against an unresolvable one. Same fail-closed stance
+    // check-rialto-changeset.mjs already takes for the identical condition.
+    test("fails closed when the diff base cannot be resolved", () => {
+      const result = spawnSync("node", [SCRIPT_PATH, "refs/heads/no-such-base-ref"], {
+        encoding: "utf-8",
+        timeout: 15000,
+      });
+
+      expect(result.status).toBe(1);
+      expect(result.stdout).toContain("could not resolve a diff base");
+    });
+
+    // Asserted with a base that cannot resolve, not a working one: a
+    // resolvable override is indistinguishable from the default origin/main
+    // path, so the test would pass even if the env var were never read.
+    test("honours the DESTRUCTIVE_MIGRATION_BASE override", () => {
+      const result = spawnSync("node", [SCRIPT_PATH], {
+        encoding: "utf-8",
+        timeout: 15000,
+        env: { ...process.env, DESTRUCTIVE_MIGRATION_BASE: "refs/heads/no-such-base-ref" },
+      });
+
+      expect(result.status).toBe(1);
+      expect(result.stdout).toContain("could not resolve a diff base");
+    });
   });
+
+  describe("ci.yml migrations job checkout depth", () => {
+    // Failing closed turns a silent miss into a red job, which only helps if
+    // the job can resolve origin/main in the first place. It can today, but
+    // only incidentally: the `fetch-depth: 0` it relies on is commented as
+    // being for the PR-only dry-run steps, so moving those steps elsewhere
+    // would quietly take this guard's base away with nothing going red. This
+    // pins the dependency so that removal breaks a test instead.
+    const WORKFLOW = fs.readFileSync(
+      path.resolve(SCRIPT_PATH, "..", "..", ".github/workflows/ci.yml"),
+      "utf-8"
+    );
+
+    test("checks out full history so origin/main resolves", () => {
+      const lines = WORKFLOW.split("\n");
+      const jobStart = lines.findIndex((l) => /^ {2}migrations:\s*$/.test(l));
+      expect(jobStart).toBeGreaterThan(-1);
+
+      const after = lines.slice(jobStart + 1);
+      const nextJobOffset = after.findIndex((l) => /^ {2}[a-z][a-z0-9-]*:\s*$/.test(l));
+      const job = after.slice(0, nextJobOffset === -1 ? undefined : nextJobOffset).join("\n");
+
+      expect(job).toContain("scripts/check-destructive-migrations.js");
+      expect(job).toMatch(/fetch-depth:\s*0/);
+    });
+  });
+
   // #6291: the .claude/settings.json edit-time hook calls this mode instead of
   // restating the regex, so edit-time and CI share one rule.
   describe("--file (edit-time hook mode)", () => {
