@@ -12,7 +12,12 @@
  */
 import { execFileSync } from "node:child_process";
 import { setTimeout as sleep } from "node:timers/promises";
-import { decideGateSlot } from "../../scripts/gate-slot.mjs";
+import {
+  decideGateSlot,
+  gateProcesses,
+  parseLsofCwds,
+  worktreeOf,
+} from "../../scripts/gate-slot.mjs";
 
 const POLL_MS = 5_000;
 const MAX_WAIT_MS = 540_000;
@@ -24,8 +29,24 @@ const readStdin = async () => {
   return input;
 };
 
-const listProcesses = () =>
-  execFileSync("ps", ["-axo", "command="], { encoding: "utf8", maxBuffer: 16 * 1024 * 1024 });
+const run = (cmd, args) =>
+  execFileSync(cmd, args, { encoding: "utf8", maxBuffer: 16 * 1024 * 1024 });
+
+/** Gate processes with a cwd for each one whose argv names no worktree (`pnpm exec`). */
+const listGateProcesses = () => {
+  const procs = gateProcesses(run("ps", ["-axo", "pid=,command="]));
+  const unplaced = procs.filter((p) => !worktreeOf(p.command, "")).map((p) => p.pid);
+  let cwds = new Map();
+  if (unplaced.length > 0) {
+    try {
+      cwds = parseLsofCwds(run("lsof", ["-a", "-d", "cwd", "-Fn", "-p", unplaced.join(",")]));
+    } catch (err) {
+      // lsof exits 1 when a listed pid has exited; its stdout still holds the rest.
+      cwds = parseLsofCwds(String(err?.stdout ?? ""));
+    }
+  }
+  return procs.map((p) => ({ command: p.command, cwd: cwds.get(p.pid) ?? "" }));
+};
 
 try {
   const data = JSON.parse(await readStdin());
@@ -34,7 +55,7 @@ try {
   const cwd = data.cwd ?? "";
 
   const deadline = Date.now() + MAX_WAIT_MS;
-  while (decideGateSlot({ command, cwd, psText: listProcesses() }).wait) {
+  while (decideGateSlot({ command, cwd, procs: listGateProcesses() }).wait) {
     if (Date.now() >= deadline) break;
     await sleep(POLL_MS + Math.floor(Math.random() * 2_000)); // jitter spreads freed waiters
   }
