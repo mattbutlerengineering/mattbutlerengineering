@@ -4053,7 +4053,7 @@
       "all": "Todos",
       "early": "Temprano (antes de {{hour}})",
       "dinner": "Cena ({{range}})",
-      "late": "Tarde (desde las {{hour}})"
+      "late": "Tarde (desde {{hour}})"
     },
     "segmentsCompact": {
       "early": "Antes de {{hour}}",

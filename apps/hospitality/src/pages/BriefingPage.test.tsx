@@ -633,6 +633,9 @@ describe("BriefingPage", () => {
         expect(screen.getByTestId("segment-early")).toHaveTextContent("Early (before 6 PM)");
         expect(screen.getByTestId("segment-dinner")).toHaveTextContent(/^Dinner \(6\s*–\s*9 PM\)$/);
         expect(screen.getByTestId("segment-late")).toHaveTextContent("Late (from 9 PM)");
+        for (const id of ["all", "early", "dinner", "late"]) {
+          expect(screen.getByTestId(`segment-${id}`)).not.toHaveAttribute("aria-label");
+        }
       } finally {
         viewport.value = "desktop";
       }
