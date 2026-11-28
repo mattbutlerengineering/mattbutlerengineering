@@ -249,7 +249,7 @@ export const publicAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
             .send(createProblemDetails(400, "Invalid Date Range", rangeResult.error ?? ""));
         }
 
-        const dates = await availabilityService.getAvailableDates(
+        const closed = await availabilityService.getClosedDates(
           venue.id,
           from,
           to,
@@ -257,9 +257,7 @@ export const publicAvailabilityRoutes: FastifyPluginAsync = async (fastify) => {
           { logger: request.log, member: (await verifiedMember(request, venue.id)) !== null }
         );
 
-        return reply.send({
-          data: dates.flatMap(({ date, closure }) => (closure ? [{ date, closure }] : [])),
-        });
+        return reply.send({ data: closed });
       }
     )
   );

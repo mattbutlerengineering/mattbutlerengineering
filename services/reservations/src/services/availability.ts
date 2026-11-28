@@ -156,7 +156,7 @@ function listDay(
   return { seatings, offered: seatings.filter((s) => isSlotInBookingWindow(s.start, window)) };
 }
 
-function noticesFor(loaded: LoadedSnapshot, date: string, seatingCount: number) {
+function noticesFor(loaded: LoadedSnapshot, date: string, seatingCount: number | (() => number)) {
   return dayNotices(
     loaded.snapshot,
     date,
@@ -231,6 +231,33 @@ async function getAvailableDates(
     const slotCount = offered.filter((s) => s.available).length;
     const { closure } = noticesFor(loaded, date, seatings.length);
     return { date, hasAvailability: slotCount > 0, slotCount, ...(closure ? { closure } : {}) };
+  });
+}
+
+/**
+ * The closed dates in a range, each with its guest message: what the booking
+ * calendar disables. Same closures as {@link getAvailableDates}, but slots are
+ * listed only for a date a rule closes (a partial closure is still open if any
+ * online seating is left), so the cost no longer grows with every open day (#9971).
+ */
+async function getClosedDates(
+  venueId: string,
+  startDate: string,
+  endDate: string,
+  partySize: number,
+  options: ListingOptions = {}
+): Promise<{ date: string; closure: AvailabilityClosure }[]> {
+  const dates = rangeDates(startDate, endDate);
+  const lastDate = dates.at(-1);
+  const now = new Date();
+  const loaded = lastDate ? await loadOrNull(venueId, startDate, lastDate, now, options) : null;
+  if (!loaded) return [];
+
+  return dates.flatMap((date) => {
+    const seatingCount = () =>
+      listDay(loaded, date, partySize, now, options.member).seatings.length;
+    const { closure } = noticesFor(loaded, date, seatingCount);
+    return closure ? [{ date, closure }] : [];
   });
 }
 
@@ -312,6 +339,7 @@ export const availabilityService = {
   generateTimeSlots,
   getDayAvailability,
   getAvailableDates,
+  getClosedDates,
   findBestTable,
   fetchConflictData,
 };
