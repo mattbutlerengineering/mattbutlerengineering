@@ -12,7 +12,7 @@ export function PrivacyPage() {
       <h1
         style={{
           fontSize: "var(--rialto-text-2xl)",
-          fontWeight: "var(--rialto-weight-semibold)",
+          fontWeight: "var(--rialto-weight-medium)",
           marginBottom: "var(--rialto-space-sm)",
         }}
       >
@@ -122,7 +122,10 @@ export function PrivacyPage() {
           Questions about this policy? Reach out at{" "}
           <a
             href="mailto:hello@mattbutlerengineering.com"
-            style={{ color: "var(--rialto-color-brand)" }}
+            style={{
+              color: "var(--rialto-text-primary)",
+              textDecoration: "underline",
+            }}
           >
             hello@mattbutlerengineering.com
           </a>
