@@ -1170,3 +1170,25 @@ A full `pnpm lint` first failed in `@mbe/agent-service` with `Cannot find module
 **queueEfficiency:** composite 0.882 (baseline n/a) — healthy
 **Difficulty distribution:** size:xs:42, size:m:47, size:l:25, size:s:74, size:xl:15
 **Issues filed:** 0
+
+## 2026-11-28 — mbe-ui-quality
+
+**State:** `source: branch` (`ui-quality/ledger` @ c150210, merged `origin/main` 68bc7b5; resolved `metrics/ui-quality-ledger.jsonl` by rule).
+
+**Routes:** 40 due / 39 captured / 39 audited (rialto-web 33, marketing 6, hospitality 0). 29 rows `unreachable:auth`, 1 `unreachable:build` — `rialto-web *` (catch-all) planned `unreachable:build` by `ledger.mjs due` with reason `no-fixture`; all three app builds were green, so this is a missing capture fixture, not a build failure.
+
+**Judging:** rubric v2. 0 unjudged, 0 dropped tells. 0 judged tells — all 39 routes viewed (desktop + mobile) and judged clean. Mechanical: 0 findings (6 marketing `/gen/` links reported out-of-inventory, sibling app, no finding).
+
+**Calibration:** stamp `failed` — `calibration-status` exit 1 on the first query (key claude-opus-5-5 / r2: agreement 0.30, 3 inversions vs pass mark 0.80 / 0). No calibrate, no `rate.mjs pairs`/`record`.
+
+**Rubric migration:** `findings.mjs migrate --from 1 --to 2` — 0 rekeyed, 0 retired (all r1 keys already closed).
+
+**Filing:** 0 created, 0 reopened, 0 commented, 0 adopted/declined, 0 closes. 0 seeds. Issue drift: 0/0. Labelled-issue read: 41 `ui-quality` issues, all closed, one page (states from `list_issues`; `state_reason` fetched only for escalation #8959, null for ledger-known issues).
+
+**Fix PR:** none — the plan carried no `fix_pr_candidate`.
+
+**P1 SLA:** 0 open `ui-quality:p1` issues; 0 breaches, 0 escalated.
+
+**Coverage before this fire:** 99.3% (146/147, uncovered `rialto-web *`), `coverage.mjs` exit 1 (breach). After `ledger.mjs record`: 100% (146/146).
+
+**Blockers / pipeline bugs:** none. Browser resolved (`chrome-headless-shell`), all three capture runs passed (hospitality had no planned routes — all auth-gated).
