@@ -103,6 +103,11 @@ const AvailabilityClosuresPage = lazy(() =>
     default: m.AvailabilityClosuresPage,
   }))
 );
+const AvailabilitySpecialDatesPage = lazy(() =>
+  import("./pages/AvailabilitySpecialDatesPage.js").then((m) => ({
+    default: m.AvailabilitySpecialDatesPage,
+  }))
+);
 const AvailabilitySeasonalListPage = lazy(() =>
   import("./pages/AvailabilitySeasonalListPage.js").then((m) => ({
     default: m.AvailabilitySeasonalListPage,
@@ -480,6 +485,15 @@ const router = createBrowserRouter(
                         <FloorPlanEditorPage />
                       </Suspense>
                     </RequireManager>
+                  ),
+                },
+                {
+                  // Read by a Host too: the edit controls are a Manager's.
+                  path: "special-dates",
+                  element: (
+                    <Suspense fallback={<LoadingPage />}>
+                      <AvailabilitySpecialDatesPage />
+                    </Suspense>
                   ),
                 },
                 {

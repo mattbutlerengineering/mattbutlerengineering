@@ -1813,10 +1813,10 @@ describe("AvailabilityPage layers", () => {
     });
 
     it("follows a rail link to another layer without a remount", () => {
-      renderPage("/availability/calendar?tab=calendar");
-      fireEvent.click(within(rail()).getByRole("link", { name: "Special dates" }));
-      expect(layerRadio("Special dates")).toBeChecked();
-      expect(within(rail()).getByRole("link", { name: "Special dates" })).toHaveAttribute(
+      renderPage("/availability/calendar?tab=schedules");
+      fireEvent.click(within(rail()).getByRole("link", { name: "Calendar" }));
+      expect(layerRadio("Calendar")).toBeChecked();
+      expect(within(rail()).getByRole("link", { name: "Calendar" })).toHaveAttribute(
         "aria-current",
         "page"
       );
@@ -1881,6 +1881,7 @@ describe("the Availability route table", () => {
           children: [
             { index: true, element: <AvailabilityHubPage /> },
             { path: "calendar", element: <AvailabilityPage /> },
+            { path: "special-dates", element: <div>Special dates page</div> },
             { path: "seasonal/new", element: <div>New seasonal hours page</div> },
           ],
         },
@@ -1908,8 +1909,8 @@ describe("the Availability route table", () => {
 
   it("sends the old ?tab=special there with a replace, so Back leaves Availability", async () => {
     const router = renderRoutes("/availability?tab=special");
-    await waitFor(() => expect(address(router)).toBe("/availability/calendar?tab=special"));
-    expect(layerRadio("Special dates")).toBeChecked();
+    await waitFor(() => expect(address(router)).toBe("/availability/special-dates"));
+    expect(screen.getByText("Special dates page")).toBeInTheDocument();
     expect(router.state.historyAction).toBe("REPLACE");
     await act(() => router.navigate(-1));
     expect(address(router)).toBe("/setup");

@@ -29,7 +29,7 @@ describe("hubActions", () => {
     expect(hubActions(rows, true).map((a) => a?.to)).toEqual([
       "/availability/hours",
       "/availability/seasonal",
-      "/availability/calendar?tab=special",
+      "/availability/special-dates",
       "/availability/closures",
       "/availability/booking-rules",
     ]);

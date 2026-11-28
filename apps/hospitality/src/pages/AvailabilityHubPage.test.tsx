@@ -102,6 +102,7 @@ function renderHub(scope: AvailabilityScope, url = "/availability") {
         children: [
           { index: true, element: <AvailabilityHubPage /> },
           { path: "calendar", element: <div>Today&apos;s page</div> },
+          { path: "special-dates", element: <div>Special dates page</div> },
           { path: "hours", element: <div>Regular hours page</div> },
           { path: "seasonal/new", element: <div>New seasonal hours page</div> },
         ],
@@ -274,7 +275,7 @@ describe("AvailabilityHubPage", () => {
     );
     expect(
       hrefOf(within(row(3)).getByRole("link", { name: "Edit Special dates and holidays" }))
-    ).toBe("/availability/calendar?tab=special");
+    ).toBe("/availability/special-dates");
     expect(hrefOf(within(row(4)).getByRole("link", { name: "View Closures and pauses" }))).toBe(
       "/availability/closures"
     );
@@ -550,7 +551,7 @@ describe("AvailabilityHubPage", () => {
 
   describe("the index's addresses", () => {
     it.each([
-      ["/availability?tab=special", "/availability/calendar?tab=special", "Today's page"],
+      ["/availability?tab=special", "/availability/special-dates", "Special dates page"],
       ["/availability?action=addSchedule", "/availability/seasonal/new", "New seasonal hours page"],
     ])("sends the old address %s to %s with a replace", async (old, next, page) => {
       const router = renderHub(scopeOf(), old);

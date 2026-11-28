@@ -32,6 +32,7 @@ const MOUNTED: readonly string[] = [
   "/availability/seasonal",
   "/availability/seasonal/new",
   "/availability/seasonal/sch-1",
+  "/availability/special-dates",
 ];
 const pathOf = (address: string): string => address.split("?")[0] ?? "";
 
@@ -48,7 +49,7 @@ describe("availabilityPath", () => {
     [{ view: "seasonal", screen: "new" }, "/availability/seasonal/new"],
     [{ view: "seasonal", screen: "edit", scheduleId: "sch-1" }, "/availability/seasonal/sch-1"],
     [{ view: "seasonal", screen: "compare" }, "/availability/calendar?tab=schedules"],
-    [{ view: "specialDates" }, "/availability/calendar?tab=special"],
+    [{ view: "specialDates" }, "/availability/special-dates"],
     [{ view: "closures" }, "/availability/closures"],
     [{ view: "closures", from: "setup" }, "/availability/closures?from=setup"],
     [{ view: "calendar" }, "/availability/calendar?tab=calendar"],
@@ -360,7 +361,7 @@ describe("legacyRedirect", () => {
   const rows: readonly (readonly [string, string])[] = [
     ["?tab=schedules", "/availability/hours"], // final
     ["?tab=calendar", "/availability/calendar?tab=calendar"], // /availability/calendar
-    ["?tab=special", "/availability/calendar?tab=special"], // /availability/special-dates
+    ["?tab=special", "/availability/special-dates"], // final
     ["?action=addSchedule", "/availability/seasonal/new"], // final
     ["?closeSection=sec-bar", "/availability?close=section:sec-bar"], // final (C2.4)
   ];
@@ -399,7 +400,7 @@ describe("legacyRedirect", () => {
 
   it("combines a tab, an action and a section", () => {
     expect(legacyRedirect("?tab=special&closeSection=sec-1&from=setup")).toBe(
-      "/availability/calendar?tab=special&close=section:sec-1&from=setup"
+      "/availability/special-dates?close=section:sec-1&from=setup"
     );
     expect(legacyRedirect("?tab=schedules&action=addSchedule")).toBe("/availability/seasonal/new");
   });

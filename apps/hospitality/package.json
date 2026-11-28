@@ -71,6 +71,16 @@
       "limit": "7.1 kB"
     },
     {
+      "name": "Special dates tab (lazy chunk: the list, its rows, holiday decisions and edit wiring, a chunk of its own once the Special dates page loads it, availability-hub L3.3 / #9944 S2c; 9.15 kB brotlied measured)",
+      "path": "dist/assets/SpecialDatesTab-*.js",
+      "limit": "9.6 kB"
+    },
+    {
+      "name": "Regular week line (lazy chunk shared by the Special dates page and the old Availability page, #9944 S2c; 2.54 kB brotlied measured)",
+      "path": "dist/assets/regular-week-line-*.js",
+      "limit": "2.9 kB"
+    },
+    {
       "name": "Closures and pauses page (lazy chunk: the grouped list, its row and outcome lines, and the Edit, Reopen, Resume, Restore and Retry wiring, availability-hub L3.2; 3.9 kB (3,904 B) measured)",
       "path": "dist/assets/AvailabilityClosuresPage-*.js",
       "limit": "4.5 kB"

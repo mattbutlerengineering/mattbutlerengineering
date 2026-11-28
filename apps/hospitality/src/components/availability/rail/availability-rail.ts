@@ -208,7 +208,8 @@ export function selectedRailId(
   const found = (best as { id: string } | null)?.id ?? null;
   if (found) return found;
   // Today's Schedules layer edits the weekly hours, regular and seasonal alike (until #9944 S6).
-  const onSchedules =
-    isTodaysPage(location.pathname) && parseAvailabilityEntry(params).tab === "schedules";
-  return onSchedules && hasNode(groups, "hours") ? "hours" : null;
+  const tab = isTodaysPage(location.pathname) ? parseAvailabilityEntry(params).tab : undefined;
+  if (tab === "schedules" && hasNode(groups, "hours")) return "hours";
+  // The old Special dates tab stays reachable by its address until S6 deletes the page.
+  return tab === "special" && hasNode(groups, "specialDates") ? "specialDates" : null;
 }
