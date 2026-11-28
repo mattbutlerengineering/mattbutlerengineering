@@ -20,9 +20,6 @@ export const HOME_CANONICAL = `${SITE_ORIGIN}/rialto/`;
 /** `<title>`, `og:title` and `twitter:title` of the static `demos/index.html`. */
 export const DEMOS_TITLE = "Demos — Rialto Design System";
 
-/** Heading of the not-found page; its title is `${NOT_FOUND_STEM}${TITLE_SUFFIX}`. */
-export const NOT_FOUND_STEM = "Page not found";
-
 /** Meta description of the demos index; also the lede on `DemosIndexPage`. */
 export const DEMOS_DESCRIPTION = "Full-page demos built with Rialto components.";
 
@@ -145,9 +142,8 @@ export function resolveHead(pathname: string, entries: readonly CatalogEntry[]):
     if (route.pattern.test(path)) return headForStem(path, route.stem);
   }
 
-  // The `*` route renders the not-found page. Title it as such; keep the canonical on home
-  // rather than advertising the mistyped URL.
-  return { ...HOME_HEAD, ...headForStem("/", NOT_FOUND_STEM), url: HOME_CANONICAL };
+  // The `*` route redirects to `/`. Advertise home rather than the previous page.
+  return HOME_HEAD;
 }
 
 /** Static HTML files to emit besides `index.html` and `demos/index.html`. */
