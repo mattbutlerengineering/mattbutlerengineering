@@ -32,10 +32,12 @@ const GATE_BIN = String.raw`(?:tsc|vitest|eslint)(?=\s|$)|turbo\s+run\b`;
 const GATE_SEGMENT_RES = [
   // pnpm/npm/yarn [opts] [run] <gate script>
   new RegExp(
-    String.raw`^(?:pnpm|npm|yarn)${OPTS}\s+(?:run\s+)?(?:lint|typecheck|test|build|check:[\w:-]+)(?=\s|$)`
+    String.raw`^(?:pnpm|npm|yarn)${OPTS}\s+(?:run\s+)?(?:lint|typecheck|test|build|check)(?::[\w:-]+)?(?=\s|$)`
   ),
   // pnpm/yarn [opts] exec|dlx <gate binary>, npx <gate binary>
   new RegExp(String.raw`^(?:(?:pnpm|yarn)${OPTS}\s+(?:exec|dlx)|npx)\s+(?:${GATE_BIN})`),
+  // pnpm/yarn [opts] turbo run (turbo as a package bin without exec)
+  new RegExp(String.raw`^(?:pnpm|yarn)${OPTS}\s+turbo\s+run\b`),
   // a gate binary invoked directly, by name or path
   new RegExp(String.raw`^(?:\S*/)?(?:${GATE_BIN})`),
 ];
@@ -47,11 +49,23 @@ const GATE_PROCESS_RE =
 // Shell wrappers (the Bash tool's `zsh -c …`) carry the command TEXT; they are not gate processes.
 const SHELL_WRAPPER_RE = /^\S*\b(?:zsh|bash|sh)\s+-c\b/;
 
-/** Split a shell command into segments and strip leading `VAR=value` assignments. */
+// Leading `VAR=value` assignments and process wrappers (`timeout 120`, `time`, `nice -n 10`).
+const PREFIX_RE =
+  /^(?:[A-Za-z_]\w*=\S*|timeout(?:\s+-\S+)*\s+\d+[smhd]?|time|nice(?:\s+-n\s+-?\d+|\s+-\d+)?)\s+/;
+
+const stripPrefixes = (segment) => {
+  let rest = segment;
+  for (let next = rest.replace(PREFIX_RE, ""); next !== rest; next = rest.replace(PREFIX_RE, "")) {
+    rest = next;
+  }
+  return rest;
+};
+
+/** Split a shell command into segments and strip leading assignments and wrappers. */
 const segments = (command) =>
   (command ?? "")
     .split(/[;&|\n]+/)
-    .map((s) => s.trim().replace(/^(?:[A-Za-z_]\w*=\S*\s+)+/, ""))
+    .map((s) => stripPrefixes(s.trim()))
     .filter(Boolean);
 
 /** @param {string} command */

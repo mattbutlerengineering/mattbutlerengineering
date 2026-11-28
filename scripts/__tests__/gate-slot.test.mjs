@@ -30,6 +30,14 @@ describe("isGateCommand", () => {
     "pnpm --dir /x exec eslint src/",
     "VITEST_MAX_WORKERS=2 pnpm test",
     "./node_modules/.bin/vitest run --config x.mjs",
+    // #10099: wrapper prefixes, suffixed scripts, turbo without exec
+    "timeout 120 pnpm test",
+    "time pnpm typecheck",
+    "nice -n 10 pnpm lint",
+    "pnpm test:unit",
+    "pnpm --dir /x run test:e2e",
+    "pnpm turbo run lint",
+    "pnpm --filter @mbe/cli turbo run build",
   ])("treats %j as a gate", (cmd) => {
     expect(isGateCommand(cmd)).toBe(true);
   });
