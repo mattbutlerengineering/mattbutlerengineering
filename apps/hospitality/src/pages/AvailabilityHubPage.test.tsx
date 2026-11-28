@@ -14,12 +14,22 @@ import {
 } from "../components/availability/hub/hub-rows-test-helpers.js";
 import { focusHubRowOnReturn } from "../components/availability/hub-return-focus.js";
 import type { AvailabilityScope } from "../hooks/useAvailabilityScope.js";
+import type { VenueReadiness } from "../hooks/useVenueReadiness.js";
 import { AvailabilityHubPage } from "./AvailabilityHubPage.js";
 
 const selected = vi.hoisted(() => ({ settings: {} as Record<string, unknown> }));
 const reopen = vi.hoisted(() => vi.fn());
 // 10:00 AM in Los Angeles on the fixtures' today.
 const NOW = vi.hoisted(() => new Date("2026-11-12T18:00:00Z"));
+const OPERATIONAL: VenueReadiness = {
+  status: "operational",
+  completedSteps: ["onboarding", "operating-hours", "floor-plan"],
+  nextStep: null,
+  progress: 100,
+};
+const readiness = vi.hoisted(() => ({ current: null as unknown as VenueReadiness }));
+
+vi.mock("../hooks/useVenueReadiness.js", () => ({ useVenueReadiness: () => readiness.current }));
 
 vi.mock("../contexts/VenueContext.js", () => ({
   useVenue: () => ({ selectedVenueId: "venue-1", selectedVenue: selected }),
@@ -118,6 +128,7 @@ describe("AvailabilityHubPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     selected.settings = {};
+    readiness.current = OPERATIONAL;
   });
 
   it("has one page heading, takes focus on it, and places the Today line without a banner", () => {
@@ -573,19 +584,40 @@ describe("AvailabilityHubPage", () => {
       }
     );
 
-    it("shows the way back to the Availability map when the visit came from it", () => {
-      const router = renderHub(scopeOf(), "/availability?from=setup");
-      expect(address(router)).toBe("/availability?from=setup");
-      expect(hrefOf(screen.getByRole("link", { name: "Availability map" }))).toBe(
-        "/availability/map"
-      );
+    it("no longer links to the retired Availability map (#10032)", () => {
+      renderHub(scopeOf(), "/availability?from=setup");
+      expect(screen.queryByRole("link", { name: "Availability map" })).toBeNull();
+    });
+  });
+
+  describe("launch progress before launch (#10032)", () => {
+    it("shows a Manager the launch progress strip while the venue is in setup", () => {
+      readiness.current = {
+        status: "setup",
+        completedSteps: ["onboarding"],
+        nextStep: "operating-hours",
+        progress: 33,
+      };
+      renderHub(scopeOf());
+      const strip = screen.getByRole("region", { name: "Launch progress" });
+      expect(strip).toHaveTextContent("1 of 3");
+      const steps = within(strip).getAllByRole("listitem");
+      expect(steps.map((step) => step.textContent)).toEqual([
+        "Venue basicsDone",
+        "Regular weekNext",
+        "Floor planNot yet",
+      ]);
     });
 
-    it("links to the Availability map on every visit", () => {
-      renderHub(scopeOf(), "/availability");
-      expect(hrefOf(screen.getByRole("link", { name: "Availability map" }))).toBe(
-        "/availability/map"
-      );
+    it("shows a Host no strip before launch", () => {
+      readiness.current = { ...readiness.current, status: "setup" };
+      renderHub(scopeOf({ isManager: false }));
+      expect(screen.queryByRole("region", { name: "Launch progress" })).toBeNull();
+    });
+
+    it("shows no strip once the venue is operational", () => {
+      renderHub(scopeOf());
+      expect(screen.queryByRole("region", { name: "Launch progress" })).toBeNull();
     });
   });
 });

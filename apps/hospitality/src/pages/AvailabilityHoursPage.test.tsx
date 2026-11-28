@@ -168,16 +168,13 @@ describe("AvailabilityHoursPage", () => {
     expect(screen.queryByRole("link", { name: "Availability map" })).not.toBeInTheDocument();
   });
 
-  it("keeps the way back to the Availability map on a visit from it", () => {
+  it("has one way back to the hub on a visit from setup, and no retired map link (#10032)", () => {
     renderPage(scopeOf(), "/availability/hours?from=setup");
     expect(screen.getByRole("link", { name: "Back to Availability" })).toHaveAttribute(
       "href",
       "/availability?from=setup"
     );
-    expect(screen.getByRole("link", { name: "Availability map" })).toHaveAttribute(
-      "href",
-      "/availability/map"
-    );
+    expect(screen.queryByRole("link", { name: "Availability map" })).not.toBeInTheDocument();
   });
 
   it("opens the first service when no service is named", () => {

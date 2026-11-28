@@ -154,12 +154,10 @@ const SEASONAL = `${ROUTE}/seasonal`;
 /** Closures and pauses, a page of its own. */
 const CLOSURES = `${ROUTE}/closures`;
 
-/** The Availability map: what decides when guests can book, from schedules down to tables. */
-const MAP = `${ROUTE}/map`;
-
 /**
- * The views with a path of their own: the hub, the drawers over it, regular hours, Closures and
- * pauses, and the Availability map.
+ * The views with a path of their own: the hub, the drawers over it, regular hours, and Closures
+ * and pauses. The Availability map is retired (#10032): the rail in the sidebar shows the same
+ * tree, so its target lands on the hub, and `/availability/map` redirects there.
  */
 const OWN_PATHS: Readonly<Partial<Record<AvailabilityView["view"], string>>> = {
   hub: ROUTE,
@@ -167,7 +165,7 @@ const OWN_PATHS: Readonly<Partial<Record<AvailabilityView["view"], string>>> = {
   bookingRules: BOOKING_RULES,
   history: HISTORY,
   closures: CLOSURES,
-  map: MAP,
+  map: ROUTE,
 };
 
 // `:` and `,` are legal in a query, so the close target stays readable in the address bar.

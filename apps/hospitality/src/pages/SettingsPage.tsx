@@ -383,9 +383,9 @@ export function SettingsPage() {
                 </Text>
                 <Button
                   variant="secondary"
-                  onClick={() => navigate(availabilityPath({ view: "map" }))}
+                  onClick={() => navigate(availabilityPath({ view: "hub" }))}
                 >
-                  {t("settings.venue.venueSetup")}
+                  {t("nav.items.availability")}
                 </Button>
                 <Button variant="secondary" onClick={() => navigate("/timeline?rehearsal=true")}>
                   {t("rehearsal.entry.cta")}

@@ -26,7 +26,6 @@ const MOUNTED: readonly string[] = [
   "/availability/closures",
   "/availability/history",
   "/availability/hours",
-  "/availability/map",
   "/availability/seasonal",
   "/availability/seasonal/new",
   "/availability/seasonal/sch-1",
@@ -56,7 +55,8 @@ describe("availabilityPath", () => {
     ],
     [{ view: "bookingRules" }, "/availability/booking-rules"],
     [{ view: "history" }, "/availability/history"],
-    [{ view: "map" }, "/availability/map"],
+    // The Availability map is retired (#10032): its old target lands on the hub.
+    [{ view: "map" }, "/availability"],
   ];
 
   it.each(cases)("resolves %o to %s", (target, path) => {

@@ -375,7 +375,6 @@
       "waitlist": "Liste d'attente",
       "guests": "Clients",
       "dashboard": "Tableau de bord",
-      "venueSetup": "Carte des disponibilités",
       "bookingWidget": "Widget de réservation",
       "signOut": "Se déconnecter",
       "chat": "Clavardage",
@@ -403,7 +402,6 @@
       "settings": "Paramètres",
       "admin": "Administration",
       "dashboard": "Tableau de bord",
-      "setup": "Carte des disponibilités",
       "hours": "Disponibilité",
       "menus": "Menus",
       "availability": "Disponibilité",
@@ -2385,7 +2383,6 @@
   "availability": {
     "title": "Disponibilité",
     "description": "Vos heures, jours fériés et changements ponctuels.",
-    "backToSetup": "Carte des disponibilités",
     "hostNote": "Seuls les gérants modifient les heures. Pour ce soir, utilisez le panneau Ce soir.",
     "loadError": "Impossible de charger la disponibilité",
     "noVenue": "Sélectionnez un établissement pour voir sa disponibilité.",
@@ -3927,68 +3924,11 @@
   },
   "setup": {
     "hub": {
-      "title": "Carte des disponibilités",
-      "description": "Ce qui décide quand les clients peuvent réserver, des horaires et services jusqu'aux tables, chaque ligne ouvrant l'endroit où vous le modifiez.",
-      "yourVenue": "votre établissement",
-      "loading": "Chargement de la carte des disponibilités",
-      "loadError": "Impossible de charger la carte des disponibilités.",
-      "groupError": "Impossible de charger « {{group}} ».",
-      "groups": {
-        "open": "Quand vous êtes ouvert",
-        "sit": "Où s'assoient les clients"
-      },
-      "notSetUp": "Non configuré",
-      "hostUnset": "Un gestionnaire s'en charge.",
-      "regularWeek": "Semaine habituelle",
-      "label": {
-        "schedules": "Horaires",
-        "specialDates": "Dates spéciales",
-        "booking": "Réservations",
-        "floorPlan": "Plan de salle",
-        "noSection": "Sans section"
-      },
-      "caption": {
-        "schedule": "Horaire",
-        "service": "Service",
-        "section": "Section",
-        "table": "Table",
-        "floorPlan": "Plan de salle"
-      },
       "channelLabel": {
         "online": "Réservations en ligne",
         "phone": "Réservations par téléphone",
         "waitlist": "Liste d'attente"
       },
-      "channel": {
-        "online": "En ligne",
-        "phone": "Téléphone",
-        "waitlist": "Liste d'attente"
-      },
-      "what": {
-        "regularWeek": "Les jours et les services que les clients peuvent réserver.",
-        "schedules": "Des semaines nommées que suit votre établissement. La semaine habituelle en est une.",
-        "specialDates": "Fermetures et heures spéciales pour une date ou une période.",
-        "bookingUnset": "Combien de temps à l'avance, quel préavis et quelle taille de groupe les clients peuvent réserver en ligne; les valeurs par défaut s'appliquent.",
-        "booking": "Comment les clients réservent : en ligne, par téléphone, sur la liste d'attente.",
-        "floorPlan": "Où se trouvent les tables; sans table, les clients ne peuvent pas réserver."
-      },
-      "count": {
-        "schedules_one": "{{count}} horaire",
-        "schedules_many": "{{count}} d'horaires",
-        "schedules_other": "{{count}} horaires",
-        "specialDates_one": "{{count}} à venir",
-        "specialDates_many": "{{count}} à venir",
-        "specialDates_other": "{{count}} à venir",
-        "channel_one": "fermé à {{count}} date à venir",
-        "channel_many": "fermé à {{count}} de dates à venir",
-        "channel_other": "fermé à {{count}} dates à venir"
-      },
-      "open": "Ouvert {{days}}",
-      "period": "{{range}}, {{days}}",
-      "until": "Jusqu'au {{date}}",
-      "from": "À partir du {{date}}",
-      "range": "{{from}} – {{to}}",
-      "serviceLine": "{{hours}} · {{days}}",
       "rules": {
         "daysAhead_one": "Jusqu'à {{count}} jour à l'avance",
         "daysAhead_many": "Jusqu'à {{count}} de jours à l'avance",
@@ -3999,38 +3939,6 @@
         "largestParty_one": "groupes jusqu'à {{count}} en ligne",
         "largestParty_many": "groupes jusqu'à {{count}} en ligne",
         "largestParty_other": "groupes jusqu'à {{count}} en ligne"
-      },
-      "closedRow": "{{target}} : fermé",
-      "specialHoursRow": "{{target}} : heures spéciales",
-      "target": {
-        "venue": "Tout l'établissement",
-        "service": "Un service",
-        "section": "Une section",
-        "tables_one": "{{count}} table",
-        "tables_many": "{{count}} de tables",
-        "tables_other": "{{count}} tables"
-      },
-      "sections_one": "{{count}} section",
-      "sections_many": "{{count}} de sections",
-      "sections_other": "{{count}} sections",
-      "tables_one": "{{count}} table",
-      "tables_many": "{{count}} de tables",
-      "tables_other": "{{count}} tables",
-      "seats_one": "{{count}} place",
-      "seats_many": "{{count}} de places",
-      "seats_other": "{{count}} places",
-      "floorPlanHint": "Les sections et les tables apparaissent ici une fois le plan de salle ajouté",
-      "actions": {
-        "setUpRegularWeek": "Configurer la semaine habituelle",
-        "changeRegularWeek": "Modifier la semaine habituelle…",
-        "editSchedule": "Modifier",
-        "createSchedule": "Ajouter un horaire…",
-        "openSpecialDates": "Ouvrir Dates spéciales",
-        "bookingRules": "Règles de réservation…",
-        "openFloorPlan": "Ouvrir le plan de salle",
-        "addFloorPlan": "Ajouter un plan de salle",
-        "closeSection": "Fermer à une date…",
-        "moveToSection": "Placer dans une section"
       },
       "strip": {
         "title": "Progression du lancement",
@@ -4213,8 +4121,7 @@
     },
     "venue": {
       "title": "Établissement",
-      "description": "Gérez les jours et les heures où votre établissement accepte les réservations.",
-      "venueSetup": "Carte des disponibilités"
+      "description": "Gérez les jours et les heures où votre établissement accepte les réservations."
     },
     "team": {
       "title": "Équipe",

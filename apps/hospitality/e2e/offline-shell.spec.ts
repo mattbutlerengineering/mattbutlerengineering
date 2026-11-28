@@ -257,9 +257,13 @@ async function navigateToTimeline(page: Page): Promise<void> {
 }
 
 async function navigateToFloorPlanEditor(page: Page): Promise<void> {
-  // The floor plan is reached from its Availability map node (there is no Floor Plans nav item).
-  await page.getByRole("button", { name: "Availability map", exact: true }).click();
-  await page.getByRole("button", { name: "Open floor plan Main Floor" }).click();
+  // There is no Floor Plans nav item, and the Availability map that linked it is retired (#10032).
+  // Called from /timeline: a client-side history push the router follows, never a document load.
+  await page.evaluate(() => {
+    const path = window.location.pathname.replace(/\/timeline$/, "/floor-plans/fp_e2e_001");
+    window.history.pushState(null, "", path);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  });
   await expect(page.getByRole("heading", { name: "Main Floor" })).toBeVisible();
 }
 

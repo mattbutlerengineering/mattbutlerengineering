@@ -205,17 +205,21 @@ async function withoutBookingRules(page: Page): Promise<void> {
 /** Opens the hub and returns the config it was served, so a later mock can carry on from it. */
 async function openHubWithConfig(page: Page): Promise<{
   readonly served: AvailabilityConfigResponse;
-  readonly schedules: Locator;
+  readonly regularHours: Locator;
 }> {
   const [response] = await Promise.all([
     page.waitForResponse(
       (r) => /\/availability\/config$/.test(r.url()) && r.request().method() === "GET"
     ),
-    page.goto("availability/map"),
+    page.goto("availability"),
   ]);
   const { data } = (await response.json()) as { data: AvailabilityConfigResponse };
-  return { served: data, schedules: page.getByRole("listitem", { name: /Schedules/ }) };
+  return { served: data, regularHours: page.getByTestId("hub-row-1") };
 }
+
+/** The Availability rail in the sidebar (#9944): the tree the Availability map once showed. */
+const rail = (page: Page): Locator =>
+  page.getByRole("navigation", { name: "Availability sections" });
 
 test.describe("Setup hierarchy: the layered Availability page", () => {
   test.beforeEach(async ({ mockedPage }) => {
@@ -226,39 +230,30 @@ test.describe("Setup hierarchy: the layered Availability page", () => {
     mockedPage: page,
   }) => {
     await mockNoopPreview(page);
-    await page.goto("availability/map");
-    await expect(page.getByRole("heading", { level: 1, name: "Availability map" })).toBeVisible();
+    await page.goto("availability");
+    await expect(page.getByRole("heading", { level: 1, name: "Availability" })).toBeVisible();
 
     // Regular week: the week form at Regular hours (availability-hub E4.4). No drawer.
-    await page.getByRole("button", { name: "Change regular week…" }).click();
-    await expect(page).toHaveURL(/\/availability\/hours\?from=setup$/);
+    await rail(page).getByRole("link", { name: "Regular hours" }).click();
+    await expect(page).toHaveURL(/\/availability\/hours$/);
     await expect(weekPanel(page)).toBeVisible();
     await expect(page.getByRole("dialog")).toHaveCount(0);
 
-    // Schedules: the new seasonal hours editor, seeded from the regular week.
-    await page.goto("availability/map");
-    await page.getByRole("button", { name: "Add a schedule…" }).first().click();
-    await expect(page).toHaveURL(/\/availability\/seasonal\/new/);
-    await expect(page.getByRole("textbox", { name: /Schedule name/ })).toBeVisible();
+    // Schedules: the Seasonal hours list.
+    await rail(page).getByRole("link", { name: "Seasonal hours" }).click();
+    await expect(page).toHaveURL(/\/availability\/seasonal$/);
 
     // Special dates: the Special dates layer.
-    await page.goto("availability/map");
-    await page.getByRole("button", { name: "Open Special dates" }).click();
+    await rail(page).getByRole("link", { name: "Special dates" }).click();
     await expect(page).toHaveURL(/\/availability\/calendar\?tab=special/);
     await expect(layerOption(page, "Special dates")).toBeChecked();
 
     // Booking: its drawer, at the address the Availability hub opens it at (availability-hub C2.5).
-    await page.goto("availability/map");
-    await page.getByRole("button", { name: "Booking rules…" }).click();
-    await expect(page).toHaveURL(/\/availability\/booking-rules\?from=setup$/);
+    await rail(page).getByRole("link", { name: "Booking rules" }).click();
+    await expect(page).toHaveURL(/\/availability\/booking-rules$/);
     await expect(page.getByRole("dialog", { name: "Booking rules" })).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(page.getByRole("dialog", { name: "Booking rules" })).toHaveCount(0);
-
-    // Floor plan, sections and tables: the floor plan editor.
-    await page.goto("availability/map");
-    await page.getByRole("button", { name: "Open floor plan Main Floor" }).click();
-    await expect(page).toHaveURL(/\/floor-plans\/fp_e2e_001$/);
   });
 
   test("(a) editors per resource type: before on 7c051456f, after is one primary editor each", async ({
@@ -273,9 +268,9 @@ test.describe("Setup hierarchy: the layered Availability page", () => {
       }
     };
 
-    await page.goto("availability/map");
-    await expect(page.getByRole("heading", { level: 1, name: "Availability map" })).toBeVisible();
-    await visit("Venue Setup hub");
+    await page.goto("availability");
+    await expect(page.getByRole("heading", { level: 1, name: "Availability" })).toBeVisible();
+    await visit("Availability hub");
     await firstPaint(page);
     // The services are closed lines; the one Manager opens is the week panel's own editor.
     await weekPanel(page)
@@ -478,8 +473,8 @@ test.describe("Setup hierarchy: the layered Availability page", () => {
   }) => {
     await mockEmptyVenue(page, { derive: true });
     await viewAsHost(page);
-    await page.goto("availability/map");
-    await expect(page.getByRole("heading", { level: 1, name: "Availability map" })).toBeVisible();
+    await page.goto("availability");
+    await expect(page.getByRole("heading", { level: 1, name: "Availability" })).toBeVisible();
     await expect(
       page.getByRole("main").getByRole("button", {
         name: /set up|edit|change|close|add|move|rules|compare|create|open/i,
@@ -490,14 +485,14 @@ test.describe("Setup hierarchy: the layered Availability page", () => {
     ).toHaveCount(0);
   });
 
-  test("(e) a Host is sent from the floor plan editor routes back to Venue Setup", async ({
+  test("(e) a Host is sent from the floor plan editor routes back to Availability", async ({
     mockedPage: page,
   }) => {
     await viewAsHost(page);
     for (const path of ["floor-plans", "floor-plans/fp_e2e_001"]) {
       await page.goto(path);
-      await expect(page).toHaveURL(/\/availability\/map$/);
-      await expect(page.getByRole("heading", { level: 1, name: "Availability map" })).toBeVisible();
+      await expect(page).toHaveURL(/\/availability$/);
+      await expect(page.getByRole("heading", { level: 1, name: "Availability" })).toBeVisible();
     }
   });
 
@@ -639,15 +634,9 @@ test.describe("The demo runs as written (PRD 9)", () => {
     const venue = await mockEmptyVenue(page, { derive: true });
     await withoutBookingRules(page);
 
-    // The setup surface on the empty venue: every node is there and marked not set up.
-    await page.goto("availability/map");
-    await expect(page.getByRole("heading", { level: 1, name: "Availability map" })).toBeVisible();
-    for (const name of [/Regular week/, /Special dates/, /^Booking/, /Floor plan/]) {
-      await expect(page.getByRole("listitem", { name }).getByText("Not set up")).toBeVisible();
-    }
-
-    // The primary action opens the one editor; set the two-service varied week and save.
-    await page.getByRole("button", { name: "Set up regular week" }).click();
+    // The hub sends a Manager of an empty venue on to first setup at Regular hours.
+    await page.goto("availability");
+    await expect(page).toHaveURL(/\/availability\/hours$/);
     await expect(page.getByRole("heading", { name: "Set your regular week" })).toBeVisible();
     await setTwoServiceVariedWeek(page);
     await page.getByRole("button", { name: "Save and open bookings" }).click();
@@ -662,21 +651,17 @@ test.describe("The demo runs as written (PRD 9)", () => {
     await expect(strip).toContainText("Lunch");
     await expect(strip).toContainText("Dinner");
 
-    // The hours, schedule and service nodes update without leaving the app.
+    // The hub's Regular hours row updates without leaving the app.
     const hub = await openHubWithConfig(page);
-    await expect(hub.schedules).toContainText("1 schedule");
-    await expect(hub.schedules).toContainText("Lunch");
-    await expect(hub.schedules).toContainText("Dinner");
+    await expect(hub.regularHours).toContainText("Lunch");
+    await expect(hub.regularHours).toContainText("Dinner");
 
-    // Add one section, and block it for one date from the hub.
+    // Add one section, and block it for one date: the hub hosts its Close from the address.
     await mockMainFloorPlan(page);
     sections.add();
     const closures = await mockClosures(page, { config: hub.served });
     const closeDay = nextMonthDay(24);
-    await page.goto("availability/map");
-    await expect(page.getByRole("listitem", { name: /Main Floor/ })).toBeVisible();
-    await expect(page.getByRole("listitem", { name: /Bar/ }).first()).toBeVisible();
-    await page.getByRole("button", { name: "Close for a date… Bar" }).click();
+    await page.goto("availability?close=section:sec-bar");
     const dialog = page.getByRole("dialog", { name: /^Close / });
     await expect(dialog.getByText(/^One section: /)).toBeVisible();
     await dialog.getByRole("combobox", { name: "Date", exact: true }).press("ArrowDown");
@@ -685,11 +670,9 @@ test.describe("The demo runs as written (PRD 9)", () => {
     await dialog.getByTestId("close-primary").click();
     await expect.poll(() => closures.saved()).not.toBeNull();
 
-    // The Special dates node names the section, not a table list, and opens its one editor.
-    await page.goto("availability/map");
-    const special = page.getByRole("listitem", { name: /Special dates/ });
-    await expect(special).toContainText("Bar");
-    await page.getByRole("button", { name: "Open Special dates" }).click();
+    // Special dates, through the rail, names the section, not a table list.
+    await page.goto("availability");
+    await rail(page).getByRole("link", { name: "Special dates" }).click();
     await expect(page).toHaveURL(/\/availability\/calendar\?tab=special/);
     await expect(page.getByRole("main")).toContainText("Bar");
   });

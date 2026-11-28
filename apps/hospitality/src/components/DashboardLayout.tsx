@@ -68,7 +68,8 @@ const ROUTE_LABEL_KEYS = {
   settings: "layout.routes.settings",
   admin: "layout.routes.admin",
   dashboard: "layout.routes.dashboard",
-  setup: "layout.routes.setup",
+  // `/setup` and `/setup/hours` only redirect to the Availability hub (#10032).
+  setup: "layout.routes.availability",
   hours: "availabilityHub.routes.regularHours",
   chat: "layout.routes.chat",
   // The children of `availability`. A key with a slash names a segment under that parent, where
@@ -83,7 +84,6 @@ const ROUTE_LABEL_KEYS = {
   calendar: "availabilityHub.routes.calendar",
   "booking-rules": "availabilityHub.routes.bookingRules",
   history: "availabilityHub.routes.history",
-  "availability/map": "layout.routes.setup",
 } as const;
 
 /** The label for a route segment: under its parent first, then by itself, then as an id (or not found at the top level). */
@@ -104,7 +104,7 @@ function routeLabel(t: TFunction, segment: string, parent?: string): string {
 /** The search-hint key cap; a key name, not translatable text. */
 const SEARCH_KEY = "K";
 
-/** Operational pages that should redirect to the Availability map when not yet ready */
+/** Operational pages that should redirect to the Availability hub when not yet ready */
 const OPERATIONAL_ONLY_PATHS = ["/timeline", "/reservations", "/guests"];
 
 /**
@@ -176,14 +176,14 @@ function DashboardLayoutInner() {
         (p) => path === p || path.startsWith(p + "/")
       );
       if (isOperationalPage) {
-        // The map shows the launch steps to a venue whose readiness is `setup`.
-        navigate(availabilityPath({ view: "map" }), { replace: true });
+        // The hub shows the launch steps to a venue whose readiness is `setup`.
+        navigate(availabilityPath({ view: "hub" }), { replace: true });
       }
       return;
     }
 
     if (readiness.status === "operational") {
-      // The Availability map is a standing page for every venue: only the root bounces.
+      // Availability is a standing page for every venue: only the root bounces.
       if (path === "/" || path === "") {
         navigate("/timeline", { replace: true });
       }

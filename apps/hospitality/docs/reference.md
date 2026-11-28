@@ -33,7 +33,7 @@ Build-time env vars (set in CI and `.env`):
 | MenusPage             | `/menus`, `/menus/:menuId` | Menu list; menu editor (sections, dishes, sold-out toggle) |
 | BookingWidgetDemoPage | `/booking-widget`          | Embeddable booking widget preview                          |
 | VenueOnboardingPage   | `/onboarding`              | Multi-step venue setup wizard                              |
-| AvailabilityMapPage   | `/availability/map`        | What decides when guests can book (`/setup` redirects)     |
+| AvailabilityHubPage   | `/availability`            | Availability rules; `/availability/map`, `/setup` redirect |
 | ProfilePage           | `/profile`                 | User profile                                               |
 | SettingsPage          | `/settings`                | App settings                                               |
 | AdminPage             | `/admin`                   | Admin panel                                                |

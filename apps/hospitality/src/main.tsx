@@ -131,9 +131,6 @@ const VenueOnboardingPage = lazy(() =>
     default: m.VenueOnboardingPage,
   }))
 );
-const AvailabilityMapPage = lazy(() =>
-  import("./pages/AvailabilityMapPage.js").then((m) => ({ default: m.AvailabilityMapPage }))
-);
 const PublicBookingPage = lazy(() =>
   import("./pages/PublicBookingPage.js").then((m) => ({
     default: m.PublicBookingPage,
@@ -200,7 +197,7 @@ if (legacyPath !== null) {
  *
  * Index route: TimelinePage (was HomePage/Dashboard).
  * Dashboard moves to /dashboard.
- * The Availability map: /availability/map. (/setup redirects to it; /setup/hours to /availability.)
+ * /availability/map and /setup redirect to the Availability hub; /setup/hours to /availability.
  */
 const router = createBrowserRouter(
   [
@@ -287,7 +284,7 @@ const router = createBrowserRouter(
           children: [
             {
               // Index: Timeline is the default landing page in operational mode.
-              // DashboardLayout redirects to the Availability map for new venues or /timeline for operational ones.
+              // DashboardLayout redirects to the Availability hub for new venues or /timeline for operational ones.
               index: true,
               element: (
                 <Suspense fallback={<LoadingPage />}>
@@ -475,13 +472,9 @@ const router = createBrowserRouter(
                   ),
                 },
                 {
-                  // What decides when guests can book: schedules down to tables (#8864).
+                  // The retired Availability map (#10032): old links land on the hub.
                   path: "map",
-                  element: (
-                    <Suspense fallback={<LoadingPage />}>
-                      <AvailabilityMapPage />
-                    </Suspense>
-                  ),
+                  element: <Navigate to={availabilityPath({ view: "hub" })} replace />,
                 },
               ],
             },
@@ -553,7 +546,7 @@ const router = createBrowserRouter(
               ),
             },
             {
-              // Venue Setup became the Availability map (#8864).
+              // Venue Setup became the Availability map (#8864), retired into the hub (#10032).
               path: "setup",
               element: <SetupRedirect />,
             },

@@ -1,8 +1,8 @@
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
 import { Text } from "@mattbutlerengineering/rialto";
-import type { SetupStep, VenueReadiness } from "../../hooks/useVenueReadiness.js";
-import styles from "./VenueSetup.module.css";
+import type { SetupStep, VenueReadiness } from "../../../hooks/useVenueReadiness.js";
+import styles from "./SetupProgressStrip.module.css";
 
 const STEPS: readonly { readonly id: SetupStep }[] = [
   { id: "onboarding" },
@@ -15,8 +15,8 @@ export interface SetupProgressStripProps {
 }
 
 /**
- * Before launch, a Manager's three launch steps and where they stand. Status is text, not colour
- * alone. The first unset step's button is on the tree below (it is the primary action there).
+ * Before launch, a Manager's three launch steps and where they stand, at the top of the hub.
+ * Status is text, not colour alone.
  */
 export function SetupProgressStrip({ readiness }: SetupProgressStripProps) {
   const { t } = useTranslation();

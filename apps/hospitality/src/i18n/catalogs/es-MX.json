@@ -375,7 +375,6 @@
       "waitlist": "Lista de espera",
       "guests": "Clientes",
       "dashboard": "Panel",
-      "venueSetup": "Mapa de disponibilidad",
       "bookingWidget": "Widget de reservas",
       "signOut": "Cerrar sesión",
       "chat": "Chat",
@@ -403,7 +402,6 @@
       "settings": "Configuración",
       "admin": "Administración",
       "dashboard": "Panel",
-      "setup": "Mapa de disponibilidad",
       "hours": "Disponibilidad",
       "menus": "Menús",
       "availability": "Disponibilidad",
@@ -2385,7 +2383,6 @@
   "availability": {
     "title": "Disponibilidad",
     "description": "Tu horario, días festivos y cambios puntuales.",
-    "backToSetup": "Mapa de disponibilidad",
     "hostNote": "Solo los gerentes cambian los horarios. Para esta noche, usa el panel Esta noche.",
     "loadError": "No se pudo cargar la disponibilidad",
     "noVenue": "Selecciona un local para ver su disponibilidad.",
@@ -3927,68 +3924,11 @@
   },
   "setup": {
     "hub": {
-      "title": "Mapa de disponibilidad",
-      "description": "Lo que decide cuándo pueden reservar los clientes, de los horarios y servicios hasta las mesas, y cada línea abre el lugar donde lo cambias.",
-      "yourVenue": "tu local",
-      "loading": "Cargando el mapa de disponibilidad",
-      "loadError": "No se pudo cargar el mapa de disponibilidad.",
-      "groupError": "No se pudo cargar «{{group}}».",
-      "groups": {
-        "open": "Cuándo abres",
-        "sit": "Dónde se sientan los clientes"
-      },
-      "notSetUp": "Sin configurar",
-      "hostUnset": "Lo configura un gerente.",
-      "regularWeek": "Semana habitual",
-      "label": {
-        "schedules": "Horarios",
-        "specialDates": "Fechas especiales",
-        "booking": "Reservas",
-        "floorPlan": "Plano de sala",
-        "noSection": "Sin sección"
-      },
-      "caption": {
-        "schedule": "Horario",
-        "service": "Servicio",
-        "section": "Sección",
-        "table": "Mesa",
-        "floorPlan": "Plano de sala"
-      },
       "channelLabel": {
         "online": "Reservas en línea",
         "phone": "Reservas por teléfono",
         "waitlist": "Lista de espera"
       },
-      "channel": {
-        "online": "En línea",
-        "phone": "Teléfono",
-        "waitlist": "Lista de espera"
-      },
-      "what": {
-        "regularWeek": "Los días y servicios que los clientes pueden reservar.",
-        "schedules": "Semanas con nombre que sigue tu local. La semana habitual es una.",
-        "specialDates": "Cierres y horarios especiales para una fecha o un rango.",
-        "bookingUnset": "Con cuánta anticipación, cuánto aviso y qué tamaño de grupo pueden reservar en línea los clientes; se aplican los valores predeterminados.",
-        "booking": "Cómo reservan los clientes: en línea, por teléfono, en la lista de espera.",
-        "floorPlan": "Dónde están las mesas; sin una mesa, los clientes no pueden reservar."
-      },
-      "count": {
-        "schedules_one": "{{count}} horario",
-        "schedules_many": "{{count}} de horarios",
-        "schedules_other": "{{count}} horarios",
-        "specialDates_one": "{{count}} próxima",
-        "specialDates_many": "{{count}} de próximas",
-        "specialDates_other": "{{count}} próximas",
-        "channel_one": "cerrada en {{count}} fecha próxima",
-        "channel_many": "cerrada en {{count}} de fechas próximas",
-        "channel_other": "cerrada en {{count}} fechas próximas"
-      },
-      "open": "Abierto {{days}}",
-      "period": "{{range}}, {{days}}",
-      "until": "Hasta el {{date}}",
-      "from": "Desde el {{date}}",
-      "range": "{{from}} – {{to}}",
-      "serviceLine": "{{hours}} · {{days}}",
       "rules": {
         "daysAhead_one": "Hasta {{count}} día de anticipación",
         "daysAhead_many": "Hasta {{count}} de días de anticipación",
@@ -3999,38 +3939,6 @@
         "largestParty_one": "grupos de hasta {{count}} en línea",
         "largestParty_many": "grupos de hasta {{count}} en línea",
         "largestParty_other": "grupos de hasta {{count}} en línea"
-      },
-      "closedRow": "{{target}}: cerrado",
-      "specialHoursRow": "{{target}}: horario especial",
-      "target": {
-        "venue": "Todo el local",
-        "service": "Un servicio",
-        "section": "Una sección",
-        "tables_one": "{{count}} mesa",
-        "tables_many": "{{count}} de mesas",
-        "tables_other": "{{count}} mesas"
-      },
-      "sections_one": "{{count}} sección",
-      "sections_many": "{{count}} de secciones",
-      "sections_other": "{{count}} secciones",
-      "tables_one": "{{count}} mesa",
-      "tables_many": "{{count}} de mesas",
-      "tables_other": "{{count}} mesas",
-      "seats_one": "{{count}} lugar",
-      "seats_many": "{{count}} de lugares",
-      "seats_other": "{{count}} lugares",
-      "floorPlanHint": "Las secciones y las mesas aparecen aquí cuando agregas un plano de sala",
-      "actions": {
-        "setUpRegularWeek": "Configurar la semana habitual",
-        "changeRegularWeek": "Cambiar la semana habitual…",
-        "editSchedule": "Editar",
-        "createSchedule": "Agregar un horario…",
-        "openSpecialDates": "Abrir Fechas especiales",
-        "bookingRules": "Reglas de reserva…",
-        "openFloorPlan": "Abrir el plano de sala",
-        "addFloorPlan": "Agregar plano de sala",
-        "closeSection": "Cerrar en una fecha…",
-        "moveToSection": "Pasar a una sección"
       },
       "strip": {
         "title": "Avance del lanzamiento",
@@ -4213,8 +4121,7 @@
     },
     "venue": {
       "title": "Local",
-      "description": "Administra los días y horarios en que tu local acepta reservas.",
-      "venueSetup": "Mapa de disponibilidad"
+      "description": "Administra los días y horarios en que tu local acepta reservas."
     },
     "team": {
       "title": "Equipo",

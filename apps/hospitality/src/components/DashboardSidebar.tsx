@@ -75,8 +75,8 @@ export interface DashboardSidebarProps {
 
 /* ── Component ───────────────────────────────── */
 
-/** The items the Availability rail can nest under, first match wins. */
-const SUBNAV_HOSTS = ["availability", "setup"] as const;
+/** The item the Availability rail nests under, in both readiness states. */
+const SUBNAV_HOSTS = ["availability"] as const;
 
 export function DashboardSidebar({
   sections,
@@ -89,8 +89,7 @@ export function DashboardSidebar({
 }: DashboardSidebarProps) {
   const { t } = useTranslation();
   const [collapsed, setCollapsed] = useState<Set<string>>(loadCollapsed);
-  // The Availability rail nests under the Availability item; before launch the map's item is the
-  // only one (#9944).
+  // The Availability rail nests under the Availability item (#9944).
   const subnav = useSubnavSlot();
   const itemIds = sections.flatMap((section) => section.items.map((item) => item.id));
   const subnavHost = SUBNAV_HOSTS.find((id) => itemIds.includes(id)) ?? null;
@@ -183,8 +182,8 @@ export function DashboardSidebar({
     [onAction, onMobileClose]
   );
 
-  // The longest item path that holds the active path: on /availability/map the map's item is
-  // current, not Availability's as well.
+  // The longest item path that holds the active path: when one item's path holds another's, only
+  // the more specific item is current.
   const activeItemPath = useMemo(
     () =>
       sections
