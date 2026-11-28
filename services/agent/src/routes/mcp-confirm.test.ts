@@ -2,6 +2,16 @@ import { describe, it, expect } from "vitest";
 import { canonicalJson, signConfirm, verifyConfirm, CONFIRM_TTL_MS } from "./mcp-confirm.js";
 
 const TOKEN = "mbe_pat_secret-one";
+
+/**
+ * A signature that decodes to different bytes than `sig` (#10114). It flips the FIRST
+ * character: a fixed replacement is a no-op when the signature already holds it (1 run in 1024
+ * for "AA"), and the last character carries only 4 data bits plus 2 padding bits, so flipping it
+ * can decode to identical bytes.
+ */
+const tamperSignature = (sig: string): string =>
+  `${sig.startsWith("A") ? "B" : "A"}${sig.slice(1)}`;
+
 const NOW = 1_800_000_000_000;
 const claims = {
   tool: "pause_tables",
@@ -69,10 +79,26 @@ describe("confirm token", () => {
     ).toString("base64url");
     expect(verifyConfirm(TOKEN, `${forged}.${sig}`, "pause_tables", "v1", NOW).ok).toBe(false);
     expect(
-      verifyConfirm(TOKEN, `${payload}.${sig.slice(0, -2)}AA`, "pause_tables", "v1", NOW).ok
+      verifyConfirm(TOKEN, `${payload}.${tamperSignature(sig)}`, "pause_tables", "v1", NOW).ok
     ).toBe(false);
     expect(verifyConfirm(TOKEN, `${payload}.`, "pause_tables", "v1", NOW).ok).toBe(false);
     expect(verifyConfirm(TOKEN, "garbage", "pause_tables", "v1", NOW).ok).toBe(false);
+  });
+
+  it("tampers every signature shape into different bytes, including one already ending in AA (#10114)", () => {
+    // 43-char base64url HMAC-SHA256 signatures: the last character carries only 4 data bits,
+    // so a mutation confined to it (or to its padding bits) can decode to the same bytes.
+    const shapes = [
+      `${"x".repeat(41)}AA`,
+      `A${"x".repeat(40)}AA`,
+      `B${"x".repeat(41)}A`,
+      `${"x".repeat(42)}B`,
+    ];
+    for (const sig of shapes) {
+      expect(Buffer.from(tamperSignature(sig), "base64url")).not.toEqual(
+        Buffer.from(sig, "base64url")
+      );
+    }
   });
 
   it("refuses a token for another tool or venue", () => {
