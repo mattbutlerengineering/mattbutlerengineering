@@ -5,6 +5,16 @@ vi.mock("./services/database.js", async () => {
   return createMockDatabaseService();
 });
 
+// The MCP route's own 503 check (below) only needs `venues.list` to reject; a
+// real unreachable-host call rejects just as fast, but api-client's default
+// retry (3 attempts, exponential backoff) adds ~7s of real sleeps between
+// attempts first.
+vi.mock("@mbe/api-client", () => ({
+  createApiClient: () => ({
+    venues: { list: vi.fn().mockRejectedValue(new TypeError("fetch failed")) },
+  }),
+}));
+
 import { buildApp } from "./app.js";
 import { db } from "./services/database.js";
 
@@ -50,5 +60,5 @@ describe("App factory", () => {
     const mcp = await app.inject({ method: "POST", url: "/api/gen/mcp", headers, payload: {} });
     expect(mcp.statusCode).not.toBe(401);
     await app.close();
-  }, 30000);
+  });
 });
