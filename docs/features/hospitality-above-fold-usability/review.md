@@ -166,8 +166,10 @@ calc(-1 * var(--rialto-space-lg))` cancels `.content`'s top padding, so the bar
   DashboardLayout's `.content`, which already pads by `lg`.
 - Scenario: at 1280×720, Floor Plans starts its content at 235.1px, against
   187–211 for the other routes (audit.md FINAL). Its title is inset 24px further
-  on both axes than every other page (baseline `floor-plans-1280x720.png`:
-  title at x≈288 vs 264). This is the same wasted-spend class #6367 targets.
+  on both axes than every other page (baseline `floor-plans-1280x720.png`,
+  replaced by `availability-floor-plans-1280x720.png` when the route moved in
+  #10197: title at x≈288 vs 264). This is the same wasted-spend class #6367
+  targets.
   The architecture's "convicted pages only" rule (≥ 720px) correctly left it
   alone, yet #6705 tightened Timeline, which was not convicted either. The rule
   was applied inconsistently, and that inconsistency is recorded in
