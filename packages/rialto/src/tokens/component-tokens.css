@@ -42,7 +42,7 @@
   /* Destructive Button */
   --rialto-button-destructive-bg: var(--rialto-error);
   --rialto-button-destructive-bg-hover: #c85a50;
-  --rialto-button-destructive-text: var(--rialto-text-on-accent);
+  --rialto-button-destructive-text: var(--rialto-text-on-error);
   --rialto-button-destructive-border: transparent;
 
   /* Button Sizes */
@@ -133,9 +133,9 @@
   --rialto-card-sheen: white;
 
   /* Glass */
-  --rialto-card-glass-bg: rgb(253 252 250 / 0.7);
+  --rialto-card-glass-bg: var(--rialto-surface-elevated);
   --rialto-card-glass-border: rgb(255 255 255 / 0.15);
-  --rialto-card-glass-backdrop: blur(20px);
+  --rialto-card-glass-backdrop: none;
 
   /* Flat */
   --rialto-card-flat-bg: var(--rialto-surface);
@@ -180,7 +180,7 @@
   --rialto-badge-warning-bg: var(--rialto-warning);
   --rialto-badge-warning-text: var(--rialto-text-on-accent);
   --rialto-badge-error-bg: var(--rialto-error);
-  --rialto-badge-error-text: var(--rialto-text-on-accent);
+  --rialto-badge-error-text: var(--rialto-text-on-error);
 
   /* ═══════════════════════════════════════════════════════════════════════════
    * TOAST / NOTIFICATION

@@ -56,6 +56,7 @@ describe("queue worker spend attribution (#5885)", () => {
     // DEFAULT_ROOT), so copying both modules makes the unmodified snippet
     // write into this temp root instead of the real repo.
     mkdirSync(join(root, "scripts"));
+    mkdirSync(join(root, ".metrics-data"));
     for (const f of ["queue-telemetry-store.mjs", "metrics-store.mjs"]) {
       copyFileSync(join(REPO_ROOT, "scripts", f), join(root, "scripts", f));
     }
@@ -74,7 +75,7 @@ describe("queue worker spend attribution (#5885)", () => {
       ["--input-type=module", "-e", [...imports, ORCHESTRATOR_SCOPE, body].join("\n")],
       { cwd: root, stdio: "pipe" }
     );
-    expect(existsSync(join(root, "metrics", "queue-telemetry.jsonl"))).toBe(true);
+    expect(existsSync(join(root, ".metrics-data", "queue-telemetry.jsonl"))).toBe(true);
 
     const sensor = SENSORS.find((s) => s.id === "agentCost");
     const data = sensor.collect({ root, now: new Date() });

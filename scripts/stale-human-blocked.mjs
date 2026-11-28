@@ -55,7 +55,7 @@ export const READY_FOR_HUMAN_TRANSITION = Object.freeze({
 export const STALE_METRICS_KEY = "stale-human-blocked";
 
 /** Where each run records what it measured, one JSON object per line. */
-export const STALE_METRICS_PATH = "metrics/stale-human-blocked.jsonl";
+export const STALE_METRICS_PATH = "stale-human-blocked.jsonl (metrics-data branch)";
 
 /**
  * Timeline event types that are label writes and nothing else. A run of this

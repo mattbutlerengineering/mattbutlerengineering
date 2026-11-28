@@ -47,9 +47,9 @@ describe("hospitality adapter", () => {
   const rows = extractApp("hospitality", io);
   const byRoute = Object.fromEntries(rows.map((r) => [r.route, r]));
 
-  it("yields 35 route templates (33 leaf paths + 3 index routes, one of which shares `onboarding`)", () => {
-    expect(rows).toHaveLength(35);
-    expect(new Set(rows.map((r) => r.route)).size).toBe(35);
+  it("yields 38 route templates (36 leaf paths + 3 index routes, one of which shares `onboarding`)", () => {
+    expect(rows).toHaveLength(38);
+    expect(new Set(rows.map((r) => r.route)).size).toBe(38);
   });
 
   it("reads the closing summary at `night` (#9483)", () => {
@@ -95,12 +95,17 @@ describe("hospitality adapter", () => {
       "apps/hospitality/src/pages/AvailabilitySeasonalListPage.tsx",
       "apps/hospitality/src/main.tsx",
     ]);
-    // The Availability map, Venue Setup before #8864.
-    expect(byRoute["availability/map"].kind).toBe("page");
-    expect(byRoute["availability/map"].source_files).toEqual([
-      "apps/hospitality/src/pages/AvailabilityMapPage.tsx",
-      "apps/hospitality/src/main.tsx",
-    ]);
+    // The Seasonal hours editor, `new` (with `?copy=`) and `:scheduleId`, behind the same guard (E4.6).
+    for (const route of ["availability/seasonal/new", "availability/seasonal/:scheduleId"]) {
+      expect(byRoute[route].kind).toBe("page");
+      expect(byRoute[route].source_files).toEqual([
+        "apps/hospitality/src/components/RequireManager.tsx",
+        "apps/hospitality/src/pages/AvailabilitySeasonalEditorPage.tsx",
+        "apps/hospitality/src/main.tsx",
+      ]);
+    }
+    // The Availability map is retired (#10032); the old path redirects to the hub.
+    expect(byRoute["availability/map"].kind).toBe("redirect");
   });
 
   it("marks the two routes outside <App /> public and everything under it auth0", () => {
@@ -108,17 +113,18 @@ describe("hospitality adapter", () => {
     expect(byRoute["reservations/manage"].auth).toBe("public");
     expect(byRoute["timeline"].auth).toBe("auth0");
     expect(byRoute["/"].auth).toBe("auth0");
-    expect(rows.filter((r) => r.auth === "auth0")).toHaveLength(30);
+    expect(rows.filter((r) => r.auth === "auth0")).toHaveLength(33);
   });
 
   it("classifies callback as a redirect and * as not-found", () => {
     expect(byRoute["callback"].kind).toBe("redirect");
     expect(byRoute["*"].kind).toBe("not-found");
     expect(byRoute["timeline"].kind).toBe("page");
-    expect(rows.filter((r) => r.kind === "page")).toHaveLength(31);
+    // 33 since the Availability map became a redirect (#10032).
+    expect(rows.filter((r) => r.kind === "page")).toHaveLength(33);
     // /setup/hours moved to the Availability page (#7513); the old path stays as a <Navigate>.
     expect(byRoute["setup/hours"].kind).toBe("redirect");
-    // /setup moved to the Availability map (#8864); the old path stays as a redirect.
+    // /setup moved to the Availability map (#8864), then the hub (#10032); it stays a redirect.
     expect(byRoute["setup"].kind).toBe("redirect");
   });
 
@@ -214,7 +220,7 @@ describe("rialto-web adapter", () => {
     expect(byRoute["examples/invoice"]).toBeDefined(); // no prefix to strip
   });
 
-  it("carries the tree literals, visual-test included, and * as a redirect", () => {
+  it("carries the tree literals, visual-test included, and * as not-found", () => {
     for (const route of [
       "/",
       "privacy",
@@ -229,7 +235,7 @@ describe("rialto-web adapter", () => {
       expect(byRoute[route], route).toBeDefined();
     }
     expect(byRoute["demos"].kind).toBe("page"); // index route (DemosIndexPage) is a routed page, not a redirect
-    expect(byRoute["*"].kind).toBe("redirect");
+    expect(byRoute["*"].kind).toBe("not-found");
     expect(rows.filter((r) => r.kind === "page")).toHaveLength(rows.length - 1);
     expect(rows.every((r) => r.auth === "public")).toBe(true);
   });
@@ -261,7 +267,7 @@ describe("routes.mjs all", () => {
       .trimEnd()
       .split("\n")
       .map((l) => JSON.parse(l));
-    expect(rows).toHaveLength(35 + 12 + 134);
+    expect(rows).toHaveLength(38 + 12 + 134);
     const keys = rows.map((r) => `${r.app}\u0000${r.route}`);
     expect(keys).toEqual([...keys].sort());
     expect([...new Set(rows.map((r) => r.app))]).toEqual([

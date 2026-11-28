@@ -14,8 +14,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolveDataFile } from "../../../scripts/metrics-store.mjs";
 
-export const COLD_START_PATH = "metrics/acmm-cold-start.json";
-
 /**
  * @typedef {Object} ColdStartRecord
  * @property {string} ts                 ISO timestamp of measurement

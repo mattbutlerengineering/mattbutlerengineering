@@ -14,6 +14,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { REPO_AUDIT_CHECKS, runAllChecks, formatSummary, exitCodeFor } from "../run-repo-audit.mjs";
 import { BLOCKED_EXIT_CODES } from "../check-rialto-changeset.mjs";
+import { UNVERIFIED_EXIT_CODES } from "../check-ready-label-exclusive.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
@@ -144,6 +145,69 @@ describe("blocked checks", () => {
   });
 });
 
+// ── UNVERIFIED (#9922): a check that could not reach its input is not a pass ──
+// `check-ready-label-exclusive` reads live GitHub state and used to exit 0 when
+// `gh` could not answer, so the summary printed `PASS` for a gate that never
+// ran — the normal outcome in CCR sessions (GraphQL blocked) and in CI's Build
+// job (no token). UNVERIFIED is a third outcome: not a pass, not a violation.
+describe("unverified checks", () => {
+  const UNVERIFIED = { 13: "gh unreachable — exclusivity not verified" };
+  const verifiable = {
+    name: "alpha",
+    command: "node",
+    args: ["alpha.mjs"],
+    unverified: UNVERIFIED,
+  };
+
+  it("maps a declared unverified exit code to UNVERIFIED, not a pass", () => {
+    const [result] = runAllChecks([verifiable], () => ({ ok: false, detail: "exit 13" }));
+
+    expect(result).toEqual({
+      name: "alpha",
+      ok: true,
+      unverified: true,
+      detail: "gh unreachable — exclusivity not verified",
+    });
+  });
+
+  it("leaves an undeclared exit code as a plain failure", () => {
+    const [result] = runAllChecks([verifiable], () => ({ ok: false, detail: "exit 1" }));
+
+    expect(result).toEqual({ name: "alpha", ok: false, detail: "exit 1" });
+  });
+
+  it("labels it UNVERIFIED and never PASS, without reddening the run", () => {
+    const results = [
+      { name: "alpha", ok: true, unverified: true, detail: "gh unreachable" },
+      { name: "beta", ok: true, detail: "" },
+    ];
+    const summary = formatSummary(results);
+
+    expect(summary).toContain("UNVERIFIED  alpha (gh unreachable)");
+    expect(summary).not.toContain("PASS  alpha");
+    expect(summary.split("\n").at(-1)).toBe("1 of 2 checks verified: 1 unverified (alpha)");
+    expect(exitCodeFor(results)).toBe(0);
+  });
+
+  it("names the unverified check alongside real failures rather than masking them", () => {
+    const results = [
+      { name: "alpha", ok: true, unverified: true, detail: "gh unreachable" },
+      { name: "beta", ok: false, detail: "exit 1" },
+    ];
+
+    expect(formatSummary(results).split("\n").at(-1)).toBe(
+      "1 of 2 checks failed: beta; 1 unverified (alpha)"
+    );
+    expect(exitCodeFor(results)).toBe(1);
+  });
+
+  it("wires check-ready-label-exclusive's unverified code into the audit", () => {
+    const check = REPO_AUDIT_CHECKS.find((c) => c.name === "check-ready-label-exclusive");
+
+    expect(check.unverified?.[UNVERIFIED_EXIT_CODES["github-unreachable"]]).toBeTruthy();
+  });
+});
+
 // ── Wiring invariant (#4628, repointed by #5465) ─────────────────────────
 // The check list moved out of package.json's `&&` chain into REPO_AUDIT_CHECKS.
 // That array is now the source of truth for "is this check wired up?".
@@ -186,7 +250,6 @@ describe("REPO_AUDIT_CHECKS is the audit's source of truth", () => {
       "check-changeset-tree",
       "check-claude-md-table-drift",
       "check-ci-gate-coverage",
-      "check-queue-telemetry-dupes",
       "check-workflow-pr-scope",
       "check-ready-label-exclusive",
       "check-memory-refs",
@@ -195,6 +258,44 @@ describe("REPO_AUDIT_CHECKS is the audit's source of truth", () => {
       "boundaries",
       "check-boundaries-coverage",
     ]);
+  });
+
+  // ci.yml and `pnpm pre-commit:full` run these without a `.metrics-data/`
+  // checkout, and metrics-store throws without one (#9815). A check that needs
+  // telemetry belongs in a workflow that pulls the data branch.
+  it("has no check that reaches the metrics-data branch through its imports", () => {
+    const DATA_MODULES = new Set([
+      "metrics-store.mjs",
+      "queue-telemetry-store.mjs",
+      "metrics-data.mjs",
+    ]);
+    const scriptsDir = join(dirname(fileURLToPath(import.meta.url)), "..");
+    const reaches = (file, seen = new Set()) => {
+      if (seen.has(file)) return [];
+      seen.add(file);
+      let source;
+      try {
+        source = readFileSync(file, "utf-8");
+      } catch {
+        return [];
+      }
+      const hits = [];
+      for (const [, spec] of source.matchAll(/from\s+"(\.{1,2}\/[^"]+)"/g)) {
+        const target = join(dirname(file), spec);
+        if (DATA_MODULES.has(spec.split("/").pop())) hits.push(`${file} -> ${spec}`);
+        else hits.push(...reaches(target, seen));
+      }
+      return hits;
+    };
+
+    const offenders = REPO_AUDIT_CHECKS.flatMap((check) =>
+      check.args
+        .filter((arg) => arg.startsWith("scripts/"))
+        .flatMap((arg) => reaches(join(scriptsDir, "..", arg)))
+    );
+
+    expect(offenders).toEqual([]);
+    expect(REPO_AUDIT_CHECKS.map((c) => c.name)).not.toContain("check-queue-telemetry-dupes");
   });
 
   it("keeps `pnpm audit` outside the runner (#4993)", () => {

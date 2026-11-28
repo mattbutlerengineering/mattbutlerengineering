@@ -13,13 +13,15 @@ const CI_WORKFLOW = readFileSync(resolve(ROOT, ".github/workflows/ci.yml"), "utf
 /** Build a `toJSON(needs)`-shaped object: every job `success` unless overridden. */
 function needs({ hasCode = "true", results = {} } = {}) {
   const base = {
-    "detect-changes": { result: "success", outputs: { has_code: hasCode } },
-    prepare: { result: "success", outputs: {} },
-    lint: { result: "success", outputs: {} },
-    typecheck: { result: "success", outputs: {} },
+    prepare: { result: "success", outputs: { has_code: hasCode } },
+    "static-checks": { result: "success", outputs: {} },
+    "repo-checks": { result: "success", outputs: {} },
     build: { result: "success", outputs: {} },
     test: { result: "success", outputs: {} },
+    migrations: { result: "success", outputs: {} },
+    "rls-integration": { result: "success", outputs: {} },
     "a11y-attribution": { result: "skipped", outputs: {} },
+    "docs-format": { result: "skipped", outputs: {} },
   };
   return Object.fromEntries(
     Object.entries(base).map(([job, value]) => [
@@ -40,7 +42,9 @@ describe("evaluateRequiredResults", () => {
 
   it("fails on failure and cancelled", () => {
     expect(evaluateRequiredResults(needs({ results: { test: "failure" } })).ok).toBe(false);
-    expect(evaluateRequiredResults(needs({ results: { lint: "cancelled" } })).ok).toBe(false);
+    expect(evaluateRequiredResults(needs({ results: { "static-checks": "cancelled" } })).ok).toBe(
+      false
+    );
   });
 
   it("fails on abandoned (PR #6077 run 37363956419 attempt 2)", () => {
@@ -48,8 +52,7 @@ describe("evaluateRequiredResults", () => {
       needs({
         results: {
           prepare: "abandoned",
-          lint: "skipped",
-          typecheck: "skipped",
+          "static-checks": "skipped",
           build: "skipped",
           test: "skipped",
         },
@@ -78,40 +81,61 @@ describe("evaluateRequiredResults", () => {
     }
   });
 
-  it("fails when detect-changes or prepare is missing from needs", () => {
+  it("fails when prepare is missing from needs", () => {
     const { prepare: _p, ...noPrepare } = needs();
-    const { "detect-changes": _d, ...noDetect } = needs();
     expect(evaluateRequiredResults(noPrepare).ok).toBe(false);
-    expect(evaluateRequiredResults(noDetect).ok).toBe(false);
   });
 
-  it("fails when detect-changes was skipped (it has no if:, so it must succeed)", () => {
-    expect(evaluateRequiredResults(needs({ results: { "detect-changes": "skipped" } })).ok).toBe(
-      false
-    );
-  });
-
-  it("fails when has_code is true but prepare skipped", () => {
-    const verdict = evaluateRequiredResults(
-      needs({
-        hasCode: "true",
-        results: { prepare: "skipped", lint: "skipped", build: "skipped", test: "skipped" },
-      })
-    );
-    expect(verdict.ok).toBe(false);
-    expect(verdict.errors.join("\n")).toMatch(/has_code/);
-  });
-
-  it("passes a docs-only change (has_code false, prepare and build chain skipped)", () => {
+  it("fails when prepare was skipped (it has no if:, so it must succeed)", () => {
+    // #10064: prepare is the root of the chain now (detect-changes folded in).
+    // A skipped root cascades `skipped` to every leaf, which would otherwise
+    // read as a legitimate docs-only run.
     const verdict = evaluateRequiredResults(
       needs({
         hasCode: "false",
         results: {
           prepare: "skipped",
-          lint: "skipped",
-          typecheck: "skipped",
+          "static-checks": "skipped",
+          "repo-checks": "skipped",
           build: "skipped",
           test: "skipped",
+          migrations: "skipped",
+          "rls-integration": "skipped",
+        },
+      })
+    );
+    expect(verdict.ok).toBe(false);
+    expect(verdict.errors.join("\n")).toMatch(/prepare must succeed/);
+  });
+
+  it.each(["static-checks", "repo-checks", "build", "test", "migrations", "rls-integration"])(
+    "fails when has_code is true but %s skipped (a leaf if: cannot quietly skip a check)",
+    (job) => {
+      const verdict = evaluateRequiredResults(
+        needs({ hasCode: "true", results: { [job]: "skipped" } })
+      );
+      expect(verdict.ok).toBe(false);
+      expect(verdict.errors.join("\n")).toMatch(new RegExp(`has_code is "true" so ${job}`));
+    }
+  );
+
+  it("fails when has_code is true and a build-chain job is missing from needs", () => {
+    const { build: _b, ...noBuild } = needs({ hasCode: "true" });
+    expect(evaluateRequiredResults(noBuild).ok).toBe(false);
+  });
+
+  it("passes a docs-only change (has_code false, build chain skipped)", () => {
+    const verdict = evaluateRequiredResults(
+      needs({
+        hasCode: "false",
+        results: {
+          "static-checks": "skipped",
+          "repo-checks": "skipped",
+          build: "skipped",
+          test: "skipped",
+          migrations: "skipped",
+          "rls-integration": "skipped",
+          "docs-format": "success",
         },
       })
     );
@@ -121,7 +145,7 @@ describe("evaluateRequiredResults", () => {
   it("fails when has_code is neither true nor false", () => {
     expect(evaluateRequiredResults(needs({ hasCode: "" })).ok).toBe(false);
     const n = needs();
-    const noOutput = { ...n, "detect-changes": { result: "success", outputs: {} } };
+    const noOutput = { ...n, prepare: { result: "success", outputs: {} } };
     expect(evaluateRequiredResults(noOutput).ok).toBe(false);
   });
 });

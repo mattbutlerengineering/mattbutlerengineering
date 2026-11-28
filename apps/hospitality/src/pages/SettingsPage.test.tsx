@@ -288,14 +288,15 @@ describe("SettingsPage", () => {
     });
   });
 
-  it("navigates to the Availability map when it is clicked", async () => {
+  it("navigates to the Availability hub when it is clicked", async () => {
     renderPage();
     await waitFor(() => {
       expect(screen.getByText("Venue")).toBeDefined();
     });
 
-    fireEvent.click(screen.getByText("Availability map"));
-    expect(mockNavigate).toHaveBeenCalledWith("/availability/map");
+    expect(screen.queryByText("Availability map")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Availability" }));
+    expect(mockNavigate).toHaveBeenCalledWith("/availability");
   });
 
   it("links to the Friday-night rehearsal from the venue card", async () => {

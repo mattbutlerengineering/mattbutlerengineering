@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { Button, Input, Alert, Text, Heading } from "@mattbutlerengineering/rialto";
 import { describeApiError } from "../../lib/describe-api-error.js";
 import { useTranslation } from "react-i18next";
@@ -45,20 +45,35 @@ export function WaitlistJoinView({
   const format = useVenueFormat({ ianaTimezone: "", currencyCode: "USD" });
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+  const nameRef = useRef<HTMLInputElement>(null);
+  const phoneRef = useRef<HTMLInputElement>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const isFormValid = name.trim().length > 0 && phone.trim().length > 0;
+  // Errors show only after a submit attempt, then track the fields live.
+  const nameError =
+    submitAttempted && name.trim().length === 0 ? t("bookingWidget.waitlist.nameRequired") : null;
+  const phoneError = !submitAttempted
+    ? null
+    : phone.trim().length === 0
+      ? t("bookingWidget.waitlist.phoneRequired")
+      : !isValidPhone(phone)
+        ? t("bookingWidget.waitlist.invalidPhone")
+        : null;
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
-      setPhoneError(null);
+      setSubmitAttempted(true);
       setSubmitError(null);
 
+      if (name.trim().length === 0) {
+        nameRef.current?.focus();
+        return;
+      }
       if (!isValidPhone(phone)) {
-        setPhoneError(t("bookingWidget.waitlist.invalidPhone"));
+        phoneRef.current?.focus();
         return;
       }
 
@@ -91,7 +106,7 @@ export function WaitlistJoinView({
       </div>
 
       <div className={styles.noAvailability}>
-        <Heading className={styles.noAvailabilityHeading}>
+        <Heading level={3} size={5} className={styles.noAvailabilityHeading}>
           {t("bookingWidget.waitlist.noTablesHeading")}
         </Heading>
         <Text className={styles.noAvailabilityDetail}>
@@ -110,26 +125,31 @@ export function WaitlistJoinView({
         <Text className={styles.formHeading}>{t("bookingWidget.waitlist.joinPrompt")}</Text>
 
         <Input
+          ref={nameRef}
           label={t("bookingWidget.waitlist.name")}
+          required
+          error={Boolean(nameError)}
+          hint={nameError ?? undefined}
           value={name}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
           placeholder={t("bookingWidget.waitlist.namePlaceholder")}
+          autoComplete="name"
         />
 
         <Input
+          ref={phoneRef}
           label={t("bookingWidget.waitlist.phone")}
+          required
           type="tel"
+          autoComplete="tel"
           value={phone}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-            setPhone(e.target.value);
-            setPhoneError(null);
-          }}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPhone(e.target.value)}
           placeholder="+1 (555) 123-4567"
           error={Boolean(phoneError)}
           hint={phoneError ?? t("bookingWidget.waitlist.phoneHint")}
         />
 
-        <Button variant="primary" type="submit" disabled={!isFormValid || isLoading}>
+        <Button variant="primary" type="submit" disabled={isLoading}>
           {isLoading ? t("bookingWidget.waitlist.joining") : t("bookingWidget.waitlist.join")}
         </Button>
       </form>

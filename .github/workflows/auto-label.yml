@@ -29,6 +29,8 @@ jobs:
       ISSUE_NUMBER: ${{ github.event.issue.number }}
       ISSUE_TITLE: ${{ github.event.issue.title }}
       ISSUE_BODY: ${{ github.event.issue.body }}
+      # The labels the issue carries now, so the audit rule can skip a claimed one (#9895).
+      ISSUE_LABELS: ${{ toJSON(github.event.issue.labels.*.name) }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       # This job has no `actions/checkout`, so there is no `.git` for `gh` to
       # read the target repository from. Without this, every `gh` call below
@@ -82,8 +84,13 @@ jobs:
           if (/\binfrastructure\/pulumi\b/i.test(text)) labels.add('area:infra');
 
           // Mark issues opened by audits (title pattern only) as ready by default
-          // so mbe-issue-worker can pick them up without further triage.
-          if (labels.has('audit') || labels.has('acmm') || labels.has('ci-fix')) {
+          // so mbe-issue-worker can pick them up without further triage. This
+          // also runs on every edit, so never re-add `ready` to an issue that is
+          // already claimed or held for the Owner (#9895).
+          const existing = new Set(JSON.parse(process.env.ISSUE_LABELS || '[]'));
+          const held = ['in-progress', 'has-pr', 'blocked', 'tracking', 'ready-for-human', 'needs-human'];
+          const isAudit = labels.has('audit') || labels.has('acmm') || labels.has('ci-fix');
+          if (isAudit && !held.some((l) => existing.has(l))) {
             labels.add('ready');
           }
 

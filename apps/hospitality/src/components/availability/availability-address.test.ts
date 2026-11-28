@@ -26,8 +26,9 @@ const MOUNTED: readonly string[] = [
   "/availability/closures",
   "/availability/history",
   "/availability/hours",
-  "/availability/map",
   "/availability/seasonal",
+  "/availability/seasonal/new",
+  "/availability/seasonal/sch-1",
 ];
 const pathOf = (address: string): string => address.split("?")[0] ?? "";
 
@@ -40,18 +41,9 @@ describe("availabilityPath", () => {
     [{ view: "hours", service: "svc-dinner" }, "/availability/hours?service=svc-dinner"],
     [{ view: "seasonal" }, "/availability/seasonal"],
     [{ view: "seasonal", from: "setup" }, "/availability/seasonal?from=setup"],
-    [
-      { view: "seasonal", screen: "new", copy: "sch-1" },
-      "/availability/calendar?tab=schedules&action=addSchedule&copy=sch-1",
-    ],
-    [
-      { view: "seasonal", screen: "new" },
-      "/availability/calendar?tab=schedules&action=addSchedule",
-    ],
-    [
-      { view: "seasonal", screen: "edit", scheduleId: "sch-1" },
-      "/availability/calendar?tab=schedules",
-    ],
+    [{ view: "seasonal", screen: "new", copy: "sch-1" }, "/availability/seasonal/new?copy=sch-1"],
+    [{ view: "seasonal", screen: "new" }, "/availability/seasonal/new"],
+    [{ view: "seasonal", screen: "edit", scheduleId: "sch-1" }, "/availability/seasonal/sch-1"],
     [{ view: "seasonal", screen: "compare" }, "/availability/calendar?tab=schedules"],
     [{ view: "specialDates" }, "/availability/calendar?tab=special"],
     [{ view: "closures" }, "/availability/closures"],
@@ -63,7 +55,8 @@ describe("availabilityPath", () => {
     ],
     [{ view: "bookingRules" }, "/availability/booking-rules"],
     [{ view: "history" }, "/availability/history"],
-    [{ view: "map" }, "/availability/map"],
+    // The Availability map is retired (#10032): its old target lands on the hub.
+    [{ view: "map" }, "/availability"],
   ];
 
   it.each(cases)("resolves %o to %s", (target, path) => {
@@ -91,13 +84,19 @@ describe("availabilityPath", () => {
     );
   });
 
+  it("encodes the schedule id an edit address names", () => {
+    expect(availabilityPath({ view: "seasonal", screen: "edit", scheduleId: "a b/c" })).toBe(
+      "/availability/seasonal/a%20b%2Fc"
+    );
+  });
+
   it("carries from=setup last", () => {
     expect(availabilityPath({ view: "hub", from: "setup" })).toBe("/availability?from=setup");
     expect(availabilityPath({ view: "bookingRules", from: "setup" })).toBe(
       "/availability/booking-rules?from=setup"
     );
     expect(availabilityPath({ view: "seasonal", screen: "new", from: "setup" })).toBe(
-      "/availability/calendar?tab=schedules&action=addSchedule&from=setup"
+      "/availability/seasonal/new?from=setup"
     );
     expect(availabilityPath({ view: "history", from: "setup" })).toBe(
       "/availability/history?from=setup"
@@ -355,7 +354,7 @@ describe("legacyRedirect", () => {
     ["?tab=schedules", "/availability/hours"], // final
     ["?tab=calendar", "/availability/calendar?tab=calendar"], // /availability/calendar
     ["?tab=special", "/availability/calendar?tab=special"], // /availability/special-dates
-    ["?action=addSchedule", "/availability/calendar?tab=schedules&action=addSchedule"], // /availability/seasonal/new
+    ["?action=addSchedule", "/availability/seasonal/new"], // final
     ["?closeSection=sec-bar", "/availability?close=section:sec-bar"], // final (C2.4)
   ];
 
@@ -395,9 +394,7 @@ describe("legacyRedirect", () => {
     expect(legacyRedirect("?tab=special&closeSection=sec-1&from=setup")).toBe(
       "/availability/calendar?tab=special&close=section:sec-1&from=setup"
     );
-    expect(legacyRedirect("?tab=schedules&action=addSchedule")).toBe(
-      "/availability/calendar?tab=schedules&action=addSchedule"
-    );
+    expect(legacyRedirect("?tab=schedules&action=addSchedule")).toBe("/availability/seasonal/new");
   });
 
   it("is null when the search holds no old param", () => {
@@ -465,11 +462,7 @@ describe("parseAvailabilityEntry", () => {
       close: { kind: "section", sectionId: "a b&c" },
       from: "setup",
     });
-    expect(parseAvailabilityEntry(path.slice(path.indexOf("?")))).toEqual({
-      tab: "schedules",
-      action: "addSchedule",
-      from: "setup",
-    });
+    expect(parseAvailabilityEntry(path.slice(path.indexOf("?")))).toEqual({ from: "setup" });
   });
 });
 

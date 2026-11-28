@@ -146,16 +146,22 @@ test.describe("SEO metadata", () => {
     expect(href).toMatch(/^\/shipped\/[^/]+$/);
     await story.click();
     await expect(page).toHaveURL(new RegExp(`${href}$`));
-    await expect(page).toHaveTitle("Shipped Story — Matt Butler Engineering");
+    // The URL changes on click, but the story page is a lazy chunk: until it
+    // renders, the /shipped index <h1> is still on screen. Wait for the
+    // story-specific title (the index title has no " — Shipped — " segment),
+    // then check the rendered <h1> matches it, instead of reading the <h1> first.
+    const suffix = " — Shipped — Matt Butler Engineering";
+    await expect(page).toHaveTitle(new RegExp(`.+${suffix}$`));
+    const storyTitle = await page.title();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+      storyTitle.slice(0, -suffix.length)
+    );
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", `${ORIGIN}${href}`);
     await expect(page.locator('meta[property="og:url"]')).toHaveAttribute(
       "content",
       `${ORIGIN}${href}`
     );
-    await expect(page.locator('meta[property="og:title"]')).toHaveAttribute(
-      "content",
-      "Shipped Story — Matt Butler Engineering"
-    );
+    await expect(page.locator('meta[property="og:title"]')).toHaveAttribute("content", storyTitle);
   });
 
   test("404 is noindex and does not canonicalize to the homepage", async ({ page }) => {

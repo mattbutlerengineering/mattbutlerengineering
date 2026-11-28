@@ -166,3 +166,39 @@ test.describe("Hospitality waitlist — row controls at 1024 × 768 (NF INCLUSIV
     }
   });
 });
+
+// The row wraps on phone and tablet (#10035): before, main scrolled sideways (662 px of content in
+// 375; 670 in 528 beside the sidebar at 768) and Seat started off-screen. Overflow is measured on
+// main, not the document — main is the scroll container.
+for (const width of [375, 768]) {
+  test.describe(`Hospitality waitlist — row wraps at ${width} px (#10035)`, () => {
+    test.use({ viewport: { width, height: 900 } });
+
+    test("main never scrolls sideways and Seat, Notify and Cancel sit inside it", async ({
+      mockedPage,
+    }) => {
+      await mockedPage.goto("waitlist");
+      await addGuest(mockedPage, "Priya Shah", "(555) 234-5678", 4);
+      const card = entryCard(mockedPage, "Priya Shah");
+      await expect(card).toBeVisible();
+
+      const main = mockedPage.locator("main#main-content");
+      const { scrollWidth, clientWidth } = await main.evaluate((el) => ({
+        scrollWidth: el.scrollWidth,
+        clientWidth: el.clientWidth,
+      }));
+      expect(scrollWidth, "main scrollWidth").toBeLessThanOrEqual(clientWidth);
+
+      const mainBox = await main.boundingBox();
+      expect(mainBox, "main has a box").not.toBeNull();
+      for (const name of ["Seat", "Notify", "Cancel"]) {
+        const box = await card.getByRole("button", { name, exact: true }).boundingBox();
+        expect(box, `${name} has a box`).not.toBeNull();
+        expect(box!.x, `${name} left edge`).toBeGreaterThanOrEqual(mainBox!.x);
+        expect(box!.x + box!.width, `${name} right edge`).toBeLessThanOrEqual(
+          mainBox!.x + mainBox!.width
+        );
+      }
+    });
+  });
+}

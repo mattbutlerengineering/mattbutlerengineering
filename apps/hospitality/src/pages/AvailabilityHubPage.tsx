@@ -19,6 +19,7 @@ import type { HubRowModels } from "../components/availability/hub/hub-rows.js";
 import { shortDate } from "../components/availability/hub/hub-text.js";
 import { HubCloseMenu } from "../components/availability/hub/HubCloseMenu.js";
 import { HubRow, type HubRowAction } from "../components/availability/hub/HubRow.js";
+import { SetupProgressStrip } from "../components/availability/hub/SetupProgressStrip.js";
 import type { SpecialDateRule } from "../components/availability/special-dates.js";
 import { takeHubReturnRow } from "../components/availability/hub-return-focus.js";
 import { shownOnlinePause } from "../components/availability/close-draft.js";
@@ -27,9 +28,15 @@ import { ErrorRetryBanner } from "../components/ErrorRetryBanner.js";
 import { PageHeader } from "../components/PageHeader.js";
 import { useAvailabilityHub } from "../hooks/useAvailabilityHub.js";
 import { useAvailabilityScope, type AvailabilityScope } from "../hooks/useAvailabilityScope.js";
-import { UNLESS_COVERED, useFocusAfter, type FocusAfterApi } from "../hooks/useFocusAfter.js";
+import {
+  UNLESS_COVERED,
+  useFocusAfter,
+  type FocusAfterApi,
+  type FocusTarget,
+} from "../hooks/useFocusAfter.js";
 import { useNow } from "../hooks/useNow.js";
 import { useVenueFormat } from "../hooks/useVenueFormat.js";
+import { useVenueReadiness } from "../hooks/useVenueReadiness.js";
 import { minutesOfDayIn } from "../utils/service-day.js";
 import styles from "../components/availability/hub/Hub.module.css";
 
@@ -62,7 +69,7 @@ const HISTORY_LINK = "hub-history";
  * Puts focus on the control that opens a drawer once that drawer closes: row 5's action for
  * booking rules, the History link for History. The hub is the same mounted page under a drawer's
  * route and its own, so it sees the pathname leave the drawer. Without this a drawer that opened
- * without an opener (loaded by its address, or from the Availability map) would hand focus back to the page
+ * without an opener (loaded by its address) would hand focus back to the page
  * body, and closing History by Back would too. A Host has no action on row 5 and keeps the
  * heading's request.
  */
@@ -76,11 +83,19 @@ function useFocusAfterDrawers(
     const left = previous.current;
     previous.current = pathname;
     if (left === pathname) return;
-    if (isManager && isBookingRulesPage(left)) {
-      focusAfter({ kind: "firstIn", testId: "hub-row-5" });
-    } else if (isHistoryPage(left)) {
-      focusAfter({ kind: "testId", testId: HISTORY_LINK });
-    }
+    const target: FocusTarget | null =
+      isManager && isBookingRulesPage(left)
+        ? { kind: "firstIn", testId: "hub-row-5" }
+        : isHistoryPage(left)
+          ? { kind: "testId", testId: HISTORY_LINK }
+          : null;
+    if (!target) return;
+    // The closing drawer hands focus back to whatever held it when it opened, a frame after it
+    // closes (rialto useReturnFocus), so the request waits two frames and lands after that.
+    let frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() => focusAfter(target));
+    });
+    return () => cancelAnimationFrame(frame);
   }, [pathname, isManager, focusAfter]);
 }
 
@@ -102,12 +117,9 @@ function AvailabilityHub({ children }: { readonly children?: ReactNode }) {
   }, [focusAfter]);
   useFocusAfterDrawers(location.pathname, scope.isManager, focusAfter);
 
-  // The map is a page of the hub, so the way to it is always shown, and is also the way back.
-  const mapLink = (
-    <Link to={availabilityPath({ view: "map" })} className={styles.link}>
-      {t("availability.backToSetup")}
-    </Link>
-  );
+  const readiness = useVenueReadiness();
+  // Before launch a Manager sees the launch steps here (#10032).
+  const showStrip = scope.isManager && readiness.status === "setup";
   const now = useNow();
   const paused =
     scope.state !== null &&
@@ -128,14 +140,10 @@ function AvailabilityHub({ children }: { readonly children?: ReactNode }) {
         description={
           venueId ? <TodayLine venueId={venueId} bannerShowsOnline={false} /> : undefined
         }
-        aside={
-          <div className={styles.headerAside}>
-            {closeMenu}
-            {mapLink}
-          </div>
-        }
+        aside={<div className={styles.headerAside}>{closeMenu}</div>}
         asideBesideTitle
       />
+      {showStrip && <SetupProgressStrip readiness={readiness} />}
       {venueId ? (
         <HubBody scope={scope} underDrawer={children != null} />
       ) : (
@@ -182,7 +190,7 @@ function HubBody({ scope, underDrawer }: HubBodyProps) {
     // Booking rules can be set before any hours: the redirect happens once the drawer has closed.
     if (isManager && underDrawer) return null;
     return isManager ? (
-      // Regular hours shows the first-setup card; the way back to the Availability map is carried.
+      // Regular hours shows the first-setup card; `from=setup` is carried.
       <Navigate to={availabilityPath({ view: "hours", ...(from && { from }) })} replace />
     ) : (
       <Text variant="body" color="secondary">

@@ -4,6 +4,20 @@
   padding: var(--rialto-space-2xl) var(--rialto-space-lg);
 }
 
+/* Proposal text carries paths and backticked JSON with no break opportunity
+   (#9978). Body text only: headings keep normal wrapping so "Decomposition"
+   never splits mid-word; links already wrap via .link. */
+.subtitle,
+.section p {
+  overflow-wrap: anywhere;
+}
+
+.section,
+.list > li,
+.prCard {
+  min-width: 0;
+}
+
 .back {
   display: inline-block;
   margin-bottom: var(--rialto-space-lg);
@@ -13,6 +27,8 @@
 
 .heading {
   margin-bottom: var(--rialto-space-sm);
+  /* break-word splits a title token only when it cannot fit a line alone */
+  overflow-wrap: break-word;
 }
 
 @media (max-width: 480px) {

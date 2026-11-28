@@ -1,6 +1,8 @@
 /* ── Scroll wrapper ──────────────────────────── */
 /* Same cap as Table. A nowrap grid scrolls inside this frame. */
 .wrapper {
+  composes: focusRing from "../../styles/surfaces.module.css";
+
   position: relative;
   overflow-x: auto;
   overscroll-behavior-x: contain;

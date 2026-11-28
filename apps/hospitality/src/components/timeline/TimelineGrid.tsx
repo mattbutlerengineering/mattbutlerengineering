@@ -367,7 +367,12 @@ export function TimelineGrid({
             <div
               data-testid="now-line"
               className={styles.currentTimeIndicator}
-              style={{ left: tableColumnWidth + currentTimeOffset }}
+              style={
+                {
+                  left: tableColumnWidth + currentTimeOffset,
+                  "--timeline-header-height": `${HEADER_HEIGHT}px`,
+                } as React.CSSProperties
+              }
             >
               <div className={styles.currentTimeDot} />
               <div className={styles.currentTimeLabel} aria-hidden="true">

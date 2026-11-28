@@ -165,15 +165,22 @@
   border-radius: 50%;
 }
 
-/* "8:04 PM" beside the dot, in the header band (ux.md Screen 2). */
+/* "8:04 PM" on an opaque gold chip just below the header band (#10036, #10062). Bare gold text
+   was drawn through the hour heading and read 2.8:1; centred in the band, the chip covered the
+   heading beside it ('7 PM' at 19:10). Below the band it never meets a heading. The now-line
+   hands it --timeline-header-height inline. */
 .currentTimeLabel {
   position: absolute;
-  inset-block-start: 8px;
-  inset-inline-start: 8px;
+  inset-block-start: calc(var(--timeline-header-height) + var(--rialto-space-2xs));
+  inset-inline-start: var(--rialto-space-2xs);
+  padding-block: var(--rialto-space-2xs);
+  padding-inline: var(--rialto-space-xs);
+  border-radius: var(--rialto-radius-default);
+  background: var(--rialto-accent);
   font-size: var(--rialto-text-xs);
   font-weight: var(--rialto-weight-medium);
   line-height: 1;
-  color: var(--rialto-accent);
+  color: var(--rialto-text-on-accent);
   white-space: nowrap;
 }
 

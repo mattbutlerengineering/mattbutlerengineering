@@ -1,0 +1,60 @@
+/* "Next 7 days": a caption heading over one quiet line per change. */
+.week {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-xs);
+  /* A phone's opened list takes a row of its own under the Today line it shares a row with. */
+  inline-size: 100%;
+}
+
+.week > h2 {
+  margin: 0;
+}
+
+/* Holds focus when the control that had it leaves; it is not a control, so no ring. */
+.target:focus {
+  outline: none;
+}
+
+/* A phone's one button: how many changes are coming, which opens the list. */
+.collapsed {
+  display: flex;
+  align-items: center;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-2xs);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A day row reads as a line of text that opens its date, not as a button among buttons. */
+.day {
+  justify-content: flex-start;
+  max-inline-size: 100%;
+  text-align: start;
+  white-space: normal;
+}
+
+/* The holiday's line, then Open as usual and Plan holidays (or Couldn't save and Retry). */
+.holiday {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-xs) var(--rialto-space-sm);
+  align-items: center;
+  padding-inline: var(--rialto-space-sm);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-xs);
+  align-items: center;
+}
+
+.more {
+  align-self: flex-start;
+}

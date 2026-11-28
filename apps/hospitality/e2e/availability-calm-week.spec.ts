@@ -1,7 +1,7 @@
 import type { Page } from "@playwright/test";
 import { test, expect } from "./fixtures.js";
 import { countFirstPaintControls, weekPanel } from "./helpers/first-paint.js";
-import { firstPaint, pinToday } from "./helpers/scenario-fixtures.js";
+import { firstPaint } from "./helpers/scenario-fixtures.js";
 
 /**
  * #8690: the regular-week form is calm on first paint and its Save stays in reach. On the
@@ -9,6 +9,12 @@ import { firstPaint, pinToday } from "./helpers/scenario-fixtures.js";
  * is at most 1.2 screens tall; after one time change Save is inside the viewport at 1280x800 and
  * 375x812 without scrolling.
  */
+
+/**
+ * Noon on Wed Aug 12, 2026: no US, CA or MX holiday falls in the 7 days after it, so "Next 7 days"
+ * (#9933) adds no holiday row and its buttons to the count, whatever date CI runs on.
+ */
+const NO_HOLIDAY_WEEK = new Date("2026-08-12T12:00:00");
 
 const DESKTOP = { width: 1280, height: 800 } as const;
 const PHONE = { width: 375, height: 812 } as const;
@@ -45,7 +51,7 @@ async function changeFirstClose(page: Page): Promise<void> {
 
 test.describe("Calm regular week (#8690)", () => {
   test.beforeEach(async ({ mockedPage }) => {
-    await pinToday(mockedPage);
+    await mockedPage.clock.setFixedTime(NO_HOLIDAY_WEEK);
   });
 
   test("first paint at 1280x800 has at most 20 controls and fits 1.2 screens", async ({

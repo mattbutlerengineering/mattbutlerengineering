@@ -1,25 +1,13 @@
-import { describe, it, expect, afterEach } from "vitest";
-import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { describe, it, expect } from "vitest";
 import { join } from "node:path";
 import { resolveQueueTelemetryPath } from "../commands/agent/check-model.js";
 
-// Queue telemetry moved to the metrics-data branch checkout (.metrics-data/).
-// check-model's token estimate must read it there, not main's frozen copy.
+// Queue telemetry lives only on the metrics-data branch checkout
+// (.metrics-data/); main no longer carries a copy to fall back to (#9815).
 describe("resolveQueueTelemetryPath", () => {
-  let root: string;
-  afterEach(() => rmSync(root, { recursive: true, force: true }));
-
-  it("reads the metrics-data checkout when it exists", () => {
-    root = mkdtempSync(join(tmpdir(), "check-model-"));
-    mkdirSync(join(root, ".metrics-data"));
-    expect(resolveQueueTelemetryPath(root)).toBe(
-      join(root, ".metrics-data", "queue-telemetry.jsonl")
+  it("always points into the metrics-data checkout", () => {
+    expect(resolveQueueTelemetryPath("/repo")).toBe(
+      join("/repo", ".metrics-data", "queue-telemetry.jsonl")
     );
-  });
-
-  it("falls back to metrics/ when there is no checkout", () => {
-    root = mkdtempSync(join(tmpdir(), "check-model-"));
-    expect(resolveQueueTelemetryPath(root)).toBe(join(root, "metrics", "queue-telemetry.jsonl"));
   });
 });

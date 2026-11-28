@@ -100,10 +100,9 @@
   height: 1.25rem;
 }
 
-.floorPlanTitle {
-  font-size: var(--rialto-text-xl);
-  font-weight: var(--rialto-weight-medium);
-  color: var(--rialto-text-primary);
+/* PageHeader sits inside the editor toolbar row, so it drops its page-level margins. */
+.floorPlanTitle > * {
+  margin-block: 0;
 }
 
 .activeBadge {

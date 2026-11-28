@@ -395,4 +395,80 @@ describe("handleHealthSystem", () => {
 
     globalThis.fetch = undefined;
   });
+
+  /** Authenticated /health/system call where every service answers 200 with `serviceBody`. */
+  async function systemHealthWithServiceBody(serviceBody) {
+    globalThis.fetch = vi.fn(
+      async () => new Response(JSON.stringify(serviceBody), { status: 200 })
+    );
+    const env = { ...makeEnv(), HEALTH_TOKEN: "secret" };
+    const request = new Request("https://example.com/health/system", {
+      headers: { Authorization: "Bearer secret" },
+    });
+    const response = await handleHealthSystem(request, env, "req-db");
+    globalThis.fetch = undefined;
+    return response.json();
+  }
+
+  it("keeps a 200 service body degraded only by non-database checks (error rate) as ok", async () => {
+    const body = await systemHealthWithServiceBody({
+      status: "degraded",
+      checks: {
+        database: { status: "ok" },
+        pool: { status: "ok", waiting: 0 },
+        rate_limits: { status: "degraded" },
+      },
+      error_rates: { degraded: true, endpoints: [] },
+    });
+    const statuses = Object.values(body.subsystems.services.checks).map((c) => c.status);
+
+    expect(statuses.length).toBeGreaterThan(0);
+    expect(statuses.every((s) => s === "ok")).toBe(true);
+    expect(body.subsystems.services.status).toBe("healthy");
+  });
+
+  it("keeps a 200 body whose pool is degraded by utilization alone (no waiters) as ok", async () => {
+    const body = await systemHealthWithServiceBody({
+      status: "degraded",
+      checks: { database: { status: "ok" }, pool: { status: "degraded", waiting: 0 } },
+    });
+    const statuses = Object.values(body.subsystems.services.checks).map((c) => c.status);
+
+    expect(statuses.every((s) => s === "ok")).toBe(true);
+  });
+
+  it("treats a 200 service body degraded by pool exhaustion (waiting > 0) as non-ok (#9963)", async () => {
+    const body = await systemHealthWithServiceBody({
+      status: "degraded",
+      checks: { database: { status: "ok" }, pool: { status: "degraded", waiting: 4 } },
+    });
+    const statuses = Object.values(body.subsystems.services.checks).map((c) => c.status);
+
+    expect(statuses.length).toBeGreaterThan(0);
+    expect(statuses.every((s) => s === "error")).toBe(true);
+    expect(body.subsystems.services.status).not.toBe("healthy");
+    expect(body.status).not.toBe("healthy");
+  });
+
+  it("treats a 200 service body whose database check is error as non-ok, even if status says ok (#9963)", async () => {
+    const body = await systemHealthWithServiceBody({
+      status: "ok",
+      checks: { database: { status: "error", message: "connection refused" } },
+    });
+    const statuses = Object.values(body.subsystems.services.checks).map((c) => c.status);
+
+    expect(statuses.every((s) => s === "error")).toBe(true);
+    expect(body.subsystems.services.status).not.toBe("healthy");
+  });
+
+  it("keeps a 200 service body with status ok and a healthy database as ok", async () => {
+    const body = await systemHealthWithServiceBody({
+      status: "ok",
+      checks: { database: { status: "ok" } },
+    });
+    const statuses = Object.values(body.subsystems.services.checks).map((c) => c.status);
+
+    expect(statuses.every((s) => s === "ok")).toBe(true);
+    expect(body.subsystems.services.status).toBe("healthy");
+  });
 });

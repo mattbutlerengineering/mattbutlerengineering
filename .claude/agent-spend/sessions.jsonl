@@ -50,3 +50,8 @@
 {"date":"2026-11-20","timestamp":"2026-11-20T15:31:42.730Z","costUsd":0.5718950999999999,"model":"claude-sonnet-5","adapter":"claude-cli","status":"succeeded","inputTokens":32,"outputTokens":7256,"numTurns":16}
 {"date":"2026-11-20","timestamp":"2026-11-20T15:46:39.553Z","costUsd":0.3164554,"model":"claude-sonnet-5","adapter":"claude-cli","status":"succeeded","inputTokens":22,"outputTokens":2500,"numTurns":11}
 {"date":"2026-11-20","timestamp":"2026-11-20T15:58:25.688Z","costUsd":0.521336,"model":"claude-sonnet-5","adapter":"claude-cli","status":"succeeded","inputTokens":30,"outputTokens":7515,"numTurns":15}
+{"date":"2026-11-27","timestamp":"2026-11-27T15:22:33.597Z","costUsd":0.4066958,"model":"claude-sonnet-5","adapter":"claude-cli","status":"succeeded","inputTokens":18,"outputTokens":1841,"numTurns":9}
+{"date":"2026-11-27","timestamp":"2026-11-27T15:24:17.719Z","costUsd":0.18062120000000004,"model":"claude-sonnet-5","adapter":"claude-cli","status":"succeeded","inputTokens":8,"outputTokens":1269,"numTurns":4}
+{"date":"2026-11-27","timestamp":"2026-11-27T15:30:02.154Z","costUsd":0.4946357,"model":"claude-sonnet-5","adapter":"claude-cli","status":"succeeded","inputTokens":28,"outputTokens":4685,"numTurns":14}
+{"date":"2026-11-27","timestamp":"2026-11-27T15:44:59.222Z","costUsd":0.28230639999999996,"model":"claude-sonnet-5","adapter":"claude-cli","status":"succeeded","inputTokens":18,"outputTokens":2208,"numTurns":9}
+{"date":"2026-11-27","timestamp":"2026-11-27T15:57:35.253Z","costUsd":0.45145939999999996,"model":"claude-sonnet-5","adapter":"claude-cli","status":"succeeded","inputTokens":26,"outputTokens":5547,"numTurns":13}

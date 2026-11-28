@@ -38,6 +38,11 @@ export const AVAILABILITY_GLOSSARY: readonly GlossaryEntry[] = [
   },
   { concept: "The hours a special date runs", term: "Special hours", retired: [] },
   { concept: "Dates the venue or a section takes no guests", term: "Closure", retired: [] },
+  {
+    concept: "Stop taking guests before the day's hours end",
+    term: "Close early",
+    retired: ["Starting at"],
+  },
   { concept: "Online booking stopped for a while", term: "Pause", retired: [] },
   { concept: "End a closure", term: "Reopen", retired: [] },
   { concept: "End a pause", term: "Resume", retired: [] },

@@ -5,13 +5,6 @@
   padding-inline: var(--rialto-space-md);
 }
 
-.loadingCenter {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-block-size: 60vh;
-}
-
 .errorCenter {
   display: flex;
   align-items: center;

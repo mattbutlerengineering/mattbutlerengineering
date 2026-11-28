@@ -1,5 +1,5 @@
 {
-  "version": "3.1.13",
+  "version": "3.1.16",
   "components": [
     {
       "name": "Accordion",
@@ -191,7 +191,7 @@
           "name": "glass",
           "type": "boolean | undefined",
           "required": false,
-          "description": "Apply glass surface with backdrop blur. Default true."
+          "description": "Apply the opaque glass surface (elevated fill, border and shine). Default true."
         },
         {
           "name": "height",
@@ -641,7 +641,7 @@
           "name": "variant",
           "type": "\"elevated\" | \"glass\" | \"flat\" | undefined",
           "required": false,
-          "description": "Surface treatment: `\"elevated\"` (shadow), `\"glass\"` (translucent blur), or `\"flat\"` (no shadow)"
+          "description": "Surface treatment: `\"elevated\"` (shadow), `\"glass\"` (opaque, border and shine), or `\"flat\"` (no shadow)"
         },
         {
           "name": "tilt",
@@ -2677,7 +2677,7 @@
     },
     {
       "name": "Hero",
-      "description": "Marketing splash section with centered content, atmospheric\ndecorative touches, and a staggered entrance. The title (Hero's LCP\ncandidate) settles into place without fading — it stays opaque and\nonly its position animates; eyebrow, subtitle, divider, and actions\nstill fade up.\n\nWrap text in `<span className=\"accent\">` inside `title`\nto apply the gold accent color.",
+      "description": "Marketing splash section with centered content, atmospheric\ndecorative touches, and a staggered entrance. The title and subtitle\n(Hero's LCP candidates) settle into place without fading — they stay\nopaque and only their position animates, as do the actions; eyebrow and\ndivider still fade up.\n\nWrap text in `<span className=\"accent\">` inside `title`\nto apply the gold accent color.",
       "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {

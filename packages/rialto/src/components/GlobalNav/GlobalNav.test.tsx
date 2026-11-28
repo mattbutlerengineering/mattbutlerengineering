@@ -231,6 +231,56 @@ describe("GlobalNav", () => {
     expect(document.getElementById(menuId)).toBeNull();
   });
 
+  it("closes the mobile menu on Escape from a menu link and refocuses the toggle", async () => {
+    const user = userEvent.setup();
+    render(<GlobalNav currentApp="marketing" />);
+    await user.click(screen.getByRole("button", { name: "Open menu" }));
+    screen.getAllByRole("link", { name: "Hospitality" }).at(-1)!.focus();
+
+    await user.keyboard("{Escape}");
+
+    const toggle = screen.getByRole("button", { name: "Open menu" });
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(document.activeElement).toBe(toggle);
+  });
+
+  it("closes the mobile menu when focus moves outside the nav", async () => {
+    const user = userEvent.setup();
+    render(
+      <>
+        <GlobalNav currentApp="marketing" />
+        <a href="/elsewhere">Page content</a>
+      </>
+    );
+    await user.click(screen.getByRole("button", { name: "Open menu" }));
+    screen.getAllByRole("link", { name: "Hospitality" }).at(-1)!.focus();
+
+    // Walk focus past the last menu link into page content.
+    for (let i = 0; i < 10; i++) {
+      await user.tab();
+      if (document.activeElement === screen.getByRole("link", { name: "Page content" })) break;
+    }
+
+    expect(screen.getByRole("button", { name: "Open menu" }).getAttribute("aria-expanded")).toBe(
+      "false"
+    );
+  });
+
+  it("keeps the mobile menu open when a pointer press moves focus outside the nav", async () => {
+    const user = userEvent.setup();
+    render(
+      <>
+        <GlobalNav currentApp="marketing" />
+        <button type="button">Page control</button>
+      </>
+    );
+    await user.click(screen.getByRole("button", { name: "Open menu" }));
+    await user.click(screen.getByRole("button", { name: "Page control" }));
+    expect(screen.getByRole("button", { name: "Close menu" }).getAttribute("aria-expanded")).toBe(
+      "true"
+    );
+  });
+
   describe("back-forward cache", () => {
     const engineering = {
       label: "Engineering",

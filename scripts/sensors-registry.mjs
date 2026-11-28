@@ -296,11 +296,23 @@ export function selectSuiteRuns(ghRuns, fetchRunJobs) {
  * @param {(sha: string) => string[] | null} resolveChangedPaths
  * @returns {{ runs: Array<object>; unresolved: number }}
  */
-export function buildE2eRuns(ghRuns, resolveChangedPaths) {
+export function buildE2eRuns(
+  ghRuns,
+  resolveChangedPaths,
+  resolvePrPaths = () => ({ kind: "none" })
+) {
   const runs = [];
   let unresolved = 0;
+  let prFilesFailed = 0;
   for (const run of ghRuns) {
-    const changedPaths = run.headSha ? resolveChangedPaths(run.headSha) : null;
+    // #9864: classify from the PR's full file list, not the head commit alone.
+    const pr = resolvePrPaths(run);
+    if (pr.kind === "error") {
+      prFilesFailed++;
+      continue;
+    }
+    const changedPaths =
+      pr.kind === "pr" ? pr.paths : run.headSha ? resolveChangedPaths(run.headSha) : null;
     if (changedPaths === null) {
       unresolved++;
       continue;
@@ -310,11 +322,70 @@ export function buildE2eRuns(ghRuns, resolveChangedPaths) {
       sha: run.headSha ?? "",
       conclusion: run.conclusion,
       changedPaths,
+      pathSource: pr.kind === "pr" ? "pr" : "head-commit",
       headRefName: run.headBranch ?? "",
       createdAt: run.createdAt,
     });
   }
-  return { runs, unresolved };
+  return { runs, unresolved, prFilesFailed };
+}
+
+/**
+ * PR number of an `actions/runs/<id>` REST response (`pull_requests[0].number`).
+ *
+ * @param {{ pull_requests?: Array<{ number?: number }> }} runJson
+ * @returns {number | null}
+ */
+export function prNumberFromRunJson(runJson) {
+  const n = runJson?.pull_requests?.[0]?.number;
+  return Number.isInteger(n) ? n : null;
+}
+
+/**
+ * Filenames of a `pulls/<n>/files` REST response page.
+ *
+ * @param {Array<{ filename?: string }>} filesJson
+ * @returns {string[]}
+ */
+export function pathsFromPrFilesJson(filesJson) {
+  return Array.isArray(filesJson) ? filesJson.map((f) => f.filename).filter(Boolean) : [];
+}
+
+/** Bounded paging of a PR's files: 10 pages x 100 = 1000 files max. */
+const PR_FILES_MAX_PAGES = 10;
+
+/**
+ * Full changed-file list of the PR a workflow run belongs to (REST only).
+ * `{kind:"none"}` for a run with no PR, `{kind:"error"}` on any failure so the
+ * caller tallies instead of misclassifying. One run lookup plus the files
+ * pages per run.
+ *
+ * @param {number} runId
+ * @returns {{ kind: "pr", paths: string[] } | { kind: "none" } | { kind: "error" }}
+ */
+export function fetchRunPrPathsViaApi(runId) {
+  if (!Number.isInteger(runId)) return { kind: "error" };
+  const gh = (endpoint) =>
+    JSON.parse(
+      execFileSync("gh", ["api", endpoint], {
+        encoding: "utf-8",
+        timeout: 15000,
+        stdio: ["ignore", "pipe", "pipe"],
+      })
+    );
+  try {
+    const pr = prNumberFromRunJson(gh(`repos/:owner/:repo/actions/runs/${runId}`));
+    if (pr === null) return { kind: "none" };
+    const paths = [];
+    for (let page = 1; page <= PR_FILES_MAX_PAGES; page++) {
+      const batch = gh(`repos/:owner/:repo/pulls/${pr}/files?per_page=100&page=${page}`);
+      paths.push(...pathsFromPrFilesJson(batch));
+      if (!Array.isArray(batch) || batch.length < 100) break;
+    }
+    return { kind: "pr", paths };
+  } catch {
+    return { kind: "error" };
+  }
 }
 
 /** Prefix of the per-Node-version JUnit artifact `ci.yml` uploads (#4271). */
@@ -1099,6 +1170,7 @@ export const SENSORS = [
       ghClient,
       fetchCommitPaths = fetchCommitPathsViaApi,
       fetchRunJobs = fetchRunJobsViaApi,
+      fetchRunPrPaths = fetchRunPrPathsViaApi,
     }) => {
       let ghRuns;
       try {
@@ -1125,6 +1197,11 @@ export const SENSORS = [
         // real signal is the PR runs. Their head SHAs are PR-branch commits
         // missing from a scheduled checkout, which made every run
         // unresolvable; changed paths now fall back to the GitHub API.
+        //
+        // #10025: e2e.yml now runs by `workflow_dispatch` (from
+        // e2e-after-ci.yml, after CI Gate passes), not `pull_request`. The
+        // query is by workflow with no `--event`, so it counts those runs
+        // unchanged; headBranch/headSha are the PR branch tip it ran on.
         //
         // #9845: no-op runs (every suite job skipped) now dominate the list,
         // so fetch up to E2E_RAW_RUN_CAP and keep the newest E2E_WINDOW_RUNS
@@ -1162,9 +1239,16 @@ export const SENSORS = [
 
       // Resolve each run's changed paths locally, skipping (and tallying) any
       // head SHA not in the local object store — see resolveRunChangedPaths.
-      const { runs, unresolved } = buildE2eRuns(ghRuns, (sha) =>
-        resolveRunChangedPaths(sha, root, fetchCommitPaths)
+      const { runs, unresolved, prFilesFailed } = buildE2eRuns(
+        ghRuns,
+        (sha) => resolveRunChangedPaths(sha, root, fetchCommitPaths),
+        (r) => fetchRunPrPaths(r.databaseId)
       );
+      if (prFilesFailed > 0) {
+        console.warn(
+          `[e2eStability] ${prFilesFailed} E2E run(s) skipped: their PR file list could not be fetched.`
+        );
+      }
       if (unresolved > 0) {
         console.warn(
           `[e2eStability] ${unresolved} CI run head SHA(s) not in the local git object store ` +
@@ -1174,7 +1258,7 @@ export const SENSORS = [
 
       // Every run unresolved (shallow/stale checkout) is a different cause from
       // "no runs"; name it so the page does not show a bare Unavailable (#7581).
-      if (runs.length === 0 && unresolved > 0) {
+      if (runs.length === 0 && (unresolved > 0 || prFilesFailed > 0)) {
         return { available: false, reason: "no_resolvable_runs" };
       }
 

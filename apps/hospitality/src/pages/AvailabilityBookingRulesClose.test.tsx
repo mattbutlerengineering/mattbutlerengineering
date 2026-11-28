@@ -36,6 +36,9 @@ vi.mock("../components/availability/use-holidays.js", () => ({
   useHolidayCountry: () => null,
 }));
 vi.mock("../components/availability/TodayLine.js", () => ({ TodayLine: () => null }));
+vi.mock("../hooks/useVenueReadiness.js", () => ({
+  useVenueReadiness: () => ({ status: "operational", completedSteps: [], nextStep: null }),
+}));
 
 const scope: AvailabilityScope = {
   venueId: "venue-1",
@@ -126,11 +129,10 @@ describe("leaving the booking rules drawer", () => {
       await waitFor(() => expect(editLink()).toHaveFocus());
     });
 
-    it("keeps the way back to the Availability map, with focus on row 5's Edit link", async () => {
+    it("keeps from=setup, with focus on row 5's Edit link", async () => {
       const router = renderAt("/availability/booking-rules?from=setup");
       fireEvent.click(within(drawer()).getByRole("button", { name: "Cancel" }));
       await waitFor(() => expect(address(router)).toBe("/availability?from=setup"));
-      expect(screen.getByRole("link", { name: "Availability map" })).toBeVisible();
       await waitFor(() => expect(editLink()).toHaveFocus());
       await back(router);
       expect(address(router)).toBe("/setup");

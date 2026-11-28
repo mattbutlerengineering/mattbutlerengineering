@@ -125,6 +125,16 @@ describe("TapeChartPage — Overlaps section", () => {
     expect(screen.getByText(/classifyOverlap = \(a, _b\) =>/)).toBeInTheDocument();
   });
 
+  // The sample scrolls sideways at 375px; axe scrollable-region-focusable needs
+  // it keyboard-reachable and named.
+  it("makes the scrolling code sample keyboard-focusable and named", () => {
+    render(<TapeChartPage />);
+    const sample = screen.getByText(/classifyOverlap = \(a, _b\) =>/);
+    expect(sample.tagName).toBe("PRE");
+    expect(sample).toHaveAttribute("tabindex", "0");
+    expect(screen.getByRole("group", { name: "classifyOverlap code sample" })).toBe(sample);
+  });
+
   // The default chart draws every overlap red because it gets no classifier, so
   // its card must read the same rule back — a dorm bunk there is a conflict.
   it("reads the default chart's dorm bar back under the default all-conflict rule", async () => {

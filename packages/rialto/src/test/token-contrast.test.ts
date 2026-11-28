@@ -96,6 +96,45 @@ describe("Light theme — text on surface (4.5:1 minimum)", () => {
   });
 });
 
+describe("Light theme — text on the recessed and tinted surfaces (#9979, 4.5:1 minimum)", () => {
+  const recessed = colors.color.surface.recessed.$value;
+  const tinted = colors.color.surface.tinted.$value;
+
+  it("text-tertiary on surface-elevated", () => {
+    expect(contrastRatio(textTertiary, surfaceElevated)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("text-tertiary on surface-recessed", () => {
+    expect(contrastRatio(textTertiary, recessed)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("error on surface-elevated", () => {
+    expect(contrastRatio(error, surfaceElevated)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("error on surface-recessed", () => {
+    expect(contrastRatio(error, recessed)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("error on surface-tinted", () => {
+    expect(contrastRatio(error, tinted)).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+describe("text-on-error on an error fill (destructive buttons, 4.5:1 minimum)", () => {
+  it("light theme", () => {
+    const textOnError = colors.color.text["on-error"].$value;
+    expect(contrastRatio(textOnError, error)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("dark theme", () => {
+    const textOnError = darkColors.color.text["on-error"].$value;
+    expect(
+      contrastRatio(resolveOn(textOnError, dark.error), resolveOn(dark.error, dark.surface))
+    ).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
 describe("Light theme — semantic text on surface (4.5:1 minimum)", () => {
   it("error on surface", () => {
     expect(contrastRatio(error, surface)).toBeGreaterThanOrEqual(4.5);
@@ -337,3 +376,17 @@ it("velvet declares an error red in both themes", () => {
   expect(surfaceScopes["velvet"]!.light["error"]).toBeDefined();
   expect(surfaceScopes["velvet"]!.dark["error"]).toBeDefined();
 });
+
+describe.each(["light", "dark"] as const)(
+  "velvet text-on-error on its error fill (%s)",
+  (theme) => {
+    it("clears 4.5:1 on the velvet error red", () => {
+      const t = surfaceScopes["velvet"]![theme];
+      const textOnError = t["text-on-error"];
+      if (textOnError === undefined) throw new Error(`velvet.${theme} has no "text-on-error"`);
+      const band = t["surface"]!.$value;
+      const fill = resolveOn(t["error"]!.$value, band);
+      expect(contrastRatio(resolveOn(textOnError.$value, fill), fill)).toBeGreaterThanOrEqual(4.5);
+    });
+  }
+);

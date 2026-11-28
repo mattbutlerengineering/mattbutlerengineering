@@ -20,10 +20,11 @@ import { dayOfNextMonth, pinMidMonth } from "./mid-month-clock.js";
 
 /** The date check's calendar button, which `first-paint.ts` counts and ux.md's budget does not. */
 const DATE_FIELD_BUTTON = 1;
-/** The always-shown "Availability map" link in the header (#8864 AC4; Owner, 2026-11-15). */
-const MAP_LINK = 1;
-/** ux.md's 10 controls plus one per service (two in the demo venue), plus the two above: 14. */
-const HUB_FIRST_PAINT_BUDGET = DATE_FIELD_BUTTON + 10 + 2 + MAP_LINK;
+/**
+ * ux.md's 10 controls plus one per service (two in the demo venue), plus the one above: 13. The
+ * header's "Availability map" link went with the map (#10032).
+ */
+const HUB_FIRST_PAINT_BUDGET = DATE_FIELD_BUTTON + 10 + 2;
 
 const DESKTOP = { width: 1280, height: 800 };
 const TABLET = { width: 820, height: 1180 };
@@ -74,7 +75,7 @@ async function openHub(page: Page, viewport = DESKTOP): Promise<void> {
 async function screensTall(page: Page, viewport: { height: number }): Promise<number> {
   const main = page.locator("main#main-content");
   const scrolled = await main.evaluate((el) => el.scrollTop);
-  const box = await page.getByRole("link", { name: "History" }).boundingBox();
+  const box = await page.getByTestId("hub-history").boundingBox();
   if (!box) throw new Error("the hub's History link has no box");
   return (box.y + box.height + scrolled) / viewport.height;
 }
@@ -145,10 +146,8 @@ test.describe("Availability hub", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Regular hours" })).toBeVisible();
     await back();
     await edit(2, "Add Seasonal hours").click();
-    await expect(
-      page.getByRole("dialog").getByRole("textbox", { name: /Schedule name/ })
-    ).toBeVisible();
-    // Today's page spends `action` with a replace, so one Back still returns to the hub.
+    await expect(page).toHaveURL(/\/availability\/seasonal\/new$/);
+    await expect(page.getByRole("textbox", { name: /Schedule name/ })).toBeVisible();
     await back();
     await edit(3, "Edit Special dates and holidays").click();
     await expect(layer("Special dates")).toBeChecked();
@@ -170,12 +169,12 @@ test.describe("Availability hub", () => {
         body: JSON.stringify({ data: { total: 0, offset: 0, items: [] } }),
       })
     );
-    await page.getByRole("link", { name: "History" }).click();
+    await page.getByTestId("hub-history").click();
     await expect(page).toHaveURL(/\/availability\/history$/);
     await expect(page.getByRole("dialog", { name: "History" })).toBeVisible();
     await back();
     await expect(page.getByRole("dialog", { name: "History" })).toHaveCount(0);
-    await expect(page.getByRole("link", { name: "History" })).toBeFocused();
+    await expect(page.getByTestId("hub-history")).toBeFocused();
   });
 
   test("a Host reads the same rows and sees no edit control", async ({ mockedPage: page }) => {
@@ -697,7 +696,7 @@ test.describe("History over the hub (C2.6)", () => {
     }).format(new Date(`${day}T00:00:00Z`));
     await expect(page.getByRole("dialog", { name: new RegExp(dayName) })).toBeVisible();
     // The page reads ?date= once and drops it, so a reload does not reopen the day.
-    await expect(page).toHaveURL(/\/availability\/calendar$/);
+    await expect(page).toHaveURL(/\/availability\/calendar\?tab=calendar$/);
   });
 });
 

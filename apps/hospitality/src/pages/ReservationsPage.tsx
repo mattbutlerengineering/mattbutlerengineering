@@ -25,6 +25,8 @@ import { useFocusAfter } from "../hooks/useFocusAfter.js";
 import { useStatusMessage } from "../hooks/useStatusMessage.js";
 import { describeApiError } from "../lib/describe-api-error.js";
 import { NewReservationDialog } from "../components/reservations/NewReservationDialog.js";
+import { ReservationCardList } from "../components/reservations/ReservationCardList.js";
+import { useViewport } from "../hooks/useViewport.js";
 import { STATUS_BADGE_VARIANT, formatReservationTime } from "../utils/reservation-display.js";
 import {
   parseReservationsIntent,
@@ -179,6 +181,16 @@ export function ReservationsPage() {
     [tables]
   );
   const { mutateAsync: createReservation } = useCreateReservation();
+  const isPhone = useViewport() === "phone";
+  const tableNameFor = useCallback(
+    (reservation: Reservation) => resolveTableName(reservation, tablesById, t),
+    [tablesById, t]
+  );
+  const viewOnTimeline = useCallback(
+    (reservation: Reservation) =>
+      navigate(`/timeline?date=${reservation.date}&${SELECTED_PARAM}=${reservation.id}`),
+    [navigate]
+  );
 
   const errorDescription = queryError ? describeApiError(queryError) : null;
   const dateLabel = fmt.formatServiceDate(selectedDate);
@@ -323,7 +335,15 @@ export function ReservationsPage() {
           />
         )}
 
-        {loaded && filteredReservations.length > 0 && (
+        {loaded && filteredReservations.length > 0 && isPhone && (
+          <ReservationCardList
+            reservations={filteredReservations}
+            tableNameFor={tableNameFor}
+            onView={viewOnTimeline}
+          />
+        )}
+
+        {loaded && filteredReservations.length > 0 && !isPhone && (
           <Card>
             <div className={styles.tableWrapper}>
               {/* eslint-disable mbe-local/prefer-rialto-components -- HTML table elements are correct here; Rialto Table has a different API */}
@@ -362,7 +382,7 @@ export function ReservationsPage() {
                         )}
                       </td>
                       <td className={styles.td}>{reservation.partySize}</td>
-                      <td className={styles.td}>{resolveTableName(reservation, tablesById, t)}</td>
+                      <td className={styles.td}>{tableNameFor(reservation)}</td>
                       <td className={styles.td}>
                         <Badge variant={STATUS_BADGE_VARIANT[reservation.status]}>
                           {t(`reservations.status.${reservation.status}`)}
@@ -373,11 +393,7 @@ export function ReservationsPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() =>
-                            navigate(
-                              `/timeline?date=${reservation.date}&${SELECTED_PARAM}=${reservation.id}`
-                            )
-                          }
+                          onClick={() => viewOnTimeline(reservation)}
                           aria-label={t("reservations.viewAria", {
                             name: reservation.guestName ?? t("reservations.guestFallback"),
                           })}

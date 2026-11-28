@@ -9,7 +9,7 @@
  * mergeable `{ date, sensors }` line per run, read back from the tail.
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { read } from "../metrics-store.mjs";
@@ -26,6 +26,7 @@ describe("sensor-report history", () => {
 
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), "sensor-report-history-"));
+    mkdirSync(join(root, ".metrics-data"));
   });
 
   afterEach(() => {

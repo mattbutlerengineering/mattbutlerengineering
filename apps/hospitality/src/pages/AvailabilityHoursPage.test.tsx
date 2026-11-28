@@ -168,16 +168,13 @@ describe("AvailabilityHoursPage", () => {
     expect(screen.queryByRole("link", { name: "Availability map" })).not.toBeInTheDocument();
   });
 
-  it("keeps the way back to the Availability map on a visit from it", () => {
+  it("has one way back to the hub on a visit from setup, and no retired map link (#10032)", () => {
     renderPage(scopeOf(), "/availability/hours?from=setup");
     expect(screen.getByRole("link", { name: "Back to Availability" })).toHaveAttribute(
       "href",
       "/availability?from=setup"
     );
-    expect(screen.getByRole("link", { name: "Availability map" })).toHaveAttribute(
-      "href",
-      "/availability/map"
-    );
+    expect(screen.queryByRole("link", { name: "Availability map" })).not.toBeInTheDocument();
   });
 
   it("opens the first service when no service is named", () => {
@@ -192,6 +189,20 @@ describe("AvailabilityHoursPage", () => {
     renderPage(scopeOf({ state: stateOf(config) }), `/availability/hours?service=${dinner.id}`);
     expect(line("Dinner")).toHaveAttribute("aria-expanded", "true");
     expect(line("Lunch")).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("follows a new ?service= on the same page, as the rail's service links make", async () => {
+    const config = demoConfig();
+    const dinner = config.venueServices.find((s) => s.name === "Dinner")!;
+    const lunch = config.venueServices.find((s) => s.name === "Lunch")!;
+    const { router } = renderPage(
+      scopeOf({ state: stateOf(config) }),
+      `/availability/hours?service=${dinner.id}`
+    );
+    expect(line("Dinner")).toHaveAttribute("aria-expanded", "true");
+    await act(() => router.navigate(`/availability/hours?service=${lunch.id}`));
+    expect(line("Lunch")).toHaveAttribute("aria-expanded", "true");
+    expect(line("Dinner")).toHaveAttribute("aria-expanded", "false");
   });
 
   it("starts today, and a later start is an edit that the Save label states", () => {

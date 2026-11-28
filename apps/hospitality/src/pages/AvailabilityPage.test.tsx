@@ -1,3 +1,4 @@
+import { useState, type ReactNode } from "react";
 import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from "vitest";
 import { act, render, screen, within, fireEvent, waitFor } from "@testing-library/react";
 import { axe } from "vitest-axe";
@@ -64,6 +65,7 @@ const venue = vi.hoisted(() => ({
 }));
 
 vi.mock("../hooks/useFloorPlans.js", () => ({
+  useFloorPlans: () => ({ data: undefined }),
   useVenueFloorPlanSections: () => ({
     data: sections.value,
     isLoading: false,
@@ -135,6 +137,8 @@ vi.mock("../components/availability/TodayLine.js", () => ({
     <section aria-label="Today line" data-venue={venueId} data-banner={String(bannerShowsOnline)} />
   ),
 }));
+// "Next 7 days" has its own suites (WeekChanges.test.tsx, AvailabilityPage.weekChanges.test.tsx).
+vi.mock("../components/availability/WeekChanges.js", () => ({ WeekChanges: () => null }));
 const drawerProps = vi.hoisted(() => vi.fn());
 vi.mock("../components/availability/AvailabilityDayDrawer.js", async (importOriginal) => {
   const real = await importOriginal<typeof Drawer>();
@@ -191,6 +195,7 @@ vi.mock("@mbe/availability", async (importOriginal) => ({
 import { AvailabilityPage } from "./AvailabilityPage.js";
 import { AvailabilityHubPage } from "./AvailabilityHubPage.js";
 import { AvailabilityLayout } from "./AvailabilityLayout.js";
+import { SubnavSlotContext } from "../components/availability/rail/subnav-slot.js";
 
 // jsdom cannot compute colour contrast; token contrast is covered in rialto.
 const AXE_OPTIONS = { rules: { "color-contrast": { enabled: false } } };
@@ -214,20 +219,33 @@ function LocationProbe() {
 }
 
 // Under the layout, as main.tsx mounts it: the layout hosts the Close and Pause dialogs (C2.4).
+/** The sidebar slot the rail renders into, as the dashboard shell provides it (#9944). */
+function SubnavHost({ children }: { readonly children: ReactNode }) {
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
+  return (
+    <SubnavSlotContext.Provider value={{ slot, setSlot, onPick: () => undefined }}>
+      <div ref={setSlot} data-testid="sidebar-slot" />
+      {children}
+    </SubnavSlotContext.Provider>
+  );
+}
+
 function page(url = "/availability/calendar?tab=calendar") {
   return (
-    <MemoryRouter initialEntries={[url]}>
-      <ToastProvider>
-        <main>
-          <Routes>
-            <Route path="availability" element={<AvailabilityLayout />}>
-              <Route path="calendar" element={<AvailabilityPage />} />
-            </Route>
-          </Routes>
-        </main>
-        <LocationProbe />
-      </ToastProvider>
-    </MemoryRouter>
+    <SubnavHost>
+      <MemoryRouter initialEntries={[url]}>
+        <ToastProvider>
+          <main>
+            <Routes>
+              <Route path="availability" element={<AvailabilityLayout />}>
+                <Route path="calendar" element={<AvailabilityPage />} />
+              </Route>
+            </Routes>
+          </main>
+          <LocationProbe />
+        </ToastProvider>
+      </MemoryRouter>
+    </SubnavHost>
   );
 }
 
@@ -561,19 +579,20 @@ describe("AvailabilityPage", () => {
       renderPage("/availability/calendar?tab=%00&closeSection=&from=nowhere&x=1");
       // No valid tab: a Manager lands on Schedules.
       expect(screen.getByRole("radio", { name: "Schedules" })).toBeChecked();
-      expect(screen.queryByRole("link", { name: "Availability map" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: "Back to Availability" })).not.toBeInTheDocument();
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
 
-    it("shows the Availability map back-link only for ?from=setup", () => {
+    it("shows the back-link to the hub only for ?from=setup", () => {
       const view = renderPage("/availability/calendar?from=setup");
-      expect(screen.getByRole("link", { name: "Availability map" })).toHaveAttribute(
+      expect(screen.getByRole("link", { name: "Back to Availability" })).toHaveAttribute(
         "href",
-        "/availability/map"
+        "/availability"
       );
+      expect(screen.queryByRole("link", { name: "Availability map" })).not.toBeInTheDocument();
       view.unmount();
       renderPage();
-      expect(screen.queryByRole("link", { name: "Availability map" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: "Back to Availability" })).not.toBeInTheDocument();
     });
 
     // The layout hosts the dialog over today's page too (C2.4); ?closeSection= is an old address
@@ -713,8 +732,11 @@ describe("AvailabilityPage", () => {
     renderPage("/availability/calendar?date=2026-10-30");
     expect(screen.getByRole("radio", { name: "Calendar" })).toBeChecked();
     expect(screen.getByRole("dialog", { name: /Friday, October 30/ })).toBeInTheDocument();
+    // The day is not reopened by a refresh; the layer is named instead, for the rail (#9944).
     await waitFor(() =>
-      expect(screen.getByTestId("location")).toHaveTextContent(/^\/availability\/calendar$/)
+      expect(screen.getByTestId("location")).toHaveTextContent(
+        /^\/availability\/calendar\?tab=calendar$/
+      )
     );
   });
 
@@ -1642,7 +1664,8 @@ describe("AvailabilityPage layers", () => {
     const panel = screen.getByTestId("week-panel");
     const controls = Array.from(
       document.body.querySelectorAll<HTMLElement>("button, a[href], input, select, textarea")
-    ).filter((el) => !panel.contains(el));
+      // The rail renders in the app sidebar, not on the page.
+    ).filter((el) => !panel.contains(el) && !el.closest('[data-testid="sidebar-slot"]'));
     expect(controls.map((el) => el.textContent || el.getAttribute("aria-label"))).toEqual([
       "Close…",
       "Pause online booking",
@@ -1773,6 +1796,47 @@ describe("AvailabilityPage layers", () => {
     expect(layerRadio("Calendar")).toBeChecked();
   });
 
+  describe("beside the rail (#9944), which links layers of this same page", () => {
+    const rail = () => screen.getByRole("navigation", { name: "Availability sections" });
+    const where = () => screen.getByTestId("location").textContent ?? "";
+
+    it("writes the open layer to the address, so the rail can mark it", () => {
+      renderPage("/availability/calendar");
+      expect(layerRadio("Schedules")).toBeChecked();
+      expect(where()).toContain("tab=schedules");
+      fireEvent.click(layerRadio("Calendar"));
+      expect(where()).toContain("tab=calendar");
+      expect(within(rail()).getByRole("link", { name: "Calendar" })).toHaveAttribute(
+        "aria-current",
+        "page"
+      );
+    });
+
+    it("follows a rail link to another layer without a remount", () => {
+      renderPage("/availability/calendar?tab=calendar");
+      fireEvent.click(within(rail()).getByRole("link", { name: "Special dates" }));
+      expect(layerRadio("Special dates")).toBeChecked();
+      expect(within(rail()).getByRole("link", { name: "Special dates" })).toHaveAttribute(
+        "aria-current",
+        "page"
+      );
+    });
+
+    it("asks before a rail link leaves an edited week, and Keep editing keeps the layer and its mark", () => {
+      renderPage("/availability/calendar");
+      fireEvent.click(screen.getByRole("button", { name: "Add another service" }));
+      fireEvent.click(within(rail()).getByRole("link", { name: "Calendar" }));
+      const ask = screen.getByRole("alertdialog", { name: "Discard your changes?" });
+      fireEvent.click(within(ask).getByRole("button", { name: "Keep editing" }));
+      expect(layerRadio("Schedules")).toBeChecked();
+      expect(where()).toContain("tab=schedules");
+      expect(within(rail()).getByRole("link", { name: "Regular hours" })).toHaveAttribute(
+        "aria-current",
+        "page"
+      );
+    });
+  });
+
   it("opens the ?date= day on Calendar for a Manager, whose landing layer is Schedules", () => {
     renderPage("/availability/calendar?tab=calendar&date=2026-10-30");
     expect(layerRadio("Calendar")).toBeChecked();
@@ -1817,6 +1881,7 @@ describe("the Availability route table", () => {
           children: [
             { index: true, element: <AvailabilityHubPage /> },
             { path: "calendar", element: <AvailabilityPage /> },
+            { path: "seasonal/new", element: <div>New seasonal hours page</div> },
           ],
         },
       ],
@@ -1856,7 +1921,7 @@ describe("the Availability route table", () => {
   ])("carries from=setup from %s", async (old, next) => {
     const router = renderRoutes(old);
     await waitFor(() => expect(address(router)).toBe(next));
-    expect(screen.getByRole("link", { name: "Availability map" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Back to Availability" })).toBeInTheDocument();
   });
 
   it("opens a section's Close dialog over the hub from the old ?closeSection=", async () => {
@@ -1872,11 +1937,9 @@ describe("the Availability route table", () => {
     expect(address(router)).toBe("/setup");
   });
 
-  it("opens the seeded editor from the old ?action=addSchedule", async () => {
+  it("sends the old ?action=addSchedule to the new seasonal hours editor, keeping from=setup", async () => {
     const router = renderRoutes("/availability?action=addSchedule&from=setup");
-    expect(await screen.findByRole("dialog", { name: "New schedule" })).toBeInTheDocument();
-    await waitFor(() =>
-      expect(address(router)).toBe("/availability/calendar?tab=schedules&from=setup")
-    );
+    expect(await screen.findByText("New seasonal hours page")).toBeInTheDocument();
+    expect(address(router)).toBe("/availability/seasonal/new?from=setup");
   });
 });

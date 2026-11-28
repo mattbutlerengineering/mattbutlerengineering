@@ -18,6 +18,7 @@ import { writeReport } from "../outputs/report.js";
 
 function fixture() {
   const root = mkdtempSync(join(tmpdir(), "acmm-hollow-"));
+  mkdirSync(join(root, ".metrics-data"));
   return {
     root,
     file(rel, body = "") {

@@ -6,7 +6,7 @@ import { loadWorkflow, getJob, getStep } from "../lib/workflow.mjs";
 
 /**
  * ci.yml's `test` job is sharded into duration-balanced matrix legs selected by
- * turbo `--filter`, joined by `test-coverage-gate` (docs/features/ci-test-matrix-split).
+ * turbo `--filter`, joined by the `ci-gate` coverage steps (docs/features/ci-test-matrix-split).
  *
  * The invariant that matters: every workspace package that defines
  * `test:coverage` runs in exactly ONE leg. Zero legs means its tests silently
@@ -19,7 +19,7 @@ import { loadWorkflow, getJob, getStep } from "../lib/workflow.mjs";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const workflow = loadWorkflow("ci.yml");
 const testJob = getJob(workflow, "test");
-const gateJob = getJob(workflow, "test-coverage-gate") ?? {
+const gateJob = getJob(workflow, "ci-gate") ?? {
   needs: [],
   if: null,
   env: {},
@@ -133,10 +133,16 @@ describe("ci.yml test legs", () => {
   });
 });
 
-describe("ci.yml test-coverage-gate", () => {
-  it("joins every leg with a plain needs (no if: always())", () => {
-    expect(gateJob.needs).toEqual(["test"]);
-    expect(gateJob.if).toBeNull();
+describe("ci.yml CI Gate coverage steps (#10010)", () => {
+  it("only runs the coverage steps when every test leg passed", () => {
+    expect(gateJob.needs).toContain("test");
+    for (const name of [
+      "Download coverage artifacts",
+      "Enforce repo-wide coverage threshold",
+      "Enforce agent-core coverage threshold",
+    ]) {
+      expect((getStep(gateJob, name) ?? {}).if).toBe("needs.test.result == 'success'");
+    }
   });
 
   it("downloads every leg's coverage into the workspace root", () => {
@@ -167,9 +173,9 @@ describe("ci.yml test-coverage-gate", () => {
 describe("ci.yml CI Gate wiring", () => {
   const gate = getJob(workflow, "ci-gate");
 
-  it("needs both the legs and the coverage gate", () => {
+  it("needs the legs; the coverage gate runs inside CI Gate", () => {
     expect(gate.needs).toContain("test");
-    expect(gate.needs).toContain("test-coverage-gate");
+    expect(gate.needs).not.toContain("test-coverage-gate");
   });
 
   it("keeps report-health keyed on the surviving `test` job id", () => {

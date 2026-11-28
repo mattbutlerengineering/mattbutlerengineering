@@ -222,6 +222,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     children: React.ReactNode;
     className?: string;
   }) => <h1>{children}</h1>,
+  Stack: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   Text: ({
     children,
     className: _className,

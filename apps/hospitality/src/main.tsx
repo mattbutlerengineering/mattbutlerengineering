@@ -13,7 +13,6 @@ import { AuthConfigError } from "./components/AuthConfigError";
 import { GuestSurface } from "./components/GuestSurface";
 import { LoadingPage } from "./pages/LoadingPage";
 import { RequireAdmin } from "./components/RequireAdmin";
-import { RequireManager } from "./components/RequireManager";
 import { validateAuthConfig } from "./constants/auth";
 import { currentHostConfig, legacyPathRedirect } from "./lib/host-brand.js";
 import { I18nextProvider } from "react-i18next";
@@ -29,6 +28,12 @@ initSentry({
 });
 
 // Lazy-loaded route components — each becomes its own chunk
+// The manager guard reads the venue context and team hooks, which the public
+// landing must not download (#9976). It only renders under the signed-in
+// layout, whose <Suspense> covers the load.
+const RequireManager = lazy(() =>
+  import("./components/RequireManager.js").then((m) => ({ default: m.RequireManager }))
+);
 const DashboardLayout = lazy(() =>
   import("./components/DashboardLayout.js").then((m) => ({
     default: m.DashboardLayout,
@@ -101,8 +106,16 @@ const AvailabilitySeasonalListPage = lazy(() =>
     default: m.AvailabilitySeasonalListPage,
   }))
 );
+const AvailabilitySeasonalEditorPage = lazy(() =>
+  import("./pages/AvailabilitySeasonalEditorPage.js").then((m) => ({
+    default: m.AvailabilitySeasonalEditorPage,
+  }))
+);
 const AvailabilityHoursPage = lazy(() =>
   import("./pages/AvailabilityHoursPage.js").then((m) => ({ default: m.AvailabilityHoursPage }))
+);
+const AvailabilityGuidePage = lazy(() =>
+  import("./pages/AvailabilityGuidePage.js").then((m) => ({ default: m.AvailabilityGuidePage }))
 );
 const ProfilePage = lazy(() =>
   import("./pages/ProfilePage.js").then((m) => ({ default: m.ProfilePage }))
@@ -117,9 +130,6 @@ const VenueOnboardingPage = lazy(() =>
   import("./pages/VenueOnboardingPage.js").then((m) => ({
     default: m.VenueOnboardingPage,
   }))
-);
-const AvailabilityMapPage = lazy(() =>
-  import("./pages/AvailabilityMapPage.js").then((m) => ({ default: m.AvailabilityMapPage }))
 );
 const PublicBookingPage = lazy(() =>
   import("./pages/PublicBookingPage.js").then((m) => ({
@@ -187,7 +197,7 @@ if (legacyPath !== null) {
  *
  * Index route: TimelinePage (was HomePage/Dashboard).
  * Dashboard moves to /dashboard.
- * The Availability map: /availability/map. (/setup redirects to it; /setup/hours to /availability.)
+ * /availability/map and /setup redirect to the Availability hub; /setup/hours to /availability.
  */
 const router = createBrowserRouter(
   [
@@ -274,7 +284,7 @@ const router = createBrowserRouter(
           children: [
             {
               // Index: Timeline is the default landing page in operational mode.
-              // DashboardLayout redirects to the Availability map for new venues or /timeline for operational ones.
+              // DashboardLayout redirects to the Availability hub for new venues or /timeline for operational ones.
               index: true,
               element: (
                 <Suspense fallback={<LoadingPage />}>
@@ -432,6 +442,27 @@ const router = createBrowserRouter(
                   ),
                 },
                 {
+                  // The editor: `new` (with `?copy=`) and `:scheduleId`. A Host lands on the hub.
+                  path: "seasonal/new",
+                  element: (
+                    <RequireManager redirectTo={availabilityPath({ view: "hub" })}>
+                      <Suspense fallback={<LoadingPage />}>
+                        <AvailabilitySeasonalEditorPage />
+                      </Suspense>
+                    </RequireManager>
+                  ),
+                },
+                {
+                  path: "seasonal/:scheduleId",
+                  element: (
+                    <RequireManager redirectTo={availabilityPath({ view: "hub" })}>
+                      <Suspense fallback={<LoadingPage />}>
+                        <AvailabilitySeasonalEditorPage />
+                      </Suspense>
+                    </RequireManager>
+                  ),
+                },
+                {
                   // Read by a Host too: the edit controls are a Manager's.
                   path: "closures",
                   element: (
@@ -441,15 +472,20 @@ const router = createBrowserRouter(
                   ),
                 },
                 {
-                  // What decides when guests can book: schedules down to tables (#8864).
+                  // The retired Availability map (#10032): old links land on the hub.
                   path: "map",
-                  element: (
-                    <Suspense fallback={<LoadingPage />}>
-                      <AvailabilityMapPage />
-                    </Suspense>
-                  ),
+                  element: <Navigate to={availabilityPath({ view: "hub" })} replace />,
                 },
               ],
+            },
+            {
+              // How availability works: a staff guide, outside the Availability layout.
+              path: "help/availability",
+              element: (
+                <Suspense fallback={<LoadingPage />}>
+                  <AvailabilityGuidePage />
+                </Suspense>
+              ),
             },
             {
               path: "menus",
@@ -510,7 +546,7 @@ const router = createBrowserRouter(
               ),
             },
             {
-              // Venue Setup became the Availability map (#8864).
+              // Venue Setup became the Availability map (#8864), retired into the hub (#10032).
               path: "setup",
               element: <SetupRedirect />,
             },

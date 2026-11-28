@@ -3,7 +3,7 @@
  * say so. These cover the sweep → committed-row → "never recorded" chain.
  */
 import { describe, it, expect } from "vitest";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SURFACE_REGISTRY, ZONES } from "@mbe/agent-core";
@@ -101,7 +101,7 @@ describe("auditCoverage sensor", () => {
   const sensor = SENSORS.find((s) => s.id === "auditCoverage");
   const makeRoot = () => {
     const root = mkdtempSync(join(tmpdir(), "audit-coverage-"));
-    mkdirSync(join(root, "metrics"));
+    mkdirSync(join(root, ".metrics-data"));
     return root;
   };
 
@@ -114,7 +114,6 @@ describe("auditCoverage sensor", () => {
 
   it("reports zones never recorded from the committed rows", () => {
     const root = makeRoot();
-    writeFileSync(join(root, "metrics", ".keep"), "");
     append(
       "audit-coverage",
       buildAuditCoverageRow([{ url: gen.url, code: "200" }], meta, SURFACE_REGISTRY),

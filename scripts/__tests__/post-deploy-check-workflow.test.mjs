@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isKnownMarketingPath } from "../../infrastructure/worker/marketing-routes.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "../..");
@@ -38,5 +39,22 @@ describe("post-deploy-check.yml 'Poll for deploy to land' step", () => {
     expect(WORKFLOW).toMatch(/actions\/runs\/\$RUN_ID\/jobs/);
     expect(WORKFLOW).toMatch(/--marketing-deployed\s+"\$MARKETING_DEPLOYED"/);
     expect(WORKFLOW).toMatch(/actions:\s*read/);
+  });
+});
+
+describe("post-deploy-check.yml smoke checks", () => {
+  it("only smoke-checks marketing pages the edge router serves (#9985)", () => {
+    // #9985 made unknown marketing paths 404; a stale "/about" check then failed
+    // every post-deploy run and auto-rollback reverted an unrelated commit (#10080).
+    const marketingPaths = [
+      ...WORKFLOW.matchAll(
+        /smoke_check\s+"[^"]*"\s+"https:\/\/mattbutlerengineering\.com(\/[^"]*)?"/g
+      ),
+    ].map((m) => m[1] ?? "/");
+    expect(marketingPaths.length).toBeGreaterThan(0);
+    const unknown = marketingPaths.filter(
+      (path) => !path.startsWith("/hospitality") && !isKnownMarketingPath(path)
+    );
+    expect(unknown).toEqual([]);
   });
 });

@@ -102,6 +102,7 @@ jobs:
               - 'packages/api-client/**'
               - 'packages/types/**'
               - 'packages/sentry/**'
+              - 'packages/site-nav/**'
       - name: Set outputs
         id: result
         run: |

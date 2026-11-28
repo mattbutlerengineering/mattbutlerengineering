@@ -1,14 +1,12 @@
 import type { Page } from "@playwright/test";
-import AxeBuilder from "@axe-core/playwright";
 import { test, expect } from "./fixtures.js";
-import { buildVenueTeamFixture, loadFixture } from "./api-mocks.js";
-import { mockAvailability } from "./availability-draft-mock.js";
+import { buildVenueTeamFixture } from "./api-mocks.js";
 import { mockEmptyVenue } from "./helpers/empty-venue-mock.js";
 
 /**
- * The Availability map (`/availability/map`, Venue Setup before #8864): the standing hub of every resource type the venue is made of
- * (docs/features/availability-setup-hierarchy/ux.md S-Hub). Its actions open the editors that
- * already exist; it renders no editor of its own except the two drawers it hosts.
+ * Venue Setup's addresses after the Availability map was retired (#10032): the rail in the sidebar
+ * shows the tree the map listed, the hub shows a Manager the launch steps, and every old address
+ * (`/setup`, `/availability/map`) lands on the hub with a replace.
  */
 
 const TEAM_ROUTE = /\/api\/v1\/venues\/[^/?]+\/team$/;
@@ -24,225 +22,76 @@ async function viewAsHost(page: Page): Promise<void> {
   );
 }
 
-/** The fixture venue with no booking rules set, so every node of the empty venue is unset. */
-async function withoutBookingRules(page: Page): Promise<void> {
-  const venues = JSON.parse(loadFixture("venues-list")) as {
-    data: Array<Record<string, unknown>>;
-    pagination: Record<string, unknown>;
-  };
-  await page.route("**/api/v1/venues?*", (route) => {
-    const data = venues.data.map((venue) => ({ ...venue, operatingHours: null, settings: null }));
-    return route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ data, pagination: venues.pagination }),
-    });
-  });
-}
+const sidebar = (page: Page) => page.getByRole("navigation", { name: "Dashboard navigation" });
+const hubHeading = (page: Page) => page.getByRole("heading", { level: 1, name: "Availability" });
 
-test.describe("Venue Setup hub", () => {
-  test("an empty venue lists every resource type as not set up, and says what each is", async ({
+test.describe("Venue Setup after the Availability map (#10032)", () => {
+  test("an operational venue's sidebar has one Availability item, the rail nested under it, and no map", async ({
     mockedPage: page,
   }) => {
-    await mockEmptyVenue(page);
-    await withoutBookingRules(page);
-    await page.goto("availability/map");
+    await page.goto("availability");
+    await expect(hubHeading(page)).toBeVisible();
 
-    await expect(page).toHaveURL(/\/availability\/map$/);
-    await expect(page.getByRole("heading", { level: 1, name: "Availability map" })).toBeVisible();
-    for (const [name, what] of [
-      [/Regular week/, "The days and services guests can book."],
-      [/Special dates/, /Closures and special hours/],
-      [/^Booking/, /How far ahead, how much notice/],
-      [/Floor plan/, /Where tables sit/],
-    ] as const) {
-      const node = page.getByRole("listitem", { name });
-      await expect(node.getByText("Not set up")).toBeVisible();
-      await expect(node.getByText(what)).toBeVisible();
-    }
-    await expect(
-      page.getByText("Sections and tables appear here once you add a floor plan")
-    ).toBeVisible();
-  });
-
-  test("before launch the first unset step is the primary button, and it opens the one editor", async ({
-    mockedPage: page,
-  }) => {
-    await mockEmptyVenue(page);
-    await withoutBookingRules(page);
-    await page.goto("availability/map");
-
-    const strip = page.getByRole("region", { name: "Launch progress" });
-    await expect(strip.getByText("1 of 3")).toBeVisible();
-    const primary = page.getByRole("button", { name: "Set up regular week" });
-    await expect(primary).toHaveAttribute("data-primary", "true");
-
-    await primary.click();
-    // The hub sends a Manager with no hours on to first setup, and keeps the way back.
-    await expect(page).toHaveURL(/\/availability\/hours\?from=setup$/);
-    await expect(page.getByRole("heading", { name: "Set your regular week" })).toBeVisible();
-    await page.getByRole("link", { name: "Availability map" }).click();
-    await expect(page).toHaveURL(/\/availability\/map$/);
-  });
-
-  test("Add floor plan opens the floor plan list, and Booking rules opens its editor under Availability", async ({
-    mockedPage: page,
-  }) => {
-    await mockEmptyVenue(page);
-    await withoutBookingRules(page);
-    await page.goto("availability/map");
-
-    // The same address the Availability hub's row 5 opens (availability-hub C2.5). The venue has
-    // no hours yet, and the drawer still opens: booking rules do not depend on them.
-    await page.getByRole("button", { name: "Booking rules…" }).click();
-    await expect(page).toHaveURL(/\/availability\/booking-rules\?from=setup$/);
-    await expect(page.getByRole("dialog", { name: "Booking rules" })).toBeVisible();
-
-    await page.goto("availability/map");
-    await page.getByRole("button", { name: "Add floor plan" }).click();
-    await expect(page).toHaveURL(/\/floor-plans$/);
-  });
-
-  test("Booking rules opened from Venue Setup closes onto the hub, with the way back and focus on row 5", async ({
-    mockedPage: page,
-  }) => {
-    await page.goto("availability/map");
-    await page.getByRole("button", { name: "Booking rules…" }).click();
-    const drawer = page.getByRole("dialog", { name: "Booking rules" });
-    await expect(drawer).toBeVisible();
-
-    await drawer.getByRole("button", { name: "Cancel" }).click();
-    await expect(page).toHaveURL(/\/availability\?from=setup$/);
-    await expect(drawer).toHaveCount(0);
-    await expect(page.getByRole("link", { name: "Availability map" })).toBeVisible();
-    // The drawer had no opener on this page, so the hub puts focus on the row it belongs to.
-    await expect(page.getByRole("link", { name: "Edit Booking rules" })).toBeFocused();
-  });
-
-  test("an operational venue stays on the Availability map and sees its floor plan and schedule", async ({
-    mockedPage: page,
-  }) => {
-    await page.goto("availability/map");
-
-    await expect(page).toHaveURL(/\/availability\/map$/);
-    await expect(page.getByRole("heading", { level: 1, name: "Availability map" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Launch progress" })).toHaveCount(0);
-    await expect(page.getByRole("listitem", { name: /Schedules/ })).toContainText("1 schedule");
-    const floor = page.getByRole("listitem", { name: /Main Floor/ });
-    await expect(floor).toBeVisible();
-    await expect(floor.getByRole("button", { name: "Open floor plan Main Floor" })).toBeVisible();
-    await expect(floor.getByRole("button", { name: "Move to a section" })).toBeVisible();
-
-    await floor.getByRole("button", { name: "Open floor plan Main Floor" }).click();
-    await expect(page).toHaveURL(/\/floor-plans\/fp_e2e_001$/);
-  });
-
-  test("a section's Close for a date… opens the Close dialog on that section", async ({
-    mockedPage: page,
-  }) => {
-    await mockAvailability(page);
-    await page.route(/\/api\/v1\/floor-plan-sections(\?|$)/, (route) => {
-      if (route.request().method() !== "GET") return route.fallback();
-      const at = "2026-01-01T00:00:00.000Z";
-      return route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          data: [
-            {
-              id: "sec-bar",
-              venueId: "ven_e2e_001",
-              floorPlanId: "fp_e2e_001",
-              name: "Bar",
-              color: "#8b7355",
-              displayOrder: 0,
-              createdAt: at,
-              updatedAt: at,
-            },
-          ],
-        }),
+    const item = sidebar(page)
+      .getByRole("listitem")
+      .filter({
+        has: page.getByRole("button", { name: "Availability", exact: true }),
       });
-    });
-    await page.goto("availability/map");
-
-    await page.getByRole("button", { name: "Close for a date… Bar" }).click();
-    // The hub hosts the dialog from the address (availability-hub C2.4).
-    await expect(page).toHaveURL(/\/availability\?close=section:sec-bar&from=setup$/);
-    const dialog = page.getByRole("dialog", { name: /^Close / });
-    await expect(dialog.getByText("One section: Bar", { exact: true })).toBeVisible();
-  });
-
-  test("the Schedules node's one link opens the schedule editor on the Schedules tab", async ({
-    mockedPage: page,
-  }) => {
-    await page.goto("availability/map");
-    const schedules = page.getByRole("listitem", { name: /Schedules/ }).first();
-    await schedules.getByRole("button", { name: "Add a schedule…" }).first().click();
-    await expect(page).toHaveURL(/\/availability\/calendar\?tab=schedules/);
-    await expect(page.getByRole("radio", { name: "Schedules" })).toBeChecked();
     await expect(
-      page.getByRole("dialog").getByRole("textbox", { name: /Schedule name/ })
+      item.getByRole("navigation", { name: "Availability sections" }).getByRole("link", {
+        name: "Regular hours",
+      })
     ).toBeVisible();
+    await expect(sidebar(page).getByRole("button", { name: /Availability map/ })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Availability map" })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Launch progress" })).toHaveCount(0);
   });
 
-  for (const viewport of [
-    { width: 1280, height: 720 },
-    { width: 375, height: 812 },
-  ]) {
-    test(`has no axe violation and no sideways scroll at ${viewport.width}px (#8864 AC9, AC10)`, async ({
-      mockedPage: page,
-    }) => {
-      await page.setViewportSize(viewport);
-      await page.goto("availability/map");
-      await expect(page.getByRole("heading", { level: 1, name: "Availability map" })).toBeVisible();
-      await expect(page.getByRole("listitem", { name: /Main Floor/ })).toBeVisible();
-
-      const results = await new AxeBuilder({ page }).include("main").analyze();
-      expect(results.violations).toEqual([]);
-      const overflow = await page.evaluate(
-        () => document.documentElement.scrollWidth - document.documentElement.clientWidth
-      );
-      expect(overflow).toBeLessThanOrEqual(0);
-      const mainOverflow = await page
-        .locator("main#main-content")
-        .evaluate((el) => el.scrollWidth - el.clientWidth);
-      expect(mainOverflow).toBeLessThanOrEqual(0);
-    });
-  }
-
-  test("an unready venue is still sent to the Availability map from /timeline", async ({
+  test("a pre-launch venue's sidebar shows Availability with the launch count", async ({
     mockedPage: page,
   }) => {
+    await mockEmptyVenue(page);
+    await page.goto("availability");
+    await expect(
+      sidebar(page).getByRole("button", { name: /^Availability \d of 3$/ })
+    ).toBeVisible();
+    await expect(sidebar(page).getByRole("button", { name: /Availability map/ })).toHaveCount(0);
+  });
+
+  test("an unready venue is sent from /timeline to Availability", async ({ mockedPage: page }) => {
     await mockEmptyVenue(page);
     await page.goto("timeline");
-    await expect(page).toHaveURL(/\/availability\/map$/);
-    await expect(page.getByRole("heading", { level: 1, name: "Availability map" })).toBeVisible();
+    // The hub sends a Manager of an empty venue on to first setup at Regular hours.
+    await expect(page).toHaveURL(/\/availability(\/hours)?$/);
   });
 
-  test("the old /setup address lands on the Availability map", async ({ mockedPage: page }) => {
-    await page.goto("setup");
-    await expect(page).toHaveURL(/\/availability\/map$/);
-    await expect(page.getByRole("heading", { level: 1, name: "Availability map" })).toBeVisible();
-  });
+  for (const old of ["setup", "availability/map"]) {
+    test(`the old /${old} address lands on the hub with a replace`, async ({
+      mockedPage: page,
+    }) => {
+      await page.goto("timeline");
+      await page.goto(old);
+      await expect(page).toHaveURL(/\/availability$/);
+      await expect(hubHeading(page)).toBeVisible();
+      await page.goBack();
+      await expect(page).toHaveURL(/\/timeline$/);
+    });
+  }
 
   test("/setup/hours still lands on Availability", async ({ mockedPage: page }) => {
     await page.goto("setup/hours");
     await expect(page).toHaveURL(/\/availability$/);
-    await expect(page.getByRole("heading", { level: 1, name: "Availability" })).toBeVisible();
+    await expect(hubHeading(page)).toBeVisible();
   });
 
-  test("a Host sees the tree and no editor, save or set-up call to action", async ({
+  test("a Host sees no launch progress and no set-up call to action on the hub", async ({
     mockedPage: page,
   }) => {
     await mockEmptyVenue(page);
-    await withoutBookingRules(page);
     await viewAsHost(page);
-    await page.goto("availability/map");
+    await page.goto("availability");
 
-    await expect(page.getByRole("heading", { level: 1, name: "Availability map" })).toBeVisible();
-    const week = page.getByRole("listitem", { name: /Regular week/ });
-    await expect(week.getByText("Not set up")).toBeVisible();
-    await expect(week.getByText("A manager sets this up.")).toBeVisible();
+    await expect(hubHeading(page)).toBeVisible();
     await expect(page.getByRole("region", { name: "Launch progress" })).toHaveCount(0);
     await expect(
       page.getByRole("main").getByRole("button", {

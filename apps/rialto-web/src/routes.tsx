@@ -1,12 +1,13 @@
 import { lazy, Suspense } from "react";
-import { Navigate } from "react-router";
 import type { RouteObject } from "react-router";
 import { Spinner } from "@mattbutlerengineering/rialto";
 import { ShowcaseLayout } from "./layouts/ShowcaseLayout";
 import { OverviewPage } from "./pages/OverviewPage";
 import { PrivacyPage } from "./pages/PrivacyPage";
+import { NotFoundPage } from "./pages/NotFoundPage";
 import { DemosIndexPage } from "./pages/DemosIndexPage";
 import { PAGE_REGISTRY } from "./data/page-registry";
+import { DEMOS_DESCRIPTION } from "./data/route-head-data";
 import { DocumentTitle } from "./document-title";
 import { RouteHead } from "./route-head";
 
@@ -79,10 +80,10 @@ function suspended(Component: React.LazyExoticComponent<React.ComponentType>) {
 }
 
 /** A route element that also titles the tab (component pages title themselves). */
-function titled(title: string, element: React.ReactNode) {
+function titled(title: string, element: React.ReactNode, description?: string) {
   return (
     <>
-      <DocumentTitle title={title} />
+      <DocumentTitle title={title} description={description} />
       {element}
     </>
   );
@@ -120,8 +121,11 @@ export const routeTree: RouteObject[] = [
           { index: true, element: <OverviewPage /> },
           // Demos index lives in the showcase shell (sidebar + footer, #8641); the
           // demo pages themselves stay full-page under DemoLayout.
-          { path: "demos", element: titled("Demos", <DemosIndexPage />) },
+          { path: "demos", element: titled("Demos", <DemosIndexPage />, DEMOS_DESCRIPTION) },
           ...componentRoutes,
+          // Catch-all: unknown URLs get a not-found page inside the shell (sidebar =
+          // the component index); the title comes from RouteHead.
+          { path: "*", element: <NotFoundPage /> },
         ],
       },
       // Demo pages — explicit "demos" path prefix avoids pathless layout ambiguity
@@ -164,8 +168,6 @@ export const routeTree: RouteObject[] = [
       },
       // Privacy policy
       { path: "privacy", element: titled("Privacy Policy", <PrivacyPage />) },
-      // Catch-all
-      { path: "*", element: <Navigate to="/" replace /> },
     ],
   },
 ];

@@ -1386,8 +1386,8 @@ describe("CloseDialog", () => {
       });
       renderDialog({ state: overnightState(), initialDate: FRIDAY });
       const dialog = screen.getByRole("dialog");
-      fireEvent.click(within(dialog).getByRole("combobox", { name: "Starting at" }));
-      fireEvent.click(screen.getByRole("option", { name: "From 1:00 AM (next day)" }));
+      fireEvent.click(within(dialog).getByRole("combobox", { name: "Time" }));
+      fireEvent.click(screen.getByRole("option", { name: "Close early at 1:00 AM (next day)" }));
       fireEvent.click(within(dialog).getByTestId("close-primary"));
       await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
       expect(create.mock.calls[0]![0].body.rule.window).toEqual({
@@ -1404,8 +1404,10 @@ describe("CloseDialog", () => {
       chooseWhen("Repeating");
       pickTo("2026-12-31");
       fireEvent.click(within(dialog).getByRole("checkbox", { name: "Fri" }));
-      fireEvent.click(within(dialog).getByRole("combobox", { name: "Starting at" }));
-      expect(screen.getByRole("option", { name: "From 1:30 AM (next day)" })).toBeTruthy();
+      fireEvent.click(within(dialog).getByRole("combobox", { name: "Time" }));
+      expect(
+        screen.getByRole("option", { name: "Close early at 1:30 AM (next day)" })
+      ).toBeTruthy();
     });
 
     describe("Step 2 at 01:05 on Friday's service (#7978)", () => {
@@ -1420,8 +1422,8 @@ describe("CloseDialog", () => {
       it("shows the Urgent notice for a start later that night", () => {
         renderDialog({ state: overnightState(), today: FRIDAY, initialDate: FRIDAY });
         const dialog = screen.getByRole("dialog");
-        fireEvent.click(within(dialog).getByRole("combobox", { name: "Starting at" }));
-        fireEvent.click(screen.getByRole("option", { name: "From 1:30 AM (next day)" }));
+        fireEvent.click(within(dialog).getByRole("combobox", { name: "Time" }));
+        fireEvent.click(screen.getByRole("option", { name: "Close early at 1:30 AM (next day)" }));
         fireEvent.click(within(dialog).getByTestId("close-primary"));
         expect(within(dialog).getByText(/^Urgent/)).toBeTruthy();
       });
@@ -1455,10 +1457,12 @@ describe("CloseDialog", () => {
         };
       }
       const fridayOptions = (dialog: HTMLElement) => {
-        fireEvent.click(within(dialog).getByRole("combobox", { name: "Starting at" }));
+        fireEvent.click(within(dialog).getByRole("combobox", { name: "Time" }));
         return {
-          afterMidnight: screen.queryByRole("option", { name: "From 1:00 AM (next day)" }),
-          morning: screen.queryByRole("option", { name: "From 1:00 AM" }),
+          afterMidnight: screen.queryByRole("option", {
+            name: "Close early at 1:00 AM (next day)",
+          }),
+          morning: screen.queryByRole("option", { name: "Close early at 1:00 AM" }),
         };
       };
       // 2026-12-21 is a Monday.
@@ -1485,14 +1489,12 @@ describe("CloseDialog", () => {
         // Only Friday has hours (to 2:00 AM), so Monday offers the whole day, 1:00 AM included.
         renderDialog({ state: overnightState(), initialDate: MONDAY });
         const dialog = screen.getByRole("dialog");
-        fireEvent.click(within(dialog).getByRole("combobox", { name: "Starting at" }));
-        fireEvent.click(screen.getByRole("option", { name: "From 1:00 AM" }));
+        fireEvent.click(within(dialog).getByRole("combobox", { name: "Time" }));
+        fireEvent.click(screen.getByRole("option", { name: "Close early at 1:00 AM" }));
         chooseWhen("Date range");
         pickTo("2026-12-27");
 
-        expect(within(dialog).getByRole("combobox", { name: "Starting at" })).toHaveTextContent(
-          "All day"
-        );
+        expect(within(dialog).getByRole("combobox", { name: "Time" })).toHaveTextContent("All day");
         expect(within(dialog).getByText(/comes before opening/)).toBeTruthy();
         fireEvent.click(within(dialog).getByTestId("close-primary"));
         await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
@@ -1574,7 +1576,7 @@ describe("CloseDialog", () => {
 
     it("offers none on a day that closes before midnight", () => {
       renderDialog({ initialDate: FRIDAY });
-      fireEvent.click(screen.getByRole("combobox", { name: "Starting at" }));
+      fireEvent.click(screen.getByRole("combobox", { name: "Time" }));
       expect(screen.queryByRole("option", { name: /next day/ })).toBeNull();
     });
 
@@ -1645,15 +1647,40 @@ describe("CloseDialog", () => {
     it("says a Host's emergency close is all day, with no start time to pick", () => {
       renderDialog({ hostLocked: true, initialDate: null, startTonight: true });
       const dialog = screen.getByRole("dialog");
-      expect(within(dialog).queryByRole("combobox", { name: "Starting at" })).toBeNull();
+      expect(within(dialog).queryByRole("combobox", { name: "Time" })).toBeNull();
       expect(within(dialog).getByText("All day")).toBeTruthy();
+    });
+
+    it("labels a Host's locked time Time, with the close-early note (#9930)", () => {
+      renderDialog({ hostLocked: true, initialDate: null, startTonight: true });
+      const dialog = screen.getByRole("dialog");
+      expect(within(dialog).getByText("Time")).toBeTruthy();
+      expect(
+        within(dialog).getByText(
+          "An emergency close covers the whole day. Only a manager can close early."
+        )
+      ).toBeTruthy();
+    });
+
+    it("offers Close early at a time for the venue, and From a time for a booking pause (#9930)", () => {
+      renderDialog({ initialDate: FRIDAY });
+      const dialog = screen.getByRole("dialog");
+      fireEvent.click(within(dialog).getByRole("combobox", { name: "Time" }));
+      expect(screen.getByRole("option", { name: "All day" })).toBeTruthy();
+      expect(screen.getByRole("option", { name: "Close early at 8:00 PM" })).toBeTruthy();
+      expect(screen.queryByRole("option", { name: "From 8:00 PM" })).toBeNull();
+      fireEvent.click(screen.getByRole("option", { name: "All day" }));
+      chooseWhat("Booking only");
+      fireEvent.click(within(dialog).getByRole("combobox", { name: "Time" }));
+      expect(screen.getByRole("option", { name: "From 8:00 PM" })).toBeTruthy();
+      expect(screen.queryByRole("option", { name: "Close early at 8:00 PM" })).toBeNull();
     });
 
     it("does not say the guest sees the whole day closed when only the evening is", () => {
       renderDialog({ initialDate: FRIDAY });
       expect(screen.getByText(/Fri, Dec 25 · Closed$/)).toBeTruthy();
-      fireEvent.click(screen.getByRole("combobox", { name: "Starting at" }));
-      fireEvent.click(screen.getByRole("option", { name: "From 8:00 PM" }));
+      fireEvent.click(screen.getByRole("combobox", { name: "Time" }));
+      fireEvent.click(screen.getByRole("option", { name: "Close early at 8:00 PM" }));
       expect(screen.queryByText(/Fri, Dec 25 · Closed$/)).toBeNull();
       expect(screen.getByText(/Fri, Dec 25 · Closed from 8:00 PM/)).toBeTruthy();
     });
@@ -2018,18 +2045,18 @@ describe("CloseDialog: dates, times, steps, title and toasts (availability-scena
       vi.useFakeTimers({ toFake: ["Date"] });
       vi.setSystemTime(new Date("2026-12-26T02:00:00Z")); // 6:00 PM Friday in Los Angeles
       renderDialog({ today: "2026-12-25", initialDate: null, startTonight: true });
-      fireEvent.click(screen.getByRole("combobox", { name: "Starting at" }));
+      fireEvent.click(screen.getByRole("combobox", { name: "Time" }));
       expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual([
         "All day",
-        "From 6:30 PM",
-        "From 7:00 PM",
-        "From 7:30 PM",
-        "From 8:00 PM",
-        "From 8:30 PM",
-        "From 9:00 PM",
-        "From 9:30 PM",
-        "From 10:00 PM",
-        "From 10:30 PM",
+        "Close early at 6:30 PM",
+        "Close early at 7:00 PM",
+        "Close early at 7:30 PM",
+        "Close early at 8:00 PM",
+        "Close early at 8:30 PM",
+        "Close early at 9:00 PM",
+        "Close early at 9:30 PM",
+        "Close early at 10:00 PM",
+        "Close early at 10:30 PM",
       ]);
     });
 
@@ -2038,11 +2065,11 @@ describe("CloseDialog: dates, times, steps, title and toasts (availability-scena
       vi.setSystemTime(new Date("2026-12-26T02:00:00Z"));
       renderDialog({ today: "2026-12-25", initialDate: "2026-12-25" });
       renderDialog({ today: "2026-12-18", initialDate: "2026-12-25" });
-      fireEvent.click(screen.getAllByRole("combobox", { name: "Starting at" })[1]!);
+      fireEvent.click(screen.getAllByRole("combobox", { name: "Time" })[1]!);
       // The When list is still leaving; the one just opened is the last.
       expect(
         within(screen.getAllByRole("listbox").at(-1)!).getAllByRole("option")[1]
-      ).toHaveTextContent("From 11:30 AM");
+      ).toHaveTextContent("Close early at 11:30 AM");
     });
   });
 
@@ -2081,11 +2108,11 @@ describe("CloseDialog: dates, times, steps, title and toasts (availability-scena
       const dialog = screen.getByRole("dialog");
       chooseWhen("Date range");
       pickTo("2026-12-27");
-      fireEvent.click(within(dialog).getByRole("combobox", { name: "Starting at" }));
+      fireEvent.click(within(dialog).getByRole("combobox", { name: "Time" }));
       // The When list is still leaving; the one just opened is the last.
       expect(
         within(screen.getAllByRole("listbox").at(-1)!).getAllByRole("option")[1]
-      ).toHaveTextContent("From 11:30 AM");
+      ).toHaveTextContent("Close early at 11:30 AM");
     });
   });
 
@@ -2137,8 +2164,8 @@ describe("CloseDialog: dates, times, steps, title and toasts (availability-scena
       expect(within(dialog).getByTestId("close-primary")).toHaveTextContent(
         "Close Lunch on Fri, Dec 25"
       );
-      fireEvent.click(within(dialog).getByRole("combobox", { name: "Starting at" }));
-      fireEvent.click(screen.getByRole("option", { name: "From 9:30 PM" }));
+      fireEvent.click(within(dialog).getByRole("combobox", { name: "Time" }));
+      fireEvent.click(screen.getByRole("option", { name: "Close early at 9:30 PM" }));
       expect(within(dialog).getByTestId("close-primary")).toHaveTextContent(
         "Close Lunch from 9:30 PM tonight"
       );
@@ -2168,8 +2195,8 @@ describe("CloseDialog: dates, times, steps, title and toasts (availability-scena
       vi.setSystemTime(new Date("2026-12-25T20:00:00Z")); // noon Friday in Los Angeles
       renderDialog({ today: "2026-12-25", initialDate: null, startTonight: true });
       const dialog = screen.getByRole("dialog");
-      fireEvent.click(within(dialog).getByRole("combobox", { name: "Starting at" }));
-      fireEvent.click(screen.getByRole("option", { name: "From 9:30 PM" }));
+      fireEvent.click(within(dialog).getByRole("combobox", { name: "Time" }));
+      fireEvent.click(screen.getByRole("option", { name: "Close early at 9:30 PM" }));
       fireEvent.click(within(dialog).getByTestId("close-primary"));
       expect(await screen.findByText("Closed from 9:30 PM tonight")).toBeTruthy();
     });
@@ -2206,7 +2233,7 @@ describe("CloseDialog: date first (#8689)", () => {
     const primary = within(dialog).getByTestId("close-primary");
     expect(primary).toHaveTextContent(/^Choose a date$/);
     expect(primary).toBeDisabled();
-    expect(within(dialog).queryByRole("combobox", { name: "Starting at" })).toBeNull();
+    expect(within(dialog).queryByRole("combobox", { name: "Time" })).toBeNull();
     // Nothing was asked of the server for a closure that is not one yet.
     expect(within(dialog).queryByText(/reservations?/)).toBeNull();
   });

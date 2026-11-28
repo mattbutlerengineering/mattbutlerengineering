@@ -375,7 +375,6 @@
       "waitlist": "Lista de espera",
       "guests": "Clientes",
       "dashboard": "Panel",
-      "venueSetup": "Mapa de disponibilidad",
       "bookingWidget": "Widget de reservas",
       "signOut": "Cerrar sesión",
       "chat": "Chat",
@@ -403,7 +402,6 @@
       "settings": "Configuración",
       "admin": "Administración",
       "dashboard": "Panel",
-      "setup": "Mapa de disponibilidad",
       "hours": "Disponibilidad",
       "menus": "Menús",
       "availability": "Disponibilidad",
@@ -1115,6 +1113,7 @@
     "guestFallback": "Cliente",
     "view": "Ver",
     "viewAria": "Ver la reserva de {{name}} en la cronología",
+    "partyOf": "Grupo de {{size}}",
     "status": {
       "PENDING": "Pendiente",
       "CONFIRMED": "Confirmada",
@@ -1483,17 +1482,10 @@
       "otherTimes": "Otros horarios ese día",
       "pickAnotherDate": "Elegir otra fecha",
       "noHoursGuestCall": "Llama al {{phone}} para reservar una mesa.",
-      "periods": {
-        "lunch": "Comida",
-        "dinner": "Cena",
-        "late": "Noche"
-      },
-      "periodTimes": {
-        "lunch": "Horarios disponibles para comida",
-        "dinner": "Horarios disponibles para cena",
-        "late": "Horarios disponibles por la noche",
-        "lateAfterMidnight": "Horarios disponibles por la noche, después de medianoche del {{date}}"
-      },
+      "serviceTimes": "Horarios disponibles para {{service}}",
+      "serviceTimesAfterMidnight": "Horarios disponibles para {{service}}, después de medianoche del {{date}}",
+      "availableTimes": "Horarios disponibles",
+      "availableTimesAfterMidnight": "Horarios disponibles, después de medianoche del {{date}}",
       "selected": "Seleccionado:",
       "tablesAvailable_one": "{{count}} mesa disponible",
       "tablesAvailable_many": "{{count}} de mesas disponibles",
@@ -1502,6 +1494,8 @@
     "details": {
       "holdExpires": "La reserva temporal vence en: {{time}}",
       "holdExpired": "Vencida",
+      "holdAnnounceTwoMinutes": "Quedan 2 minutos para completar tu reserva.",
+      "holdAnnounceExpired": "Tu reserva temporal venció.",
       "summaryTitle": "Detalles de la reserva",
       "welcomeBack_ordinal_one": "¡Bienvenido de nuevo, {{name}}! Es tu visita n.º {{count}}.",
       "welcomeBack_ordinal_many": "¡Bienvenido de nuevo, {{name}}! Es tu visita n.º {{count}}.",
@@ -1513,6 +1507,8 @@
       "emailPlaceholder": "juan@ejemplo.com",
       "phone": "Teléfono",
       "contactHint": "Proporciona un correo electrónico o un teléfono para la confirmación.",
+      "emailInvalid": "Escribe un correo electrónico completo, como nombre@ejemplo.com.",
+      "nameRequired": "Escribe tu nombre para que el restaurante sepa a quién esperar.",
       "requestsPlaceholder": "Alergias, celebraciones, preferencias de mesa...",
       "confirming": "Confirmando...",
       "complete": "Completar reserva"
@@ -1563,15 +1559,17 @@
     },
     "waitlist": {
       "noTablesHeading": "No hay mesas disponibles",
-      "noTablesDetail_one": "No hay mesas disponibles el {{date}} para {{count}} persona.",
-      "noTablesDetail_many": "No hay mesas disponibles el {{date}} para {{count}} de personas.",
-      "noTablesDetail_other": "No hay mesas disponibles el {{date}} para {{count}} personas.",
+      "noTablesDetail_one": "Todo reservado el {{date}} para {{count}} persona.",
+      "noTablesDetail_many": "Todo reservado el {{date}} para {{count}} de personas.",
+      "noTablesDetail_other": "Todo reservado el {{date}} para {{count}} personas.",
       "joinPrompt": "¿Unirte a la lista de espera?",
       "name": "Nombre",
       "namePlaceholder": "Tu nombre",
       "phone": "Teléfono",
       "phoneHint": "Necesario para avisarte por SMS cuando tu mesa esté lista.",
       "invalidPhone": "Ingresa un número de teléfono válido.",
+      "nameRequired": "Escribe tu nombre para que el restaurante sepa a quién esperar.",
+      "phoneRequired": "Escribe un número de teléfono para avisarte por mensaje cuando tu mesa esté lista.",
       "joining": "Uniéndote...",
       "join": "Unirse a la lista de espera",
       "added": "Agregado a la lista de espera",
@@ -1627,14 +1625,13 @@
     "documentTitle": "Tu reserva — Hospitality",
     "venueDocumentTitle": "{{venue}} — Tu reserva",
     "supportLine": "¿Necesitas ayuda? Comunícate directamente con el restaurante con los datos de tu correo de confirmación.",
-    "homeLink": "Volver a {{brand}}",
-    "noLinkHeading": "Sin enlace de acceso",
-    "noLinkDescription": "Revisa el enlace en tu correo de confirmación.",
+    "noLinkHeading": "Abre tu reservación desde tu correo",
+    "noLinkDescription": "Usa el enlace de tu correo de confirmación para administrar tu reservación, o comunícate con el restaurante.",
     "loading": "Cargando reserva...",
-    "expiredHeading": "Enlace vencido",
-    "expiredDescription": "Este enlace para gestionar tu reserva venció. Comunícate con el restaurante para recibir ayuda.",
-    "invalidHeading": "Enlace no válido",
-    "invalidDescription": "Este enlace ya se usó o no es válido.",
+    "expiredHeading": "Este enlace venció",
+    "expiredDescription": "Los enlaces de reservación dejan de funcionar con el tiempo. Comunícate con el restaurante y te ayudarán con tu reservación.",
+    "invalidHeading": "No se puede usar este enlace",
+    "invalidDescription": "Puede que ya se haya usado o que se haya copiado incompleto. Abre el enlace de tu correo de confirmación más reciente, o comunícate con el restaurante.",
     "fallbackTitle": "Tu reserva",
     "detailsTitle": "Detalles de la reserva",
     "guest": "Cliente",
@@ -1744,9 +1741,9 @@
     "full": "Esta invitación ya no tiene lugares disponibles.",
     "error": "Algo salió mal. Inténtalo de nuevo.",
     "endedHeading": "Esta invitación ha terminado",
-    "endedDescription": "La reservación fue cancelada o ya pasó.",
+    "endedDescription": "La reservación fue cancelada o ya pasó. Pregunta a la persona que te invitó para más detalles.",
     "notFoundHeading": "Invitación no encontrada",
-    "notFoundDescription": "Revisa el enlace que recibiste."
+    "notFoundDescription": "Revisa el enlace que recibiste o pide a la persona que te invitó que te lo envíe de nuevo."
   },
   "offlineBanner": {
     "cached": "Mostrando datos en caché de la última sincronización",
@@ -2387,7 +2384,6 @@
   "availability": {
     "title": "Disponibilidad",
     "description": "Tu horario, días festivos y cambios puntuales.",
-    "backToSetup": "Mapa de disponibilidad",
     "hostNote": "Solo los gerentes cambian los horarios. Para esta noche, usa el panel Esta noche.",
     "loadError": "No se pudo cargar la disponibilidad",
     "noVenue": "Selecciona un local para ver su disponibilidad.",
@@ -3052,11 +3048,13 @@
         "endOptionalLabel": "Fecha de fin (opcional)"
       },
       "window": {
-        "label": "Desde las",
+        "label": "Hora",
         "allDay": "Todo el día",
         "from": "Desde {{time}}",
+        "closeEarly": "Cierre anticipado · {{time}}",
+        "closingEarly": "Cierre anticipado · {{time}}",
         "reset": "Esa hora es anterior a la apertura en un día que pasa de la medianoche, así que esto cierra todo el día.",
-        "hostNote": "Un cierre de emergencia abarca todo el día. Solo un gerente puede cerrar desde una hora determinada."
+        "hostNote": "Un cierre de emergencia abarca todo el día. Solo un gerente puede cerrar antes."
       },
       "replaces": "El {{date}} tiene horario especial; el cierre lo reemplaza.",
       "impactLabel": "Reservas en este cierre",
@@ -3507,6 +3505,24 @@
     "holidayNudge": {
       "line": "{{name}} es el {{date}} y aún no está planeado.",
       "plan": "Planear días festivos"
+    },
+    "weekChanges": {
+      "title": "Próximos 7 días",
+      "collapsed_one": "{{count}} cambio",
+      "collapsed_many": "{{count}} cambios",
+      "collapsed_other": "{{count}} cambios",
+      "collapsedLabel_one": "{{count}} cambio en los próximos 7 días",
+      "collapsedLabel_many": "{{count}} cambios en los próximos 7 días",
+      "collapsedLabel_other": "{{count}} cambios en los próximos 7 días",
+      "more": "Mostrar {{count}} más",
+      "reopens": "Reabre",
+      "seasonalStarts": "Empiezan los horarios de temporada: {{name}}",
+      "seasonalEnds": "Terminan los horarios de temporada: {{name}}",
+      "regularHours": "Empieza un nuevo horario habitual",
+      "holiday": "{{name}} aún no está planeado",
+      "openDay": "{{change}}, ver el día",
+      "empty": "Nada más cambia en los próximos 7 días",
+      "saveFailed": "No se pudo guardar."
     }
   },
   "availabilityHub": {
@@ -3529,6 +3545,15 @@
       "calendar": "Calendario",
       "bookingRules": "Reglas de reserva",
       "history": "Historial"
+    },
+    "rail": {
+      "label": "Secciones de disponibilidad",
+      "overview": "Resumen",
+      "groups": {
+        "open": "Cuándo abres",
+        "sit": "Dónde se sientan los clientes",
+        "views": "Vistas"
+      }
     },
     "serviceFields": {
       "moreOptions": "Más opciones",
@@ -3723,6 +3748,13 @@
       "cantDelete": "No se puede eliminar: se usa {{where}}. Primero cambia esos días.",
       "cantDeleteRules": "No se puede eliminar. {{where}}. Primero cambia esas fechas."
     },
+    "seasonalEditor": {
+      "newTitle": "Nuevo horario de temporada",
+      "duplicateTitle": "Duplicar horario de temporada",
+      "back": "Volver a los horarios de temporada",
+      "loading": "Cargando horarios de temporada",
+      "notFound": "Este horario de temporada ya no existe. Vuelve a la lista para ver lo que queda."
+    },
     "closuresPage": {
       "title": "Cierres y pausas",
       "loading": "Cargando cierres y pausas",
@@ -3742,72 +3774,165 @@
         "removed": "Un cierre que ya no aparece en la lista",
         "tonight": "Un cambio hecho para esta noche"
       }
+    },
+    "guide": {
+      "title": "Cómo funciona la disponibilidad",
+      "description": "Cómo se combinan el horario habitual, los horarios de temporada, las fechas especiales, los cierres, las pausas y las reglas de reserva para dar los horarios que un cliente puede reservar.",
+      "overview": {
+        "heading": "Resumen",
+        "intro": "La disponibilidad se construye por capas. Cada capa puede cambiar las capas de abajo, y la capa más cercana a la parte superior gana en una fecha. Usa Consultar una fecha en el área de Disponibilidad para ver qué pasa en un día y la regla que lo decidió.",
+        "layersLead": "De abajo hacia arriba, las capas son:",
+        "layers": {
+          "regular": "Horario habitual: tu patrón semanal.",
+          "seasonal": "Horarios de temporada: horarios con nombre que sustituyen al horario habitual en las fechas y los días de la semana que cubren.",
+          "otherHours": "Otro horario para una fecha: una fecha configurada para usar un horario distinto.",
+          "special": "Horario especial: el horario que tiene una fecha especial, que sustituye a los horarios de abajo en esa fecha.",
+          "closures": "Cierres y pausas: un cierre deja sin clientes, y una pausa detiene las reservas en un canal.",
+          "tonight": "Cambios hechos para esta noche: Cerrar antes, una pausa para esta noche o menos ritmo de reservas. Aplican solo a esa fecha."
+        },
+        "closuresAlwaysWin": "Un cierre siempre está por encima de los horarios. Los horarios nunca reabren una fecha que un cierre dejó cerrada.",
+        "bookingRulesNote": "Las reglas de reserva no son una capa. Nunca cambian qué horario gana. Convierten el horario ganador en los horarios que ve un cliente."
+      },
+      "whenOpen": {
+        "heading": "Cuándo estás abierto",
+        "intro": "Qué horario aplica en una fecha sale de las capas de abajo. Después, los cierres y las pausas quitan tiempo o canales, y las reglas de reserva convierten lo que queda en horarios reservables."
+      },
+      "regular": {
+        "what": "El horario habitual es el patrón semanal: para cada servicio, los días en que funciona y cuándo abre, toma su última asignación de mesa y cierra.",
+        "uncovered": "Si ningún horario cubre una fecha, esa fecha está cerrada.",
+        "pastMidnight": "Un servicio pertenece al día en que abre. Un servicio que pasa de la medianoche es parte del día en que empezó y nunca aparece en la fecha siguiente."
+      },
+      "seasonal": {
+        "what": "Los horarios de temporada cubren un rango de fechas y los días de la semana que elijas. En una fecha que cubren, sustituyen al horario habitual cuando están configurados para ganarle.",
+        "replaces": "Sustituyen el día completo: los servicios y las horas del horario habitual no se conservan. Un día de la semana que el horario de temporada deja fuera sigue con el otro horario que lo cubra.",
+        "overlap": "Cuando dos horarios cubren la misma fecha, gana el de mayor prioridad. Si empatan, gana el que aparece primero en la lista."
+      },
+      "special": {
+        "what": "Una fecha especial es una fecha que difiere del horario que la cubre. Una fecha puede tener su propio horario especial.",
+        "replaces": "El horario especial sustituye por completo los servicios de esa fecha. Solo funcionan los servicios que aparecen en el horario especial, con las horas que se indican ahí, sin importar lo que digan el horario habitual o los horarios de temporada.",
+        "repeat": "Una fecha especial puede repetirse en los días de la semana elegidos. Quitar una fecha de la repetición, o editar una sola fecha, sustituye la repetición solo en esa fecha. Una fecha quitada vuelve al horario que tiene debajo.",
+        "overlap": "Si dos horarios especiales cubren la misma fecha, solo se usa uno (el posterior en el orden almacenado). Lo mismo pasa con dos fechas configuradas para usar otro horario. Evita fechas que se traslapen.",
+        "otherHours": "En cambio, una fecha puede configurarse para usar otro horario. Ese horario sustituye al que cubriría la fecha de otro modo, a menos que la fecha también tenga horario especial, que gana sobre él."
+      },
+      "closures": {
+        "what": "Un cierre deja sin clientes. Una pausa detiene las reservas en un canal, como el de en línea, mientras los horarios siguen igual.",
+        "kinds": {
+          "venue": "Un cierre del local: no funciona ningún servicio. Nadie puede reservar por ningún canal y el personal no puede anularlo.",
+          "service": "Un cierre de un servicio: ese servicio no funciona en ningún canal y los demás servicios siguen.",
+          "window": "Un cierre de una parte del día: los horarios dentro del intervalo desaparecen y el resto del día sigue reservable.",
+          "pause": "Una pausa: los servicios y los horarios siguen en pie, pero un cliente no puede reservar en el canal en pausa. Los clientes en línea no ven horarios. La reserva por teléfono sigue activa a menos que el teléfono también esté en pausa."
+        },
+        "separate": "Un cierre y una pausa no se cancelan entre sí. Reabrir un local cerrado no levanta una pausa, y Reanudar termina solo la pausa.",
+        "overlap": "Dos cierres sobre la misma fecha se conservan ambos, y ninguno sabe del otro. La app te avisa cuando un cierre que agregas no cambia nada, y cuando reabrir uno deja la fecha cerrada por otro.",
+        "tonight": "Los cambios hechos para esta noche van encima. Cerrar antes recorta la última asignación de mesa y la hora de cierre en esa fecha, y un servicio que abre a la hora del corte o después desaparece. Un cambio hecho para esta noche aplica solo a esa fecha."
+      },
+      "bookingRules": {
+        "what": "Una vez definidos los horarios, estas reglas los convierten en los horarios que ve un cliente.",
+        "items": {
+          "spacing": "Asignar mesas cada: desde la apertura se ofrece un horario cada cierto número de minutos hasta la última asignación de mesa. Un servicio puede usar horarios fijos. Nunca se ofrece un horario a la hora de cierre ni después.",
+          "bookedBy": "Se reserva por: un servicio se ofrece solo en los canales que indica. Un servicio que se reserva solo por teléfono nunca aparece para los clientes en línea.",
+          "removed": "Los cierres y las pausas quitan los horarios que cubren, en los canales que cubren.",
+          "partySize": "Tamaño del grupo: un horario necesita una mesa activa que dé lugar al grupo, entre el grupo más chico y el más grande de la mesa.",
+          "stay": "Duración de la estancia: la mesa debe estar libre durante toda la estancia, que sale de las reglas de duración del local según el tamaño del grupo. Una reserva en la mesa, o una retención que no ha vencido, durante esa estancia deja la mesa ocupada.",
+          "pacing": "Ritmo de reservas: el local puede limitar los cubiertos que inician dentro de un intervalo, y un servicio puede fijar un límite propio más bajo. Un horario que este grupo haría pasar de un límite aparece en la lista, pero no se puede reservar.",
+          "kept": "Un horario sin mesa libre, o sin lugar según el ritmo de reservas, se queda en la lista y se marca como no reservable, con el motivo.",
+          "override": "El personal que reserva por teléfono puede pasar el ritmo de reservas, la última asignación de mesa y el grupo más grande del local si da un motivo. Los cierres, los canales en pausa y los choques de mesa no se pueden anular.",
+          "window": "Con cuánta anticipación pueden reservar los clientes no lo deciden estas capas ni estas reglas. Se revisa por separado, así que una fecha que falta muy adelante puede ser un tema de ventana de reservas, no de horarios."
+        }
+      },
+      "sections": {
+        "heading": "Dónde se sientan los clientes",
+        "what": "Una sección es un grupo de mesas. Cerrar una sección bloquea sus mesas en la fecha, o en la parte del día, que elijas. Nunca quita por sí sola un servicio ni un horario.",
+        "tables": "Un horario sigue reservable mientras haya otra mesa adecuada libre para el grupo. Si la sección cerrada tenía las únicas mesas con lugar para un grupo, todos los horarios de ese grupo aparecen en la lista, pero ninguno se puede reservar.",
+        "membership": "Un cierre de sección recuerda la sección, no una lista de mesas. Bloquea las mesas que la sección tiene ahora, así que mover una mesa a la sección o fuera de ella cambia lo que bloquean sus cierres. Una sección que el sistema no conoce no bloquea nada.",
+        "blockedTable": "Al personal que elige una mesa que un cierre de sección bloquea se le rechaza, y el rechazo no se puede anular."
+      },
+      "examples": {
+        "heading": "Ejemplos prácticos",
+        "intro": "Cada ejemplo se ejecuta en el mismo motor de disponibilidad que usan las páginas de reservas. Los horarios que se muestran son su respuesta, no una descripción.",
+        "seasonalAndSpecial": {
+          "title": "Los horarios de temporada cubren diciembre, pero el 24 de diciembre es una fecha especial",
+          "scenario": "El horario habitual asigna mesas para la cena cada hora por la tarde-noche. Los horarios de diciembre son horarios de temporada que cubren del 1 al 31 de diciembre, con la cena empezando una hora antes. El 24 de diciembre es una fecha especial con un horario especial más corto.",
+          "checks": {
+            "beforeSeason": "Martes 30 de noviembre de 2027, un cliente en línea, grupo de 2",
+            "inSeason": "Jueves 23 de diciembre de 2027, un cliente en línea, grupo de 2",
+            "specialDate": "Viernes 24 de diciembre de 2027, un cliente en línea, grupo de 2"
+          },
+          "why": "El 30 de noviembre solo cubre la fecha el horario habitual. El 23 de diciembre toman el control los horarios de temporada. El 24 de diciembre el horario especial de la fecha sustituye a los horarios de temporada, así que los clientes ven el día más corto."
+        },
+        "closureBeatsSpecial": {
+          "title": "Un cierre gana al horario especial",
+          "scenario": "El 24 de diciembre tiene horario especial y el local también está cerrado esa fecha.",
+          "checks": {
+            "online": "Viernes 24 de diciembre de 2027, un cliente en línea, grupo de 2",
+            "phone": "Viernes 24 de diciembre de 2027, el personal reservando por teléfono, grupo de 2"
+          },
+          "why": "Los cierres van por encima de los horarios, así que no funciona ningún servicio. Un cliente no puede reservar en línea y el personal no puede reservar por teléfono."
+        },
+        "pauseVersusClosure": {
+          "title": "Pausa frente a cierre",
+          "scenario": "Las reservas en línea están en pausa el viernes 26 de noviembre. El local está cerrado el sábado 27 de noviembre.",
+          "checks": {
+            "pausedOnline": "Viernes 26 de noviembre de 2027, un cliente en línea, grupo de 2",
+            "pausedPhone": "Viernes 26 de noviembre de 2027, el personal reservando por teléfono, grupo de 2",
+            "closedOnline": "Sábado 27 de noviembre de 2027, un cliente en línea, grupo de 2",
+            "closedPhone": "Sábado 27 de noviembre de 2027, el personal reservando por teléfono, grupo de 2"
+          },
+          "why": "La pausa deja los horarios como están y detiene solo el canal en línea, así que el personal todavía puede reservar por teléfono. El cierre quita los servicios, así que ningún canal puede reservar."
+        },
+        "sectionClosed": {
+          "title": "Una sección cerrada",
+          "scenario": "La sección de la terraza está cerrada el viernes 26 de noviembre. La mesa de cuatro de la terraza es la única con lugar para cuatro. La mesa de dos del interior da lugar a dos como máximo.",
+          "checks": {
+            "partyOfFour": "Viernes 26 de noviembre de 2027, un cliente en línea, grupo de 4",
+            "partyOfTwo": "Viernes 26 de noviembre de 2027, un cliente en línea, grupo de 2"
+          },
+          "why": "Una sección cerrada bloquea sus mesas, no los horarios. Un grupo de dos sigue reservando en el interior. Para un grupo de cuatro todos los horarios aparecen en la lista, pero ninguno se puede reservar, porque no hay una mesa adecuada libre."
+        },
+        "pacing": {
+          "title": "El ritmo de reservas limita una hora llena",
+          "scenario": "La cena tiene un límite de ritmo de cuatro cubiertos por hora, y el viernes 26 de noviembre ya hay un grupo de cuatro reservado a las 6 p. m.",
+          "checks": {
+            "partyOfTwo": "Viernes 26 de noviembre de 2027, un cliente en línea, grupo de 2"
+          },
+          "why": "Un grupo de dos a las 6 p. m. llevaría esa hora a seis cubiertos, por encima del límite, así que las 6 p. m. aparecen en la lista, pero no se pueden reservar aunque haya una mesa libre. Los demás horarios no se ven afectados."
+        }
+      },
+      "outcome": {
+        "none": "No se ofrece ningún horario.",
+        "bookable": "Reservable: {{times}}",
+        "noTable": "En la lista pero no reservable, no hay una mesa adecuada libre: {{times}}",
+        "pacing": "En la lista pero no reservable, se alcanzó el límite de ritmo de reservas: {{times}}"
+      },
+      "troubleshooting": {
+        "heading": "¿Por qué un cliente no puede reservar ese horario?",
+        "lead": "Digamos que un cliente no puede reservar a las 7 p. m. del viernes. Recorre esta lista en orden. Cada paso nombra la capa o la regla que debes revisar.",
+        "steps": {
+          "checkDate": "Consultar una fecha: abre ese viernes en el área de Disponibilidad. Muestra una sola oración: qué pasa en esa fecha y la regla que lo decidió.",
+          "special": "Horario especial: ¿ese viernes tiene su propio horario especial? Sustituye todo lo de abajo, así que solo funcionan los servicios que aparecen ahí, con las horas que se indican ahí.",
+          "seasonal": "Horarios de temporada: ¿cubren ese viernes, y los viernes en particular? Si es así, aplican sus horas en lugar del horario habitual.",
+          "regular": "Horario habitual: si nada de lo anterior aplica, ¿el viernes tiene un servicio abierto a las 7 p. m., con las 7 p. m. en o antes de su última asignación de mesa?",
+          "seatEvery": "Asignar mesas cada: ¿las 7 p. m. son uno de los horarios que el servicio asigna? Asignar mesas cada 45 minutos desde las 5 p. m. ofrece 5:00, 5:45, 6:30 y 7:15 p. m., no las 7:00.",
+          "bookedBy": "Se reserva por: ¿el servicio indica el canal que usó el cliente? Un servicio que se reserva solo por teléfono nunca aparece en línea.",
+          "closures": "Cierres: ¿el local, ese servicio o un intervalo que cubre las 7 p. m. está cerrado en esa fecha? Revisa Cierres y pausas.",
+          "pause": "Pausa: ¿están en pausa las reservas en línea? La reserva por teléfono puede seguir funcionando.",
+          "tonight": "Esta noche: si la fecha es hoy, ¿se fijó Cerrar antes o menos ritmo de reservas para esta noche?",
+          "tables": "Mesas y tamaño del grupo: ¿alguna mesa da lugar al grupo? ¿Está cerrada la sección de esa mesa? ¿Está ocupada durante toda la estancia cada mesa que cabe?",
+          "pacing": "Ritmo de reservas: ¿las 7 p. m. aparecen en la lista pero llenas porque se alcanzó un límite de ritmo?",
+          "window": "Ventana de reservas: ¿la fecha está más adelante de lo que los clientes pueden reservar? Ese límite no forma parte de las capas de arriba.",
+          "otherHours": "Otro horario: ¿esa fecha está configurada para usar otro horario? Si es así, ese horario aplica en lugar de los horarios de temporada o del horario habitual, a menos que la fecha también tenga horario especial.",
+          "whyThisDay": "Por qué este día: ¿sigues sin encontrarlo? Abre ese viernes en el Calendario. Cuando aplica más de una capa, esa sección muestra cada una, qué cambia y qué pasaría si la quitas."
+        }
+      }
     }
   },
   "setup": {
     "hub": {
-      "title": "Mapa de disponibilidad",
-      "description": "Lo que decide cuándo pueden reservar los clientes, de los horarios y servicios hasta las mesas, y cada línea abre el lugar donde lo cambias.",
-      "yourVenue": "tu local",
-      "loading": "Cargando el mapa de disponibilidad",
-      "loadError": "No se pudo cargar el mapa de disponibilidad.",
-      "groupError": "No se pudo cargar «{{group}}».",
-      "groups": {
-        "open": "Cuándo abres",
-        "sit": "Dónde se sientan los clientes"
-      },
-      "notSetUp": "Sin configurar",
-      "hostUnset": "Lo configura un gerente.",
-      "regularWeek": "Semana habitual",
-      "label": {
-        "schedules": "Horarios",
-        "specialDates": "Fechas especiales",
-        "booking": "Reservas",
-        "floorPlan": "Plano de sala",
-        "noSection": "Sin sección"
-      },
-      "caption": {
-        "schedule": "Horario",
-        "service": "Servicio",
-        "section": "Sección",
-        "table": "Mesa",
-        "floorPlan": "Plano de sala"
-      },
       "channelLabel": {
         "online": "Reservas en línea",
         "phone": "Reservas por teléfono",
         "waitlist": "Lista de espera"
       },
-      "channel": {
-        "online": "En línea",
-        "phone": "Teléfono",
-        "waitlist": "Lista de espera"
-      },
-      "what": {
-        "regularWeek": "Los días y servicios que los clientes pueden reservar.",
-        "schedules": "Semanas con nombre que sigue tu local. La semana habitual es una.",
-        "specialDates": "Cierres y horarios especiales para una fecha o un rango.",
-        "bookingUnset": "Con cuánta anticipación, cuánto aviso y qué tamaño de grupo pueden reservar en línea los clientes; se aplican los valores predeterminados.",
-        "booking": "Cómo reservan los clientes: en línea, por teléfono, en la lista de espera.",
-        "floorPlan": "Dónde están las mesas; sin una mesa, los clientes no pueden reservar."
-      },
-      "count": {
-        "schedules_one": "{{count}} horario",
-        "schedules_many": "{{count}} de horarios",
-        "schedules_other": "{{count}} horarios",
-        "specialDates_one": "{{count}} próxima",
-        "specialDates_many": "{{count}} de próximas",
-        "specialDates_other": "{{count}} próximas",
-        "channel_one": "cerrada en {{count}} fecha próxima",
-        "channel_many": "cerrada en {{count}} de fechas próximas",
-        "channel_other": "cerrada en {{count}} fechas próximas"
-      },
-      "open": "Abierto {{days}}",
-      "period": "{{range}}, {{days}}",
-      "until": "Hasta el {{date}}",
-      "from": "Desde el {{date}}",
-      "range": "{{from}} – {{to}}",
-      "serviceLine": "{{hours}} · {{days}}",
       "rules": {
         "daysAhead_one": "Hasta {{count}} día de anticipación",
         "daysAhead_many": "Hasta {{count}} de días de anticipación",
@@ -3818,38 +3943,6 @@
         "largestParty_one": "grupos de hasta {{count}} en línea",
         "largestParty_many": "grupos de hasta {{count}} en línea",
         "largestParty_other": "grupos de hasta {{count}} en línea"
-      },
-      "closedRow": "{{target}}: cerrado",
-      "specialHoursRow": "{{target}}: horario especial",
-      "target": {
-        "venue": "Todo el local",
-        "service": "Un servicio",
-        "section": "Una sección",
-        "tables_one": "{{count}} mesa",
-        "tables_many": "{{count}} de mesas",
-        "tables_other": "{{count}} mesas"
-      },
-      "sections_one": "{{count}} sección",
-      "sections_many": "{{count}} de secciones",
-      "sections_other": "{{count}} secciones",
-      "tables_one": "{{count}} mesa",
-      "tables_many": "{{count}} de mesas",
-      "tables_other": "{{count}} mesas",
-      "seats_one": "{{count}} lugar",
-      "seats_many": "{{count}} de lugares",
-      "seats_other": "{{count}} lugares",
-      "floorPlanHint": "Las secciones y las mesas aparecen aquí cuando agregas un plano de sala",
-      "actions": {
-        "setUpRegularWeek": "Configurar la semana habitual",
-        "changeRegularWeek": "Cambiar la semana habitual…",
-        "editSchedule": "Editar",
-        "createSchedule": "Agregar un horario…",
-        "openSpecialDates": "Abrir Fechas especiales",
-        "bookingRules": "Reglas de reserva…",
-        "openFloorPlan": "Abrir el plano de sala",
-        "addFloorPlan": "Agregar plano de sala",
-        "closeSection": "Cerrar en una fecha…",
-        "moveToSection": "Pasar a una sección"
       },
       "strip": {
         "title": "Avance del lanzamiento",
@@ -4032,8 +4125,7 @@
     },
     "venue": {
       "title": "Local",
-      "description": "Administra los días y horarios en que tu local acepta reservas.",
-      "venueSetup": "Mapa de disponibilidad"
+      "description": "Administra los días y horarios en que tu local acepta reservas."
     },
     "team": {
       "title": "Equipo",

@@ -20,6 +20,12 @@ export const HOME_CANONICAL = `${SITE_ORIGIN}/rialto/`;
 /** `<title>`, `og:title` and `twitter:title` of the static `demos/index.html`. */
 export const DEMOS_TITLE = "Demos — Rialto Design System";
 
+/** Heading of the not-found page; its title is `${NOT_FOUND_STEM}${TITLE_SUFFIX}`. */
+export const NOT_FOUND_STEM = "Page not found";
+
+/** Meta description of the demos index; also the lede on `DemosIndexPage`. */
+export const DEMOS_DESCRIPTION = "Full-page demos built with Rialto components.";
+
 /** Appended to a page heading to form `document.title`. */
 export const TITLE_SUFFIX = " — Rialto";
 
@@ -33,10 +39,13 @@ export interface CatalogEntry {
   readonly path: string;
   readonly label: string;
   readonly heading?: string;
+  /** The page layout's one-line description, when the page has one. */
+  readonly description?: string;
 }
 
 export interface PrerenderHead {
   readonly title: string;
+  readonly description?: string;
   readonly url: string;
   readonly fileName: string;
   /** Set to keep the page out of search results; absent leaves the shell's `index, follow`. */
@@ -136,15 +145,21 @@ export function resolveHead(pathname: string, entries: readonly CatalogEntry[]):
     if (route.pattern.test(path)) return headForStem(path, route.stem);
   }
 
-  // The `*` route redirects to `/`. Advertise home rather than the previous page.
-  return HOME_HEAD;
+  // The `*` route renders the not-found page. Title it as such; keep the canonical on home
+  // rather than advertising the mistyped URL.
+  return { ...HOME_HEAD, ...headForStem("/", NOT_FOUND_STEM), url: HOME_CANONICAL };
 }
 
 /** Static HTML files to emit besides `index.html` and `demos/index.html`. */
 export function prerenderHeads(entries: readonly CatalogEntry[]): PrerenderHead[] {
   const catalog = entries.map((entry) => {
     const title = documentTitle(entry.heading ?? entry.label);
-    return { title, url: canonicalUrl(entry.path), fileName: routeHtmlFileName(entry.path) };
+    return {
+      title,
+      url: canonicalUrl(entry.path),
+      fileName: routeHtmlFileName(entry.path),
+      ...(entry.description ? { description: entry.description } : {}),
+    };
   });
   const extras = EXTRA_ROUTES.map((route) => ({
     title: documentTitle(route.stem),

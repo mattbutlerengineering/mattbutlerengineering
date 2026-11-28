@@ -82,6 +82,13 @@ describe("StatRow", () => {
     expect(screen.getByText("10%")).toBeDefined();
   });
 
+  it("stretches the meter tile so the label and value keep their own space", () => {
+    render(<StatRow stats={STATS} />);
+
+    const tile = screen.getByTestId("meter").parentElement;
+    expect(tile?.className).toContain("meterTile");
+  });
+
   it("uses exactly one meter for the bounded metric", () => {
     render(<StatRow stats={STATS} />);
 

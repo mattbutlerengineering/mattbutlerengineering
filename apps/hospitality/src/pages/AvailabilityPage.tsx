@@ -53,6 +53,7 @@ import { OnlinePausedBanner } from "../components/availability/OnlinePausedBanne
 import { TodayLine } from "../components/availability/TodayLine.js";
 import { RegularWeekLine } from "../components/availability/RegularWeekLine.js";
 import { NextHolidayNudge } from "../components/availability/NextHolidayNudge.js";
+import { WeekChanges } from "../components/availability/WeekChanges.js";
 import { DiscardChangesDialog } from "../components/availability/DiscardChangesDialog.js";
 import { LeaveGuard } from "../components/availability/LeaveGuard.js";
 import { useDiscardGuard } from "../components/availability/use-discard-guard.js";
@@ -375,6 +376,28 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
     else if (tab === "schedules" && move.tab !== "schedules") tabGuard.request(move);
     else applyTab(move);
   };
+  // The address names the open layer (#9944): the Availability rail beside the page links its
+  // layers and marks the one the address names. A new ?tab= moves the layer as a tab press would,
+  // asking first over unsaved edits; once the layer has settled, the address is written to match,
+  // which puts it back when the viewer keeps editing.
+  const addressTab = parseAvailabilityEntry(searchParams).tab ?? null;
+  const [followedTab, setFollowedTab] = useState(addressTab);
+  if (addressTab !== followedTab) {
+    setFollowedTab(addressTab);
+    if (addressTab && tab !== "pending" && addressTab !== tab) changeTab({ tab: addressTab });
+  }
+  const asking = tabGuard.pending !== null || guard.pending !== null;
+  useEffect(() => {
+    if (tab === "pending" || asking || searchParams.get("tab") === tab) return;
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set("tab", tab);
+        return next;
+      },
+      { replace: true }
+    );
+  }, [tab, asking, searchParams, setSearchParams]);
   const regularSchedule = config.data?.config.schedules.find((s) => s.isRegular && !s.archivedAt);
   // A Host keeps Go to date; the rest is the Manager's. While the role or the config
   // is read the actions show disabled, and a config that failed to load has nothing to open.
@@ -411,8 +434,8 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
           <div className={styles.headerAside}>
             {actions}
             {entry.from === "setup" && (
-              <Link to={availabilityPath({ view: "map" })} className={styles.backLink}>
-                {t("availability.backToSetup")}
+              <Link to={availabilityPath({ view: "hub" })} className={styles.backLink}>
+                {t("availabilityHub.hours.back")}
               </Link>
             )}
           </div>
@@ -564,6 +587,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         venueId={selectedVenueId}
         config={config.data.config}
         today={today}
+        serviceDate={serviceDate}
         onPlan={() => changeTab({ tab: "special" })}
       />
     ) : null;
@@ -763,11 +787,27 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
       calendarLayer
     );
 
+  const weekChanges = config.data && tab !== "pending" && (
+    <WeekChanges
+      venueId={selectedVenueId}
+      config={config.data.config}
+      onOpenDay={(date) => changeTab({ tab: "calendar", then: { openDay: date } })}
+      onPlanHolidays={() => changeTab({ tab: "special" })}
+      sectionNames={sectionNames}
+      isManager={isManager}
+    />
+  );
+
   return (
     <Stack gap="md">
       {pageHeader(
         headerActions,
-        <TodayLine venueId={selectedVenueId} bannerShowsOnline={pause !== null} />
+        // A phone's "Next 7 days" shares the Today line's row when it fits, so it adds no row
+        // above the calendar's first days.
+        <div className={styles.todayRow}>
+          <TodayLine venueId={selectedVenueId} bannerShowsOnline={pause !== null} />
+          {onPhone && weekChanges}
+        </div>
       )}
       {pause && config.data && (
         <OnlinePausedBanner
@@ -778,6 +818,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         />
       )}
       {loadFailureBanner}
+      {!onPhone && weekChanges}
       {tab !== "pending" && (
         <AvailabilityScheduleControls
           isManager={isManager}

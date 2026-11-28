@@ -45,6 +45,29 @@ export function engineeringMenu(pathname: string): EngineeringMenu {
   };
 }
 
+/** The standard `GlobalNav` props shared by every app's header. */
+export interface GlobalNavSiteProps {
+  readonly menu: EngineeringMenu;
+  readonly currentPath: string;
+  readonly labels?: Readonly<Record<string, string>>;
+}
+
+/**
+ * The props that make every app render the same header. Apps add only
+ * `currentApp`, `theme`, `onThemeToggle`, and (optionally) translated `labels`.
+ * `pathname` is the page's site path, e.g. `/gen/` or the router's location.
+ */
+export function globalNavProps(
+  pathname: string,
+  labels?: Readonly<Record<string, string>>
+): GlobalNavSiteProps {
+  return {
+    menu: engineeringMenu(pathname),
+    currentPath: pathname,
+    ...(labels ? { labels } : {}),
+  };
+}
+
 /** The rich footer's link columns, built fresh so callers cannot mutate shared state. */
 export function siteFooterColumns(): FooterColumn[] {
   return [

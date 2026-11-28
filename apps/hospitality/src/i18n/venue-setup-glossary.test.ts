@@ -46,23 +46,6 @@ interface Concept {
 
 const GLOSSARY: readonly Concept[] = [
   {
-    // Venue Setup until #8864 moved it under the Availability hub.
-    concept: "The availability map",
-    term: {
-      "en-US": "Availability map",
-      "es-MX": "Mapa de disponibilidad",
-      "fr-CA": "Carte des disponibilités",
-    },
-    exact: [
-      "nav.items.venueSetup",
-      "layout.routes.setup",
-      "setup.hub.title",
-      "availability.backToSetup",
-      "settings.venue.venueSetup",
-    ],
-    contains: ["setup.hub.loading", "setup.hub.loadError"],
-  },
-  {
     concept: "The calendar page",
     term: { "en-US": "Availability", "es-MX": "Disponibilidad", "fr-CA": "Disponibilité" },
     exact: [
@@ -79,8 +62,6 @@ const GLOSSARY: readonly Concept[] = [
     exact: [
       "layout.routes.floorPlan",
       "floorPlan.list.title",
-      "setup.hub.label.floorPlan",
-      "setup.hub.caption.floorPlan",
       "setup.hub.strip.steps.floorPlan",
       "timeline.page.floorPlans",
     ],
@@ -90,23 +71,17 @@ const GLOSSARY: readonly Concept[] = [
     concept: "Weekly pattern",
     term: { "en-US": "Regular week", "es-MX": "Semana habitual", "fr-CA": "Semaine habituelle" },
     exact: [
-      "setup.hub.regularWeek",
       "setup.hub.strip.steps.regularWeek",
       "availability.regularWeekLine.heading",
       "availabilitySchedules.regularMarker",
     ],
-    contains: [
-      "availabilitySchedules.regularWeek.title",
-      "setup.hub.actions.setUpRegularWeek",
-      "setup.hub.actions.changeRegularWeek",
-    ],
+    contains: ["availabilitySchedules.regularWeek.title"],
   },
   {
     concept: "Named alternative week",
     term: { "en-US": "Schedule", "es-MX": "Horario", "fr-CA": "Horaire" },
-    exact: ["setup.hub.caption.schedule"],
+    exact: [],
     contains: [
-      "setup.hub.label.schedules",
       "availabilitySchedules.title",
       "availabilitySchedules.tabSchedules",
       "availabilitySchedules.newTitle",
@@ -115,32 +90,20 @@ const GLOSSARY: readonly Concept[] = [
   {
     concept: "Bookable period",
     term: { "en-US": "Service", "es-MX": "Servicio", "fr-CA": "Service" },
-    exact: ["setup.hub.caption.service"],
+    exact: [],
     contains: ["availabilitySchedules.compare.title"],
   },
   {
     concept: "One-date difference",
     term: { "en-US": "Special dates", "es-MX": "Fechas especiales", "fr-CA": "Dates spéciales" },
-    exact: ["availabilitySpecial.tab", "setup.hub.label.specialDates"],
+    exact: ["availabilitySpecial.tab"],
     contains: [],
   },
   {
     concept: "How guests book",
     term: { "en-US": "Booking", "es-MX": "Reservas", "fr-CA": "Réservations" },
-    exact: ["setup.hub.label.booking"],
+    exact: [],
     contains: ["availability.bookingRules.title"],
-  },
-  {
-    concept: "A part of the floor",
-    term: { "en-US": "Section", "es-MX": "Sección", "fr-CA": "Section" },
-    exact: ["setup.hub.caption.section"],
-    contains: [],
-  },
-  {
-    concept: "One seat group",
-    term: { "en-US": "Table", "es-MX": "Mesa", "fr-CA": "Table" },
-    exact: ["setup.hub.caption.table"],
-    contains: [],
   },
 ];
 
@@ -173,16 +136,22 @@ describe.each(LOCALES)("Venue Setup glossary (%s)", (locale) => {
   });
 
   it("spells the Title Case nav and title surfaces exactly as the glossary", () => {
-    expect(lookup(catalog, "nav.items.venueSetup")).toBe(GLOSSARY[0]!.term[locale]);
-    expect(lookup(catalog, "layout.routes.setup")).toBe(GLOSSARY[0]!.term[locale]);
-    expect(lookup(catalog, "layout.routes.hours")).toBe(GLOSSARY[1]!.term[locale]);
+    expect(lookup(catalog, "nav.items.availability")).toBe(GLOSSARY[0]!.term[locale]);
+    expect(lookup(catalog, "layout.routes.hours")).toBe(GLOSSARY[0]!.term[locale]);
   });
 
-  it("names the Availability map identically in the nav before and after launch", () => {
+  it("names Availability identically in the nav before and after launch, with no map item", () => {
     // One catalog entry serves both readiness states; the progress count is a separate key.
+    // The Availability map is retired (#10032), so its item is too.
     const navKeys = leaves(catalog.nav).map(([key]) => key);
-    expect(navKeys).toContain("items.venueSetup");
-    for (const retired of ["venueBasics", "setOperatingHours", "createFloorPlan", "floorPlans"]) {
+    expect(navKeys).toContain("items.availability");
+    for (const retired of [
+      "venueSetup",
+      "venueBasics",
+      "setOperatingHours",
+      "createFloorPlan",
+      "floorPlans",
+    ]) {
       expect(navKeys, retired).not.toContain(`items.${retired}`);
     }
   });

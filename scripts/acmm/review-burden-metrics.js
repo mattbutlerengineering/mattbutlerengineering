@@ -26,8 +26,6 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { read, write, resolvePath } from "../metrics-store.mjs";
 
-const METRICS_PATH = resolvePath("review-burden");
-
 const RUBBER_STAMP_DEFAULT_MINUTES = 5;
 
 /* ── CLI args ────────────────────────────────────────────── */
@@ -415,22 +413,23 @@ function printSummary(entry) {
  * @param {object} entry
  */
 function persistEntry(entry) {
+  const metricsPath = resolvePath("review-burden");
   let entries = [];
   try {
     const existing = read("review-burden");
     if (Array.isArray(existing)) {
       entries = existing;
     } else if (existing !== null) {
-      console.error(`Expected array in ${METRICS_PATH}, got ${typeof existing}. Resetting.`);
+      console.error(`Expected array in ${metricsPath}, got ${typeof existing}. Resetting.`);
     }
   } catch {
-    console.error(`Failed to parse ${METRICS_PATH}. Starting fresh.`);
+    console.error(`Failed to parse ${metricsPath}. Starting fresh.`);
   }
 
   const updated = [...entries, entry];
   write("review-burden", updated);
 
-  console.log(`Appended entry to: ${METRICS_PATH}`);
+  console.log(`Appended entry to: ${metricsPath}`);
   console.log(`Total entries: ${updated.length}`);
 }
 

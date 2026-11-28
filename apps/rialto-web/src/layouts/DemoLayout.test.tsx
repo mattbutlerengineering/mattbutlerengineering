@@ -10,8 +10,19 @@ vi.mock("@mattbutlerengineering/rialto", async (importOriginal) => ({
   useThemeState: (await importOriginal<Record<string, unknown>>()).useThemeState,
   // Real vibe map: the switcher derives its options from it.
   vibes: (await importOriginal<Record<string, unknown>>()).vibes,
-  GlobalNav: ({ onThemeToggle }: { onThemeToggle?: () => void }) => (
+  GlobalNav: ({
+    onThemeToggle,
+    menu,
+  }: {
+    onThemeToggle?: () => void;
+    menu?: { label: string; items: readonly { label: string }[] };
+  }) => (
     <nav data-testid="global-nav">
+      {menu && (
+        <span data-testid="engineering-menu">
+          {menu.label}: {menu.items.map((i) => i.label).join(",")}
+        </span>
+      )}
       <button onClick={onThemeToggle} data-testid="theme-toggle">
         toggle
       </button>
@@ -99,6 +110,13 @@ describe("DemoLayout", () => {
   it("renders the global nav", () => {
     renderDemoLayout();
     expect(screen.getByTestId("global-nav")).toBeInTheDocument();
+  });
+
+  it("renders the Engineering menu in the header", () => {
+    renderDemoLayout();
+    expect(screen.getByTestId("engineering-menu")).toHaveTextContent(
+      "Engineering: Metrics,Shipped"
+    );
   });
 
   it("exposes the floating controls as a named landmark so they sit inside a region", () => {

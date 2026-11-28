@@ -9,7 +9,6 @@ import {
   Text,
 } from "@mattbutlerengineering/rialto";
 import { useTranslation } from "react-i18next";
-import { getHourIn } from "../../utils/format.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { addDays, venueDate } from "../../utils/service-day.js";
 import { TimeSlotListbox } from "./TimeSlotListbox.js";
@@ -60,7 +59,34 @@ const SKELETON_SLOT_COUNT = 8;
 /** How many nearby times a mid-booking closure offers (ux.md F9.5). */
 const MAX_ALTERNATIVES = 3;
 
-type Period = "lunch" | "dinner" | "late" | "afterMidnight";
+type SlotService = NonNullable<TimeSlot["service"]>;
+
+interface ServiceGroup {
+  key: string;
+  /** The venue's service name as typed; null when the slots carry no service. */
+  name: string | null;
+  slots: TimeSlot[];
+}
+
+const byTime = (a: TimeSlot, b: TimeSlot) =>
+  new Date(a.time).getTime() - new Date(b.time).getTime();
+
+/**
+ * Slots in time order, grouped by venue service in the order services open.
+ * Groups only when EVERY slot names its service (legacy-hours venues send
+ * none); otherwise one unnamed group, so a slot is never orphaned (ux.md F9.6).
+ */
+function groupByService(slots: readonly TimeSlot[]): ServiceGroup[] {
+  const sorted = [...slots].sort(byTime);
+  const withService = sorted.filter(
+    (slot): slot is TimeSlot & { service: SlotService } => slot.service !== undefined
+  );
+  if (withService.length !== sorted.length) return [{ key: "all", name: null, slots: sorted }];
+  return [...new Set(withService.map((slot) => slot.service.id))].map((id) => {
+    const groupSlots = withService.filter((slot) => slot.service.id === id);
+    return { key: id, name: groupSlots[0]?.service.name ?? null, slots: groupSlots };
+  });
+}
 
 /** The `max` slots nearest `lostTime`, back in time order. */
 function nearestSlots(slots: TimeSlot[], lostTime: string, max: number): TimeSlot[] {
@@ -111,33 +137,9 @@ export function TimeSlotPicker({
   // pre-existing behavior rather than being newly suppressed.
   const isFutureDate = date > venueDate(new Date(), venueTimezone);
 
-  // Get hour from ISO datetime for grouping — in the venue's timezone when
-  // known, otherwise the device's (#4976).
-  const getHour = (isoTime: string) => {
-    return venueTimezone ? getHourIn(isoTime, venueTimezone) : new Date(isoTime).getHours();
-  };
-
-  // A slot on the venue's next calendar day is after midnight and belongs
-  // with Late Night, not lunch (ux.md F9.6).
-  const periodOf = (isoTime: string): Period => {
-    if (venueDate(new Date(isoTime), venueTimezone) > date) return "afterMidnight";
-    const hour = getHour(isoTime);
-    if (hour < 15) return "lunch";
-    return hour < 20 ? "dinner" : "late";
-  };
-
-  const groupedSlots = slots.reduce(
-    (groups, slot) => {
-      const period = periodOf(slot.time);
-      return { ...groups, [period]: [...groups[period], slot] };
-    },
-    {
-      lunch: [] as TimeSlot[],
-      dinner: [] as TimeSlot[],
-      late: [] as TimeSlot[],
-      afterMidnight: [] as TimeSlot[],
-    }
-  );
+  // A slot on the venue's next calendar day is after midnight; it gets its own
+  // list inside its service, named for that day (ux.md F9.6).
+  const isAfterMidnight = (slot: TimeSlot) => venueDate(new Date(slot.time), venueTimezone) > date;
 
   if (isLoading) {
     return (
@@ -273,50 +275,46 @@ export function TimeSlotPicker({
     );
   };
 
-  const renderPeriods = () => {
-    const showLate = groupedSlots.late.length > 0 || groupedSlots.afterMidnight.length > 0;
-    const sections: Array<{
-      key: string;
-      heading: Exclude<Period, "afterMidnight">;
-      lists: Array<[TimeSlot[], string]>;
-    }> = [
-      {
-        key: "lunch",
-        heading: "lunch",
-        lists: [[groupedSlots.lunch, t("bookingWidget.timeSlot.periodTimes.lunch")]],
-      },
-      {
-        key: "dinner",
-        heading: "dinner",
-        lists: [[groupedSlots.dinner, t("bookingWidget.timeSlot.periodTimes.dinner")]],
-      },
-      {
-        key: "late",
-        heading: "late",
-        lists: [
-          [groupedSlots.late, t("bookingWidget.timeSlot.periodTimes.late")],
-          [
-            groupedSlots.afterMidnight,
-            t("bookingWidget.timeSlot.periodTimes.lateAfterMidnight", {
-              date: format.formatLongDate(addDays(date, 1)),
-            }),
-          ],
-        ],
-      },
-    ];
+  /** The same-day and after-midnight lists' names; a service's name only when it is headed. */
+  const listLabels = (service: string | null): [string, string] => {
+    const nextDay = format.formatLongDate(addDays(date, 1));
+    return service
+      ? [
+          t("bookingWidget.timeSlot.serviceTimes", { service }),
+          t("bookingWidget.timeSlot.serviceTimesAfterMidnight", { service, date: nextDay }),
+        ]
+      : [
+          t("bookingWidget.timeSlot.availableTimes"),
+          t("bookingWidget.timeSlot.availableTimesAfterMidnight", { date: nextDay }),
+        ];
+  };
+
+  const renderGroups = () => {
+    const groups = groupByService(slots);
+    const headed = groups.length > 1;
     return (
       <div className={styles.periods}>
-        {sections.map(({ key, heading, lists }) => {
-          const visible = lists.filter(([periodSlots]) => periodSlots.length > 0);
-          if (visible.length === 0 || (key === "late" && !showLate)) return null;
+        {groups.map((group) => {
+          const name = headed ? group.name : null;
+          const [sameDayLabel, afterMidnightLabel] = listLabels(name);
+          const lists: Array<[TimeSlot[], string]> = [
+            [group.slots.filter((slot) => !isAfterMidnight(slot)), sameDayLabel],
+            [group.slots.filter(isAfterMidnight), afterMidnightLabel],
+          ];
           return (
-            <div key={key}>
-              <Heading className={styles.periodLabel}>
-                {t(`bookingWidget.timeSlot.periods.${heading}`)}
-              </Heading>
-              {visible.map(([periodSlots, label]) => (
-                <div key={label}>{renderListbox(periodSlots, label)}</div>
-              ))}
+            <div key={group.key}>
+              {/* The venue's own word for its service, shown as typed — never through t().
+                  Level 4: under the widget title (h2) and the step subtitle (h3). */}
+              {name && (
+                <Heading level={4} className={styles.periodLabel}>
+                  {name}
+                </Heading>
+              )}
+              {lists
+                .filter(([listSlots]) => listSlots.length > 0)
+                .map(([listSlots, label]) => (
+                  <div key={label}>{renderListbox(listSlots, label)}</div>
+                ))}
             </div>
           );
         })}
@@ -342,7 +340,7 @@ export function TimeSlotPicker({
         ? renderMidBooking(closedMidBooking)
         : slots.length === 0
           ? renderEmpty()
-          : renderPeriods()}
+          : renderGroups()}
 
       {selectedSlot && (
         <div className={styles.selectedSummary}>

@@ -10,8 +10,10 @@ export const DEMO_VENUE_ID = "demo-venue-bistro";
 const DEMO_GROUP_SLUG = "demo-dining";
 
 const TEMPLATE = SEED_VENUES[0];
+/** Fictional (555-0100..0199 is reserved) so the 12+ party "call the venue" link is not a dead end (#9998). */
+const DEMO_PHONE = "(206) 555-0142";
 /** Guests may book up to 30 days ahead; Monday is closed so closed-day handling is visible on the demo. */
-const DEMO_SETTINGS = { ...TEMPLATE?.settings, maxAdvanceBooking: 30 };
+const DEMO_SETTINGS = { ...TEMPLATE?.settings, maxAdvanceBooking: 30, phone: DEMO_PHONE };
 const DEMO_HOURS = (TEMPLATE?.hours ?? []).map((h) =>
   h.dayOfWeek === 1 ? { ...h, openTime: "00:00", closeTime: "00:00", isClosed: true } : h
 );
@@ -75,6 +77,49 @@ const DEMO_TABLES = [
   },
 ] as const;
 
+/** One published ("ACTIVE") menu so `/hospitality/menu/demo-bistro` has something to render. */
+const DEMO_MENU = {
+  name: "Dinner",
+  slug: "dinner",
+  description: "Seasonal plates from the Demo Bistro kitchen.",
+  sections: [
+    {
+      name: "Starters",
+      items: [
+        {
+          name: "Burrata & Heirloom Tomato",
+          description: "Basil oil, grilled sourdough",
+          priceCents: 1400,
+        },
+        { name: "French Onion Soup", description: "Gruyère crouton", priceCents: 1100 },
+      ],
+    },
+    {
+      name: "Mains",
+      items: [
+        {
+          name: "Pan-Roasted Salmon",
+          description: "Lemon beurre blanc, seasonal greens",
+          priceCents: 2800,
+        },
+        { name: "Steak Frites", description: "Hanger steak, herb butter", priceCents: 3200 },
+        { name: "Wild Mushroom Risotto", description: "Parmesan, thyme", priceCents: 2400 },
+      ],
+    },
+    {
+      name: "Desserts",
+      items: [
+        {
+          name: "Dark Chocolate Pot de Crème",
+          description: "Sea salt, whipped cream",
+          priceCents: 1000,
+        },
+        { name: "Lemon Tart", description: "Raspberry coulis", priceCents: 1000 },
+      ],
+    },
+  ],
+} as const;
+
 /**
  * Idempotently creates the demo venue and its availability rows. Safe to re-run:
  * existing rows are left untouched. Writes run inside the venue's RLS context
@@ -103,7 +148,7 @@ export async function ensureDemoVenue(prisma: PrismaClient): Promise<{ venueId: 
         settings: { timezone: TEMPLATE.ianaTimezone, weekStartsOn: 1, bookingWindowDays: 30 },
       },
     });
-    await tx.venue.upsert({
+    const venue = await tx.venue.upsert({
       where: { id: DEMO_VENUE_ID },
       update: {},
       create: {
@@ -117,6 +162,14 @@ export async function ensureDemoVenue(prisma: PrismaClient): Promise<{ venueId: 
         settings: DEMO_SETTINGS,
       },
     });
+    // A venue seeded before #9998 has no phone; add only that key, so an operator's phone or other edits stay.
+    const current = (venue.settings ?? {}) as Record<string, unknown>;
+    if (!current.phone) {
+      await tx.venue.update({
+        where: { id: DEMO_VENUE_ID },
+        data: { settings: { ...current, phone: DEMO_PHONE } },
+      });
+    }
     const rows = await tx.schedule.count({ where: { venueId: DEMO_VENUE_ID, isRegular: true } });
     if (rows === 0) await writeAvailabilityConfig(tx, DEMO_VENUE_ID, plan.config);
 
@@ -147,6 +200,36 @@ export async function ensureDemoVenue(prisma: PrismaClient): Promise<{ venueId: 
           location: t.location,
           shapeMetadata: t.shape,
           priority: t.location === "window" ? 2 : t.location === "private" ? 0 : 1,
+        },
+      });
+    }
+
+    // Only when the venue has no menu at all: a menu an operator edited or unpublished stays as is.
+    const menus = await tx.menu.count({ where: { venueId: DEMO_VENUE_ID } });
+    if (menus === 0) {
+      await tx.menu.create({
+        data: {
+          venueId: DEMO_VENUE_ID,
+          name: DEMO_MENU.name,
+          slug: DEMO_MENU.slug,
+          description: DEMO_MENU.description,
+          status: "ACTIVE",
+          sections: {
+            create: DEMO_MENU.sections.map((section, sectionIndex) => ({
+              venueId: DEMO_VENUE_ID,
+              name: section.name,
+              displayOrder: sectionIndex,
+              items: {
+                create: section.items.map((item, itemIndex) => ({
+                  venueId: DEMO_VENUE_ID,
+                  name: item.name,
+                  description: item.description,
+                  priceCents: item.priceCents,
+                  displayOrder: itemIndex,
+                })),
+              },
+            })),
+          },
         },
       });
     }

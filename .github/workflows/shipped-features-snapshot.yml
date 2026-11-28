@@ -53,6 +53,11 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/collect-shipped-features.mjs
 
+      # The sitemap lists one URL per story, so a snapshot with a new slug
+      # drifts it; regenerate in the same PR or `pnpm regen --check` fails.
+      - name: Regenerate sitemap
+        run: node scripts/generate-sitemap.mjs
+
       - name: Open PR with shipped-features snapshot
         id: create-pr
         uses: peter-evans/create-pull-request@3ffccacd46053766916f087ce41d627c0b8cf2d1 # v8.1.3
@@ -76,6 +81,7 @@ jobs:
           delete-branch: true
           add-paths: |
             apps/marketing/src/data/shipped-features.json
+            apps/marketing/public/sitemap.xml
           labels: auto-merge
 
       - name: Dispatch CI on the automation branch

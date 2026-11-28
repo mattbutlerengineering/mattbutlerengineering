@@ -1,6 +1,5 @@
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { TFunction } from "i18next";
 import {
   Alert,
   Button,
@@ -15,11 +14,10 @@ import {
 import type { AvailabilityConfigState, ClosureSummary, DateRule } from "@mbe/types";
 import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { useClosureSummaries, useRetryClosureRefunds } from "../../hooks/useClosures.js";
-import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js";
+import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { formatCurrencyFromCents } from "../../utils/format.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
 import { AddSpecialDatesSheet, type PlannedDate } from "./AddSpecialDatesSheet.js";
-import { minuteText } from "./closure-band.js";
 import { CallListDialog } from "./CallListDialog.js";
 import { CloseDialog } from "./CloseDialog.js";
 import { isEditableClosure } from "./close-draft.js";
@@ -34,10 +32,10 @@ import {
   closureSubject,
   DATE_FORMAT,
   hoursSubject,
-  isOnlinePauseRule,
   rangeLabel,
   rowTitle,
 } from "./rule-subjects.js";
+import { closureDetail, hoursRange } from "./special-date-detail.js";
 import { isSeries, restoreDate, skipRows, type SeriesScope } from "./series-edit.js";
 import { SpecialHoursEditDrawer } from "./SpecialHoursEditDrawer.js";
 import { SpecialHoursScopeDialog } from "./SpecialHoursScopeDialog.js";
@@ -80,47 +78,6 @@ const FILTERS: readonly SpecialDatesFilter[] = [
   "repeating",
   "past",
 ];
-
-/** "11:00 AM – 3:00 PM, 5:00 PM – 10:00 PM": one range per service, so a gap between them shows (ux.md S6b). */
-function hoursRange(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string | null {
-  if (rule.kind !== "special_hours" || rule.payload.services.length === 0) return null;
-  return [...rule.payload.services]
-    .sort((a, b) => a.opensAt - b.opensAt)
-    .map((s) =>
-      t("availabilitySpecial.hoursRange", {
-        from: minuteText(s.opensAt, t, format),
-        to: minuteText(s.closesAt, t, format),
-      })
-    )
-    .join(", ");
-}
-
-/** "Closed · From 10:00 PM", or "Online booking paused": what a closure really closes, and from when. */
-function closureDetail(
-  rule: SpecialDateRule,
-  format: VenueFormat,
-  t: TFunction,
-  sectionNames?: ReadonlyMap<string, string>
-): string {
-  const closes = closureKindOf(rule, sectionNames);
-  const what = isOnlinePauseRule(rule)
-    ? t("availability.paused.banner")
-    : closes.kind === "booking"
-      ? t("availabilitySpecial.kind.bookingPaused", {
-          channels: closes.channels
-            .map((c) => t(`availability.close.what.channel.${c}`))
-            .join(", "),
-        })
-      : closes.kind === "section"
-        ? t("availabilitySpecial.kind.sectionClosed", { section: closes.section })
-        : t("availabilitySpecial.kind.closure");
-  return rule.window
-    ? [
-        what,
-        t("availability.close.window.from", { time: minuteText(rule.window.from, t, format) }),
-      ].join(" · ")
-    : what;
-}
 
 interface RowProps {
   /** What the row is headed: the dates, and a repeat's weekdays. */

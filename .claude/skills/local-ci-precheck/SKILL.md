@@ -1,13 +1,13 @@
 ---
 name: local-ci-precheck
-description: "Runs CI's lint, typecheck, architecture-audit, drift and bundle-size checks locally in parallel, catching workspace-package issues and stale generated artifacts (dep-graph) in 30 seconds instead of 5 minutes. Use before opening or pushing to a PR."
+description: "Runs CI's static-checks (lint, typecheck, architecture audit), drift and bundle-size checks locally in parallel, catching workspace-package issues and stale generated artifacts (dep-graph) in 30 seconds instead of 5 minutes. Use before opening or pushing to a PR."
 user-invocable: true
 disable-model-invocation: true
 ---
 
 # /local-ci-precheck
 
-Mirror of the CI workflow's blocking checks (`lint`, `typecheck`, `architecture-audit`, drift, bundle size), run in parallel from your shell. Designed for the workflow gap that bit us hard in commits `e928d65`/`65e99ac`/`a1c2db2` (April 2026): pre-existing lint and typecheck errors on `main` were invisible because (a) the CI workspace-symlink cache bug ate them and (b) `pnpm typecheck` wasn't part of the pre-commit hook. By the time CI told us, three separate fixes had to land in a chicken-and-egg PR stack.
+Mirror of the CI workflow's blocking checks (the `static-checks` job: lint, knip, typecheck, architecture audit; plus drift and bundle size), run in parallel from your shell. Designed for the workflow gap that bit us hard in commits `e928d65`/`65e99ac`/`a1c2db2` (April 2026): pre-existing lint and typecheck errors on `main` were invisible because (a) the CI workspace-symlink cache bug ate them and (b) `pnpm typecheck` wasn't part of the pre-commit hook. By the time CI told us, three separate fixes had to land in a chicken-and-egg PR stack.
 
 This skill closes that gap: run it before push, get the same red/green CI gives you — without burning a full GitHub Actions cycle.
 
@@ -22,17 +22,17 @@ This skill closes that gap: run it before push, get the same red/green CI gives 
 
 In parallel, from the repo root:
 
-| Step | Command                                                                                                                | Mirrors CI job              |
-| ---- | ---------------------------------------------------------------------------------------------------------------------- | --------------------------- |
-| 1    | `pnpm install --frozen-lockfile`                                                                                       | `prepare`                   |
-| 2    | `pnpm lint`                                                                                                            | `lint`                      |
-| 3    | `pnpm check:knip` (own lane; memory-heavy, skip with `--skip-knip`)                                                    | `lint` (knip step)          |
-| 4    | `pnpm typecheck`                                                                                                       | `typecheck`                 |
-| 5    | `pnpm build --filter @mbe/cli... && pnpm --filter @mbe/cli start check-adr && pnpm --filter @mbe/cli start check-deps` | `architecture-audit`        |
-| 6    | dep-graph regen + `git diff --exit-code` (see Drift lane)                                                              | `build` / `integrity` drift |
-| 7    | `pnpm turbo run size:check --filter='...[origin/main]'` (affected packages only; see Size lane)                        | `build` bundle size budgets |
+| Step | Command                                                                                                                | Mirrors CI job                |
+| ---- | ---------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| 1    | `pnpm install --frozen-lockfile`                                                                                       | `prepare`                     |
+| 2    | `pnpm lint`                                                                                                            | `static-checks` (Lint)        |
+| 3    | `pnpm check:knip` (own lane; memory-heavy, skip with `--skip-knip`)                                                    | `static-checks` (knip step)   |
+| 4    | `pnpm typecheck`                                                                                                       | `static-checks` (Typecheck)   |
+| 5    | `pnpm build --filter @mbe/cli... && pnpm --filter @mbe/cli start check-adr && pnpm --filter @mbe/cli start check-deps` | `static-checks` (Arch. Audit) |
+| 6    | dep-graph regen + `git diff --exit-code` (see Drift lane)                                                              | `build` / `integrity` drift   |
+| 7    | `pnpm turbo run size:check --filter='...[origin/main]'` (affected packages only; see Size lane)                        | `build` bundle size budgets   |
 
-Steps 2–7 run in parallel after step 1 completes. `scripts/__tests__/local-ci-precheck-mirror.test.mjs` fails when a `pnpm` command in CI's `lint`, `typecheck` or `architecture-audit` job is missing from this file. Total time on a warm cache: ~30s (vs ~5 min for a CI round-trip); the size lane measured 18.5 s for a branch touching `apps/hospitality`, build included.
+Steps 2–7 run in parallel after step 1 completes. `scripts/__tests__/local-ci-precheck-mirror.test.mjs` fails when a `pnpm` command in CI's `static-checks` job is missing from this file. Total time on a warm cache: ~30s (vs ~5 min for a CI round-trip); the size lane measured 18.5 s for a branch touching `apps/hospitality`, build included.
 
 ## Invocation
 
@@ -164,7 +164,7 @@ CI's Build job regenerates `infrastructure/worker/dep-graph.json`; it fails the 
 
 ## Pairs with
 
-- The `pre-push` Bash hook in `.claude/settings.json` — that hook auto-fires this on `git push`, but you can run `/local-ci-precheck` manually anytime mid-iteration without committing.
+- The `pre-push-typecheck.sh` Bash hook in `.claude/settings.json` — it auto-fires on `git push`, but only the typecheck lane (changed packages only); it doesn't run lint, architecture-audit, drift, or bundle-size. Run `/local-ci-precheck` manually for the full set anytime mid-iteration without committing.
 - `/site-audit` — covers the runtime/UX dimension; this covers the build-time/types dimension.
 - `/ci-monitor` — for after the push, when you need to check what CI is doing on the remote.
 

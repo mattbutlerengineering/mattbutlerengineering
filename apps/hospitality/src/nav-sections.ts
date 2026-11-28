@@ -36,11 +36,11 @@ export interface NavSection {
 export const ACCOUNT_SECTION_ID = "Account";
 
 /**
- * One Availability map item in both readiness states: same destination, same label. Its id is
- * still `setup`, the item's id since it was Venue Setup.
+ * One Availability item in both readiness states: same id, destination and label, so the rail
+ * nests under it either way. The Availability map it once sat beside is retired (#10032).
  */
-const SETUP_ITEM_ID = "setup";
-const SETUP_PATH = availabilityPath({ view: "map" });
+const AVAILABILITY_ITEM_ID = "availability";
+const AVAILABILITY_PATH = availabilityPath({ view: "hub" });
 /** Launch steps counted in the pre-launch badge: venue basics, regular week, floor plan. */
 const SETUP_STEP_COUNT = 3;
 
@@ -85,9 +85,9 @@ function buildSetupSections(
     label: t("nav.sections.getStarted"),
     items: [
       {
-        id: SETUP_ITEM_ID,
-        label: t("nav.items.venueSetup"),
-        action: { type: "route", path: SETUP_PATH },
+        id: AVAILABILITY_ITEM_ID,
+        label: t("nav.items.availability"),
+        action: { type: "route", path: AVAILABILITY_PATH },
         badge: t("setup.hub.strip.count", {
           done: readiness.completedSteps.length,
           total: SETUP_STEP_COUNT,
@@ -125,8 +125,7 @@ function buildOperationalSections(isAdmin: boolean, t: TFunction): readonly NavS
     id: "Manage",
     label: t("nav.sections.manage"),
     items: [
-      route("availability", t("nav.items.availability"), availabilityPath({ view: "hub" })),
-      route(SETUP_ITEM_ID, t("nav.items.venueSetup"), SETUP_PATH),
+      route(AVAILABILITY_ITEM_ID, t("nav.items.availability"), AVAILABILITY_PATH),
       route("menus", t("nav.items.menus"), "/menus"),
       route("booking-widget", t("nav.items.bookingWidget"), "/booking-widget"),
     ],

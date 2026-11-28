@@ -47,6 +47,10 @@
       "on-accent": {
         "$value": "#1a1918",
         "$type": "color"
+      },
+      "on-error": {
+        "$value": "#1a1918",
+        "$type": "color"
       }
     },
     "border": {

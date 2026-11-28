@@ -73,6 +73,7 @@ flowchart TD
   rialto_web --> rialto
   rialto_web --> api_client
   rialto_web --> sentry
+  rialto_web --> site_nav
   rialto_web --> config
   rialto_web --> ui_quality_capture
   shell --> config

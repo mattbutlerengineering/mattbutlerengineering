@@ -17,6 +17,8 @@ import {
   getTunableSensorDefaults,
   readQueueEfficiencyPrs,
   buildE2eRuns,
+  prNumberFromRunJson,
+  pathsFromPrFilesJson,
   resolveRunChangedPaths,
   buildFlakyTestRuns,
 } from "../sensors-registry.mjs";
@@ -34,6 +36,7 @@ const noopJobs = () => [
   { name: "Marketing E2E", conclusion: "skipped" },
   { name: "Gen E2E", conclusion: "skipped" },
 ];
+const noPr = () => ({ kind: "none" });
 const suiteJobs = () => [
   { name: "Detect changed apps", conclusion: "success" },
   { name: "Hospitality E2E (shard 1)", conclusion: "success" },
@@ -209,8 +212,8 @@ describe("sensors-registry", () => {
 
     it("reports real data when metrics/pr-acceptance.json exists at repo root", () => {
       tmpDir = mkdtempSync(join(tmpdir(), "pr-metrics-sensor-"));
-      mkdirSync(join(tmpDir, "metrics"), { recursive: true });
-      writeFileSync(join(tmpDir, "metrics", "pr-acceptance.json"), JSON.stringify(fixture));
+      mkdirSync(join(tmpDir, ".metrics-data"), { recursive: true });
+      writeFileSync(join(tmpDir, ".metrics-data", "pr-acceptance.json"), JSON.stringify(fixture));
 
       const sensor = SENSORS.find((s) => s.id === "prMetrics");
       const result = sensor.collect({ root: tmpDir });
@@ -247,8 +250,8 @@ describe("sensors-registry", () => {
 
     const writeFixture = (data) => {
       tmpDir = mkdtempSync(join(tmpdir(), "issue-feedback-sensor-"));
-      mkdirSync(join(tmpDir, "metrics"), { recursive: true });
-      writeFileSync(join(tmpDir, "metrics", "ai-issue-feedback.json"), JSON.stringify(data));
+      mkdirSync(join(tmpDir, ".metrics-data"), { recursive: true });
+      writeFileSync(join(tmpDir, ".metrics-data", "ai-issue-feedback.json"), JSON.stringify(data));
       return SENSORS.find((s) => s.id === "issueFeedback");
     };
 
@@ -844,6 +847,7 @@ describe("sensors-registry", () => {
           root: process.cwd(),
           ghClient,
           fetchCommitPaths: () => null,
+          fetchRunPrPaths: noPr,
           fetchRunJobs: suiteJobs,
         })
       ).toEqual({
@@ -873,6 +877,7 @@ describe("sensors-registry", () => {
         root: process.cwd(),
         ghClient,
         fetchCommitPaths,
+        fetchRunPrPaths: noPr,
         fetchRunJobs: suiteJobs,
       });
 
@@ -896,6 +901,7 @@ describe("sensors-registry", () => {
           root: process.cwd(),
           ghClient: clientOf([row(1)]),
           fetchCommitPaths: () => ["docs/notes.md"],
+          fetchRunPrPaths: noPr,
           fetchRunJobs: suiteJobs,
         });
         expect(result).toMatchObject({ available: true, consecutive_failures: 1 });
@@ -908,6 +914,7 @@ describe("sensors-registry", () => {
           root: process.cwd(),
           ghClient: clientOf([...noops, row(1), row(2)]),
           fetchCommitPaths: () => ["services/users/src/index.ts"],
+          fetchRunPrPaths: noPr,
           fetchRunJobs,
         });
         expect(result).toMatchObject({ available: true, consecutive_failures: 2, total_runs: 2 });
@@ -918,6 +925,7 @@ describe("sensors-registry", () => {
           root: process.cwd(),
           ghClient: clientOf([row(1, "success"), row(2, "success")]),
           fetchCommitPaths: () => ["services/users/src/index.ts"],
+          fetchRunPrPaths: noPr,
           fetchRunJobs: noopJobs,
         });
         expect(result).toEqual({ available: false, reason: "no_suite_runs" });
@@ -929,6 +937,7 @@ describe("sensors-registry", () => {
           root: process.cwd(),
           ghClient: clientOf([row(1), row(2)]),
           fetchCommitPaths: () => ["services/users/src/index.ts"],
+          fetchRunPrPaths: noPr,
           fetchRunJobs: () => null,
         });
         expect(result).toEqual({ available: false, reason: "no_classifiable_runs" });
@@ -942,6 +951,7 @@ describe("sensors-registry", () => {
           root: process.cwd(),
           ghClient: clientOf([row(7, ""), row(1)]),
           fetchCommitPaths: () => ["services/users/src/index.ts"],
+          fetchRunPrPaths: noPr,
           fetchRunJobs,
         });
         expect(fetchRunJobs).not.toHaveBeenCalledWith(7);
@@ -954,6 +964,7 @@ describe("sensors-registry", () => {
           root: process.cwd(),
           ghClient: clientOf(many),
           fetchCommitPaths: () => ["services/users/src/index.ts"],
+          fetchRunPrPaths: noPr,
           fetchRunJobs,
         });
         expect(fetchRunJobs).toHaveBeenCalledTimes(30);
@@ -966,6 +977,7 @@ describe("sensors-registry", () => {
           root: process.cwd(),
           ghClient: clientOf([row(1, "cancelled")]),
           fetchCommitPaths: () => ["services/users/src/index.ts"],
+          fetchRunPrPaths: noPr,
           fetchRunJobs,
         });
         expect(fetchRunJobs).not.toHaveBeenCalled();
@@ -1606,6 +1618,7 @@ describe("sensors-registry", () => {
           conclusion: "success",
           changedPaths: ["services/agent/src/index.ts"],
           headRefName: "main",
+          pathSource: "head-commit",
           createdAt: "2026-07-02T00:00:00Z",
         },
       ]);
@@ -1616,7 +1629,7 @@ describe("sensors-registry", () => {
       expect(() => {
         result = buildE2eRuns(ghRuns, () => null);
       }).not.toThrow();
-      expect(result).toEqual({ runs: [], unresolved: 2 });
+      expect(result).toEqual({ runs: [], unresolved: 2, prFilesFailed: 0 });
     });
 
     it("buildE2eRuns leaves metrics unchanged when every SHA resolves", () => {
@@ -1708,9 +1721,9 @@ describe("metricsFreshness sensor (#5529)", () => {
 
   function seed(files, { withSnapshot = true } = {}) {
     tmpDir = mkdtempSync(join(tmpdir(), "metrics-freshness-sensor-"));
-    mkdirSync(join(tmpDir, "metrics"), { recursive: true });
+    mkdirSync(join(tmpDir, ".metrics-data"), { recursive: true });
     for (const [name, content] of Object.entries(files)) {
-      writeFileSync(join(tmpDir, "metrics", name), content);
+      writeFileSync(join(tmpDir, ".metrics-data", name), content);
     }
     if (withSnapshot) {
       const dir = join(tmpDir, "apps/marketing/src/data");
@@ -1855,9 +1868,9 @@ describe("reviewBurden sensor (#5530)", () => {
 
   it("surfaces the latest entry's summary counts", () => {
     tmpDir = mkdtempSync(join(tmpdir(), "review-burden-sensor-"));
-    mkdirSync(join(tmpDir, "metrics"), { recursive: true });
+    mkdirSync(join(tmpDir, ".metrics-data"), { recursive: true });
     writeFileSync(
-      join(tmpDir, "metrics", "review-burden.json"),
+      join(tmpDir, ".metrics-data", "review-burden.json"),
       JSON.stringify([entry({ timestamp: "2026-09-01T00:00:00.000Z" }), entry()])
     );
 
@@ -1882,9 +1895,9 @@ describe("reviewBurden sensor (#5530)", () => {
   // collector, so the classification has to survive the sensor hop.
   it("carries the structural-zero classification through to the report", () => {
     tmpDir = mkdtempSync(join(tmpdir(), "review-burden-sensor-"));
-    mkdirSync(join(tmpDir, "metrics"), { recursive: true });
+    mkdirSync(join(tmpDir, ".metrics-data"), { recursive: true });
     writeFileSync(
-      join(tmpDir, "metrics", "review-burden.json"),
+      join(tmpDir, ".metrics-data", "review-burden.json"),
       JSON.stringify([
         entry({
           reviewers: [],
@@ -1911,9 +1924,9 @@ describe("reviewBurden sensor (#5530)", () => {
   // confirmed structural zero.
   it("reports an unclassified legacy entry as unknown, never as a structural zero", () => {
     tmpDir = mkdtempSync(join(tmpdir(), "review-burden-sensor-"));
-    mkdirSync(join(tmpDir, "metrics"), { recursive: true });
+    mkdirSync(join(tmpDir, ".metrics-data"), { recursive: true });
     writeFileSync(
-      join(tmpDir, "metrics", "review-burden.json"),
+      join(tmpDir, ".metrics-data", "review-burden.json"),
       JSON.stringify([
         entry({
           summary: {
@@ -1940,8 +1953,8 @@ describe("reviewBurden sensor (#5530)", () => {
 
   it("returns { available: false } for an empty array", () => {
     tmpDir = mkdtempSync(join(tmpdir(), "review-burden-sensor-"));
-    mkdirSync(join(tmpDir, "metrics"), { recursive: true });
-    writeFileSync(join(tmpDir, "metrics", "review-burden.json"), "[]");
+    mkdirSync(join(tmpDir, ".metrics-data"), { recursive: true });
+    writeFileSync(join(tmpDir, ".metrics-data", "review-burden.json"), "[]");
     expect(sensor().collect({ root: tmpDir })).toEqual({ available: false });
   });
 
@@ -1978,7 +1991,7 @@ describe("productionHealth sensor (#9525)", () => {
     });
   const dirOf = () => {
     tmpDir = mkdtempSync(join(tmpdir(), "production-health-sensor-"));
-    const dir = join(tmpDir, "metrics", "production-health");
+    const dir = join(tmpDir, ".metrics-data", "production-health");
     mkdirSync(dir, { recursive: true });
     return dir;
   };
@@ -2014,7 +2027,13 @@ describe("productionHealth sensor (#9525)", () => {
 
   it("is unavailable when the directory is missing", () => {
     tmpDir = mkdtempSync(join(tmpdir(), "production-health-sensor-"));
+    mkdirSync(join(tmpDir, ".metrics-data"));
     expect(sensor().collect({ root: tmpDir })).toEqual({ available: false });
+  });
+
+  it("throws, naming the pull command, when the metrics-data checkout is missing", () => {
+    tmpDir = mkdtempSync(join(tmpdir(), "production-health-sensor-"));
+    expect(() => sensor().collect({ root: tmpDir })).toThrow(/metrics-data\.mjs pull/);
   });
 
   it("formats a display line with healthy count", () => {
@@ -2063,5 +2082,60 @@ describe("queueEfficiency summary line — cost coverage (#6941)", () => {
     );
     expect(line).toContain("cost unknown (0/4)");
     expect(line).not.toContain("$null");
+  });
+});
+
+describe("e2eStability classifies from the PR's full file list (#9864)", () => {
+  const fx = (name) => JSON.parse(readFileSync(resolve(__dirname, "fixtures", name), "utf-8"));
+  const run = { databaseId: 1, headSha: "a".repeat(40), conclusion: "failure", suiteRan: true };
+
+  it("reads the PR number from a real actions/runs response", () => {
+    expect(prNumberFromRunJson(fx("actions-run-pr-9910.json"))).toBe(9910);
+    expect(prNumberFromRunJson(fx("actions-run-no-pr.json"))).toBeNull();
+  });
+
+  it("reads filenames from a real pulls/<n>/files response", () => {
+    const paths = pathsFromPrFilesJson(fx("pulls-files-9910.json"));
+    expect(paths).toContain("packages/rialto/package.json");
+    expect(paths).toContain(".changeset/forced-colors-focus-ring.md");
+  });
+
+  it("two-commit PR: frontend commit 1, backend head commit is classified frontend", () => {
+    const { runs } = buildE2eRuns(
+      [run],
+      () => ["services/users/src/index.ts"],
+      () => ({ kind: "pr", paths: ["apps/hospitality/src/a.tsx", "services/users/src/index.ts"] })
+    );
+    expect(runs[0].pathSource).toBe("pr");
+    expect(computeE2eStability(runs)).toEqual({ available: false, reason: "no_non_frontend_runs" });
+  });
+
+  it("backend-only PR is non-frontend", () => {
+    const { runs } = buildE2eRuns(
+      [run],
+      () => ["apps/hospitality/src/a.tsx"],
+      () => ({ kind: "pr", paths: ["services/users/src/index.ts"] })
+    );
+    expect(computeE2eStability(runs).total_non_frontend_runs).toBe(1);
+  });
+
+  it("non-PR run falls back to the head commit and records the source", () => {
+    const { runs } = buildE2eRuns(
+      [run],
+      () => ["services/users/src/index.ts"],
+      () => ({ kind: "none" })
+    );
+    expect(runs[0].pathSource).toBe("head-commit");
+    expect(runs[0].changedPaths).toEqual(["services/users/src/index.ts"]);
+  });
+
+  it("a files-fetch failure is tallied, never treated as non-frontend", () => {
+    const { runs, prFilesFailed } = buildE2eRuns(
+      [run],
+      () => ["services/users/src/index.ts"],
+      () => ({ kind: "error" })
+    );
+    expect(runs).toEqual([]);
+    expect(prFilesFailed).toBe(1);
   });
 });

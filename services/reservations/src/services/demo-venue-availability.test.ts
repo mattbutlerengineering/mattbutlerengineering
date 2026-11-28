@@ -33,7 +33,7 @@ async function seededRows() {
     venue: {
       upsert: vi.fn(async (a: { create: Record<string, unknown> }) => {
         venueCreate.push(a.create);
-        return { id: DEMO_VENUE_ID };
+        return { id: DEMO_VENUE_ID, settings: a.create.settings };
       }),
     },
     schedule: { count: vi.fn().mockResolvedValue(1) },
@@ -47,6 +47,7 @@ async function seededRows() {
         return {};
       }),
     },
+    menu: { count: vi.fn().mockResolvedValue(1), create: vi.fn() },
   };
   const db = { $transaction: (fn: (t: typeof tx) => unknown) => fn(tx) } as unknown as PrismaClient;
   await ensureDemoVenue(db);

@@ -52,6 +52,9 @@ export function ShippedIndexPage() {
         <time dateTime={snapshot.generatedAt}>{formatDate(snapshot.generatedAt)}</time>; not a live
         feed.
       </Text>
+      <Text className={styles.asOf}>
+        Live marks features with a page you can open; internal tooling has no badge.
+      </Text>
 
       {latestVideo !== undefined && (
         <section className={styles.latest}>

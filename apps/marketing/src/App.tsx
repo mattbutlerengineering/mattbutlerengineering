@@ -1,7 +1,7 @@
 import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router";
 import { Footer, GlobalNav, Skeleton, Text } from "@mattbutlerengineering/rialto";
-import { engineeringMenu, siteCopyright, siteFooterColumns } from "@mbe/site-nav";
+import { globalNavProps, siteCopyright, siteFooterColumns } from "@mbe/site-nav";
 import { routeFallbackProps, useMainContentFocus } from "./main-content-focus";
 import { useScrollToTop } from "./use-scroll-to-top";
 import { useRouteMeta } from "./utils/route-meta";
@@ -81,10 +81,9 @@ export function App({ theme, onThemeToggle }: AppProps) {
       </a>
       <GlobalNav
         currentApp="marketing"
-        currentPath={pathname}
         theme={theme}
         onThemeToggle={onThemeToggle}
-        menu={engineeringMenu(pathname)}
+        {...globalNavProps(pathname)}
       />
       <main id="main-content" tabIndex={-1} className={styles.main}>
         <Suspense fallback={<RouteFallback />}>

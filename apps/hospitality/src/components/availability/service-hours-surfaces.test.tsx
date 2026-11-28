@@ -3,8 +3,6 @@ import { render, renderHook, screen } from "@testing-library/react";
 import type { AvailabilityDaySummary } from "@mbe/types";
 import { defaultT as t } from "../../i18n/default-t.js";
 import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js";
-import { useSetupNodeText } from "../venue-setup/useSetupNodeText.js";
-import type { SetupNode } from "../venue-setup/setup-tree.js";
 import { presentDay } from "./day-summary.js";
 import { RegularWeekLine } from "./RegularWeekLine.js";
 import { FIXTURE_TIMEZONE, fixtureConfig } from "./resolved-day-fixtures.js";
@@ -22,26 +20,6 @@ describe("one service, one string", () => {
       />
     );
     expect(screen.getByText(new RegExp(`Lunch ${LUNCH}`))).toBeInTheDocument();
-  });
-
-  it("prints the same hours on the hub's service row", () => {
-    const node: SetupNode = {
-      id: "service:regular:vs-lunch",
-      kind: "service",
-      name: "Lunch",
-      state: {
-        kind: "service",
-        opensAt: 690,
-        lastSeatingAt: 840,
-        closesAt: 900,
-        weekdays: [5],
-        changes: [],
-      },
-      actions: [],
-      children: [],
-    };
-    const { result } = renderHook(() => useSetupNodeText());
-    expect(result.current.state(node)).toBe(`${LUNCH} · Fri`);
   });
 
   it("prints the same hours on the day summary", () => {

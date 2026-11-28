@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { BrowserRouter } from "react-router";
 import { DashboardSidebar } from "./DashboardSidebar.js";
 import type { NavSection } from "../nav-sections.js";
+import { SubnavSlotContext } from "./availability/rail/subnav-slot.js";
 
 describe("DashboardSidebar", () => {
   const mockSections: NavSection[] = [
@@ -17,9 +18,9 @@ describe("DashboardSidebar", () => {
       label: "Get Started",
       items: [
         {
-          id: "setup",
-          label: "Availability map",
-          action: { type: "route", path: "/availability/map" },
+          id: "availability",
+          label: "Availability",
+          action: { type: "route", path: "/availability" },
           badge: "1 of 3",
         },
       ],
@@ -54,6 +55,88 @@ describe("DashboardSidebar", () => {
     ).toBeTruthy();
   });
 
+  describe("the Availability rail's slot (#9944)", () => {
+    const withAvailability: NavSection[] = [
+      {
+        label: "Manage",
+        items: [
+          {
+            id: "availability",
+            label: "Availability",
+            action: { type: "route", path: "/availability" },
+          },
+          { id: "menus", label: "Menus", action: { type: "route", path: "/menus" } },
+        ],
+      },
+    ];
+
+    const renderWithSlot = (sections: NavSection[]) => {
+      const setSlot = vi.fn();
+      render(
+        <BrowserRouter>
+          <SubnavSlotContext.Provider value={{ slot: null, setSlot, onPick: vi.fn() }}>
+            <DashboardSidebar
+              sections={sections}
+              activePath="/availability"
+              onAction={vi.fn()}
+              isMobileOpen={false}
+              onMobileClose={vi.fn()}
+            />
+          </SubnavSlotContext.Provider>
+        </BrowserRouter>
+      );
+      return setSlot;
+    };
+
+    it("puts the slot inside the Availability item, so the tree nests under it", () => {
+      const setSlot = renderWithSlot(withAvailability);
+      const slot = setSlot.mock.calls.map(([el]) => el as HTMLElement | null).find(Boolean)!;
+      expect(slot.closest("li")).toHaveTextContent(/^Availability$/);
+    });
+
+    it("puts it under the pre-launch Availability item, the one with the launch badge", () => {
+      const setSlot = renderWithSlot(mockSections);
+      const slot = setSlot.mock.calls.map(([el]) => el as HTMLElement | null).find(Boolean)!;
+      expect(slot.closest("li")).toHaveTextContent(/^Availability 1 of 3$/);
+      expect(screen.getByRole("button", { name: "Availability 1 of 3" })).toHaveAttribute(
+        "aria-current",
+        "true"
+      );
+    });
+
+    it("no longer hosts it under the retired map's item id", () => {
+      const setSlot = renderWithSlot([
+        {
+          label: "Get Started",
+          items: [
+            { id: "setup", label: "Setup", action: { type: "route", path: "/availability" } },
+          ],
+        },
+      ]);
+      expect(setSlot.mock.calls.some(([el]) => el)).toBe(false);
+    });
+
+    it("marks the Availability item as holding the current page, not as the page, so only the rail's node is the page", () => {
+      renderWithSlot(withAvailability);
+      expect(screen.getByRole("button", { name: "Availability" })).toHaveAttribute(
+        "aria-current",
+        "true"
+      );
+    });
+
+    it("renders no slot when no item hosts it", () => {
+      const setSlot = renderWithSlot([
+        {
+          label: "Main",
+          items: [
+            { id: "timeline", label: "Timeline", action: { type: "route", path: "/timeline" } },
+          ],
+        },
+      ]);
+      expect(setSlot.mock.calls.some(([el]) => el)).toBe(false);
+    });
+  });
+
   it("renders navigation labels", () => {
     renderSidebar();
     expect(screen.getByText("Dashboard")).toBeDefined();
@@ -79,7 +162,7 @@ describe("DashboardSidebar", () => {
 
   it("renders the progress count inside the item's accessible name", () => {
     renderSidebar();
-    const item = screen.getByRole("button", { name: "Availability map 1 of 3" });
+    const item = screen.getByRole("button", { name: "Availability 1 of 3" });
     expect(item.textContent).toContain("1 of 3");
   });
 

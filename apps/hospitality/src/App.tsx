@@ -9,8 +9,8 @@ import { Text, Footer } from "@mattbutlerengineering/rialto";
 import { siteCopyright, siteFooterColumns } from "@mbe/site-nav";
 import { AppNav } from "./components/AppNav.js";
 import { currentHostConfig } from "./lib/host-brand.js";
-import { useTheme, useThemeServerHydration } from "./hooks/use-theme";
-import { useCurrentUser } from "./hooks/useUsers.js";
+import { useRobotsMeta } from "./hooks/useRobotsMeta.js";
+import { useTheme } from "./hooks/use-theme";
 import { LoadingPage } from "./pages/LoadingPage";
 import { LoginGate } from "./components/LoginGate";
 import { CallbackPage } from "./components/CallbackPage";
@@ -76,17 +76,10 @@ function UnauthenticatedShell({
   );
 }
 
-/**
- * Hydrates the local theme from the server-saved preference once the current
- * user resolves — see `useThemeServerHydration`. Renders nothing; only
- * mounted once a user is authenticated, so `/users/me` is never fetched
- * ahead of a token.
- */
-function ThemeServerSync() {
-  const { data: user } = useCurrentUser();
-  useThemeServerHydration(user?.preferences.theme);
-  return null;
-}
+// Signed-in only; lazy so the venue/query hooks stay off the public landing (#9976).
+const ThemeServerSync = lazy(() =>
+  import("./components/ThemeServerSync.js").then((m) => ({ default: m.ThemeServerSync }))
+);
 
 /** The screen for each not-yet-ready auth gate phase. */
 function unauthenticatedScreen(gate: Exclude<AuthGate, { phase: "ready" }>): ReactNode {
@@ -136,6 +129,8 @@ export function App() {
   const gate = useAuthGate();
   const { pathname } = useLocation();
   const [navSky, setNavSky] = useState<NavSky>(null);
+  // Only the public showcase landing is indexable; everything else behind App is not.
+  useRobotsMeta(gate.phase !== "ready" && showsShowcaseLanding(gate, pathname));
 
   useEffect(() => {
     const main = document.getElementById("main-content");
@@ -174,7 +169,9 @@ export function App() {
 
   return (
     <div className={styles.authLayout} data-testid="auth-layout">
-      <ThemeServerSync />
+      <Suspense fallback={null}>
+        <ThemeServerSync />
+      </Suspense>
       {nav}
       <Suspense fallback={<LoadingPage />}>
         <Outlet />

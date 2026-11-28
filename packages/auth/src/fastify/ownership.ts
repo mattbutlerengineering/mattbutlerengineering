@@ -92,7 +92,7 @@ export function requireOwnershipOrAdmin(
   return async function ownershipOrAdminHandler(
     request: FastifyRequest,
     reply: FastifyReply
-  ): Promise<void> {
+  ): Promise<FastifyReply | void> {
     const user = request.user;
     const isAdmin = hasPermission(user, "admin");
 
@@ -108,14 +108,15 @@ export function requireOwnershipOrAdmin(
 
     if (currentId === null) {
       denyRequest(reply, denial, 401);
-      return;
+      // Async hooks that send must return the reply, or Fastify keeps running the handler.
+      return reply;
     }
 
     const isOwner = ownerId !== null && ownerId === currentId;
 
     if (!isOwner) {
       denyRequest(reply, denial, 403);
-      return;
+      return reply;
     }
 
     request.authorization = { isAdmin: false, isOwner: true };

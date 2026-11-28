@@ -138,7 +138,7 @@
   font-weight: var(--rialto-weight-medium);
   border: none;
   background: var(--rialto-error);
-  color: var(--rialto-text-on-accent);
+  color: var(--rialto-text-on-error);
   cursor: pointer;
   transition: background-color 0.15s ease;
 }

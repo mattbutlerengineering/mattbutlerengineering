@@ -79,6 +79,17 @@ describe("buildAgentSystemPrompt", () => {
     expect(prompt).toMatch(/finish it on the Availability page/i);
   });
 
+  // #9934: the coming week's changes are a chat read, holidays excepted.
+  it("routes 'what changes this week' to list_upcoming_changes in en/es/fr, holidays excluded", () => {
+    const prompt = buildAgentSystemPrompt({ venueId: "v", now: NOW, catalogPrompt: "CATALOG" });
+    const line = prompt.split("\n").find((l) => /list_upcoming_changes/.test(l));
+
+    expect(line).toMatch(/what changes this week/i);
+    expect(line).toMatch(/qué cambia esta semana/i);
+    expect(line).toMatch(/qu'est-ce qui change cette semaine/i);
+    expect(line).toMatch(/holidays.*Availability page/i);
+  });
+
   // #9477: regular hours and repeating closures are chat writes, not refusals.
   it("offers regular hours and repeating closures instead of sending them to the page", () => {
     const prompt = buildAgentSystemPrompt({ venueId: "v", now: NOW, catalogPrompt: "CATALOG" });

@@ -106,7 +106,13 @@ describe("shipped-features-snapshot PR path", () => {
     expect(step.id).toBe("create-pr");
     expect(step.env.HUSKY).toBe("0");
     expect(step.with["branch"]).toBe("automation/shipped-features");
-    expect(step.with["add-paths"].trim()).toBe(SNAPSHOT);
+    // The sitemap lists one URL per story, so it moves with the snapshot.
+    expect(
+      step.with["add-paths"]
+        .trim()
+        .split("\n")
+        .map((p) => p.trim())
+    ).toEqual([SNAPSHOT, "apps/marketing/public/sitemap.xml"]);
     expect(step.with.labels).toBe("auto-merge");
   });
 
@@ -146,6 +152,7 @@ describe("shipped-features-snapshot PR path", () => {
     const names = job.steps.map((s) => s.name);
     const order = [
       "Collect shipped-features snapshot",
+      "Regenerate sitemap",
       "Open PR with shipped-features snapshot",
       "Dispatch CI on the automation branch",
       "Dispatch tier-classifier on the automation branch",

@@ -133,6 +133,14 @@ describe("findPromotable", () => {
     expect(result).toEqual([]);
   });
 
+  // #9881: re-added `ready` to #9488 and #9315 a minute after it was removed,
+  // handing Owner-only work to the drain.
+  it.each(["ready-for-human", "needs-human"])("does not promote an issue labeled %s", (label) => {
+    const issues = [makeIssue({ number: 1, labels: [{ name: label }] })];
+    const result = findPromotable({ issues, closedNumbers: [10] });
+    expect(result).toEqual([]);
+  });
+
   it("leaves an issue with no Depends on line untouched (out of scope)", () => {
     const issues = [makeIssue({ number: 1, body: "No dependency info here." })];
     const result = findPromotable({ issues, closedNumbers: [10] });

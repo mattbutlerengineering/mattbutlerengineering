@@ -11,6 +11,7 @@ import { ApiClientError, type ManageReservationData } from "@mbe/api-client";
 import { usePublicApiClient } from "../hooks/usePublicApiClient.js";
 import { useDocumentTitle } from "../hooks/useDocumentTitle.js";
 import { useFocusAfter } from "../hooks/useFocusAfter.js";
+import { PageHeader } from "../components/PageHeader.js";
 import { ChangeBookingDialog } from "../components/manage-reservation/ChangeBookingDialog.js";
 import { NightOfCard } from "../components/manage-reservation/NightOfCard.js";
 import { PartyInviteCard } from "../components/manage-reservation/PartyInviteCard.js";
@@ -21,18 +22,11 @@ import { buildGoogleCalendarUrl, buildOutlookCalendarUrl } from "../utils/calend
 import { specialRequestsText } from "../utils/reservation-display.js";
 import { WidgetLocaleScope, WidgetLocalePicker } from "../components/booking-widget/index.js";
 import styles from "./ManageReservationPage.module.css";
-import { homeUrl } from "../lib/host-brand.js";
 
 /** How often the night-of clock re-reads the time (countdown, day rollover, signal window). */
 const NIGHT_OF_TICK_MS = 15_000;
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
-
-// A guest arriving from an emailed link has no venue-scoped page to route back
-// to (the manage link carries only a token, never a venue slug) — the
-// serving host's root is the destination, the same fallback
-// PublicBookingPage.tsx uses for the same reason (#4978, #7709).
-const FALLBACK_HOME_URL = homeUrl();
 
 /** Reservation statuses a guest can still self-service cancel. */
 const CANCELLABLE_STATUSES = new Set(["PENDING", "CONFIRMED"]);
@@ -58,7 +52,10 @@ const manageParamsSchema = z.object({
 
 const MANAGE_DEFAULTS = manageParamsSchema.parse({});
 
-/** No-dead-end error surface: every failure state offers a way out, not just prose (#4980). */
+/**
+ * Guest-facing error surface: tells the guest what to do next in their own terms. It never links to
+ * the vendor site (#9951) — the manage link carries only a token, so there is no venue page to route to.
+ */
 function DeadEndRescue({ heading, description }: { heading: string; description: string }) {
   const { t } = useTranslation();
   return (
@@ -69,15 +66,12 @@ function DeadEndRescue({ heading, description }: { heading: string; description:
           headingLevel={1}
           heading={heading}
           description={description}
-          action={
-            <a className={styles.homeLink} href={FALLBACK_HOME_URL}>
-              {t("manageReservation.homeLink")}
-            </a>
-          }
         />
-        <Text variant="caption" color="secondary">
-          {t("manageReservation.supportLine")}
-        </Text>
+        <div className={styles.supportLine}>
+          <Text variant="caption" color="secondary">
+            {t("manageReservation.supportLine")}
+          </Text>
+        </div>
       </Stack>
     </main>
   );
@@ -176,9 +170,7 @@ function ManageReservationPageContent() {
     return (
       <main>
         <Stack align="center" justify="center" style={{ minHeight: "100vh", padding: "2rem" }}>
-          <Text as="h1" variant="body" color="secondary">
-            {t("manageReservation.loading")}
-          </Text>
+          <PageHeader title={t("manageReservation.loading")} />
         </Stack>
       </main>
     );
@@ -231,9 +223,7 @@ function ManageReservationPageContent() {
       <Stack align="center" style={{ minHeight: "100vh", padding: "2rem" }}>
         <Stack gap="lg" style={{ maxWidth: 600, width: "100%" }}>
           <WidgetLocalePicker />
-          <Text as="h1" variant="display" tabIndex={-1}>
-            {venue ? venue.name : t("manageReservation.fallbackTitle")}
-          </Text>
+          <PageHeader title={venue ? venue.name : t("manageReservation.fallbackTitle")} />
 
           {venue && data.venueCancellation && (
             <VenueCancelledCard

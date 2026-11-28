@@ -20,6 +20,9 @@ type Evaluate = (
  * still judged: under `forceEvaluate` the evaluator shows the judge an
  * explicit no-changes marker, so a task whose criteria allow a no-op can pass.
  *
+ * The agent's final summary (`session.resultText`), when present, is appended
+ * so the judge sees the verification a no-op answer is built on.
+ *
  * `evaluate` is injectable so tests never make live LLM calls.
  */
 export function createEvalJudge(
@@ -36,9 +39,12 @@ export function createEvalJudge(
         evaluationFailed: true,
       };
     }
-    return evaluate(`${taskPrompt}\n\n${formatAcceptanceCriteria(criteria)}`, run.diff, {
-      forceEvaluate: true,
-    });
+    const summary = run.session?.resultText?.trim();
+    const prompt = [taskPrompt, formatAcceptanceCriteria(criteria)];
+    // The agent's own summary is the evidence a declared no-op relies on: an
+    // empty diff alone cannot show the version was checked (#9926).
+    if (summary) prompt.push(`## Agent Summary\n${summary}`);
+    return evaluate(prompt.join("\n\n"), run.diff, { forceEvaluate: true });
   };
 }
 

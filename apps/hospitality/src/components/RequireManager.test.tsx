@@ -11,7 +11,7 @@ function renderGuarded(path: string) {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
-        <Route path="/availability/map" element={<div>Availability map page</div>} />
+        <Route path="/availability" element={<div>Availability hub page</div>} />
         <Route
           path="/floor-plans"
           element={
@@ -44,18 +44,18 @@ describe("RequireManager", () => {
     expect(screen.getByText("Floor Plans")).toBeDefined();
   });
 
-  it("redirects a non-manager from /floor-plans to the Availability map", () => {
+  it("redirects a non-manager from /floor-plans to the Availability hub", () => {
     vi.mocked(useManagerAccess).mockReturnValue({ isManager: false, isPending: false });
     renderGuarded("/floor-plans");
     expect(screen.queryByText("Floor Plans")).toBeNull();
-    expect(screen.getByText("Availability map page")).toBeDefined();
+    expect(screen.getByText("Availability hub page")).toBeDefined();
   });
 
-  it("redirects a non-manager from /floor-plans/:id to the Availability map", () => {
+  it("redirects a non-manager from /floor-plans/:id to the Availability hub", () => {
     vi.mocked(useManagerAccess).mockReturnValue({ isManager: false, isPending: false });
     renderGuarded("/floor-plans/fp1");
     expect(screen.queryByText("Floor Plan Editor")).toBeNull();
-    expect(screen.getByText("Availability map page")).toBeDefined();
+    expect(screen.getByText("Availability hub page")).toBeDefined();
   });
 
   it("redirects a non-manager to redirectTo when one is given, with a replace", () => {
@@ -98,6 +98,6 @@ describe("RequireManager", () => {
     renderGuarded("/floor-plans");
     expect(screen.getByText("Loading Route")).toBeDefined();
     expect(screen.queryByText("Floor Plans")).toBeNull();
-    expect(screen.queryByText("Availability map page")).toBeNull();
+    expect(screen.queryByText("Availability hub page")).toBeNull();
   });
 });

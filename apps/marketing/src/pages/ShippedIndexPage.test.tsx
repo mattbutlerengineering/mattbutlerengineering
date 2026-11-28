@@ -104,6 +104,16 @@ describe("ShippedIndexPage", () => {
     expect(screen.queryByText(/^as of/i)).toBeNull();
   });
 
+  it("explains the Live badge rule: a visitor-facing page, not recency (#9959)", () => {
+    mockData.features = [feature("a")];
+    renderPage();
+    expect(
+      screen.getByText(
+        /Live marks features with a page you can open; internal tooling has no badge/
+      )
+    ).toBeInTheDocument();
+  });
+
   it("features the latest video above the list, linking to its story", () => {
     mockData.features = [feature("a")];
     videoData.video = { slug: "a", title: "A tour" };

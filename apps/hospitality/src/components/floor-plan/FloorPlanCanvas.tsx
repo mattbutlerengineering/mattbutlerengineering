@@ -34,6 +34,12 @@ const ARROW_DELTAS: Readonly<Record<string, readonly [number, number]>> = {
   ArrowRight: [GRID_SIZE, 0],
 };
 
+/**
+ * Below half scale (a phone fitting the plan to ~40%) the fixed-size name
+ * overlay covers tables, and the page title already names the plan (#10037).
+ */
+const NAME_OVERLAY_MIN_SCALE = 0.5;
+
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 
 /**
@@ -296,12 +302,14 @@ export function FloorPlanCanvas({
         </Text>
 
         {/* Floor plan name overlay */}
-        <div className={styles.nameOverlay}>
-          {floorPlan.name}
-          {floorPlan.isActive && (
-            <Text className={styles.activeLabel}>{t("floorPlan.canvas.active")}</Text>
-          )}
-        </div>
+        {scale >= NAME_OVERLAY_MIN_SCALE && (
+          <div className={styles.nameOverlay}>
+            {floorPlan.name}
+            {floorPlan.isActive && (
+              <Text className={styles.activeLabel}>{t("floorPlan.canvas.active")}</Text>
+            )}
+          </div>
+        )}
 
         {/* Zoom indicator */}
         <div className={styles.zoomOverlay}>{Math.round(scale * 100)}%</div>

@@ -43,10 +43,20 @@ describe("data branch location", () => {
     rmSync(root, { recursive: true, force: true });
   });
 
-  it("keeps resolving telemetry under metrics/ while no data checkout exists", () => {
-    expect(resolvePath("queue-telemetry", { root })).toBe(
-      join(root, "metrics", "queue-telemetry.jsonl")
-    );
+  it("fails loudly, with the pull command, when telemetry is asked for without a data checkout", () => {
+    const pull = /node scripts\/metrics-data\.mjs pull/;
+    expect(() => resolvePath("queue-telemetry", { root })).toThrow(pull);
+    expect(() => resolveWeeklyPath("process-metrics", { root })).toThrow(pull);
+    expect(() => resolveDataFile("production-health", { root })).toThrow(pull);
+    expect(() => read("queue-telemetry", { root })).toThrow(pull);
+    expect(() => append("queue-telemetry", { n: 1 }, { root })).toThrow(pull);
+    expect(readdirSync(root)).not.toContain("metrics");
+  });
+
+  it("still resolves gate inputs and snapshots under metrics/ without a data checkout", () => {
+    for (const name of [...REPO_LOCATED, "sensor-report"]) {
+      expect(resolvePath(name, { root })).toBe(join(root, "metrics", METRICS[name].file));
+    }
   });
 
   it("resolves telemetry into the data checkout once it exists", () => {
@@ -78,9 +88,6 @@ describe("data branch location", () => {
   });
 
   it("resolves files outside the registry (EXTERNAL) into the data checkout", () => {
-    expect(resolveDataFile("production-health", { root })).toBe(
-      join(root, "metrics", "production-health")
-    );
     mkdirSync(join(root, DATA_DIRNAME));
     expect(resolveDataFile("production-health", { root })).toBe(
       join(root, DATA_DIRNAME, "production-health")
@@ -120,17 +127,14 @@ describe("data branch location", () => {
 // ---------------------------------------------------------------------------
 
 describe("path resolution", () => {
-  it("resolves each metric to <root>/metrics/<file>", () => {
+  it("resolves each gate input to <root>/metrics/<file>", () => {
     const root = join(tmpdir(), "mstore-fixed");
     expect(metricsDir(root)).toBe(join(root, "metrics"));
-    expect(resolvePath("pr-acceptance", { root })).toBe(
-      join(root, "metrics", "pr-acceptance.json")
+    expect(resolvePath("ai-antipattern-baselines", { root })).toBe(
+      join(root, "metrics", "ai-antipattern-baselines.json")
     );
-    expect(resolvePath("queue-telemetry", { root })).toBe(
-      join(root, "metrics", "queue-telemetry.jsonl")
-    );
-    expect(resolveWeeklyPath("process-metrics", { root })).toBe(
-      join(root, "metrics", "process-metrics-weekly.json")
+    expect(resolvePath("ui-quality-ledger", { root })).toBe(
+      join(root, "metrics", "ui-quality-ledger.jsonl")
     );
   });
 
@@ -159,6 +163,7 @@ describe("read/append/write", () => {
   let root;
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), "mstore-"));
+    mkdirSync(join(root, DATA_DIRNAME));
   });
   afterEach(() => {
     rmSync(root, { recursive: true, force: true });

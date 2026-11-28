@@ -9,6 +9,7 @@ function renderAt(path: string) {
     [
       { path: "timeline", element: <p>Timeline</p> },
       { path: "setup", element: <SetupRedirect /> },
+      { path: "availability", element: <p>Availability hub page</p> },
       { path: "availability/map", element: <p>Availability map page</p> },
     ],
     { initialEntries: ["/timeline", path], initialIndex: 1 }
@@ -18,10 +19,10 @@ function renderAt(path: string) {
 }
 
 describe("SetupRedirect: the old Venue Setup address", () => {
-  it("sends /setup to the Availability map", () => {
+  it("sends /setup to the Availability hub", () => {
     const router = renderAt("/setup");
-    expect(screen.getByText("Availability map page")).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe("/availability/map");
+    expect(screen.getByText("Availability hub page")).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/availability");
   });
 
   it("replaces /setup, so Back skips the redirect", () => {

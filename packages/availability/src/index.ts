@@ -8,6 +8,14 @@ export { expandSectionRules } from "./expand-section-rules.js";
 export { alreadyClosed, stillClosedAfterReopen } from "./closure-overlap.js";
 export { firstOccurrenceOnOrAfter, type OccurrenceRule } from "./first-occurrence.js";
 export { diffDays, type DayDiff, type DiffDaysOptions } from "./diff-days.js";
+export {
+  traceDay,
+  type DayTrace,
+  type TraceOptions,
+  type TraceReason,
+  type TraceWindow,
+  type TracedTime,
+} from "./trace-day.js";
 export { localDateTimeOf, serviceDayInstant } from "./instant.js";
 export type {
   LayerDetail,
@@ -103,6 +111,7 @@ export {
   type SoftLimit,
   type Verdict,
 } from "./slots.js";
+export { WEEK_CHANGES_DAYS, weekChanges, type WeekChange } from "./week-changes.js";
 export {
   MAX_REBOOK_OFFERS,
   REBOOK_WINDOW_DAYS,

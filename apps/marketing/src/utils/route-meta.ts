@@ -96,9 +96,46 @@ function applyHead(head: HeadSnapshot): void {
   upsertMeta("name", "robots", head.robots);
 }
 
+type TextOverride = Pick<RouteMeta, "title" | "description">;
+
+// Per-path title/description a page supplies once its data has loaded. Keeping
+// the data lookup in the page keeps its (large) data module out of the entry
+// chunk, which runs this hook for every route.
+const pathOverrides = new Map<string, TextOverride>();
+
+function applyText({ title, description }: TextOverride): void {
+  document.title = title;
+  upsertMeta("name", "description", description);
+  upsertMeta("property", "og:title", title);
+  upsertMeta("property", "og:description", description);
+  upsertMeta("name", "twitter:title", title);
+  upsertMeta("name", "twitter:description", description);
+}
+
+/**
+ * Lets a page replace its route's title and description (e.g. a story page
+ * using its feature title). Child effects run before `useRouteMeta`'s, so the
+ * override is registered by path and `headForPath` honours it. Pass
+ * `undefined` to keep the route's static metadata.
+ */
+export function useRouteMetaOverride(override: TextOverride | undefined): void {
+  const { pathname } = useLocation();
+  const title = override?.title;
+  const description = override?.description;
+  useEffect(() => {
+    if (title === undefined || description === undefined) return undefined;
+    pathOverrides.set(pathname, { title, description });
+    applyText({ title, description });
+    return () => {
+      pathOverrides.delete(pathname);
+    };
+  }, [pathname, title, description]);
+}
+
 function headForPath(pathname: string, defaults: HeadSnapshot): HeadSnapshot {
-  const meta = findRouteMeta(pathname);
-  if (!meta) return defaults;
+  const base = findRouteMeta(pathname);
+  if (!base) return defaults;
+  const meta = { ...base, ...pathOverrides.get(pathname) };
   if (meta.indexable === false) {
     return {
       title: meta.title,

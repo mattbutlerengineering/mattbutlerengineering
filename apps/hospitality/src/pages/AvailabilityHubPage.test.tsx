@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, Outlet, RouterProvider } from "react-router";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
@@ -14,12 +14,22 @@ import {
 } from "../components/availability/hub/hub-rows-test-helpers.js";
 import { focusHubRowOnReturn } from "../components/availability/hub-return-focus.js";
 import type { AvailabilityScope } from "../hooks/useAvailabilityScope.js";
+import type { VenueReadiness } from "../hooks/useVenueReadiness.js";
 import { AvailabilityHubPage } from "./AvailabilityHubPage.js";
 
 const selected = vi.hoisted(() => ({ settings: {} as Record<string, unknown> }));
 const reopen = vi.hoisted(() => vi.fn());
 // 10:00 AM in Los Angeles on the fixtures' today.
 const NOW = vi.hoisted(() => new Date("2026-11-12T18:00:00Z"));
+const OPERATIONAL: VenueReadiness = {
+  status: "operational",
+  completedSteps: ["onboarding", "operating-hours", "floor-plan"],
+  nextStep: null,
+  progress: 100,
+};
+const readiness = vi.hoisted(() => ({ current: null as unknown as VenueReadiness }));
+
+vi.mock("../hooks/useVenueReadiness.js", () => ({ useVenueReadiness: () => readiness.current }));
 
 vi.mock("../contexts/VenueContext.js", () => ({
   useVenue: () => ({ selectedVenueId: "venue-1", selectedVenue: selected }),
@@ -93,6 +103,7 @@ function renderHub(scope: AvailabilityScope, url = "/availability") {
           { index: true, element: <AvailabilityHubPage /> },
           { path: "calendar", element: <div>Today&apos;s page</div> },
           { path: "hours", element: <div>Regular hours page</div> },
+          { path: "seasonal/new", element: <div>New seasonal hours page</div> },
         ],
       },
     ],
@@ -117,6 +128,7 @@ describe("AvailabilityHubPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     selected.settings = {};
+    readiness.current = OPERATIONAL;
   });
 
   it("has one page heading, takes focus on it, and places the Today line without a banner", () => {
@@ -179,6 +191,57 @@ describe("AvailabilityHubPage", () => {
     expect(screen.getByRole("button", { name: "Cancel" })).toHaveFocus();
   });
 
+  it("puts focus on row 5 once booking rules closes, after the drawer hands focus back", async () => {
+    // As rialto's useReturnFocus does: a frame after the drawer closes, focus goes back to what
+    // held it when the drawer opened. Here that is the page heading.
+    const Overlay = () => {
+      useEffect(
+        () => () => {
+          requestAnimationFrame(() => document.querySelector<HTMLElement>("h1")?.focus());
+        },
+        []
+      );
+      return <div role="dialog" aria-modal="true" aria-label="Booking rules" />;
+    };
+    const router = createMemoryRouter(
+      [
+        {
+          path: "availability",
+          element: <Outlet context={scopeOf()} />,
+          children: [
+            { index: true, element: <AvailabilityHubPage /> },
+            {
+              path: "booking-rules",
+              element: (
+                <AvailabilityHubPage>
+                  <Overlay />
+                </AvailabilityHubPage>
+              ),
+            },
+          ],
+        },
+      ],
+      { initialEntries: ["/availability/booking-rules"] }
+    );
+    render(
+      <main>
+        <RouterProvider router={router} />
+      </main>
+    );
+    await act(() => router.navigate("/availability"));
+    await waitFor(() =>
+      expect(within(row(5)).getByRole("link", { name: "Edit Booking rules" })).toHaveFocus()
+    );
+    // And it stays there once the frames after it have run.
+    const frame = () => new Promise((resolve) => requestAnimationFrame(resolve));
+    await act(async () => {
+      await frame();
+      await frame();
+      await frame();
+    });
+    expect(within(row(5)).getByRole("link", { name: "Edit Booking rules" })).toHaveFocus();
+  });
+
   it("lists the five rows in the order they win, under the line that says so", () => {
     renderHub(scopeOf());
     expect(screen.getByRole("heading", { level: 2, name: "Your rules" })).toBeInTheDocument();
@@ -207,7 +270,7 @@ describe("AvailabilityHubPage", () => {
       /^\/availability\/hours\?service=./
     );
     expect(hrefOf(within(row(2)).getByRole("link", { name: "Add Seasonal hours" }))).toBe(
-      "/availability/calendar?tab=schedules&action=addSchedule"
+      "/availability/seasonal/new"
     );
     expect(
       hrefOf(within(row(3)).getByRole("link", { name: "Edit Special dates and holidays" }))
@@ -487,16 +550,13 @@ describe("AvailabilityHubPage", () => {
 
   describe("the index's addresses", () => {
     it.each([
-      ["/availability?tab=special", "/availability/calendar?tab=special"],
-      [
-        "/availability?action=addSchedule",
-        "/availability/calendar?tab=schedules&action=addSchedule",
-      ],
-    ])("sends the old address %s to %s with a replace", async (old, next) => {
+      ["/availability?tab=special", "/availability/calendar?tab=special", "Today's page"],
+      ["/availability?action=addSchedule", "/availability/seasonal/new", "New seasonal hours page"],
+    ])("sends the old address %s to %s with a replace", async (old, next, page) => {
       const router = renderHub(scopeOf(), old);
       await waitFor(() => expect(address(router)).toBe(next));
       expect(router.state.historyAction).toBe("REPLACE");
-      expect(screen.getByText("Today's page")).toBeInTheDocument();
+      expect(screen.getByText(page)).toBeInTheDocument();
     });
 
     it("sends the old Schedules address to regular hours, with a replace", async () => {
@@ -524,19 +584,40 @@ describe("AvailabilityHubPage", () => {
       }
     );
 
-    it("shows the way back to the Availability map when the visit came from it", () => {
-      const router = renderHub(scopeOf(), "/availability?from=setup");
-      expect(address(router)).toBe("/availability?from=setup");
-      expect(hrefOf(screen.getByRole("link", { name: "Availability map" }))).toBe(
-        "/availability/map"
-      );
+    it("no longer links to the retired Availability map (#10032)", () => {
+      renderHub(scopeOf(), "/availability?from=setup");
+      expect(screen.queryByRole("link", { name: "Availability map" })).toBeNull();
+    });
+  });
+
+  describe("launch progress before launch (#10032)", () => {
+    it("shows a Manager the launch progress strip while the venue is in setup", () => {
+      readiness.current = {
+        status: "setup",
+        completedSteps: ["onboarding"],
+        nextStep: "operating-hours",
+        progress: 33,
+      };
+      renderHub(scopeOf());
+      const strip = screen.getByRole("region", { name: "Launch progress" });
+      expect(strip).toHaveTextContent("1 of 3");
+      const steps = within(strip).getAllByRole("listitem");
+      expect(steps.map((step) => step.textContent)).toEqual([
+        "Venue basicsDone",
+        "Regular weekNext",
+        "Floor planNot yet",
+      ]);
     });
 
-    it("links to the Availability map on every visit", () => {
-      renderHub(scopeOf(), "/availability");
-      expect(hrefOf(screen.getByRole("link", { name: "Availability map" }))).toBe(
-        "/availability/map"
-      );
+    it("shows a Host no strip before launch", () => {
+      readiness.current = { ...readiness.current, status: "setup" };
+      renderHub(scopeOf({ isManager: false }));
+      expect(screen.queryByRole("region", { name: "Launch progress" })).toBeNull();
+    });
+
+    it("shows no strip once the venue is operational", () => {
+      renderHub(scopeOf());
+      expect(screen.queryByRole("region", { name: "Launch progress" })).toBeNull();
     });
   });
 });

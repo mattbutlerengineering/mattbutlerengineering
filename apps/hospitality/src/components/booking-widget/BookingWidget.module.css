@@ -11,6 +11,13 @@
   margin-block-end: var(--rialto-space-lg);
 }
 
+/* Step headings take focus on a step change only so it is announced; they are not controls,
+   so no focus ring (#9995). */
+.stepHeading:focus,
+.widget :is(h1, h2, h3, h4, h5, h6)[tabindex="-1"]:focus {
+  outline: none;
+}
+
 .localePicker {
   display: flex;
   justify-content: flex-end;

@@ -31,6 +31,7 @@ import type {
   TonightResult,
   AvailabilityCheckBody,
   AvailabilityCheckResult,
+  DayTraceResult,
   PreviewAvailabilityBody,
   PreviewResult,
   PutAvailabilityConfigBodySchema,
@@ -365,6 +366,21 @@ export class AvailabilityClient {
     const response = await this.client.call(availabilityConfigEndpoints.listDays, {
       params: { id: venueId },
       query: { from: range.from, to: range.to },
+    });
+    return response.data;
+  }
+
+  /**
+   * Every candidate time of one date for a party, with the first rule that removed each
+   * (a stable code plus the rule's facts) and the day's "Why this day" layers. Any member may read.
+   */
+  async traceDay(
+    venueId: string,
+    request: { date: string; partySize: number }
+  ): Promise<DayTraceResult> {
+    const response = await this.client.call(availabilityConfigEndpoints.traceDay, {
+      params: { id: venueId },
+      query: { date: request.date, partySize: request.partySize },
     });
     return response.data;
   }

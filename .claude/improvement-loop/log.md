@@ -1,134 +1,3 @@
-## 2026-11-13
-
-**queueEfficiency:** composite 0.915 (baseline n/a) — 1 regression(s) detected
-**Difficulty distribution:** size:s:27, size:xl:9, size:xs:22, size:m:17, size:l:11
-**Issues filed:** 1
-**Regressions:**
-
-- review_coverage_trend: 0.243 (was 0.625, Δ-0.382) [high]
-
-## 2026-11-13 — mbe-ui-quality
-
-- **State:** `state.mjs checkout` source=`branch`, merged `origin/main` (5c8efc4), resolved `metrics/ui-quality-ledger.jsonl` by rule.
-- **Routes:** 40 due / 40 captured / 40 audited (marketing 8, rialto-web 32). hospitality contributed 0 due rows — all 22 of its routes are `unreachable:auth`. All three app builds succeeded; no `unreachable:build`.
-- **Unjudged:** 0. **Dropped tells:** 0.
-- **Calibration:** stamp `stale`. `calibration-status` exited 3; `rate.mjs pairs --calibration` exited 2 (`docs/ui-quality/calibration.json` still has no labelled pairs — Matt owns that one-time labelling at the Verify stage), so calibration could not clear and was not retried. Re-queried status: still `stale`. Rating still ran: 12 pairs over 2 apps recorded (marketing 0.42, rialto-web 1.67).
-- **Findings:** mechanical 1 (`marketing|status|bugs/failed-request`, P2 — three same-origin `net::ERR_ABORTED` probes on the status page), judged 0. Plan: 1 skip, 13 close (`not_observed`), 0 seeds, 0 escalations.
-- **Issues:** created 0, reopened 0, commented 0. No `create` actions this fire, so no label-check stop. Seeds appended: 0.
-- **Fix PR:** none — the plan carried no `fix_pr_candidate` (the only live finding is a `skip`).
-- **P1 SLA:** 0 open `ui-quality:p1` issues; 0 breaches, 0 escalated.
-- **Coverage before this fire:** 100% (137/137 reachable routes covered; 22 hospitality routes auth-gated, 0 uncovered). Exit 0, no breach.
-- **Blockers / pipeline bugs:** none. Browser resolved (`chrome-headless-shell-linux64`); all three capture runs clean (hospitality skipped — no planned routes).
-- **Judge note (rubric blind spot, not a Finding):** the cookie-consent banner on `rialto-web` `demos/login`, `demos/signup` and `demos/teams/new` overlaps and obscures the form at 375x812 (text collides with inputs and the submit button, both illegible); `components/textarea` and several showcase routes also render a large empty region below the first viewport in the full-page capture. Rubric v1 has no judged tell covering occlusion or truncated render, so nothing was filed — material for a human `meta-improvement` / rubric bump, not for this routine to write.
-
-## 2026-11-13 — mbe-weekly-improve
-
-**PR opened (step 2):** [#8847](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8847) — `fix(acmm): weekly improve 2026-11-13 — stop printing unverifiable criteria as confirmed gaps`. CI Gate green, all 42 checks green or skipped, Codecov clean. `tier:standard` (T2), awaiting human review; nothing merged.
-
-### Analysis (step 1)
-
-The `improve` / `improve-codebase-architecture` skills are plugin skills (`idea-to-prod`) and do not load in cloud routines (#6332), so the equivalent audits were run directly. `run-repo-audit.mjs` was **34/35**; the one failure, `check-rialto-changeset`, reports `merge-base(HEAD, origin/main) did not resolve` — an artefact of this shallow cloud checkout, not of the tree (CI checks out with `fetch-depth: 0`), and the script fails closed by design.
-
-Three seams were probed and found **clean**, recorded so later runs need not re-probe them:
-
-- **Unreferenced scripts:** every `scripts/*.mjs|js` is referenced somewhere outside its own file. No orphaned guards.
-- **Vitest collection coverage:** compared each package's tracked test files against `vitest list --filesOnly`. Every "missed" file is a Playwright e2e spec correctly excluded from vitest; no unit test is silently uncollected. This is the execution-side analogue of `typecheck-covers-tests.test.mjs` and is currently unpinned — worth a guard only if it ever goes non-zero.
-- **E2E workflow coverage:** `apps/gen`'s five specs do run in CI (`e2e.yml` `gen-e2e`, gated on the `changes` filter). `e2e.yml` invokes suites by glob, not by name, so the #3955 "workflow naming specs must list all" trap applies only to `apps-visual.yml`, which names `visual.spec.ts` by full path deliberately.
-
-### The finding
-
-`node plugins/acmm/scripts/audit.js` presented criteria it **could not verify** as criteria it had **confirmed missing**, and as a confirmed regression. Measured here:
-
-```
-Since last run: L5 ↓ L3  ·  73 → 65 detected (-8)
-  · no criteria changed
-Missing for next level (3):
-  • acmm:nightly-compliance — Nightly compliance scan
-  • acmm:copilot-review-apply — Automated review application
-  • acmm:instruction-rot-detection — Instruction rot detection
-```
-
-Nine criteria were `unverifiable` because `gh` is unavailable in cloud sessions. Two of the three "missing" items were among them — `.github/workflows/nightly-compliance.yml` was present the whole time, and `--apply` would have refused to file either (#3719). The `-8` next to "no criteria changed" is the same leak. `diff.js` and `--apply` both already honour the unverifiable distinction; only the display did not. CLAUDE.md's key principle points agents at this exact command for "what to build next", so the two had to agree. Now reads 1 confirmed gap, 2 status-unknown.
-
-Display-layer only — no criterion, threshold, level computation or `--apply` behaviour changed. TDD: test written and confirmed RED, then GREEN. Replacing a `console.log` loop with one call on a returned string made the section unit-testable **and** left the antipattern ratchet lower than it found it (`consoleLogs` 613 → 610), rather than bumping a baseline.
-
-### Issues filed (step 3)
-
-- **[#8849](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/8849)** (`ready`, `meta-improvement`) — the same leak survives in `outputs/report.js` at three sites (the "Since last run" headline, "Next steps — close N of M", "Next-level gaps (N)"). That file writes `.claude/acmm/report.md`, the committed artefact the loop reads back, so it is the more consequential half.
-- **[#8850](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/8850)** (`ready`, `docs`) — `gotchas.md`'s typecheck "Still uncovered" list names `tests/smoke/smoke.spec.ts`, which is covered: `tests/smoke` is now a workspace package and its tsconfig resolves `files: ["./playwright.config.ts", "./smoke.spec.ts"]`. The "JS tests" half is still true. The issue instructs the implementer to re-measure rather than trust it.
-
-### Eval checkpoint (step 4)
-
-`agent eval --adapter claude-cli` → **exit 0**, a genuine scored run. Row committed as [#8853](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8853) (`chore(metrics): eval baseline 2026-11-13`, labeled `has-pr`), one file, one line.
-
-```
-Tasks: 5 · Pass rate: 80.0% · Mean score: 95.0% · Mean cost: $0.40 · Mean turns: 11.0 · Failed to complete: 0
-```
-
-One scored failure (`eval-dep-bump-js-yaml`, 75%). One task carries a `sessionErrors` entry **despite scoring 100%** — `eval-new-route-user-preferences`, quoted as required:
-
-> session errors: Evaluation failed: The diff implements the core route, tests, and schema mostly correctly, but adds an emailVerified check that was not specified in the task requirements. The task explicitly defines the required behavior ('if request.user is missing or request.user.email is missing, reply 401') without mentioning emailVerified validation. While this extra check may follow conventions from other routes, it changes the API contract beyond what was specified. Additionally, tests pass because they depend on mocked data that satisfies this unstated requirement, meaning the tests don't explicitly verify the emailVerified behaviour.
-
-Exit was 0 rather than 1, so no pass-rate regression; no `ready` issue filed for the eval. `costUsd` is the CLI's api-equivalent figure, not billed spend (`costBasis` records it); on the subscription this consumes plan quota. Per-task spend telemetry (5 rows) is committed alongside this entry in `.claude/agent-spend/sessions.jsonl`, matching #8393's shape — PR #8853 itself is scoped to `metrics/eval-reports.jsonl` only, as the routine requires.
-
-### Observations (not filed — single-run, pending repetition)
-
-- **`scripts/reap-worktrees.mjs` does not reap the eval's worktrees.** The eval creates worktrees under `.agent-worktrees/`; the reaper examines only `.claude/worktrees/` and classifies the rest as "Out-of-tree (registered elsewhere — reported only, never examined)". This run left two, one `prunable`. Harmless in an ephemeral cloud checkout, which is discarded; it would accumulate on a long-lived local checkout that runs evals. Worth a look if it recurs.
-- **A sandbox install gap can look like a broken `main`.** `pnpm typecheck` first failed with `Cannot find module '@ai-sdk/google'` in `@mbe/agent-service`. The dependency is declared in `services/agent/package.json` and present in `pnpm-lock.yaml`; it was simply not installed in this container, and `pnpm install --frozen-lockfile` fixed it. Re-measure before reading a cloud-session typecheck failure as a regression on `main`.
-- **Running `pnpm lint` and `pnpm typecheck` in parallel here gets OOM-killed** (exit 137, kernel OOM on the shared session limit) while an eval is running. Run them serially in a cloud routine; 137 is not a lint failure.
-
-## 2026-11-13 — mbe-learning-loop
-
-**Sensors:** 17/18 available (e2eStability not available). Status: ✅ Healthy. acmm L5 (73/84), ciHealth 100% (23/23), mutationScore 99.07% PASS (107/389 killed), flakyTests 0 (20741 runs, 2 SHAs), metricsFreshness 0 unhealthy (all 9 watched metrics fresh), queueEfficiency composite 0.903 (fps 0.855, ttm 0.4h, no baseline yet).
-**Sentry triage:** skipped — stored Sentry MCP token rejected (`whoami` → "Authorization Expired"); no human available in this scheduled run to re-authorize. Same as 2026-11-09, 2026-11-11, 2026-11-12.
-**Regressions:** 0 detected, 0 issues created.
-**Verifications:** 5 closed issues checked (48h window) — #8846 (ci-fix, E2E Screenshots flapping) and #8845 (ci-fix, Rialto Web E2E 3 consecutive failures) both verified, CI pass rate on main 100% (1/1 recent runs). #8849 (meta-improvement) skipped, no matching verifier for that label. #8841 (audit) skipped, Lighthouse inventory not available. #8797 (bug) skipped, no completed CI runs to verify against. 2 verified, 0 failed, 3 skipped.
-**AI issue feedback:** 7 categories collected, 0 unhealthy (>40% rejected) — ci-fix 11% (64 total), meta-improvement 0% (17 total), audit 11% (36 total), feature 2% (63 total), acmm 25% (4 total), sentry 0% (13 total), dependencies 0% (3 total). All budgets stay at default 3. One linked-PR lookup failed on a blocked GraphQL call (known sandbox limitation); did not affect the category rates above.
-**Skill proposals:** 0 — today is the Friday skill-extraction day, but `.claude/session-logs/` holds only 1 entry (7d window), below the 3+ similar-session threshold for pattern detection. No proposal filed.
-**Threshold notes:** last-30-days verifications.jsonl: 127 records, 114 `skip` (no automated verifier available), 9 verified / 4 not-verified among the 13 non-skip → fix-effectiveness 69% (>50%, healthy, no review needed). False-positive proxy (category rejection rates above, all ≤25%) stays well under the 30% loosen-threshold trigger. Auto-tuner applied 3 adjustments this run: `ci-fix` 1.248 → 1.198 (high-fp-rate), `acmm` 1.634 → 1.662 (headroom), `ci.ci_pass_rate_drop` 5 → 5.5 (regression-false-positive).
-
-## 2026-11-16 — mbe-evening
-
-### Metrics (7d)
-
-| Metric                                             | Value                                                                                                                                                                                   | Status          |
-| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
-| Created (audit+ci-fix)                             | 52 (audit 19, ci-fix 33)                                                                                                                                                                | -               |
-| Closed (audit+ci-fix)                              | 52 (audit 17, ci-fix 35)                                                                                                                                                                | -               |
-| Closure Rate                                       | 100%                                                                                                                                                                                    | 🟢 >80%         |
-| Time-to-Close                                      | mean 22.0h, max 97.0h (n=52)                                                                                                                                                            | 🟢 <24h         |
-| Agent Success (has-pr/(has-pr+failed), snapshot)   | 0% (0 has-pr / 1 agent-failed)                                                                                                                                                          | 🔴 but see note |
-| CI Pass (main, last 20 pushes, cancelled excluded) | 92.9% (13/14; 6 cancelled runs excluded per #4538/#4685)                                                                                                                                | 🟡 85-95%       |
-| Queue (ready)                                      | 0 (1 re-added mid-run, see Actions)                                                                                                                                                     | 🟢 <5           |
-| Stale (ready>7d)                                   | 0                                                                                                                                                                                       | 🟢              |
-| Blocked (agent-failed)                             | 0 (was 1, auto-retried)                                                                                                                                                                 | 🟢              |
-| Skipped (agent-skip)                               | 0                                                                                                                                                                                       | 🟢              |
-| Daily Spend                                        | $0 attributed (recordSpend); today's queue-worker usage (~76k tokens, 1 session) has no `cost_usd` — true cost unknown, not $0                                                          | —               |
-| 7d Spend                                           | $2.44 attributed (recordSpend, 6 sessions) + 408,891 queue-worker tokens across 4 sessions with unknown cost (56 telemetry rows lack usage) — true total exceeds $2.44, unknown exactly | —               |
-| Cost/Issue                                         | ~$0.047 ($2.44 attributed / 52 closed) — understates true cost since queue-worker cost is unattributed                                                                                  | —               |
-| Reverts (7d)                                       | 1                                                                                                                                                                                       | 🟢 <3/wk        |
-
-### Patterns
-
-- Queue draining faster than it fills: created == closed (52 == 52) over 7d with a 22h mean close time. Healthy.
-- Agent Success reads 0% only because exactly one long-standing `agent-failed`+`stealable` issue (#8566, created 2026-11-09) sat in the backlog with nothing currently parked in `has-pr`; not a trend signal on a single-issue denominator.
-- CI pass rate softened entirely by cancelled runs (6/20), not failures (1/20) — consistent with high merge throughput (257 PRs merged in 7d) superseding in-flight runs on fast-moving branches, not a repo-cause failure pattern.
-- This run's implement-queue iteration found PR #8944 (titled with "mbe-feature-drain" in its own title but carrying no `Driver:` line) already merged by that routine moments before this session's review-gate could act on it — Phase 0's foreign-vs-ours heuristic (body `Driver:` line only) let a non-implement-queue PR read as this queue's. Single occurrence, not a 3+ day pattern yet; no issue filed, noted for future recurrence.
-- Issue #8939 (sdlc-speed p90 regression, 446.5→954.1 min) resolved via evidence, not a code fix: all three named slow PRs traced to a documented 31h claude.ai fleet outage, genuine review rework, and human weekend unavailability — not a collector bug.
-
-### Recommendations
-
-- No action needed on CI cancelled-run rate; revisit only if failures (not cancellations) start climbing.
-- If the `Driver:`-line gap on non-implement-queue PRs recurs, consider filing a meta-improvement issue to have other PR-opening routines (e.g. `mbe-feature-drain`) stamp their own `Driver:` line.
-
-### Actions taken this run
-
-- `node scripts/auto-retry-stale.mjs` (1/2 cap used): re-queued #8566 (`api-failures: GET /api/v1/floor-plan-sections`) from `agent-failed`+`stealable` back to `ready` after 7 days stale.
-
-### Skipped Issues
-
-0 `agent-skip` issues open — nothing to list.
-
 ## 2026-11-14
 
 **queueEfficiency:** composite 0.907 (baseline n/a) — healthy
@@ -1201,3 +1070,103 @@ Phase 4: no worktrees to reap. Telemetry push (`node scripts/metrics-data.mjs pu
 **Observations outside the rubric (not filed — no tell covers them):** on rialto-web `demos/*` at 375x812 the cookie consent banner lays its message out one word per line, overlapping the "Reject All" button and the form beneath; rialto-web `components/navbar` at 375x812 shows the "contained" navbar escaping its frame onto the page top; `components/letterboard` and `components/master-override` full-page captures stop painting below the first fold (possible capture artifact).
 
 **Blockers / pipeline bugs:** none. Browser resolved (`chrome-headless-shell`), all three capture runs passed first try.
+
+## 2026-11-27 — mbe-weekly-improve
+
+**PR opened (step 2):** [#9925](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9925) — `fix(scripts): weekly improve 2026-11-27 — report an unverifiable repo-audit check as UNVERIFIED, not PASS`. CI Gate **success** on the branch head (`6c17969`, asserted as both a commit status and a check run, per the #4025 rule); 39 checks success / 10 skipped / 0 failures. Auto Review scanned 4 files, no issues. Classified **`tier:sensitive`** (T3 — `scripts/check-ready-label-exclusive.mjs` is a gate-enforcement script), plus `agent-authored`.
+
+**Merged into `main` at 16:06:19Z as `fabff0d`**, by the `mattbutlerengineering` account, ~1 minute after this routine sent its completion notification; #9922 closed `completed` and the `UNVERIFIED` outcome is live on `main`. **This routine merged nothing** (it is instructed not to, and the Auto-mode classifier denies PR merges anyway, #6125). Flagging two details only so the audit trail is unambiguous, not as a complaint: the PR carries **zero recorded PR reviews**, and it is T3, which `docs/change-tiers.md` does not treat as auto-mergeable the way last week's T2 (#9200) was. Both are consistent with the Owner merging it by hand after the notification — in which case the review happened off-PR and nothing is wrong — but this session cannot distinguish that from an automation merging a T3, so it asserts neither. Worth a glance if T3 is meant to require a recorded review.
+
+### Analysis (step 1)
+
+No `improve` / `improve-codebase-architecture` skill exists in the checkout, so the equivalent analysis was run directly: `node scripts/run-repo-audit.mjs` (38 checks), `node plugins/acmm/scripts/audit.js`, and `pnpm check:boundaries`. The repo is healthy — ACMM **L5**, 72/83 criteria detected, no criteria changed, all five behavioral gates pass; repo-audit clean apart from the known shallow-clone `BLOCKED`. One real defect surfaced, below.
+
+### Finding implemented
+
+- **`pnpm repo-audit` printed `PASS` for a check that never ran.** `scripts/check-ready-label-exclusive.mjs` queries live GitHub state; when `gh` could not answer it printed an explicit `UNVERIFIED:` line and then `process.exit(0)`. `run-repo-audit.mjs` classifies exit 0 as `ok: true`, so the summary read `PASS check-ready-label-exclusive` / `38 of 38 checks passed`. This is the #5527–#5531 failure class, and the exact inverse of the doctrine already written into the sibling `check-rialto-changeset.mjs` ("a silently skipped gate reads exactly like a green one").
+- **It is the normal outcome, not an edge case.** `gh issue list` is GraphQL-backed, so it is blocked in CCR sessions (#5958), and CI's Build job (`Run Full Repository Audit`) passes no `GH_TOKEN`. The only check guarding the `ready` / `ready-for-human` invariant (#9426, #9884) therefore resolved on a developer machine alone while reporting PASS in both automated environments.
+- **It was hiding live breaches.** Measured this run: **#9488** carries `ready` + `ready-for-human` and **#9315** carries `ready` + `needs-human`. The gate would fail right now if it ran. Both issues are simultaneously advertised to the implement-queue as claimable and forbidden to a worker — which is part of why the queue read 0 mechanically-claimable issues in the 2026-11-27 entry above.
+- **Fix:** a third audit outcome, `UNVERIFIED`, beside `PASS` and `BLOCKED`/`FAIL`. The check exits a declared, exported `UNVERIFIED_EXIT_CODES` code (13); the runner maps a declared code to `{ ok: true, unverified: true }`, so the run stays green but the check is never labelled or tallied as a pass. An otherwise-clean run now reads `37 of 38 checks verified: 1 unverified (check-ready-label-exclusive)`, and unverified composes with real failures (`1 of 2 checks failed: beta; 1 unverified (alpha)`) rather than masking them. `exitCodeFor` is deliberately untouched — an environmental gap must not redden CI; that call belongs to #9924.
+- **Scope held deliberately.** Making the check actually run in CI needs a token plus `issues: read` and would redden the Build job while #9488/#9315 stand, so it was filed (#9924) rather than smuggled in behind a reporting fix.
+- **TDD:** 6 new tests, confirmed RED (6 failed / 22 passed) before implementation, GREEN after (28/28). The CLI-level test spawns the script with `PATH` reduced to node's own directory so `gh` resolves nowhere — the same throw a missing token takes — and asserts exit 13 at the process boundary rather than trusting the constant.
+- **Gates:** `pnpm lint` 0 errors (294 pre-existing advisory warnings), `pnpm typecheck` 49/49, scripts suite 376 files / 7010 tests passed / 5 skipped, prettier clean, `pnpm regen --check` clean, AI-antipattern ratchet at baseline on all 8 patterns, ADR check clean.
+- **Scan for the same class elsewhere:** `check-ready-label-exclusive` was the **only** one of the 38 repo-audit checks shelling out to `gh`, and no other check fails open via `exit(0)` in a catch. The class is closed; no sweep issue filed.
+
+### Issues filed (step 3)
+
+- [#9922](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/9922) `in-progress` — the reporting defect itself; closed by #9925.
+- [#9923](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/9923) `ready-for-human` — the two live `ready` + human-blocking conflicts (#9488, #9315). Deliberately **not** `ready`: which label wins is a judgement call about the work (whether #9488's recorded demo is Owner-only; #9315 carries `needs-human` + `rollback` and reportedly needs a design pass), and an agent should not pick the winner.
+- [#9924](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/9924) — give CI's Build job `GH_TOKEN` + `issues: read` so the gate is actually enforced. **Filed with no `ready` label and a `Depends on: #9923` line instead**, because landing it while #9488/#9315 stand would turn a silent gap into a broken `main`. That hands the sequencing to the repo's own machinery: `promote-unblocked-issues.mjs` labels it `ready` within seconds of #9923 closing (#6635), so it joins the drain in the right order with no human relabel and no window for an early claim. `blocked` is deliberately **not** applied — it appears in that script's own `PROMOTION_BLOCKING_LABELS`, so it would permanently opt the issue out of promotion. Verified against the real issue body: `findPromotable` returns `[]` while #9923 is open, `[9924]` once it closes, and `[]` either way if `blocked` is present.
+- [#9926](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/9926) `ready` — see the eval section below.
+
+### Weekly eval checkpoint (step 4)
+
+**Exit 0** — a genuine scored run. Row appended to `.metrics-data/eval-reports.jsonl` (25 → 26, `runId: eval-648`) and pushed to the `metrics-data` branch unedited via `node scripts/metrics-data.mjs push -m "chore(metrics): eval baseline 2026-11-27"` (direct push, no PR, as the routine directs). No `suiteDidNotRun`, no `sessionErrors` on any task, and `testsPass`/`typecheckPass`/`lintPass` all `true` on all five tasks — so no scored-failure row to quote.
+
+- `5 tasks · passRate 80.0% · meanScore 95.0% · meanTurns 9.8 · meanCostUsd $0.36` (`costBasis: api-equivalent` — the CLI's API-equivalent figure, not billed spend; subscription login, so plan quota).
+- **Flat against 2026-11-20** (passRate 0.80, meanScore 0.95). Both rows are post-judge-wiring (#6846) and directly comparable — no slow-drift regression, so no regression issue filed on the pass rate.
+- **But the one failing task is a false negative, now diagnosed and filed as [#9926](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/9926) (`ready`).** `eval-dep-bump-js-yaml` has failed the judge in **five consecutive judged runs** at the identical score 0.75 (`eval-2142`, `eval-5396`, `eval-941`, `eval-849`, `eval-648`), and the agent's answer is **correct**: the task's own prompt says an unchanged file is "a correct no-op, not a failure", `tools/cli/package.json` declares `^5.5.0`, and `pnpm view js-yaml versions --json` confirms `5.5.0` is the highest 5.x (verified today). The cause is structural — `packages/agent-core/src/eval/llm-judge.ts:39` calls `evaluate(prompt, run.diff, …)`, passing only the diff, while the task tells the agent to record its verification _in its summary_, which the judge never sees. Judge confidence was **0.2**, the lowest of any task this run, and is scored identically to a confident fail. The 2026-11-20 entry noted this task failing but did not diagnose it; this is the first run it has been traced and filed.
+- Consequence worth remembering: 20% of this suite's pass-rate signal is spent on a measurement bug, so the baseline a real regression must be read against is noisy until #9926 lands.
+
+### Not filed
+
+- `depcruise` reports one warning, `no-orphans: packages/hospitality-sidenav/src/test-setup.ts`. It is a false positive — the file is referenced by `packages/hospitality-sidenav/vitest.config.ts` as `setupFiles`, which dependency-cruiser does not follow. Cosmetic, advisory-only; recorded here rather than spent as queue traffic.
+
+### Environment note
+
+A full `pnpm lint` first failed in `@mbe/agent-service` with `Cannot find module '@modelcontextprotocol/sdk/...'` (plus cascading `TS7006`s). It reproduced on a stashed, clean tree, so it was not from this diff: the sandbox's `node_modules` was simply incomplete on arrival. `pnpm install --frozen-lockfile` installed `@modelcontextprotocol/sdk@1.32.1` and lint went green. Worth knowing that a cloud session's checkout cannot be assumed fully installed even though `node_modules/` exists — the `SessionStart` bootstrap (#8169) only installs when `node_modules` is _missing_.
+
+## 2026-11-27 — mbe-learning-loop
+
+**Sensors:** 19/19 available — ✅ Healthy (acmm L5 73/83, ciHealth 100% (17/17), mutationScore 98.21% PASS, 0 flaky, metricsFreshness 0 unhealthy).
+**Regressions:** 0 detected, 0 issues created.
+**Sentry triage:** skipped — MCP token expired (`find_organizations` returned Authorization Expired).
+**Verifications:** 5 checked, 0 verified, 0 failed/reopened, 5 skipped (all `audit` issues — Lighthouse inventory not available in this cloud checkout; no site-audit egress per #2920).
+**AI issue feedback:** budgets refreshed, all categories default budget=3 except `agent-failed` (halved to 1; 100% rejected on n=1).
+**Skill proposals:** 0 (Friday ran step 4) — only 2 session-log files exist under `.claude/session-logs/`, both timestamped today and identical (same session logged twice), so there is no 7-day history and no 3+-session repeated pattern to extract.
+**Threshold notes:** false positive rate (wontfix+rejected)/total over all-time feedback = 29.0% (44 wontfix + 14 rejected / 200) — back under the 30% loosen-threshold line (was 32.5% last run). Fix effectiveness (last 30d, non-skip verifications) = 80% (12/15) — healthy, no action. `verify-fixes.mjs`'s own auto-tuner applied 2 headroom adjustments this run: `acmm` 1.945→1.974, `ci-fix` 1.288→1.315.
+
+## 2026-11-28 — mbe-evening
+
+### Metrics (7d)
+
+| Metric                                           | Value                                                                                                                                                                                                                                                                                            | Status          |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------- |
+| Created (audit+ci-fix)                           | 44 (audit 28, ci-fix 16)                                                                                                                                                                                                                                                                         | -               |
+| Closed (audit+ci-fix)                            | 39 (audit 24, ci-fix 15)                                                                                                                                                                                                                                                                         | -               |
+| Closure Rate                                     | 88.6%                                                                                                                                                                                                                                                                                            | 🟢 >80%         |
+| Time-to-Close                                    | mean 76.1h (n=39)                                                                                                                                                                                                                                                                                | 🔴 >72h         |
+| Agent Success (has-pr/(has-pr+failed), snapshot) | 100% (4 has-pr / 0 agent-failed)                                                                                                                                                                                                                                                                 | 🟢 but see note |
+| CI Pass (main, last 20 pushes)                   | not computed — all 20 recent main-branch runs read `""`/`cancelled`/`skipped`, zero `success`/`failure`; consistent with #3538 (automation/`GITHUB_TOKEN`-authored merges never fire `ci.yml`, so push-to-main events carry no real CI signal). Use `scripts/ci-gate-status.mjs` per PR instead. | —               |
+| Queue (ready)                                    | 2 (#10071, #9943 — both filed within 24h)                                                                                                                                                                                                                                                        | 🟢 <5           |
+| Stale (ready>7d)                                 | 0                                                                                                                                                                                                                                                                                                | 🟢              |
+| Blocked (agent-failed)                           | 0                                                                                                                                                                                                                                                                                                | 🟢              |
+| Skipped (agent-skip)                             | 0                                                                                                                                                                                                                                                                                                | 🟢              |
+| Daily Spend                                      | $0 attributed (recordSpend); this routine's own queue-worker usage today (2 dispatches via the Agent tool, ~400k tokens) has no `cost_usd` — true cost unknown, not $0                                                                                                                           | —               |
+| 7d Spend                                         | $1.82 attributed (recordSpend, 5 sessions) + 999,141 queue-worker tokens across 6 sessions with unknown cost (150 telemetry rows lack usage) — true total exceeds $1.82, unknown exactly                                                                                                         | —               |
+| Cost/Issue                                       | ~$0.047 ($1.82 attributed / 39 closed) — understates true cost since queue-worker cost is unattributed                                                                                                                                                                                           | —               |
+| Reverts (7d)                                     | 0                                                                                                                                                                                                                                                                                                | 🟢 <3/wk        |
+
+### Patterns
+
+- Time-to-close (76.1h mean) just crossed into red (>72h) after two straight healthy runs (22.0h on 11-16). Closure rate stayed healthy (88.6%) over the same window, so this reads as a throughput lag on a subset of slower items, not a rising failure trend — worth a look if it repeats next run.
+- `in-progress` currently holds 27 open issues against only 2 `ready` and 4 `has-pr` — a much larger ratio than prior runs recorded. Some of these are almost certainly not this queue's (other drivers — `mbe-feature-drain`, `conduct`, `autorun` — also claim issues into `in-progress`), but the gap is wide enough to flag for `/optimize-implement-queue`'s reconcile step to check for stale/abandoned claims.
+- This iteration's own implement-queue run found 5 PRs already open and pending from an earlier dispatch (none from this session), all `worktree-agent-*` branches with no `Driver:` line — read as this queue's per the foreign-vs-ours heuristic (matches the 11-16 entry's note on the same ambiguity, now a second occurrence; still not filing an issue, but two occurrences in two weeks is worth watching for a third).
+- One real regression caught by review this run, not by CI: PR #10067's universal reviewer found that `isKnownRialtoPath()`/`isKnownMarketingPath()` compared pathnames against a lowercase route list with no case-folding, so a mixed-case request to a real page (e.g. `/rialto/Privacy`) would have been wrongly rewrapped as 404 — fixed on the same branch (no new PR), re-reviewed, passed 9/10. Caught pre-merge; no user-facing impact.
+- Cloud-routine merges went through the `reviewed-merge.yml` label+schedule path (gotchas.md, #6125) rather than `gh pr merge --auto` — all 6 PRs gated this run (#10072, #10070, #10069, #10068, #10067, #10078) were posted `reviewed-merge: <sha> PASS <score>/10` plus the `reviewed` label and left for the scheduled job to merge once CI Gate reads green; none merged directly by this session.
+
+### Recommendations
+
+- No threshold-triggered action this run (no pause-on-failure, no auto-retry — `agent-failed` is 0).
+- Have `/optimize-implement-queue`'s reconcile step (`reconcile-queue-telemetry.mjs` / `reconcile-issue-states.mjs`) look at the 27-issue `in-progress` count specifically for stale claims predating this week, since the ready/has-pr counts alone don't explain it.
+- If time-to-close reads >72h again next run, treat it as a pattern (3rd occurrence) and open a `meta-improvement` issue rather than just noting it.
+
+### Skipped Issues
+
+0 skipped after max retries.
+
+## 2026-11-28
+
+**queueEfficiency:** composite 0.882 (baseline n/a) — healthy
+**Difficulty distribution:** size:xs:42, size:m:47, size:l:25, size:s:74, size:xl:15
+**Issues filed:** 0

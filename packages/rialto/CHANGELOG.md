@@ -1,5 +1,31 @@
 # @mattbutlerengineering/rialto
 
+## 3.1.16
+
+### Patch Changes
+
+- [#9954](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9954) [`fc568c1`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/fc568c140bcf07ee2418a951eca42a3fa27b2c9f) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - A Button marked `aria-disabled="true"` now looks disabled and no longer plays the tap animation, while staying focusable.
+
+- [#9916](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9916) [`7b53f05`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/7b53f0566b9772d7d6311e48c7feab9c0ae5bfff) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - perf(Hero): the subtitle settles into place without fading from opacity 0, so it paints on first frame. On mobile it is the LCP element and its fade delayed LCP ([#9915](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/9915)).
+
+- [#9872](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9872) [`5c4b3ed`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/5c4b3eda9eb28306119ff2e30c16b1631774d608) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - The shared glass surface is now opaque in both themes, so modals, menus, popovers, tooltips, toasts and the Card and AppBar glass variants no longer show page content through their background.
+
+## 3.1.15
+
+### Patch Changes
+
+- [#9919](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9919) [`2c63f21`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/2c63f21bb81b2e5c00682b287060c3ce9d558bc4) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - GlobalNav: Escape closes the open mobile menu from any link and returns focus to the toggle; tabbing out of the menu closes it so focused content is never covered.
+
+## 3.1.14
+
+### Patch Changes
+
+- [#9859](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9859) [`720197f`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/720197f4b2db3465b45a7596dcd5a17bf6853cf1) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Under forced colours, a checked Checkbox or Radio, a checked Toggle, and selected Calendar and DateRange days show a visible focus ring again (system text colour). Their selected fill had stopped the browser repainting the outline.
+
+- [#9854](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9854) [`38a3c19`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/38a3c19cd21aaa00ead8253385bef7a19aa903ff) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Focusing a Radio or Checkbox now scrolls its whole label into view. The hidden native input covers its label (transparent and click-through) instead of sitting as a 1px clipped box, so a tall option inside a scrolling container is no longer left cut off at the edge when it takes keyboard focus.
+
+- [#9849](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9849) [`f5e3b2f`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/f5e3b2f15d113dfd3fda41f4509157e6f3b3583d) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Selected states, shadow-only boundaries and text/border tokens now hold up under forced-colors and prefers-contrast: more.
+
 ## 3.1.13
 
 ### Patch Changes

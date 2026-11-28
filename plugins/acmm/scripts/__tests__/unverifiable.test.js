@@ -17,6 +17,7 @@ import { writeReport } from "../outputs/report.js";
 
 function fixture() {
   const root = mkdtempSync(join(tmpdir(), "acmm-unverifiable-"));
+  mkdirSync(join(root, ".metrics-data"));
   return {
     root,
     file(rel, body = "") {

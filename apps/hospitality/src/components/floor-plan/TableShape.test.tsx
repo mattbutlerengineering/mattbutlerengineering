@@ -675,8 +675,8 @@ describe("TableShape", () => {
     it("renders the seated status color when status is seated", () => {
       const table = makeTable({ isActive: true });
       render(<TableShape table={table} {...defaultProps} status="seated" />);
-      // seated color mirrors --rialto-error (#b84a3c)
-      expect(tableSurface().getAttribute("data-fill")).toBe("#b84a3c");
+      // seated color mirrors --rialto-error (#a94134)
+      expect(tableSurface().getAttribute("data-fill")).toBe("#a94134");
     });
 
     it("renders the needs-bussing status color when status is needs-bussing", () => {
@@ -734,7 +734,7 @@ describe("TableShape", () => {
         },
       });
       render(<TableShape table={table} {...defaultProps} status="seated" />);
-      expect(tableSurface().getAttribute("data-fill")).toBe("#b84a3c");
+      expect(tableSurface().getAttribute("data-fill")).toBe("#a94134");
     });
 
     it("lets the tint outrank the neutral available status (#7264)", () => {

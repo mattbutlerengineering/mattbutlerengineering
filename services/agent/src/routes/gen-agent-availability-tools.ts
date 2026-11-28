@@ -3,7 +3,14 @@ import { tool } from "ai";
 import type { ToolSet } from "ai";
 import { z } from "zod";
 import type { FastifyBaseLogger } from "fastify";
-import { servicesOn, weekdayIndexOf } from "@mbe/availability";
+import {
+  WEEK_CHANGES_DAYS,
+  addDays,
+  currentServiceDate,
+  servicesOn,
+  weekChanges,
+  weekdayIndexOf,
+} from "@mbe/availability";
 import type {
   AvailabilityChangesPage,
   AvailabilityConfig,
@@ -24,6 +31,7 @@ import {
   todayIn,
   type ApiClient,
 } from "./gen-tool-support.js";
+import { describeWeekChanges, sectionIdsOf } from "./gen-agent-week-changes.js";
 
 /**
  * Chat tools for Tonight changes (ux.md F7) and undo. Every input is a flat
@@ -374,6 +382,38 @@ export function createAvailabilityTools(
         } catch (err) {
           log.error({ ...failureLog(err), venueId }, "list_tonight_changes failed");
           return readFailure(err, "tonight's availability");
+        }
+      },
+    }),
+
+    list_upcoming_changes: tool({
+      description:
+        "List what changes at the venue in the 7 days after the current service day: closures, reopenings, special hours, and schedules that start or end. Holidays are not included: for holidays, point the user to the Availability page.",
+      inputSchema: z.object({}),
+      execute: async () => {
+        if (!venueId) return NO_VENUE;
+        log.info({ venueId }, "list_upcoming_changes tool called");
+        try {
+          const { config } = await api.availability.getConfig(venueId);
+          const today = currentServiceDate({ timezone: timeZone ?? "UTC", config }, new Date());
+          const from = addDays(today, 1);
+          const rows = weekChanges(config, from);
+          const sectionIds = sectionIdsOf(rows, config);
+          const sections = sectionIds.length ? await api.floorPlanSections.list(venueId) : [];
+          return {
+            from,
+            to: addDays(from, WEEK_CHANGES_DAYS - 1),
+            changes: describeWeekChanges(
+              rows,
+              config,
+              new Map(sections.map((s) => [s.id, s.name]))
+            ),
+          };
+        } catch (err) {
+          log.error({ ...failureLog(err), venueId }, "list_upcoming_changes failed");
+          return readFailure(err, "the coming week's availability", {
+            notEmpty: "that nothing changes this week",
+          });
         }
       },
     }),

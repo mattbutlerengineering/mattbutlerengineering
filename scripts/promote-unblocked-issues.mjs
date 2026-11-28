@@ -48,9 +48,19 @@ import { fileURLToPath } from "node:url";
  * Labels that mean "this issue is already in, or past, the ready queue" —
  * promoting it again would be a no-op at best and a label race at worst.
  * `tracking` is excluded because a tracking/parent issue is never meant to
- * be worked by `/implement-queue` directly.
+ * be worked by `/implement-queue` directly. `ready-for-human` and `needs-human`
+ * are excluded because only the Owner can move them; promoting one handed
+ * Owner-only work to the drain (#9881).
  */
-export const PROMOTION_BLOCKING_LABELS = ["ready", "in-progress", "has-pr", "blocked", "tracking"];
+export const PROMOTION_BLOCKING_LABELS = [
+  "ready",
+  "in-progress",
+  "has-pr",
+  "blocked",
+  "tracking",
+  "ready-for-human",
+  "needs-human",
+];
 
 /** A `Depends on: #N` (or `- Depends on: #N, #M`) line, case-insensitive. */
 const DEPENDS_ON_LINE_RE = /^\s*[-*]?\s*depends on:\s*(.+)$/im;

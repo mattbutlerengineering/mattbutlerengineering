@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
-import { resolve, dirname } from "node:path";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -86,5 +88,58 @@ describe("auto-label.yml negated-closing-refs job (#9773)", () => {
     expect(WORKFLOW).toContain("negated-closing-refs.mjs");
     expect(WORKFLOW).toMatch(/continue-on-error: true/);
     expect(WORKFLOW).not.toMatch(/ref:\s*\$\{\{\s*github\.event\.pull_request\.head/);
+  });
+});
+
+/**
+ * #9895: the audit rule added `ready` on every `edited` event, so an `[Audit]`
+ * issue a session had claimed `in-progress` went back into the drain's queue a
+ * minute later (#9888, #9890, #9891 on 2026-11-27). Runs the workflow's own
+ * label script, not a copy of it.
+ */
+describe("auto-label.yml audit rule respects claimed issues (#9895)", () => {
+  const script = /node - <<'NODE'\n([\s\S]*?)\n\s*NODE\n/.exec(WORKFLOW)?.[1] ?? "";
+
+  function computeLabels(title, existing) {
+    const dir = mkdtempSync(join(tmpdir(), "auto-label-"));
+    const out = join(dir, "out");
+    writeFileSync(out, "");
+    execFileSync(process.execPath, ["-"], {
+      input: script,
+      env: {
+        ...process.env,
+        ISSUE_TITLE: title,
+        ISSUE_BODY: "",
+        ISSUE_LABELS: JSON.stringify(existing),
+        GITHUB_OUTPUT: out,
+      },
+      stdio: ["pipe", "ignore", "inherit"],
+    });
+    const line = readFileSync(out, "utf8").trim();
+    return line
+      .replace(/^labels=/, "")
+      .split(",")
+      .filter(Boolean);
+  }
+
+  it("extracts the label script from the workflow", () => {
+    expect(script).toContain("labels.add('ready')");
+  });
+
+  it("still marks an unclaimed audit issue ready", () => {
+    expect(computeLabels("[Audit] UX: slow page", [])).toContain("ready");
+  });
+
+  it.each(["in-progress", "has-pr", "blocked", "tracking", "ready-for-human", "needs-human"])(
+    "does not mark an audit issue ready when it already carries %s",
+    (label) => {
+      expect(computeLabels("[Audit] UX: slow page", [label])).not.toContain("ready");
+    }
+  );
+
+  it("passes the issue's current labels to the script from the event payload", () => {
+    expect(WORKFLOW).toMatch(
+      /ISSUE_LABELS:\s*\$\{\{\s*toJSON\(github\.event\.issue\.labels\.\*\.name\)\s*\}\}/
+    );
   });
 });

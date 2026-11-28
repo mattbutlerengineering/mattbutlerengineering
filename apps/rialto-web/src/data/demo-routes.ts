@@ -3,8 +3,8 @@
  *
  * Demo pages are mounted under the `demos` segment of the `/rialto` basename
  * (see routes.tsx and main.tsx). Cross-links between demo pages MUST include
- * the `/demos` prefix; otherwise they hit the `*` catch-all route and redirect
- * to the overview instead of the intended demo page. Deriving link targets
+ * the `/demos` prefix; otherwise they hit the `*` catch-all route and render
+ * the not-found page instead of the intended demo page. Deriving link targets
  * from these constants keeps them in sync with the route table and prevents
  * that class of bug from recurring.
  */

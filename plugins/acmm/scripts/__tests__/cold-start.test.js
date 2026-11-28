@@ -8,6 +8,8 @@ import { loadLatestColdStart, latestRecord, scoreColdStart } from "../cold-start
 
 function tmpDir() {
   const root = mkdtempSync(join(tmpdir(), "acmm-coldstart-"));
+  // The data-branch checkout must exist (metrics-store throws without it).
+  mkdirSync(join(root, ".metrics-data"));
   return {
     root,
     write(rel, body) {
@@ -29,14 +31,14 @@ test("loadLatestColdStart: missing file → null", () => {
 
 test("loadLatestColdStart: empty array → null", () => {
   const fx = tmpDir();
-  fx.write("metrics/acmm-cold-start.json", "[]");
+  fx.write(".metrics-data/acmm-cold-start.json", "[]");
   assert.equal(loadLatestColdStart(fx.root), null);
   fx.cleanup();
 });
 
 test("loadLatestColdStart: malformed JSON → null (non-fatal)", () => {
   const fx = tmpDir();
-  fx.write("metrics/acmm-cold-start.json", "not json {[");
+  fx.write(".metrics-data/acmm-cold-start.json", "not json {[");
   assert.equal(loadLatestColdStart(fx.root), null);
   fx.cleanup();
 });
@@ -61,7 +63,7 @@ test("loadLatestColdStart: returns most recent record (last in array)", () => {
       commit: "new",
     },
   ];
-  fx.write("metrics/acmm-cold-start.json", JSON.stringify(records));
+  fx.write(".metrics-data/acmm-cold-start.json", JSON.stringify(records));
   const r = loadLatestColdStart(fx.root);
   assert.equal(r.ts, "2026-04-08T06:00:00Z");
   assert.equal(r.total_seconds, 165);
