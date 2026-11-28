@@ -4053,7 +4053,7 @@
       "all": "Tous",
       "early": "Tôt (avant {{hour}})",
       "dinner": "Souper ({{range}})",
-      "late": "Tard (à partir de {{hour}})"
+      "late": "Tard (dès {{hour}})"
     },
     "segmentsCompact": {
       "early": "Avant {{hour}}",

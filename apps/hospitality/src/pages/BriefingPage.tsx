@@ -53,21 +53,33 @@ const LATE_START_HOUR = 21;
 
 /**
  * `compact` (a phone) prints each boundary without the bucket name: four long labels overflow a
- * 375px segmented control and cut the last one off (#10234).
+ * 375px segmented control and cut the last one off (#10234). The full label stays the accessible
+ * name there, so a screen reader still hears the period ("Dinner (6–9 PM)", #10238).
  */
 function timeSegments(t: TFunction, locale: string, compact: boolean) {
-  const key = compact ? "briefing.segmentsCompact" : "briefing.segments";
+  const early = { hour: formatWallHour(EARLY_END_HOUR, locale) };
+  const dinner = { range: formatWallHourRange(EARLY_END_HOUR, LATE_START_HOUR, locale) };
+  const late = { hour: formatWallHour(LATE_START_HOUR, locale) };
+  const all = { id: "all", label: t("briefing.segments.all") };
+  const full = {
+    early: t("briefing.segments.early", early),
+    dinner: t("briefing.segments.dinner", dinner),
+    late: t("briefing.segments.late", late),
+  };
+  if (!compact) {
+    return [
+      all,
+      { id: "early", label: full.early },
+      { id: "dinner", label: full.dinner },
+      { id: "late", label: full.late },
+    ];
+  }
   return [
-    { id: "all", label: t("briefing.segments.all") },
-    { id: "early", label: t(`${key}.early`, { hour: formatWallHour(EARLY_END_HOUR, locale) }) },
-    {
-      id: "dinner",
-      label: t(`${key}.dinner`, {
-        range: formatWallHourRange(EARLY_END_HOUR, LATE_START_HOUR, locale),
-      }),
-    },
-    { id: "late", label: t(`${key}.late`, { hour: formatWallHour(LATE_START_HOUR, locale) }) },
-  ] as const;
+    all,
+    { id: "early", label: t("briefing.segmentsCompact.early", early), ariaLabel: full.early },
+    { id: "dinner", label: t("briefing.segmentsCompact.dinner", dinner), ariaLabel: full.dinner },
+    { id: "late", label: t("briefing.segmentsCompact.late", late), ariaLabel: full.late },
+  ];
 }
 
 type TimeSegmentId = "all" | "early" | "dinner" | "late";
@@ -268,7 +280,7 @@ export function BriefingPage() {
 
       <div className={styles.toolbar}>
         <SegmentedControl
-          segments={[...timeSegments(t, fmt.locale, isPhone)]}
+          segments={timeSegments(t, fmt.locale, isPhone)}
           value={timeSlot}
           onChange={(value) => setTimeSlot(value as TimeSegmentId)}
           size="sm"
