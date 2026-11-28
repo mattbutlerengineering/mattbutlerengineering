@@ -1419,7 +1419,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           SHA: ${{ steps.target-sha.outputs.sha }}
           OUTCOME: ${{ steps.gate-check.outcome }}
+          # #10188: a draft run checked nothing. Publishing its red verdict
+          # could overwrite a ready run's green status on the same SHA when the
+          # draft run finishes last. A draft cannot merge, so publish nothing.
+          DRAFT_SKIP: ${{ github.event.pull_request.draft == true && needs.prepare.result == 'skipped' }}
         run: |
+          if [ "$DRAFT_SKIP" = true ]; then
+            echo "Draft PR: no CI Gate commit status published (#10188)."
+            exit 0
+          fi
           STATE=$(node scripts/ci-gate-commit-status.mjs state --outcome "$OUTCOME")
           # Retry transient failures only — a real 4xx rejection (bad token,
           # bad payload, etc.) should fail fast rather than burning three
