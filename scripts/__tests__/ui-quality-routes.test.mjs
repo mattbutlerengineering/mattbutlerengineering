@@ -63,11 +63,10 @@ describe("hospitality adapter", () => {
       "apps/hospitality/src/pages/AvailabilityHubPage.tsx",
       "apps/hospitality/src/main.tsx",
     ]);
-    // The drawer route renders the hub with the drawer inside it, so both modules are its source.
+    // Booking rules is a page of its own (#9944 S5a), not a drawer over the hub.
     expect(byRoute["availability/booking-rules"].kind).toBe("page");
     expect(byRoute["availability/booking-rules"].source_files).toEqual([
       "apps/hospitality/src/components/availability/BookingRulesRoute.tsx",
-      "apps/hospitality/src/pages/AvailabilityHubPage.tsx",
       "apps/hospitality/src/main.tsx",
     ]);
     expect(byRoute["availability/history"].kind).toBe("page");
