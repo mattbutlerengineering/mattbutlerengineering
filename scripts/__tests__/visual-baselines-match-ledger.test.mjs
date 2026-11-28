@@ -35,12 +35,16 @@ const pageRoutes = (app) =>
     .map((row) => row.route);
 
 /**
- * The file a row's snapshot lands in: the spec's `slug(route)@WxH.png`, after
- * Playwright replaces each run of characters outside [A-Za-z0-9] in the name
- * with one `-`.
+ * The file a row's snapshot lands in, as two real steps: the spec's
+ * `slug(route)@WxH`, then Playwright's file-name sanitiser, which replaces each
+ * run of characters outside [A-Za-z0-9-] with one `-`. Composing them (rather
+ * than one regex over the route) keeps a route ending in a non-alphanumeric
+ * character, such as `docs/*`, at `docs-1280x720.png`.
  */
-const baselineName = (route, viewport) =>
-  `${(route === "/" ? "home" : route).replace(/[^A-Za-z0-9]+/g, "-")}-${viewport}.png`;
+const baselineName = (route, viewport) => {
+  const slug = route === "/" ? "home" : route.replace(/\W+/g, "_");
+  return `${`${slug}@${viewport}`.replace(/[^A-Za-z0-9-]+/g, "-")}.png`;
+};
 
 /** Tracked files only: other specs write untracked debug shots into the same directory. */
 const committedBaselines = (app) =>
@@ -48,6 +52,15 @@ const committedBaselines = (app) =>
     .split("\n")
     .filter((path) => path.endsWith(".png"))
     .map((path) => basename(path));
+
+describe("baselineName", () => {
+  it("matches the spec's slug followed by Playwright's sanitiser", () => {
+    expect(baselineName("/", "1280x720")).toBe("home-1280x720.png");
+    expect(baselineName("floor-plans/:id", "375x812")).toBe("floor-plans-id-375x812.png");
+    // A trailing non-alphanumeric run joins the `@` into one dash.
+    expect(baselineName("docs/*", "1280x720")).toBe("docs-1280x720.png");
+  });
+});
 
 describe.each(APPS)("%s committed visual baselines", (app) => {
   it("names its snapshots the way this guard derives them", () => {
