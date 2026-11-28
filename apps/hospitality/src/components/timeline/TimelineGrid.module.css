@@ -165,14 +165,13 @@
   border-radius: 50%;
 }
 
-/* "8:04 PM" on an opaque gold chip centred in the header band (#10036). Bare gold text was drawn
-   through the hour heading and read 2.8:1; the chip (above the header, z-index 30 > 20) covers
-   a heading it meets, and stays out of the first table row so it never hides a booking. The
-   now-line hands it --timeline-header-height inline. */
+/* "8:04 PM" on an opaque gold chip just below the header band (#10036, #10062). Bare gold text
+   was drawn through the hour heading and read 2.8:1; centred in the band, the chip covered the
+   heading beside it ('7 PM' at 19:10). Below the band it never meets a heading. The now-line
+   hands it --timeline-header-height inline. */
 .currentTimeLabel {
   position: absolute;
-  inset-block-start: calc(var(--timeline-header-height) / 2);
-  transform: translateY(-50%);
+  inset-block-start: calc(var(--timeline-header-height) + var(--rialto-space-2xs));
   inset-inline-start: var(--rialto-space-2xs);
   padding-block: var(--rialto-space-2xs);
   padding-inline: var(--rialto-space-xs);
