@@ -153,24 +153,6 @@ export function formatTimeIn(isoString: string, timeZone: string, locale: string
 }
 
 /**
- * Hour-of-day (0-23) for an ISO datetime string in the given IANA timezone.
- * Used by TimeSlotPicker to group slots into Lunch/Dinner/Late buckets by
- * the venue's clock rather than the guest's device.
- *
- * Used by: TimeSlotPicker
- */
-export function getHourIn(isoString: string, timeZone: string): number {
-  const hour = new Intl.DateTimeFormat("en-US", {
-    timeZone: resolveTimeZone(timeZone),
-    hour: "2-digit",
-    hourCycle: "h23",
-  })
-    .formatToParts(new Date(isoString))
-    .find((part) => part.type === "hour")?.value;
-  return hour ? Number(hour) : 0;
-}
-
-/**
  * Format a venue-local "HH:MM" wall-clock string as 12-hour time with minutes
  * (e.g. "17:00" → "5:00 PM"). The value is a wall-clock, not an instant, so it
  * is pinned to UTC and formats identically on every machine.

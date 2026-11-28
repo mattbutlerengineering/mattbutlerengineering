@@ -101,7 +101,7 @@ API to a library choice made for one app.
   (OfflineBanner, ReservationList, ProfilePage, TimelinePage, GuestCard, GuestTable,
   ActivityFeed, AdminPage, FloorPlansPage, useSSESync, reservation-display,
   venueOpenLabel) move onto it. Computation-only `formatToParts("en-US")` uses
-  (`getHourIn`, `venueWallClock`, `ics.ts`) and the `en-CA` date-key trick stay.
+  (`venueWallClock`, `ics.ts`) and the `en-CA` date-key trick stay.
 - Collaborators: i18n runtime, VenueContext, every screen showing time or money.
 
 ### Cancellation-policy description (`packages/cancellation-policy`)
