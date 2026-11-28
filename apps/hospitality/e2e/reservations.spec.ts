@@ -140,6 +140,47 @@ test.describe("CF-6: Reservations page with filtering", () => {
   });
 });
 
+// #10060: hosts work from phones during service; at 375px the list is cards, not a table that
+// scrolls sideways (it measured 933px of content in a 293px area).
+test.describe("Reservations on a phone (375px)", () => {
+  test("each reservation is a card with party, table, status and a 44px View; nothing scrolls sideways", async ({
+    mockedPage,
+  }) => {
+    await mockedPage.setViewportSize({ width: 375, height: 812 });
+    await mockedPage.goto("reservations");
+
+    const list = mockedPage.getByRole("list", { name: "Reservations", exact: true });
+    await expect(list.getByRole("listitem")).toHaveCount(4);
+    await expect(mockedPage.getByRole("table")).toHaveCount(0);
+
+    const alice = list.getByRole("listitem").filter({
+      has: mockedPage.getByRole("heading", { name: /Alice Johnson/ }),
+    });
+    await expect(alice).toContainText("Party of 4");
+    await expect(alice).toContainText("Table 1");
+    await expect(alice).toContainText("Confirmed");
+
+    const view = alice.getByRole("button", {
+      name: "View Alice Johnson reservation on timeline",
+      exact: true,
+    });
+    const box = await view.boundingBox();
+    expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+
+    const { scroll, client } = await mockedPage
+      .locator("main#main-content")
+      .evaluate((main) => ({ scroll: main.scrollWidth, client: main.clientWidth }));
+    expect(scroll, "horizontal scroll inside <main>").toBeLessThanOrEqual(client);
+    await mockedPage.screenshot({
+      path: "e2e/screenshots/reservations-phone.png",
+      fullPage: true,
+    });
+
+    await view.click();
+    await expect(mockedPage).toHaveURL(/\/hospitality\/timeline\?(?:[^#]*&)?selected=/);
+  });
+});
+
 // A6.2's second clause (architecture § Amendment 2026-09-04): the palette's "New Reservation"
 // carries an intent in the URL — `/reservations?new=true` — and the page opens its dialog from
 // the URL, then strips the key so Back or a reload does not replay it (A6.1's rule by mirror).

@@ -33,6 +33,8 @@ vi.mock("../hooks/useStaffTonight.js", () => ({
   }),
 }));
 vi.mock("../hooks/useReservations.js", () => ({ useCreateReservation: vi.fn() }));
+const viewport = vi.hoisted(() => ({ value: "desktop" as "phone" | "tablet" | "desktop" }));
+vi.mock("../hooks/useViewport.js", () => ({ useViewport: () => viewport.value }));
 
 vi.mock("../components/PageHeader", () => ({
   // The real PageHeader's h1 carries tabIndex={-1} so `focusAfter({ kind: "pageHeading" })` lands.
@@ -126,6 +128,7 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     </button>
   ),
   Card: ({ children }: { children: React.ReactNode }) => <div data-testid="card">{children}</div>,
+  Heading: ({ children }: { children: React.ReactNode }) => <h2>{children}</h2>,
   EmptyState: ({
     heading,
     description,
@@ -315,6 +318,7 @@ const mockNavigate = vi.fn();
 describe("ReservationsPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    viewport.value = "desktop";
     vi.mocked(useNavigate).mockReturnValue(mockNavigate);
     vi.mocked(useVenue).mockReturnValue(makeVenueContext());
     mockDisplayHook();
@@ -1004,6 +1008,106 @@ describe("ReservationsPage", () => {
       expect(mockNavigate).toHaveBeenCalledWith(
         `/timeline?date=${defaultReservations[1]!.date}&selected=${defaultReservations[1]!.id}`
       );
+    });
+  });
+
+  describe("phone layout (#10060 — cards, no sideways scroll)", () => {
+    beforeEach(() => {
+      viewport.value = "phone";
+    });
+
+    it("renders a list of cards instead of the table", () => {
+      renderPage();
+
+      expect(screen.queryByRole("table")).toBeNull();
+      const list = screen.getByRole("list", { name: "Reservations" });
+      expect(within(list).getAllByRole("listitem")).toHaveLength(3);
+    });
+
+    it("shows party, table and the status word on each card, with the page's table resolver", () => {
+      vi.mocked(useTables).mockReturnValue({
+        data: [
+          {
+            id: "t1",
+            name: "Window 4",
+            tableNumber: null,
+            capacity: 2,
+            minCovers: 1,
+            maxCovers: null,
+            location: null,
+            isActive: true,
+            priority: 0,
+            status: "AVAILABLE",
+            venueId: null,
+            floorPlanId: null,
+            shapeMetadata: null,
+            createdAt: "2026-01-01T00:00:00Z",
+            updatedAt: "2026-01-01T00:00:00Z",
+          },
+        ],
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+      renderPage();
+
+      const [alice, bob] = screen.getAllByRole("listitem");
+      expect(alice).toHaveTextContent("Party of 2");
+      expect(alice).toHaveTextContent("Window 4");
+      expect(alice).toHaveTextContent("Confirmed");
+      expect(bob).toHaveTextContent("Table unavailable");
+      expect(bob).toHaveTextContent("Pending");
+    });
+
+    it("keeps the active filter: only the filtered reservations become cards", () => {
+      mockDisplayHook({ filteredData: [defaultReservations[1]!] });
+      renderPage();
+
+      const items = screen.getAllByRole("listitem");
+      expect(items).toHaveLength(1);
+      expect(items[0]).toHaveTextContent("Bob");
+    });
+
+    it("View on a card deep-links the reservation on the timeline", () => {
+      renderPage();
+
+      fireEvent.click(screen.getByRole("button", { name: "View Bob reservation on timeline" }));
+
+      expect(mockNavigate).toHaveBeenCalledWith(
+        `/timeline?date=${defaultReservations[1]!.date}&selected=${defaultReservations[1]!.id}`
+      );
+    });
+
+    it("loading shows the skeleton region and no cards", () => {
+      mockDisplayHook({ data: undefined, filteredData: [], isLoading: true });
+      renderPage();
+
+      expect(screen.getAllByTestId("skeleton")).toHaveLength(5);
+      expect(screen.queryByRole("list", { name: "Reservations" })).toBeNull();
+    });
+
+    it("an empty day shows the empty state and no cards", () => {
+      mockDisplayHook({ data: [], filteredData: [], stats: ZERO_STATS });
+      renderPage();
+
+      expect(screen.getByTestId("empty-state")).toBeInTheDocument();
+      expect(screen.queryByRole("list", { name: "Reservations" })).toBeNull();
+    });
+
+    it("an error shows the banner and no cards", () => {
+      mockDisplayHook({ data: undefined, filteredData: [], error: serverError() });
+      renderPage();
+
+      expect(screen.getByRole("alert")).toBeInTheDocument();
+      expect(screen.queryByRole("list", { name: "Reservations" })).toBeNull();
+    });
+
+    it("tablet keeps the table", () => {
+      viewport.value = "tablet";
+      renderPage();
+
+      expect(screen.getByRole("table")).toBeInTheDocument();
+      expect(screen.queryByRole("list", { name: "Reservations" })).toBeNull();
     });
   });
 

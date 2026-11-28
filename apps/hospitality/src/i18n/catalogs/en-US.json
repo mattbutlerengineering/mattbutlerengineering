@@ -1087,6 +1087,7 @@
     "guestFallback": "Guest",
     "view": "View",
     "viewAria": "View {{name}} reservation on timeline",
+    "partyOf": "Party of {{size}}",
     "status": {
       "PENDING": "Pending",
       "CONFIRMED": "Confirmed",
