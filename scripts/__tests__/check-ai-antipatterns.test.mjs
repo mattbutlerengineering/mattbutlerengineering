@@ -2,6 +2,7 @@ import { test, expect, describe, beforeEach, afterEach, vi } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
+import { spawnSync } from "node:child_process";
 
 describe("check-ai-antipatterns", () => {
   let tmpDir;
@@ -523,6 +524,111 @@ describe("check-ai-antipatterns", () => {
       expect(counts.magicTimeouts).toBeGreaterThanOrEqual(1);
       expect(counts.emptyCatch).toBeGreaterThanOrEqual(1);
       expect(counts.anyType).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  // ── --list (#10149) ─────────────────────────────────────────────────────────
+
+  describe("--list", () => {
+    // Built from parts so this file's own source doesn't count as a ratchet hit.
+    const EMPTY_CATCH = ["try { x(); } catch (e)", "{}"].join(" ");
+    const MAGIC_TIMEOUT = ["setTimeout(fn,", "3000);"].join(" ");
+    const SCRIPT = path.resolve(import.meta.dirname, "..", "check-ai-antipatterns.mjs");
+    const run = (...args) =>
+      spawnSync(process.execPath, [SCRIPT, ...args], { cwd: tmpDir, encoding: "utf-8" });
+
+    test("scanOccurrences reports the declaration's own line for noopTestAssertions", async () => {
+      fs.writeFileSync(
+        path.join(tmpDir, "src", "a.test.ts"),
+        [
+          'import { it, expect } from "vitest";',
+          "",
+          'it("asserts", () => {',
+          "  expect(1).toBe(1);",
+          "});",
+          "",
+          'it("has no assertion", () => {',
+          "  doThing();",
+          "});",
+        ].join("\n") + "\n"
+      );
+      const { scanOccurrences } = await import("../check-ai-antipatterns.mjs");
+      const found = scanOccurrences(tmpDir).noopTestAssertions;
+      expect(found).toHaveLength(1);
+      expect(found[0]).toMatchObject({ line: 7 });
+      expect(found[0].file).toBe(path.join(tmpDir, "src", "a.test.ts"));
+      expect(found[0].snippet).toBe('it("has no assertion", () => {');
+    });
+
+    test("scanOccurrences lengths equal scanAll counts", async () => {
+      fs.writeFileSync(
+        path.join(tmpDir, "src", "index.ts"),
+        [MAGIC_TIMEOUT, EMPTY_CATCH, "const y = val as any;"].join("\n") + "\n"
+      );
+      const { scanOccurrences, scanAll } = await import("../check-ai-antipatterns.mjs");
+      const counts = scanAll(tmpDir);
+      const found = scanOccurrences(tmpDir);
+      for (const [name, count] of Object.entries(counts)) {
+        expect(found[name]).toHaveLength(count);
+      }
+    });
+
+    test("prints path:line rows grouped by pattern and exits 0", () => {
+      fs.writeFileSync(path.join(tmpDir, "src", "index.ts"), `ok();\n${EMPTY_CATCH}\n`);
+      const result = run("--list");
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain("emptyCatch");
+      expect(result.stdout).toMatch(/src\/index\.ts:2 {2}try \{ x\(\); \} catch/);
+    });
+
+    test("--list=<pattern> narrows to one pattern", () => {
+      fs.writeFileSync(path.join(tmpDir, "src", "index.ts"), `${MAGIC_TIMEOUT}\n${EMPTY_CATCH}\n`);
+      const result = run("--list=emptyCatch");
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain("src/index.ts:2");
+      expect(result.stdout).not.toContain("magicTimeouts");
+    });
+
+    test("--list=<unknown> exits non-zero and lists valid names", () => {
+      const result = run("--list=nope");
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain("nope");
+      expect(result.stderr).toContain("emptyCatch");
+    });
+
+    test("--list with --update exits non-zero and does not write a baseline", () => {
+      const result = run("--list", "--update");
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toMatch(/--list.*--update|--update.*--list/);
+      expect(fs.existsSync(path.join(tmpDir, "metrics"))).toBe(false);
+    });
+
+    test("--list does not mutate the baseline file", () => {
+      const baselineDir = path.join(tmpDir, "metrics");
+      fs.mkdirSync(baselineDir, { recursive: true });
+      const baselineFile = path.join(baselineDir, "ai-antipattern-baselines.json");
+      fs.writeFileSync(baselineFile, '{"patterns":{}}\n');
+      run("--list");
+      expect(fs.readFileSync(baselineFile, "utf-8")).toBe('{"patterns":{}}\n');
+    });
+
+    test("truncates long snippets to 110 chars", () => {
+      const long = "x".repeat(300);
+      fs.writeFileSync(path.join(tmpDir, "src", "index.ts"), `${EMPTY_CATCH} // ${long}\n`);
+      const row = run("--list=emptyCatch")
+        .stdout.split("\n")
+        .find((l) => l.includes("src/index.ts:1"));
+      expect(row.split("  ")[1].length).toBeLessThanOrEqual(110);
+    });
+
+    test("default output hints at --list", () => {
+      fs.mkdirSync(path.join(tmpDir, "metrics"), { recursive: true });
+      fs.writeFileSync(
+        path.join(tmpDir, "metrics", "ai-antipattern-baselines.json"),
+        '{"patterns":{}}\n'
+      );
+      const result = run();
+      expect(result.stdout).toContain("--list");
     });
   });
 

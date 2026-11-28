@@ -9,6 +9,8 @@
  * Usage:
  *   node scripts/check-ai-antipatterns.mjs            # check against baseline
  *   node scripts/check-ai-antipatterns.mjs --update   # regenerate baselines
+ *   node scripts/check-ai-antipatterns.mjs --list     # print every occurrence (path:line  snippet)
+ *   node scripts/check-ai-antipatterns.mjs --list=<pattern>   # one pattern only
  */
 
 import fs from "node:fs";
@@ -296,83 +298,104 @@ export function isSwallowedCatchBody(body) {
   return SWALLOWED_CATCH_BODY_RE.test(body);
 }
 
-/** Pattern scanner implementations, keyed by pattern name. */
+/** Max characters of source shown per occurrence in `--list` output. */
+const SNIPPET_MAX = 110;
+
+/**
+ * Build one occurrence record for a match at `index` in `content`. `line` is
+ * 1-based and is the line the match itself starts on.
+ *
+ * @param {string} file - absolute path
+ * @param {string} content
+ * @param {number} index - offset of the match start
+ * @returns {{ file: string; line: number; snippet: string }}
+ */
+function occurrenceAt(file, content, index) {
+  let line = 1;
+  for (let i = content.indexOf("\n"); i !== -1 && i < index; i = content.indexOf("\n", i + 1)) {
+    line++;
+  }
+  const lineStart = content.lastIndexOf("\n", index - 1) + 1;
+  const lineEnd = content.indexOf("\n", index);
+  const text = content.slice(lineStart, lineEnd === -1 ? undefined : lineEnd).trim();
+  const snippet = text.length > SNIPPET_MAX ? `${text.slice(0, SNIPPET_MAX - 3)}...` : text;
+  return { file, line, snippet };
+}
+
+/**
+ * Every match of global regex `re` across `files` as occurrence records.
+ *
+ * @param {string[]} files
+ * @param {RegExp} re - must have global flag
+ */
+function regexOccurrences(files, re) {
+  const found = [];
+  for (const f of files) {
+    const content = fs.readFileSync(f, "utf-8");
+    for (const m of content.matchAll(re)) found.push(occurrenceAt(f, content, m.index));
+  }
+  return found;
+}
+
+/** Pattern scanner implementations, keyed by pattern name. Each returns occurrences. */
 const SCANNERS = {
   magicTimeouts(files) {
     // setTimeout or setInterval with a literal number (not a variable/constant)
-    const RE = /\b(?:setTimeout|setInterval)\s*\([^,)]+,\s*\d+\s*\)/g;
-    let total = 0;
-    for (const f of files) {
-      const content = fs.readFileSync(f, "utf-8");
-      total += countMatches(content, RE);
-    }
-    return total;
+    return regexOccurrences(files, /\b(?:setTimeout|setInterval)\s*\([^,)]+,\s*\d+\s*\)/g);
   },
 
   emptyCatch(files) {
     // catch (e) {} / catch {}, or a body containing only comments — see
     // isSwallowedCatchBody() above for exactly what counts as "empty".
     const RE = new RegExp(String.raw`catch\s*(?:\([^)]*\))?\s*\{${CATCH_BODY_CORE}\}`, "g");
-    let total = 0;
-    for (const f of files) {
-      const content = fs.readFileSync(f, "utf-8");
-      total += countMatches(content, RE);
-    }
-    return total;
+    return regexOccurrences(files, RE);
   },
 
   noopTestAssertions(files) {
     // Test files with it/test functions that contain no recognized assertion
     // call. See blockHasAssertion() above for exactly what counts.
-    let total = 0;
-    const testFiles = files.filter(isTestFile);
-    for (const f of testFiles) {
+    const found = [];
+    for (const f of files.filter(isTestFile)) {
       const content = fs.readFileSync(f, "utf-8");
       // One segment per test declaration — see splitTestBlocks() for exactly
-      // which forms count as a declaration.
-      for (const block of splitTestBlocks(content)) {
-        if (!blockHasAssertion(block)) {
-          total++;
-        }
-      }
+      // which forms count as a declaration. Segment i runs from declaration i
+      // to the start of declaration i+1, mirroring splitTestBlocks().
+      const decls = [...content.matchAll(TEST_BLOCK_SPLIT_RE)];
+      decls.forEach((decl, i) => {
+        const block = content.slice(
+          decl.index + decl[0].length,
+          decls[i + 1]?.index ?? content.length
+        );
+        if (blockHasAssertion(block)) return;
+        // The match may start at the preceding "\n"; the declaration is on the next line.
+        const declStart = decl.index + (decl[0].startsWith("\n") ? 1 : 0);
+        found.push(occurrenceAt(f, content, declStart));
+      });
     }
-    return total;
+    return found;
   },
 
   hardcodedRoutes(files) {
     // String literals starting with /api/ (route paths hardcoded in non-route-definition files)
-    const RE = /["'`]\/api\/[^"'`\s]+["'`]/g;
-    let total = 0;
-    for (const f of files) {
-      if (isTestFile(f)) continue;
-      const content = fs.readFileSync(f, "utf-8");
-      total += countMatches(content, RE);
-    }
-    return total;
+    return regexOccurrences(
+      files.filter((f) => !isTestFile(f)),
+      /["'`]\/api\/[^"'`\s]+["'`]/g
+    );
   },
 
   anyType(files) {
     // TypeScript `as any` casts or `: any` annotations (but not `// any`)
-    const RE = /(?:as\s+any\b|:\s*any\b)/g;
-    let total = 0;
-    for (const f of files) {
-      if (!f.endsWith(".ts") && !f.endsWith(".tsx")) continue;
-      if (isTestFile(f)) continue;
-      const content = fs.readFileSync(f, "utf-8");
-      total += countMatches(content, RE);
-    }
-    return total;
+    return regexOccurrences(
+      files.filter((f) => (f.endsWith(".ts") || f.endsWith(".tsx")) && !isTestFile(f)),
+      /(?:as\s+any\b|:\s*any\b)/g
+    );
   },
 
   consoleLogs(files) {
-    const RE = /\bconsole\.log\s*\(/g;
-    let total = 0;
-    for (const f of files) {
-      if (isTestFile(f)) continue;
-      const content = fs.readFileSync(f, "utf-8");
-      total += countMatches(content, RE);
-    }
-    return total;
+    return regexOccurrences(
+      files.filter((f) => !isTestFile(f)),
+      /\bconsole\.log\s*\(/g
+    );
   },
 
   unusedParams(files) {
@@ -385,7 +408,7 @@ const SCANNERS = {
     // This is intentionally conservative to avoid false positives.
     const RE =
       /(?:function\s+\w*\s*\(|(?:const|let|var)\s+\w+\s*=\s*(?:async\s*)?\()[^)]*\b([a-z])\b[^)]*\)/g;
-    let total = 0;
+    const found = [];
     for (const f of files) {
       const content = fs.readFileSync(f, "utf-8");
       let match;
@@ -396,24 +419,24 @@ const SCANNERS = {
         const paramRe = new RegExp(`\\b${param}\\b`, "g");
         const occurrences = countMatches(content, paramRe);
         if (occurrences === 1) {
-          total++;
+          found.push(occurrenceAt(f, content, match.index));
         }
       }
     }
-    return total;
+    return found;
   },
 
   mockShapeMismatch(files) {
     // Test mocks using .mockResolvedValue({}) or .mockReturnValue({}) with empty objects
-    const RE = /\.(?:mockResolvedValue|mockReturnValue)\s*\(\s*\{\s*\}\s*\)/g;
-    let total = 0;
-    for (const f of files.filter(isTestFile)) {
-      const content = fs.readFileSync(f, "utf-8");
-      total += countMatches(content, RE);
-    }
-    return total;
+    return regexOccurrences(
+      files.filter(isTestFile),
+      /\.(?:mockResolvedValue|mockReturnValue)\s*\(\s*\{\s*\}\s*\)/g
+    );
   },
 };
+
+/** Valid pattern names, in report order. */
+export const PATTERN_NAMES = Object.keys(SCANNERS);
 
 /**
  * Scan for a single named pattern across the codebase root.
@@ -426,7 +449,19 @@ export function scanForPattern(root, patternName) {
   const scanner = SCANNERS[patternName];
   if (!scanner) throw new Error(`Unknown pattern: ${patternName}`);
   const files = collectFiles(root);
-  return scanner(files);
+  return scanner(files).length;
+}
+
+/**
+ * Scan all patterns and return the occurrences of each (file, 1-based line,
+ * truncated snippet). Counts are `.length`.
+ *
+ * @param {string} root - Absolute path to codebase root
+ * @returns {Record<string, Array<{ file: string; line: number; snippet: string }>>}
+ */
+export function scanOccurrences(root) {
+  const files = collectFiles(root);
+  return Object.fromEntries(Object.entries(SCANNERS).map(([name, scan]) => [name, scan(files)]));
 }
 
 /**
@@ -436,12 +471,9 @@ export function scanForPattern(root, patternName) {
  * @returns {Record<string, number>}
  */
 export function scanAll(root) {
-  const files = collectFiles(root);
-  const counts = {};
-  for (const name of Object.keys(SCANNERS)) {
-    counts[name] = SCANNERS[name](files);
-  }
-  return counts;
+  return Object.fromEntries(
+    Object.entries(scanOccurrences(root)).map(([name, found]) => [name, found.length])
+  );
 }
 
 /**
@@ -489,9 +521,43 @@ export function buildBaseline(counts) {
 
 const isMain = process.argv[1] && process.argv[1].endsWith("check-ai-antipatterns.mjs");
 
+/**
+ * Reporting mode: print every occurrence as `path:line  snippet`, grouped by
+ * pattern. Never compares against the baseline, so it always exits 0.
+ *
+ * @param {string} root
+ * @param {string | null} only - pattern name, or null for all
+ */
+function printOccurrences(root, only) {
+  const found = scanOccurrences(root);
+  for (const name of only ? [only] : PATTERN_NAMES) {
+    process.stdout.write(`\n${name} (${found[name].length})\n`);
+    for (const { file, line, snippet } of found[name]) {
+      process.stdout.write(`${path.relative(root, file)}:${line}  ${snippet}\n`);
+    }
+  }
+}
+
 if (isMain) {
   const UPDATE = process.argv.includes("--update");
+  const listArg = process.argv.find((a) => a === "--list" || a.startsWith("--list="));
   const root = process.cwd();
+
+  if (listArg !== undefined) {
+    if (UPDATE) {
+      console.error("ERROR: --list is a read-only report and cannot be combined with --update.");
+      process.exit(1);
+    }
+    const only = listArg.includes("=") ? listArg.slice("--list=".length) : null;
+    if (only !== null && !PATTERN_NAMES.includes(only)) {
+      console.error(
+        `ERROR: unknown pattern "${only}". Valid patterns: ${PATTERN_NAMES.join(", ")}`
+      );
+      process.exit(1);
+    }
+    printOccurrences(root, only);
+    process.exit(0);
+  }
 
   console.log("Scanning codebase for AI antipatterns...");
   const counts = scanAll(root);
@@ -531,6 +597,10 @@ if (isMain) {
     passMessage: "\nAll patterns within baseline. No regressions detected.",
     failMessage: `\nREGRESSION: ${regressions.length} pattern(s) increased:`,
   });
+
+  process.stdout.write(
+    "\nTip: --list shows where each occurrence is (--list=<pattern> to narrow).\n"
+  );
 
   if (exitCode !== 0) {
     console.log(
