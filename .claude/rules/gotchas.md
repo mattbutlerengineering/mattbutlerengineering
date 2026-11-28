@@ -43,7 +43,7 @@ Project-specific traps that are **still live**. Read these before diving into pr
 
 ## CI
 
-- **GH Actions is paid and runs on every PR** — `gh run list --limit 5` before claiming CI is broken.
+- **GH Actions is paid; batch PRs, one commit per fix** (#10188) — build on a `--draft` (skips CI), mark ready once; never push to queued CI. `gh run list --limit 5` before claiming CI is broken.
 - **Green-main policy:** no admin-merge through red. Main broken = top priority; emergency revert is the only exception.
 - **`CI Gate` is the only required check on `main`; `main` is NOT `strict`** (measured 2026-08-17: `{"strict": false, "contexts": ["CI Gate"]}`). `codecov/patch` and `Hospitality E2E` are advisory. A `BEHIND` PR is mergeable. Branch protection is repo state, not code — re-measure (`gh api repos/.../branches/main/protection/required_status_checks`) before building on it; `scripts/main-strictness.mjs` treats any error as strict (ADR-027).
 - **No merge queue on this personal-account repo** (ruleset returns `422 Invalid rule 'merge_queue'` even with valid params — don't chase the first error). Use `gh pr merge <N> --auto --squash --delete-branch`; it does not auto-rebase. Run the review gate **before** `--auto` — once enqueued, GitHub merges on green with no further gate. Dequeue: `--disable-auto`.

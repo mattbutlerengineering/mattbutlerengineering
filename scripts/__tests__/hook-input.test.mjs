@@ -392,6 +392,41 @@ describe("hook seam: Bash hooks read the command from the stdin payload", () => 
     SEAM_TIMEOUT_MS
   );
 
+  // #10188: the PR budget gate, run offline through its PR_BUDGET_QUEUED_RUNS seam.
+  it(
+    "pre-bash-guard blocks a non-draft `gh pr create` while the CI queue is saturated",
+    () => {
+      env.PR_BUDGET_QUEUED_RUNS = "9";
+      const result = run("pre-bash-guard.sh", bashPayloadFor("gh pr create --title t --body b"));
+      expect(result.stderr).toContain("PR budget");
+      expect(result.status).toBe(2);
+    },
+    SEAM_TIMEOUT_MS
+  );
+
+  it(
+    "pre-bash-guard lets a draft PR through a saturated queue",
+    () => {
+      env.PR_BUDGET_QUEUED_RUNS = "9";
+      const result = run("pre-bash-guard.sh", bashPayloadFor("gh pr create --draft --title t"));
+      expect(result.status).toBe(0);
+    },
+    SEAM_TIMEOUT_MS
+  );
+
+  it(
+    "pre-bash-guard lets PR_BUDGET_OVERRIDE=1 through a saturated queue",
+    () => {
+      env.PR_BUDGET_QUEUED_RUNS = "9";
+      const result = run(
+        "pre-bash-guard.sh",
+        bashPayloadFor("PR_BUDGET_OVERRIDE=1 gh pr create --title t")
+      );
+      expect(result.status).toBe(0);
+    },
+    SEAM_TIMEOUT_MS
+  );
+
   it(
     "pre-push-typecheck typechecks a `git push` with unpushed .ts changes and blocks on failure",
     () => {

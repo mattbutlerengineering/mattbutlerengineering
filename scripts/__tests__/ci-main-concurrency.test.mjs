@@ -32,4 +32,19 @@ describe("ci.yml concurrency (#10194)", () => {
     expect(group(pr(1))).toBe(group({ ...pr(1), sha: "y".repeat(40) }));
     expect(group(pr(1))).not.toBe(group(pr(2)));
   });
+
+  // #10188: a draft run skips every job. It must never share a group with a
+  // ready run, or a draft `synchronize` run created after `ready_for_review`
+  // cancels the real run (seen on #10216: push + mark-ready in one second).
+  it("a draft PR run never shares a group with a ready run of the same PR", () => {
+    const draft = (runId) => ({
+      ...pr(1),
+      run_id: runId,
+      event: { pull_request: { draft: true } },
+    });
+    const ready = { ...pr(1), run_id: 9, event: { pull_request: { draft: false } } };
+    expect(group(draft(1))).not.toBe(group(ready));
+    expect(group(draft(1))).not.toBe(group(draft(2)));
+    expect(group(ready)).toBe(group(pr(1)));
+  });
 });
