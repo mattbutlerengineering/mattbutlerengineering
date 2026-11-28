@@ -96,6 +96,11 @@ describe("Availability Routes", () => {
     };
     app = await buildApp({ logger: false, services: { availabilityService, venueService } });
     await app.ready();
+    // clearAllMocks keeps unconsumed mockResolvedValueOnce queues (the 400
+    // tests never reach getById) and persistent mockResolvedValue values, so
+    // reset the faked services outright (#10219).
+    for (const fn of Object.values(venueService)) vi.mocked(fn).mockReset();
+    for (const fn of Object.values(availabilityService)) vi.mocked(fn).mockReset();
     vi.clearAllMocks();
   });
 

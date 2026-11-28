@@ -127,6 +127,10 @@ describe("POST /public/v1/venues/:slug/deposits/payment-intent", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     payments = createInMemoryPayments();
+    // clearAllMocks keeps implementations: the rate-limit test below sets a
+    // persistent `null`, so restore the module default for every test (#10219).
+    vi.mocked(resolveVenueId).mockReset();
+    vi.mocked(resolveVenueId).mockResolvedValue("venue-1");
     vi.mocked(reservationService.getOriginSessionId).mockResolvedValue(SESSION_ID);
   });
 

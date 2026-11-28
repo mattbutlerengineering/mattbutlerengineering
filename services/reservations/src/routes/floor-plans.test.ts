@@ -178,11 +178,27 @@ const mockJWTPayload = {
 /** Route prefix the app registers these routes under (app.ts). */
 const FLOOR_PLANS_URL = "/api/v1/floor-plans";
 
+/**
+ * `vi.clearAllMocks` keeps implementations and unconsumed
+ * `mockResolvedValueOnce` queues, so a test that never reaches its mocked call
+ * poisons whichever test the scheduler runs next. Drain every service mock and
+ * restore the `resolveVenueId` module default before each test (#10219).
+ */
+function resetServiceMocks(): void {
+  // The jose factory is a bare vi.fn(), so resetting loses no default.
+  vi.mocked(jwtVerify).mockReset();
+  vi.mocked(resolveVenueId).mockReset();
+  vi.mocked(resolveVenueId).mockResolvedValue("venue-1");
+  for (const fn of Object.values(floorPlanService)) vi.mocked(fn).mockReset();
+  for (const fn of Object.values(tableService)) vi.mocked(fn).mockReset();
+}
+
 describe("Floor Plan Routes", () => {
   let app: FastifyInstance;
   const originalEnv = process.env;
 
   beforeEach(async () => {
+    resetServiceMocks();
     process.env = {
       ...originalEnv,
       AUTH_AUTHORITY: "https://test.auth0.com",
@@ -1175,10 +1191,7 @@ describe("Floor Plan Routes — venue authorization pins (ADR-020)", () => {
 
   beforeEach(() => {
     vi.mocked(jwtVerify).mockReset();
-    vi.mocked(resolveVenueId).mockResolvedValue("venue-1");
-    // Earlier suites leave unconsumed mockResolvedValueOnce queues behind.
-    for (const fn of Object.values(floorPlanService)) vi.mocked(fn).mockReset();
-    for (const fn of Object.values(tableService)) vi.mocked(fn).mockReset();
+    resetServiceMocks();
   });
 
   afterEach(async () => {
