@@ -10,8 +10,10 @@ export const DEMO_VENUE_ID = "demo-venue-bistro";
 const DEMO_GROUP_SLUG = "demo-dining";
 
 const TEMPLATE = SEED_VENUES[0];
+/** Fictional (555-0100..0199 is reserved) so the 12+ party "call the venue" link is not a dead end (#9998). */
+const DEMO_PHONE = "(206) 555-0142";
 /** Guests may book up to 30 days ahead; Monday is closed so closed-day handling is visible on the demo. */
-const DEMO_SETTINGS = { ...TEMPLATE?.settings, maxAdvanceBooking: 30 };
+const DEMO_SETTINGS = { ...TEMPLATE?.settings, maxAdvanceBooking: 30, phone: DEMO_PHONE };
 const DEMO_HOURS = (TEMPLATE?.hours ?? []).map((h) =>
   h.dayOfWeek === 1 ? { ...h, openTime: "00:00", closeTime: "00:00", isClosed: true } : h
 );
@@ -146,7 +148,7 @@ export async function ensureDemoVenue(prisma: PrismaClient): Promise<{ venueId: 
         settings: { timezone: TEMPLATE.ianaTimezone, weekStartsOn: 1, bookingWindowDays: 30 },
       },
     });
-    await tx.venue.upsert({
+    const venue = await tx.venue.upsert({
       where: { id: DEMO_VENUE_ID },
       update: {},
       create: {
@@ -160,6 +162,14 @@ export async function ensureDemoVenue(prisma: PrismaClient): Promise<{ venueId: 
         settings: DEMO_SETTINGS,
       },
     });
+    // A venue seeded before #9998 has no phone; add only that key, so an operator's phone or other edits stay.
+    const current = (venue.settings ?? {}) as Record<string, unknown>;
+    if (!current.phone) {
+      await tx.venue.update({
+        where: { id: DEMO_VENUE_ID },
+        data: { settings: { ...current, phone: DEMO_PHONE } },
+      });
+    }
     const rows = await tx.schedule.count({ where: { venueId: DEMO_VENUE_ID, isRegular: true } });
     if (rows === 0) await writeAvailabilityConfig(tx, DEMO_VENUE_ID, plan.config);
 

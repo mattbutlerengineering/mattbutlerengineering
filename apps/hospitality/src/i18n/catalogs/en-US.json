@@ -1521,8 +1521,8 @@
     },
     "waitlist": {
       "noTablesHeading": "No tables available",
-      "noTablesDetail_one": "No tables available on {{date}} for {{count}} guest.",
-      "noTablesDetail_other": "No tables available on {{date}} for {{count}} guests.",
+      "noTablesDetail_one": "Fully booked on {{date}} for {{count}} guest.",
+      "noTablesDetail_other": "Fully booked on {{date}} for {{count}} guests.",
       "joinPrompt": "Join the waitlist?",
       "name": "Name",
       "namePlaceholder": "Your name",

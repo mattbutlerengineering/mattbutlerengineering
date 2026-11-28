@@ -1558,9 +1558,9 @@
     },
     "waitlist": {
       "noTablesHeading": "Aucune table disponible",
-      "noTablesDetail_one": "Aucune table disponible le {{date}} pour {{count}} convive.",
-      "noTablesDetail_many": "Aucune table disponible le {{date}} pour {{count}} de convives.",
-      "noTablesDetail_other": "Aucune table disponible le {{date}} pour {{count}} convives.",
+      "noTablesDetail_one": "Complet le {{date}} pour {{count}} convive.",
+      "noTablesDetail_many": "Complet le {{date}} pour {{count}} de convives.",
+      "noTablesDetail_other": "Complet le {{date}} pour {{count}} convives.",
       "joinPrompt": "Rejoindre la liste d’attente?",
       "name": "Nom",
       "namePlaceholder": "Votre nom",
