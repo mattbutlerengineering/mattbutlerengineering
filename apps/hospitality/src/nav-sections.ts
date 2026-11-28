@@ -57,6 +57,11 @@ function buildAccount(t: TFunction): NavSection {
         label: t("nav.items.settings"),
         action: { type: "route", path: "/settings" },
       },
+      {
+        id: "terminology",
+        label: t("nav.items.terminology"),
+        action: { type: "route", path: "/terminology" },
+      },
     ],
   };
 }
