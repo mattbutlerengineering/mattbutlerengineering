@@ -24,6 +24,12 @@
   width: min(100%, 360px);
 }
 
+/* PageHeader is left-aligned for page tops; on this centred card the title and
+   body stay centred with the handshake and the Retry action around them. */
+.heading {
+  text-align: center;
+}
+
 /* ── Auth error details (collapsed raw message) ── */
 
 .errorDetails {

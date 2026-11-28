@@ -74,7 +74,10 @@ vi.mock("../components/booking-widget/index.js", async () => {
 });
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  Text: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
+  Text: ({ children, as: As = "span" }: { children?: ReactNode; as?: "span" | "h1" }) => (
+    <As>{children}</As>
+  ),
+  Stack: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   Button: ({ children, onClick }: { children?: ReactNode; onClick?: () => void }) => (
     <button onClick={onClick}>{children}</button>
   ),
@@ -103,7 +106,6 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
 vi.mock("./PublicBookingPage.module.css", () => ({
   default: {
     page: "page",
-    loadingCenter: "loadingCenter",
     errorCenter: "errorCenter",
     header: "header",
     widgetWrapper: "widgetWrapper",
@@ -234,6 +236,32 @@ describe("PublicBookingPage", () => {
       expect(screen.getAllByRole("main")).toHaveLength(1);
       expect(main.contains(screen.getByTestId("booking-widget"))).toBe(true);
       expect(main.textContent).toContain("The Grand Table");
+    });
+  });
+
+  describe("page heading (shared PageHeader)", () => {
+    it("titles the loading state with exactly one h1", () => {
+      mockGetBySlug.mockReturnValue(new Promise<Venue>(() => {}));
+      renderPage();
+      const headings = screen.getAllByRole("heading", { level: 1 });
+      expect(headings).toHaveLength(1);
+      expect(headings[0]?.textContent).toBe("Loading venue...");
+    });
+
+    it("titles the resolved page with exactly one h1, the venue name", async () => {
+      mockGetBySlug.mockResolvedValue(mockVenue);
+      renderPage();
+      await waitFor(() => expect(screen.getByTestId("booking-widget")).toBeDefined());
+      const headings = screen.getAllByRole("heading", { level: 1 });
+      expect(headings).toHaveLength(1);
+      expect(headings[0]?.textContent).toBe("The Grand Table");
+    });
+
+    it("keeps exactly one h1 in the not-found state", async () => {
+      mockGetBySlug.mockRejectedValue(new Error("nope"));
+      renderPage();
+      await screen.findByRole("heading", { level: 1, name: "Venue not found" });
+      expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     });
   });
 

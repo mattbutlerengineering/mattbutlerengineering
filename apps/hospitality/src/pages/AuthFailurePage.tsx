@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "@mbe/auth/react";
 import { Button, Handshake, Stack, Text } from "@mattbutlerengineering/rialto";
 import { describeAuthError } from "../lib/describe-auth-error.js";
+import { PageHeader } from "../components/PageHeader.js";
 import styles from "./AuthFailurePage.module.css";
 
 /** The interactive sign-out navigators react-oidc-context names as an error `source`. */
@@ -91,14 +92,16 @@ export function AuthFailurePage({ error, lane }: { error: Error; lane: 0 | 1 }):
             </Text>
           </div>
 
-          <Stack gap="sm" align="center">
-            <Text as="h1" variant="display" color="primary">
-              {described.title}
-            </Text>
-            <Text variant="body" color="secondary">
-              {described.body}
-            </Text>
-          </Stack>
+          <div className={styles.heading}>
+            <PageHeader
+              title={described.title}
+              description={
+                <Text variant="body" color="secondary">
+                  {described.body}
+                </Text>
+              }
+            />
+          </div>
 
           {described.canRetry && (
             <Button

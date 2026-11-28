@@ -8,9 +8,8 @@ const PAGES_DIR = __dirname;
 // one title style). EmptyState's `headingLevel={1}` is a shared component, not a hand-built h1.
 const OWN_H1 = /<h1[\s>]|as="h1"|<Heading[^>]*level=\{1\}/;
 
-// Not covered by #9966 and still hand-built: the pre-auth failure screen and the guest booking
-// widget page. Remove an entry once that page moves to PageHeader.
-const NOT_YET_MIGRATED = new Set(["AuthFailurePage.tsx", "PublicBookingPage.tsx"]);
+// Pages still hand-building an h1. Remove an entry once that page moves to PageHeader.
+const NOT_YET_MIGRATED = new Set<string>();
 
 const pageFiles = readdirSync(PAGES_DIR).filter(
   (name) => name.endsWith(".tsx") && !name.endsWith(".test.tsx") && !NOT_YET_MIGRATED.has(name)
@@ -29,6 +28,8 @@ describe("page headers", () => {
     "InvitePage.tsx",
     "PublicMenuPage.tsx",
     "PublicMenusPage.tsx",
+    "PublicBookingPage.tsx",
+    "AuthFailurePage.tsx",
   ])("%s uses PageHeader", (name) => {
     expect(readFileSync(join(PAGES_DIR, name), "utf8")).toContain("<PageHeader");
   });

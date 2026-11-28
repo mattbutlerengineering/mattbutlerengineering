@@ -3,6 +3,8 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { useAuth } from "@mbe/auth/react";
 import { AuthFailurePage } from "./AuthFailurePage.js";
 import React from "react";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 vi.mock("@mbe/auth/react", () => ({
   useAuth: vi.fn(),
@@ -10,7 +12,9 @@ vi.mock("@mbe/auth/react", () => ({
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Stack: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  Text: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
+  Text: ({ children, as: As = "span" }: { children: React.ReactNode; as?: "span" | "h1" }) => (
+    <As>{children}</As>
+  ),
   Button: ({
     children,
     onClick,
@@ -91,7 +95,9 @@ describe("AuthFailurePage", () => {
       expect(handshake).toHaveAttribute("data-state", "failed");
       expect(handshake).toHaveAttribute("data-lane", String(lane));
 
-      expect(screen.getByText(title)).toBeInTheDocument();
+      const headings = screen.getAllByRole("heading", { level: 1 });
+      expect(headings).toHaveLength(1);
+      expect(headings[0]).toHaveTextContent(title);
 
       const details = screen.getByText("Technical details").closest("details");
       expect(details).toHaveTextContent(error.message);
@@ -106,6 +112,14 @@ describe("AuthFailurePage", () => {
         expect(retryButton).toBeNull();
       }
     });
+  });
+
+  it("keeps the PageHeader title centred on the card", () => {
+    render(<AuthFailurePage error={new Error("Auth Failed")} lane={0} />);
+    const heading = screen.getByRole("heading", { level: 1 });
+    expect(heading.closest(".heading")).not.toBeNull();
+    const css = readFileSync(join(__dirname, "AuthFailurePage.module.css"), "utf8");
+    expect(css).toMatch(/\.heading\s*\{[^}]*text-align:\s*center/);
   });
 
   it("announces the exchange failure without repeating the image label", () => {
