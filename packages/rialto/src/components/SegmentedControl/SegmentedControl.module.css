@@ -83,6 +83,14 @@
   font-size: var(--rialto-text-xs);
 }
 
+/* Coarse-pointer (touch) devices need a 44px WCAG 2.5.8 target-size floor on
+   the compact .sm variant; mouse/trackpad density is untouched. */
+@media (pointer: coarse) {
+  .sm .segment {
+    min-block-size: 44px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .indicator {
     transition: none;
