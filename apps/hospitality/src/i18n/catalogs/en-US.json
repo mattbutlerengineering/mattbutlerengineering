@@ -3676,7 +3676,7 @@
       "description": "How Regular hours, Seasonal hours, special dates, closures, pauses and booking rules combine into the times a guest can book.",
       "overview": {
         "heading": "Overview",
-        "intro": "Availability is built in layers. Each layer can change the layers below it, and the layer nearest the top wins on a date. Use Check a date in the Availability area to see which layers apply to one day and which one won.",
+        "intro": "Availability is built in layers. Each layer can change the layers below it, and the layer nearest the top wins on a date. Use Check a date in the Availability area to see what one day does and the rule that decided it.",
         "layersLead": "From the bottom up, the layers are:",
         "layers": {
           "regular": "Regular hours: your weekly pattern.",
@@ -3804,7 +3804,7 @@
         "heading": "Why can’t a guest book that time?",
         "lead": "Say a guest cannot book 7 PM on Friday. Work down this list in order. Each step names the layer or rule to check.",
         "steps": {
-          "checkDate": "Check a date: open that Friday in the Availability area. It lists the layers that apply and which one won.",
+          "checkDate": "Check a date: open that Friday in the Availability area. It shows one sentence: what the date does and the rule that decided it.",
           "special": "Special hours: does that Friday run its own Special hours? They replace everything below, so only the services listed there run, at the hours listed there.",
           "seasonal": "Seasonal hours: do they cover that Friday, and Fridays in particular? If so, their hours apply instead of Regular hours.",
           "regular": "Regular hours: if nothing above applies, does Friday have a service that is open at 7 PM, with 7 PM at or before its last seating?",
@@ -3816,7 +3816,8 @@
           "tables": "Tables and party size: does a table seat the party? Is that table’s section closed? Is each table that fits busy for the whole stay?",
           "pacing": "Pacing: is 7 PM listed but full because a pacing cap is reached?",
           "window": "Booking window: is the date further ahead than guests may book? That limit is not part of the layers above.",
-          "otherHours": "Other hours: is that date set to use a different set of hours? If so, those hours apply instead of Seasonal hours or Regular hours, unless the date also has Special hours."
+          "otherHours": "Other hours: is that date set to use a different set of hours? If so, those hours apply instead of Seasonal hours or Regular hours, unless the date also has Special hours.",
+          "whyThisDay": "Why this day: still stuck? Open that Friday in the Calendar. When more than one layer applies, that section lists each one, what it changes, and what removing it would do."
         }
       }
     }

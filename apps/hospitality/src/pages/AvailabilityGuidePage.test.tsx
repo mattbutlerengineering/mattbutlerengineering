@@ -3,6 +3,7 @@ import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { AvailabilityGuidePage } from "./AvailabilityGuidePage.js";
 import { GUIDE_EXAMPLES } from "../components/availability-guide/availability-guide-examples.js";
+import enUS from "../i18n/catalogs/en-US.json";
 
 function renderPage() {
   return render(
@@ -97,6 +98,27 @@ describe("AvailabilityGuidePage", () => {
     expect(at("Special hours")).toBeLessThan(at("Other hours"));
     expect(at("Other hours")).toBeLessThan(at("Seasonal hours"));
     expect(at("Seasonal hours")).toBeLessThan(at("Regular hours"));
+  });
+
+  it("ends the checklist at the Calendar day drawer's Why this day", () => {
+    renderPage();
+    const checklist = screen
+      .getByRole("heading", { level: 2, name: "Why can’t a guest book that time?" })
+      .closest("section");
+    const steps = within(checklist as HTMLElement).getAllByRole("listitem");
+    // The drawer's own heading, so a rename there breaks this pointer here.
+    expect(steps.at(-1)).toHaveTextContent(enUS.availability.drawer.whyTitle);
+    expect(steps.at(-1)).toHaveTextContent("Calendar");
+  });
+
+  it("says Check a date shows one sentence, not the list of layers", () => {
+    renderPage();
+    const checklist = screen
+      .getByRole("heading", { level: 2, name: "Why can’t a guest book that time?" })
+      .closest("section");
+    const first = within(checklist as HTMLElement).getAllByRole("listitem")[0];
+    expect(first).toHaveTextContent(/^Check a date:.*one sentence/);
+    expect(first).not.toHaveTextContent(/lists the layers/);
   });
 
   it("never falls back to a raw catalog key", () => {

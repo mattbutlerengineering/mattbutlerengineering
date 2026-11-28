@@ -3782,7 +3782,7 @@
       "description": "Cómo se combinan el horario habitual, los horarios de temporada, las fechas especiales, los cierres, las pausas y las reglas de reserva para dar los horarios que un cliente puede reservar.",
       "overview": {
         "heading": "Resumen",
-        "intro": "La disponibilidad se construye por capas. Cada capa puede cambiar las capas de abajo, y la capa más cercana a la parte superior gana en una fecha. Usa Consultar una fecha en el área de Disponibilidad para ver qué capas aplican a un día y cuál ganó.",
+        "intro": "La disponibilidad se construye por capas. Cada capa puede cambiar las capas de abajo, y la capa más cercana a la parte superior gana en una fecha. Usa Consultar una fecha en el área de Disponibilidad para ver qué pasa en un día y la regla que lo decidió.",
         "layersLead": "De abajo hacia arriba, las capas son:",
         "layers": {
           "regular": "Horario habitual: tu patrón semanal.",
@@ -3910,7 +3910,7 @@
         "heading": "¿Por qué un cliente no puede reservar ese horario?",
         "lead": "Digamos que un cliente no puede reservar a las 7 p. m. del viernes. Recorre esta lista en orden. Cada paso nombra la capa o la regla que debes revisar.",
         "steps": {
-          "checkDate": "Consultar una fecha: abre ese viernes en el área de Disponibilidad. Muestra las capas que aplican y cuál ganó.",
+          "checkDate": "Consultar una fecha: abre ese viernes en el área de Disponibilidad. Muestra una sola oración: qué pasa en esa fecha y la regla que lo decidió.",
           "special": "Horario especial: ¿ese viernes tiene su propio horario especial? Sustituye todo lo de abajo, así que solo funcionan los servicios que aparecen ahí, con las horas que se indican ahí.",
           "seasonal": "Horarios de temporada: ¿cubren ese viernes, y los viernes en particular? Si es así, aplican sus horas en lugar del horario habitual.",
           "regular": "Horario habitual: si nada de lo anterior aplica, ¿el viernes tiene un servicio abierto a las 7 p. m., con las 7 p. m. en o antes de su última asignación de mesa?",
@@ -3922,7 +3922,8 @@
           "tables": "Mesas y tamaño del grupo: ¿alguna mesa da lugar al grupo? ¿Está cerrada la sección de esa mesa? ¿Está ocupada durante toda la estancia cada mesa que cabe?",
           "pacing": "Ritmo de reservas: ¿las 7 p. m. aparecen en la lista pero llenas porque se alcanzó un límite de ritmo?",
           "window": "Ventana de reservas: ¿la fecha está más adelante de lo que los clientes pueden reservar? Ese límite no forma parte de las capas de arriba.",
-          "otherHours": "Otro horario: ¿esa fecha está configurada para usar otro horario? Si es así, ese horario aplica en lugar de los horarios de temporada o del horario habitual, a menos que la fecha también tenga horario especial."
+          "otherHours": "Otro horario: ¿esa fecha está configurada para usar otro horario? Si es así, ese horario aplica en lugar de los horarios de temporada o del horario habitual, a menos que la fecha también tenga horario especial.",
+          "whyThisDay": "Por qué este día: ¿sigues sin encontrarlo? Abre ese viernes en el Calendario. Cuando aplica más de una capa, esa sección muestra cada una, qué cambia y qué pasaría si la quitas."
         }
       }
     }

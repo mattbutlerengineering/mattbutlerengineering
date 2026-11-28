@@ -67,6 +67,7 @@ const TROUBLESHOOTING = [
   "availabilityHub.guide.troubleshooting.steps.tables",
   "availabilityHub.guide.troubleshooting.steps.pacing",
   "availabilityHub.guide.troubleshooting.steps.window",
+  "availabilityHub.guide.troubleshooting.steps.whyThisDay",
 ] as const satisfies readonly Key[];
 
 export function AvailabilityGuidePage() {
