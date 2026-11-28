@@ -103,7 +103,10 @@ const fullNoShowFeeVenuePolicy: VenuePolicy = {
 
 describe("recordNoShow", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    // #10219: resetAllMocks, not clearAllMocks — a test that returns before
+    // consuming its mockResolvedValueOnce queue leaves it for the next test
+    // under shuffled order. Every factory above is a bare vi.fn().
+    vi.resetAllMocks();
   });
 
   it("forfeits a held deposit and marks the reservation NO_SHOW (end-to-end)", async () => {
