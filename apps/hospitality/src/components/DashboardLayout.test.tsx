@@ -168,7 +168,7 @@ describe("DashboardLayout", () => {
               <Route path="briefing" element={<div>Briefing Content</div>} />
               <Route path="settings" element={<div>Settings Content</div>} />
               <Route path="dashboard" element={<div>Dashboard Content</div>} />
-              <Route path="availability/map" element={<div>Availability Map Content</div>} />
+              <Route path="availability" element={<div>Availability Hub Content</div>} />
               <Route path="setup/hours" element={<div>Setup Hours Content</div>} />
               <Route path="chat" element={<ChatPage />} />
               <Route path="availability/*" element={<div>Availability Content</div>} />
@@ -272,16 +272,19 @@ describe("DashboardLayout", () => {
     expect(screen.getByText("Onboarding Content")).toBeInTheDocument();
   });
 
-  it("redirects operational pages to the Availability map when status is setup", () => {
-    vi.mocked(useVenueReadiness).mockReturnValue({
-      status: "setup",
-      completedSteps: [],
-      nextStep: "onboarding",
-      progress: 33,
-    });
-    renderLayout("/timeline");
-    expect(screen.getByText("Availability Map Content")).toBeDefined();
-  });
+  it.each(["/timeline", "/reservations", "/guests"])(
+    "redirects %s to the Availability hub when status is setup",
+    (path) => {
+      vi.mocked(useVenueReadiness).mockReturnValue({
+        status: "setup",
+        completedSteps: [],
+        nextStep: "onboarding",
+        progress: 33,
+      });
+      renderLayout(path);
+      expect(screen.getByText("Availability Hub Content")).toBeDefined();
+    }
+  );
 
   it("allows the dashboard as the post-onboarding landing when status is setup", () => {
     // A freshly-onboarded venue (basics + operating hours, no floor plan yet)
@@ -309,32 +312,20 @@ describe("DashboardLayout", () => {
     expect(screen.getByText("Timeline Content")).toBeDefined();
   });
 
-  it("keeps an operational venue on the Availability map: it is a standing page", () => {
-    vi.mocked(useVenueReadiness).mockReturnValue({
-      status: "operational",
-      completedSteps: ["onboarding", "operating-hours", "floor-plan"],
-      nextStep: null,
-      progress: 100,
-    });
-    renderLayout("/availability/map");
-    expect(screen.getByText("Availability Map Content")).toBeDefined();
-    expect(screen.queryByText("Timeline Content")).toBeNull();
-  });
-
-  it("keeps a setup-status venue on the Availability map", () => {
+  it("keeps a setup-status venue on the Availability hub", () => {
     vi.mocked(useVenueReadiness).mockReturnValue({
       status: "setup",
       completedSteps: ["onboarding"],
       nextStep: "operating-hours",
       progress: 33,
     });
-    renderLayout("/availability/map");
-    expect(screen.getByText("Availability Map Content")).toBeDefined();
+    renderLayout("/availability");
+    expect(screen.getByText("Availability Hub Content")).toBeDefined();
   });
 
   it("does NOT redirect /setup/hours to /timeline when operational (#4982)", () => {
     // Editing operating hours must stay reachable after a venue goes
-    // operational, as the Availability map does.
+    // operational.
     vi.mocked(useVenueReadiness).mockReturnValue({
       status: "operational",
       completedSteps: ["onboarding", "operating-hours", "floor-plan"],
@@ -505,7 +496,6 @@ describe("DashboardLayout", () => {
       ["/availability/calendar", ["Availability", "Calendar"]],
       ["/availability/booking-rules", ["Availability", "Booking rules"]],
       ["/availability/history", ["Availability", "History"]],
-      ["/availability/map", ["Availability", "Availability map"]],
     ] as const)("never reads Details on %s", (path, labels) => {
       renderLayout(path);
       const items = screen.getAllByTestId(/^breadcrumb-item-/);

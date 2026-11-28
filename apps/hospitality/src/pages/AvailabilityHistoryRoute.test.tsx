@@ -44,6 +44,9 @@ vi.mock("../components/availability/use-holidays.js", () => ({
   useHolidayCountry: () => null,
 }));
 vi.mock("../components/availability/TodayLine.js", () => ({ TodayLine: () => null }));
+vi.mock("../hooks/useVenueReadiness.js", () => ({
+  useVenueReadiness: () => ({ status: "operational", completedSteps: [], nextStep: null }),
+}));
 
 const ENTRY: AvailabilityChangeEntry = {
   id: "chg-1",

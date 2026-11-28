@@ -48,16 +48,16 @@ describe("buildNavSections", () => {
   });
 
   describe("setup readiness", () => {
-    it("returns a 'Get Started' section holding one Availability map item with the progress count", () => {
+    it("returns a 'Get Started' section holding one Availability item with the progress count", () => {
       const sections = buildNavSections(SETUP_READINESS, false);
       const getStarted = sections.find((s) => s.label === "Get Started");
 
       expect(getStarted).toBeDefined();
       expect(getStarted!.items).toEqual([
         {
-          id: "setup",
-          label: "Availability map",
-          action: { type: "route", path: "/availability/map" },
+          id: "availability",
+          label: "Availability",
+          action: { type: "route", path: "/availability" },
           badge: "1 of 3",
         },
       ]);
@@ -65,13 +65,13 @@ describe("buildNavSections", () => {
 
     it("counts completed steps, and never locks an item", () => {
       const none = buildNavSections(NO_VENUE_READINESS, false).flatMap((s) => s.items);
-      expect(none.find((i) => i.id === "setup")?.badge).toBe("0 of 3");
+      expect(none.find((i) => i.id === "availability")?.badge).toBe("0 of 3");
 
       const two = buildNavSections(
         { ...SETUP_READINESS, completedSteps: ["onboarding", "operating-hours"] },
         false
       ).flatMap((s) => s.items);
-      expect(two.find((i) => i.id === "setup")?.badge).toBe("2 of 3");
+      expect(two.find((i) => i.id === "availability")?.badge).toBe("2 of 3");
 
       for (const item of [...none, ...two]) {
         expect(item).not.toHaveProperty("disabled");
@@ -95,16 +95,18 @@ describe("buildNavSections", () => {
   });
 
   describe("same destination, same label in both readiness states", () => {
-    it("labels the map 'Availability map' before and after launch", () => {
+    it("shows one 'Availability' item at the hub before and after launch, and no map", () => {
+      const items = (r: VenueReadiness) => buildNavSections(r, false).flatMap((s) => s.items);
       const find = (r: VenueReadiness) =>
-        buildNavSections(r, false)
-          .flatMap((s) => s.items)
-          .filter((i) => i.action.type === "route" && i.action.path === "/availability/map");
+        items(r).filter((i) => i.action.type === "route" && i.action.path === "/availability");
       const before = find(SETUP_READINESS);
       const after = find(OPERATIONAL_READINESS);
-      expect(before.map((i) => i.label)).toEqual(["Availability map"]);
-      expect(after.map((i) => i.label)).toEqual(["Availability map"]);
+      expect(before.map((i) => [i.id, i.label])).toEqual([["availability", "Availability"]]);
+      expect(after.map((i) => [i.id, i.label])).toEqual([["availability", "Availability"]]);
       expect(after[0]).not.toHaveProperty("badge");
+      for (const r of [SETUP_READINESS, OPERATIONAL_READINESS]) {
+        expect(items(r).map((i) => i.label)).not.toContain("Availability map");
+      }
     });
   });
 
@@ -125,22 +127,12 @@ describe("buildNavSections", () => {
       expect(manage!.items.length).toBeGreaterThan(0);
     });
 
-    it("lists Availability then its map in Manage, with no Floor Plans item", () => {
+    it("lists one Availability item in Manage, with no map and no Floor Plans item", () => {
       const manage = buildNavSections(OPERATIONAL_READINESS, false).find(
         (s) => s.label === "Manage"
       )!;
-      expect(manage.items.map((i) => i.id)).toEqual([
-        "availability",
-        "setup",
-        "menus",
-        "booking-widget",
-      ]);
-      expect(manage.items.map((i) => i.label)).toEqual([
-        "Availability",
-        "Availability map",
-        "Menus",
-        "Booking Widget",
-      ]);
+      expect(manage.items.map((i) => i.id)).toEqual(["availability", "menus", "booking-widget"]);
+      expect(manage.items.map((i) => i.label)).toEqual(["Availability", "Menus", "Booking Widget"]);
     });
 
     it("includes an Account section", () => {

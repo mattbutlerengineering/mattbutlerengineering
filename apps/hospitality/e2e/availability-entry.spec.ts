@@ -38,13 +38,11 @@ test.describe("availability deep links", () => {
     await page.goto("availability?tab=nope&closeSection=&from=elsewhere&x=1");
     await expect(page.getByRole("heading", { level: 2, name: "Your rules" })).toBeVisible();
     await expect(weekPanel(page)).toHaveCount(0);
-    // The hub always links to its map (#8864 AC4), whatever `from` says, and only once.
-    const mapLink = page.getByRole("main").getByRole("link", { name: "Availability map" });
-    await expect(mapLink).toHaveCount(1);
-    await expect(mapLink).toHaveAttribute("href", /\/availability\/map$/);
+    // The map and its header link are retired (#10032).
+    await expect(page.getByRole("link", { name: "Availability map" })).toHaveCount(0);
   });
 
-  test("?closeSection= becomes ?close=section:, keeping from=setup and the back-link", async ({
+  test("?closeSection= becomes ?close=section:, keeping from=setup", async ({
     mockedPage: page,
   }) => {
     await mockAvailability(page);
@@ -56,7 +54,6 @@ test.describe("availability deep links", () => {
     await expect(dialog.getByText("Whole venue", { exact: true })).toBeVisible();
     await dialog.getByRole("button", { name: "Cancel" }).click();
     await expect(dialog).toHaveCount(0);
-    await expect(page.getByRole("link", { name: "Availability map" })).toBeVisible();
     expect(new URL(page.url()).search).toBe("?from=setup");
   });
 });

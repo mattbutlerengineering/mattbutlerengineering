@@ -20,10 +20,11 @@ import { dayOfNextMonth, pinMidMonth } from "./mid-month-clock.js";
 
 /** The date check's calendar button, which `first-paint.ts` counts and ux.md's budget does not. */
 const DATE_FIELD_BUTTON = 1;
-/** The always-shown "Availability map" link in the header (#8864 AC4; Owner, 2026-11-15). */
-const MAP_LINK = 1;
-/** ux.md's 10 controls plus one per service (two in the demo venue), plus the two above: 14. */
-const HUB_FIRST_PAINT_BUDGET = DATE_FIELD_BUTTON + 10 + 2 + MAP_LINK;
+/**
+ * ux.md's 10 controls plus one per service (two in the demo venue), plus the one above: 13. The
+ * header's "Availability map" link went with the map (#10032).
+ */
+const HUB_FIRST_PAINT_BUDGET = DATE_FIELD_BUTTON + 10 + 2;
 
 const DESKTOP = { width: 1280, height: 800 };
 const TABLET = { width: 820, height: 1180 };

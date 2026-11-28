@@ -434,8 +434,8 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
           <div className={styles.headerAside}>
             {actions}
             {entry.from === "setup" && (
-              <Link to={availabilityPath({ view: "map" })} className={styles.backLink}>
-                {t("availability.backToSetup")}
+              <Link to={availabilityPath({ view: "hub" })} className={styles.backLink}>
+                {t("availabilityHub.hours.back")}
               </Link>
             )}
           </div>

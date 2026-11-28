@@ -104,12 +104,8 @@ describe("hospitality adapter", () => {
         "apps/hospitality/src/main.tsx",
       ]);
     }
-    // The Availability map, Venue Setup before #8864.
-    expect(byRoute["availability/map"].kind).toBe("page");
-    expect(byRoute["availability/map"].source_files).toEqual([
-      "apps/hospitality/src/pages/AvailabilityMapPage.tsx",
-      "apps/hospitality/src/main.tsx",
-    ]);
+    // The Availability map is retired (#10032); the old path redirects to the hub.
+    expect(byRoute["availability/map"].kind).toBe("redirect");
   });
 
   it("marks the two routes outside <App /> public and everything under it auth0", () => {
@@ -124,10 +120,11 @@ describe("hospitality adapter", () => {
     expect(byRoute["callback"].kind).toBe("redirect");
     expect(byRoute["*"].kind).toBe("not-found");
     expect(byRoute["timeline"].kind).toBe("page");
-    expect(rows.filter((r) => r.kind === "page")).toHaveLength(34);
+    // 33 since the Availability map became a redirect (#10032).
+    expect(rows.filter((r) => r.kind === "page")).toHaveLength(33);
     // /setup/hours moved to the Availability page (#7513); the old path stays as a <Navigate>.
     expect(byRoute["setup/hours"].kind).toBe("redirect");
-    // /setup moved to the Availability map (#8864); the old path stays as a redirect.
+    // /setup moved to the Availability map (#8864), then the hub (#10032); it stays a redirect.
     expect(byRoute["setup"].kind).toBe("redirect");
   });
 

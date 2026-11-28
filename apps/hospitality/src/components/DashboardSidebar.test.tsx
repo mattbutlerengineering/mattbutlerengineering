@@ -18,9 +18,9 @@ describe("DashboardSidebar", () => {
       label: "Get Started",
       items: [
         {
-          id: "setup",
-          label: "Availability map",
-          action: { type: "route", path: "/availability/map" },
+          id: "availability",
+          label: "Availability",
+          action: { type: "route", path: "/availability" },
           badge: "1 of 3",
         },
       ],
@@ -65,11 +65,6 @@ describe("DashboardSidebar", () => {
             label: "Availability",
             action: { type: "route", path: "/availability" },
           },
-          {
-            id: "setup",
-            label: "Availability map",
-            action: { type: "route", path: "/availability/map" },
-          },
           { id: "menus", label: "Menus", action: { type: "route", path: "/menus" } },
         ],
       },
@@ -99,10 +94,26 @@ describe("DashboardSidebar", () => {
       expect(slot.closest("li")).toHaveTextContent(/^Availability$/);
     });
 
-    it("puts it under the map's item before launch, when that is the only Availability item", () => {
+    it("puts it under the pre-launch Availability item, the one with the launch badge", () => {
       const setSlot = renderWithSlot(mockSections);
       const slot = setSlot.mock.calls.map(([el]) => el as HTMLElement | null).find(Boolean)!;
-      expect(slot.closest("li")).toHaveTextContent(/^Availability map/);
+      expect(slot.closest("li")).toHaveTextContent(/^Availability 1 of 3$/);
+      expect(screen.getByRole("button", { name: "Availability 1 of 3" })).toHaveAttribute(
+        "aria-current",
+        "true"
+      );
+    });
+
+    it("no longer hosts it under the retired map's item id", () => {
+      const setSlot = renderWithSlot([
+        {
+          label: "Get Started",
+          items: [
+            { id: "setup", label: "Setup", action: { type: "route", path: "/availability" } },
+          ],
+        },
+      ]);
+      expect(setSlot.mock.calls.some(([el]) => el)).toBe(false);
     });
 
     it("marks the Availability item as holding the current page, not as the page, so only the rail's node is the page", () => {
@@ -151,7 +162,7 @@ describe("DashboardSidebar", () => {
 
   it("renders the progress count inside the item's accessible name", () => {
     renderSidebar();
-    const item = screen.getByRole("button", { name: "Availability map 1 of 3" });
+    const item = screen.getByRole("button", { name: "Availability 1 of 3" });
     expect(item.textContent).toContain("1 of 3");
   });
 
