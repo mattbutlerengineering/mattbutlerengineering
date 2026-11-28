@@ -1,3 +1,9 @@
+## 2026-11-14 — mbe-evening (implement-queue)
+
+Phase 0 preflight: `main` green (0 failures in last 5 runs), `main-strictness.mjs` → `strict: true`, base-freshness → `fresh` (0 commits behind, ~2h old). No open PRs or `in-progress` issues needed straggler handling (merge train empty).
+
+Phase 1 claim: **0 issues claimed.** Only one `ready` issue existed (#8864 "Availability hierarchy"), and it carries `needs-human` — a page redefinition call ("this isn't really venue setup... redefine what it actually is"), not an independently implementable task. No batch composed, no workers dispatched, no `metrics/queue-telemetry.jsonl` rows to persist this iteration.
+
 ## 2026-11-14 — mbe-evening (progress-tracker)
 
 ### Metrics
@@ -1306,6 +1312,9 @@ Two items noted earlier in this fire as pending were in fact already **fixed on
   merged at 05:02:35 and `.dependency-cruiser.cjs` now allowlists
   `(^|/)test-setup\.[jt]s$`. An earlier note in this fire called #10129 open; it
   was not.
+
+## 2026-11-28 — mbe-weekly-improve (second instance, #10191)
+
 **PR opened (step 2):** [#10169](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/10169) — `fix(scripts): weekly improve 2026-11-28 — resolve a workflow's last-change date in a shallow clone`. Reviewed twice (pass 8 → defects fixed → pass 9, no issues). **Merged into `main` at 05:32:41Z as `4ecfc72`** by the `mattbutlerengineering` account; #10130 closed `completed` at 05:32:42Z. The squash carried both commits, and `scripts/scheduled-workflow-health.mjs` and its test on `main` are byte-identical to the reviewed head `6669e44` — so the full reviewed change landed and nothing was orphaned. **This session merged nothing** (it is instructed not to, and the auto-mode classifier denies it anyway, #6125).
 
 Two details recorded so the audit trail is unambiguous, asserting no cause:
