@@ -3911,7 +3911,7 @@
         "count": "{{done}} of {{total}}",
         "steps": {
           "venueBasics": "Venue basics",
-          "regularWeek": "Regular week",
+          "regularWeek": "Regular hours",
           "floorPlan": "Floor plan"
         },
         "state": {
@@ -4723,7 +4723,7 @@
       "bookingWidget": "The page guests use to book online: date and party size, then a time, then their details, and a deposit if you ask for one.",
       "deposit": "A hold on a guest's card to secure a reservation. It can be applied to the bill, refunded or kept.",
       "noShow": "A reservation where the guest did not arrive. Repeat no-shows can raise a guest's risk level and trigger a deposit.",
-      "walkIn": "A guest who arrives without a reservation and is seated straight away.",
+      "walkIn": "A guest who arrives without a reservation; seated when a table is free, or added to the waitlist.",
       "waitlist": "The queue of walk-in guests waiting for a table when the venue is full.",
       "venue": "One restaurant or location. Its reservations, tables, guests and floor plans all belong to it.",
       "venueGroup": "An optional group of venues under one brand or operator. A venue can also stand alone."

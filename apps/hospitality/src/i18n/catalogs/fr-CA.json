@@ -4020,7 +4020,7 @@
         "count": "{{done}} sur {{total}}",
         "steps": {
           "venueBasics": "Infos de base de l'établissement",
-          "regularWeek": "Semaine habituelle",
+          "regularWeek": "Heures habituelles",
           "floorPlan": "Plan de salle"
         },
         "state": {
@@ -4835,7 +4835,7 @@
       "bookingWidget": "La page que les clients utilisent pour réserver en ligne : date et taille du groupe, puis une heure, puis leurs coordonnées, et un dépôt si vous en demandez un.",
       "deposit": "Une retenue sur la carte du client pour garantir une réservation. Elle peut être appliquée à l'addition, remboursée ou conservée.",
       "noShow": "Une réservation où le client ne s'est pas présenté. Des absences répétées peuvent hausser le niveau de risque d'un client et déclencher un dépôt.",
-      "walkIn": "Un client qui arrive sans réservation et qu'on installe tout de suite.",
+      "walkIn": "Un client qui arrive sans réservation; installé quand une table se libère, ou ajouté à la liste d'attente.",
       "waitlist": "La file des clients sans réservation qui attendent une table quand l'établissement est plein.",
       "venue": "Un restaurant ou un lieu. Ses réservations, ses tables, ses clients et ses plans de salle lui appartiennent.",
       "venueGroup": "Un groupe facultatif d'établissements sous une même marque ou un même exploitant. Un établissement peut aussi être seul."

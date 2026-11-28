@@ -53,7 +53,7 @@ export const VENUE_SETUP_GLOSSARY: readonly VenueSetupEntry[] = [
     id: "regularHours",
     concept: "Weekly pattern",
     term: { "en-US": "Regular hours", "es-MX": "Horario habitual", "fr-CA": "Heures habituelles" },
-    exact: ["availabilityHub.routes.regularHours"],
+    exact: ["availabilityHub.routes.regularHours", "setup.hub.strip.steps.regularWeek"],
     contains: [],
   },
   {

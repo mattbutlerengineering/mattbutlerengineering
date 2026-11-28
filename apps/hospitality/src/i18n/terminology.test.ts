@@ -75,6 +75,19 @@ describe.each(Object.entries(CATALOGS))("Terminology catalog (%s)", (locale, cat
   });
 });
 
+describe("walk-in definition agrees with the diagram", () => {
+  it.each([
+    ["en-US", enUS, /waitlist/i],
+    ["es-MX", esMX, /lista de espera/i],
+    ["fr-CA", frCA, /liste d'attente/i],
+  ] as const)("names the waitlist (%s), as Walk-in joins the Waitlist does", (_l, catalog, re) => {
+    expect(section(catalog, "definitions").walkIn).toMatch(re);
+    expect(section(catalog, "definitions").walkIn).not.toMatch(
+      /straight away|de inmediato|tout de suite/i
+    );
+  });
+});
+
 describe("Terminology terms track the glossaries", () => {
   it("spells each listed term in en-US as its glossary does", () => {
     const terms = section(enUS, "terms");
