@@ -58,6 +58,16 @@ describe("isGateCommand", () => {
   });
 });
 
+describe("isGateCommand performance (#10128)", () => {
+  it("classifies a long flag list in linear time", () => {
+    const flags = " --filter=a".repeat(30);
+    const start = performance.now();
+    expect(isGateCommand(`pnpm${flags} install`)).toBe(false);
+    expect(isGateCommand(`pnpm${flags} test`)).toBe(true);
+    expect(performance.now() - start).toBeLessThan(50);
+  });
+});
+
 describe("worktreeOf", () => {
   it("reads the worktree from a --dir path in the command", () => {
     expect(worktreeOf(`pnpm --dir ${ROOT}/agent-abc/apps/hospitality test`, "/Users/me/repo")).toBe(
