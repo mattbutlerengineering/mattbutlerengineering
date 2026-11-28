@@ -1633,7 +1633,7 @@ describe("main-push workflow arm (#6955)", () => {
         "push",
       ])
     );
-    expect(args[args.indexOf("--limit") + 1]).toBe("8");
+    expect(args[args.indexOf("--limit") + 1]).toBe("50");
   });
 
   it("yields failing-streak for a 3-run red streak, titled without 'scheduled'", () => {
@@ -1706,6 +1706,45 @@ describe("main-push workflow arm (#6955)", () => {
       },
     });
     expect(results[0].status).not.toBe("failing-streak");
+  });
+
+  it("reports a streak when cancelled runs crowd the newest 8 push runs (#10220)", () => {
+    // A shared concurrency group cancels pending runs in a merge burst. Every
+    // run that actually executed is red; the stub honours the arm's own
+    // `--limit`, as `gh run list` does.
+    const history = [
+      { conclusion: "", url: "in-progress" },
+      { conclusion: "cancelled", url: "c1" },
+      { conclusion: "cancelled", url: "c2" },
+      { conclusion: "cancelled", url: "c3" },
+      { conclusion: "failure", url: "f1" },
+      { conclusion: "cancelled", url: "c4" },
+      { conclusion: "cancelled", url: "c5" },
+      { conclusion: "failure", url: "f2" },
+      ...Array.from({ length: 10 }, (_, i) => ({ conclusion: "failure", url: `f${i + 3}` })),
+    ];
+    const created = [];
+    const results = runScheduledWorkflowHealthCheck({
+      workflows: [
+        {
+          name: "E2E Screenshots",
+          path: ".github/workflows/e2e-screenshots.yml",
+          kind: "main-push",
+        },
+      ],
+      threshold: 3,
+      getRuns: (name) => {
+        const args = mainPushRunArgs(name, 3);
+        return history.slice(0, Number(args[args.indexOf("--limit") + 1]));
+      },
+      createIssue: (title, body) => {
+        created.push({ title, body });
+        return 7;
+      },
+    });
+    expect(results[0].status).toBe("failing-streak");
+    expect(created[0].body).toContain("f1");
+    expect(created[0].body).toContain("f3");
   });
 });
 
