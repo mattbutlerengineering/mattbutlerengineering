@@ -753,6 +753,38 @@ describe("fillZoneWorkerBatches — same-zone fill honours hotspot locks (#10217
     expect(ready).toHaveLength(3);
   });
 
+  test("every lead's locks are held before any batch fills, whatever the lead order", () => {
+    const hospLead = issue("feat(hospitality): lead", {
+      number: 10,
+      body: filesBody("apps/hospitality/src/a.ts"),
+    });
+    const hosp2 = issue("feat(hospitality): two", {
+      number: 11,
+      body: filesBody("apps/hospitality/src/b.ts", GOTCHAS),
+    });
+    const scriptsLead = issue("fix(scripts): last", {
+      number: 12,
+      body: filesBody("scripts/a.mjs", GOTCHAS),
+    });
+    const leads = [hospLead, leadB, scriptsLead];
+    const batches = fillZoneWorkerBatches(leads, [...leads, hosp2]);
+    expect(numbers(batches)).toEqual([[10], [2], [12]]);
+  });
+
+  test("a fill pick is claimed once, so two same-zone leads never share a fill", () => {
+    const more = [61, 62, 63, 64, 65].map((n) =>
+      issue(`fix(reservations): r${n}`, {
+        number: n,
+        body: filesBody(`services/reservations/src/r${n}.ts`),
+      })
+    );
+    const batches = fillZoneWorkerBatches([leadB, b3], [leadB, b3, ...more]);
+    expect(numbers(batches)).toEqual([
+      [2, 61, 62],
+      [4, 63, 64],
+    ]);
+  });
+
   test("non-array input yields no batches", () => {
     expect(fillZoneWorkerBatches(undefined, [])).toEqual([]);
     expect(numbers(fillZoneWorkerBatches([leadB], undefined))).toEqual([[2]]);
