@@ -210,6 +210,18 @@ export function verdictRows(runs, { since, job, control }) {
   };
 }
 
+/**
+ * The runs to fetch jobs for in verdict mode: restricted to runs created at or
+ * after `since` BEFORE the stride sample, so the sample spans the post-merge
+ * window instead of the whole merge day.
+ */
+export function verdictSample(listed, { since, sample }) {
+  return selectGateSample(
+    listed.filter((run) => ms(run.created_at) >= ms(since)),
+    sample
+  );
+}
+
 const pct = (share) => `${Math.round(share * 100)}%`;
 
 export function renderMarkdown({ days, wall, jobs, backlog, deploys }) {
@@ -268,7 +280,10 @@ function main(argv) {
   }
 
   const listed = fetchRuns("ci.yml", `event=pull_request&created=>=${day}`);
-  const sampled = selectGateSample(listed, sample).map((run) => ({ run, jobs: fetchJobs(run.id) }));
+  const picked = since
+    ? verdictSample(listed, { since, sample })
+    : selectGateSample(listed, sample);
+  const sampled = picked.map((run) => ({ run, jobs: fetchJobs(run.id) }));
 
   if (since) {
     const job = flag(argv, "--job", null);
