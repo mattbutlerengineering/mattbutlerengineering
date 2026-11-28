@@ -395,8 +395,8 @@ describe("AvailabilityGuestPreview", () => {
     await settle();
     await screen.findByText("3 times added · 2 removed");
     expect(screen.getByRole("radio", { name: "Last saved" })).toBeChecked();
-    fireEvent.click(screen.getByRole("radio", { name: "Regular week" }));
-    expect(screen.getByRole("radio", { name: "Regular week" })).toBeChecked();
+    fireEvent.click(screen.getByRole("radio", { name: "Regular hours" }));
+    expect(screen.getByRole("radio", { name: "Regular hours" })).toBeChecked();
     await settle();
     expect(previewConfig).toHaveBeenLastCalledWith(
       "venue-1",

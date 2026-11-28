@@ -98,7 +98,7 @@ function renderPage(entry: string, scope: AvailabilityScope = scopeOf()) {
   return router;
 }
 
-const nameField = () => screen.getByRole("textbox", { name: /Schedule name/ });
+const nameField = () => screen.getByRole("textbox", { name: /Seasonal hours name/ });
 
 /** Lunch is the open service (3:00 PM close): close it at 4:00 PM, clear of Dinner at 5:00 PM. */
 function closeLunchLater() {
@@ -237,7 +237,7 @@ describe("AvailabilitySeasonalEditorPage", () => {
     expect(screen.queryByText(/no longer there/)).not.toBeInTheDocument();
     expect(nameField()).toHaveValue("Weeknights");
     fireEvent.click(await screen.findByRole("button", { name: "Review their change" }));
-    expect(await screen.findByText(/This schedule was deleted/)).toBeInTheDocument();
+    expect(await screen.findByText(/These seasonal hours were deleted/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reapply my changes" })).toBeDisabled();
     // Start over is the way out: it leaves for the list with nothing left to save.
     fireEvent.click(screen.getByRole("button", { name: "Start over" }));

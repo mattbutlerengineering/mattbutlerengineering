@@ -124,7 +124,7 @@ describe("AvailabilityPage regular-week line", () => {
     renderPage();
     expect(
       screen.getByText(
-        "Regular week: Lunch 11:30 AM–3:00 PM, last seating 2:00 PM Mon–Fri · Dinner 5:00 PM–11:00 PM, last seating 9:00 PM Tue–Sun, Fri–Sat until 12:00 AM (next day), last seating 10:00 PM · Brunch 10:00 AM–2:00 PM, last seating 1:00 PM Sat–Sun"
+        "Regular hours: Lunch 11:30 AM–3:00 PM, last seating 2:00 PM Mon–Fri · Dinner 5:00 PM–11:00 PM, last seating 9:00 PM Tue–Sun, Fri–Sat until 12:00 AM (next day), last seating 10:00 PM · Brunch 10:00 AM–2:00 PM, last seating 1:00 PM Sat–Sun"
       )
     ).toBeInTheDocument();
   });
@@ -148,13 +148,13 @@ describe("AvailabilityPage regular-week line", () => {
     // A phone has no row to spare above the first day; a Manager reads the week on Schedules.
     it("leaves the line off a Manager's calendar", () => {
       renderPage();
-      expect(screen.queryByText(/^Regular week: /)).not.toBeInTheDocument();
+      expect(screen.queryByText(/^Regular hours: /)).not.toBeInTheDocument();
     });
 
     it("keeps it for a Host, who has no Schedules layer", () => {
       team.value = { viewerRole: "host" };
       renderPage();
-      expect(screen.getByText(/^Regular week: /)).toBeInTheDocument();
+      expect(screen.getByText(/^Regular hours: /)).toBeInTheDocument();
     });
   });
 
@@ -164,7 +164,7 @@ describe("AvailabilityPage regular-week line", () => {
     expect(toggle).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "true");
-    const rows = within(screen.getByRole("list", { name: "Regular week" })).getAllByRole(
+    const rows = within(screen.getByRole("list", { name: "Regular hours" })).getAllByRole(
       "listitem"
     );
     expect(rows).toHaveLength(7);
@@ -188,7 +188,7 @@ describe("AvailabilityPage regular-week line", () => {
     read.config = uniform;
     renderPage();
     expect(
-      screen.getByText("Regular week: Dinner 5:00 PM–11:00 PM, last seating 9:00 PM every day")
+      screen.getByText("Regular hours: Dinner 5:00 PM–11:00 PM, last seating 9:00 PM every day")
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Details" })).not.toBeInTheDocument();
   });
@@ -253,7 +253,7 @@ describe("AvailabilityPage regular-week line", () => {
     };
     renderPage();
     expect(
-      screen.getByText(/^Regular week: Lunch 11:30 AM–3:00 PM, last seating 2:00 PM Mon–Fri/)
+      screen.getByText(/^Regular hours: Lunch 11:30 AM–3:00 PM, last seating 2:00 PM Mon–Fri/)
     ).toBeInTheDocument();
     expect(
       screen.getByText("From Dec 1: Dinner 5:00 PM–11:00 PM, last seating 9:00 PM every day")
@@ -328,11 +328,11 @@ describe("AvailabilityPage on a migrated venue", () => {
     const { container } = renderPage();
     expect(
       screen.getByText(
-        "Regular week: Dinner 5:00 PM–10:00 PM, last seating 9:00 PM Mon–Fri, Thu–Fri until 11:00 PM, last seating 10:00 PM"
+        "Regular hours: Dinner 5:00 PM–10:00 PM, last seating 9:00 PM Mon–Fri, Thu–Fri until 11:00 PM, last seating 10:00 PM"
       )
     ).toBeInTheDocument();
     expect(container.textContent).not.toMatch(/Thu–Fri hours/);
-    expect(screen.getByRole("radio", { name: "Schedules" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Seasonal hours" })).toBeInTheDocument();
   });
 
   it("shows the collapsed week in the Schedules layer's week form, the Thu–Fri close as a block", () => {
@@ -352,11 +352,11 @@ describe("AvailabilityPage on a migrated venue", () => {
     ).toEqual(["Thu", "Fri"]);
   });
 
-  it("carries the collapsed week into Change regular week from Starting later…", () => {
+  it("carries the collapsed week into Change regular hours from Starting later…", () => {
     read.config = collapsed();
     renderPage("/availability");
     fireEvent.click(screen.getByRole("button", { name: "Starting later…" }));
-    const drawer = screen.getByRole("dialog", { name: "Change regular week" });
+    const drawer = screen.getByRole("dialog", { name: "Change regular hours" });
     expect(within(drawer).getByDisplayValue("Dinner")).toBeInTheDocument();
     expect(
       within(drawer).getByRole("group", { name: "Dinner: different hours" })
@@ -366,9 +366,9 @@ describe("AvailabilityPage on a migrated venue", () => {
   it("keeps the Schedules tab and the day-named schedule for a venue not yet collapsed", () => {
     read.config = oldShapeMigrated();
     renderPage();
-    expect(screen.getByRole("radio", { name: "Schedules" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Seasonal hours" })).toBeInTheDocument();
     expect(
-      screen.getByText("Regular week: Dinner 5:00 PM–10:00 PM, last seating 9:00 PM Mon–Wed")
+      screen.getByText("Regular hours: Dinner 5:00 PM–10:00 PM, last seating 9:00 PM Mon–Wed")
     ).toBeInTheDocument();
   });
 
@@ -429,7 +429,7 @@ describe("AvailabilityPage: Edit on a dated schedule's layer (#7981)", () => {
     fireEvent.click(within(ask).getByRole("radio", { name: "All dates" }));
     fireEvent.click(within(ask).getByRole("button", { name: "Continue" }));
     const editor = await screen.findByRole("dialog", { name: "Edit Summer hours" });
-    expect(within(editor).getByLabelText(/Schedule name/)).toHaveValue("Summer hours");
+    expect(within(editor).getByLabelText(/Seasonal hours name/)).toHaveValue("Summer hours");
   });
 
   it("leaves focus in the editor once the day drawer's focus restore has run", async () => {

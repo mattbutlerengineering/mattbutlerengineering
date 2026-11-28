@@ -36,7 +36,7 @@ import {
 } from "./resolved-day-fixtures.js";
 
 /** The drawer's old names for copying hours, before availability-hub A0.3 (#8691). */
-const OLD_NAMES = /Copy to other days|Use another day.s hours…|Use schedule…/;
+const OLD_NAMES = /Copy to other days|Use another day.s hours…|Use seasonal hours…/;
 
 /**
  * Two actions for copying hours in the day drawer, where there were three names (availability-hub
@@ -130,8 +130,8 @@ describe("AvailabilityDayDrawer: Use other hours and Copy hours", () => {
 
   it("Use other hours… picks a set of hours once there are two", async () => {
     renderDrawer({ extraSchedule: true });
-    const dialog = await openCopyFrom(/^Use a schedule on Friday, Oct 30$/);
-    expect(within(dialog).getByRole("combobox", { name: "Schedule" })).toBeInTheDocument();
+    const dialog = await openCopyFrom(/^Use seasonal hours on Friday, Oct 30$/);
+    expect(within(dialog).getByRole("combobox", { name: "Seasonal hours" })).toBeInTheDocument();
     expect(save).not.toHaveBeenCalled();
   });
 

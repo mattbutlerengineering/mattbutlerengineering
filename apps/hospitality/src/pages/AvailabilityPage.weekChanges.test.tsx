@@ -149,7 +149,7 @@ describe("AvailabilityPage: Next 7 days", () => {
 
   it("shows a Manager, on the Schedules tab they land on, a closure 3 days out", () => {
     renderPage();
-    expect(screen.getByRole("radio", { name: "Schedules" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "Seasonal hours" })).toBeChecked();
     expect(
       within(week()).getByRole("button", { name: "Sat, Nov 7 · Closed, show the day" })
     ).toBeInTheDocument();

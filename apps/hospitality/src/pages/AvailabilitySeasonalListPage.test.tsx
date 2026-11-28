@@ -145,7 +145,7 @@ describe("AvailabilitySeasonalListPage", () => {
     expect(within(rowOf("Spare")).queryByText(/Can’t delete/)).not.toBeInTheDocument();
   });
 
-  it("words the reason as its own sentence when only Use schedule rules use the hours", () => {
+  it("words the reason as its own sentence when only Use seasonal hours rules use the hours", () => {
     const config = threeSchedules();
     renderPage(
       scopeOf({
@@ -167,7 +167,7 @@ describe("AvailabilitySeasonalListPage", () => {
     );
     expect(
       within(rowOf("Spare")).getByText(
-        "Can’t delete. Used by 1 Use schedule rule. Change those dates first."
+        "Can’t delete. Used by 1 Use seasonal hours rule. Change those dates first."
       )
     ).toBeVisible();
   });

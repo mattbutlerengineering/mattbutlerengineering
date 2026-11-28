@@ -299,19 +299,19 @@ describe("Copy to other days", () => {
       const dialog = renderCopy();
       pick(dialog, "Sat", "Sun");
       expect(
-        within(dialog).getByText("Every week… changes your regular week from Oct 28.")
+        within(dialog).getByText("Every week… changes your regular hours from Oct 28.")
       ).toBeInTheDocument();
       expect(within(dialog).getByRole("button", { name: "Every week…" })).toBeEnabled();
       expect(within(dialog).queryByRole("radio")).not.toBeInTheDocument();
     });
 
-    it("opens Change regular week with the weekdays and the start prefilled, saving nothing", async () => {
+    it("opens Change regular hours with the weekdays and the start prefilled, saving nothing", async () => {
       const dialog = renderCopy();
       pick(dialog, "Sat");
       fireEvent.click(within(dialog).getByRole("button", { name: "Every week…" }));
 
       // The Copy dialog closes as the drawer opens.
-      const drawer = await screen.findByRole("dialog", { name: "Change regular week" });
+      const drawer = await screen.findByRole("dialog", { name: "Change regular hours" });
       await waitFor(() =>
         expect(
           screen.queryByRole("dialog", { name: /Copy .* to other days/ })
@@ -343,7 +343,7 @@ describe("Copy to other days", () => {
       fireEvent.click(screen.getByRole("button", { name: "Copy hours…" }));
       const dialog = screen.getByRole("dialog", { name: /Copy .* to other days/ });
       pick(dialog, "Sat");
-      expect(within(dialog).getByText(/regular week from Oct 26\./)).toBeInTheDocument();
+      expect(within(dialog).getByText(/regular hours from Oct 26\./)).toBeInTheDocument();
     });
 
     const regularSaturday: AvailabilityConfig = {
@@ -375,7 +375,7 @@ describe("Copy to other days", () => {
       const dialog = renderCopy(regularSaturday);
       pick(dialog, "Sat", "Sun");
       fireEvent.click(within(dialog).getByRole("button", { name: "Every week…" }));
-      const drawer = await screen.findByRole("dialog", { name: "Change regular week" });
+      const drawer = await screen.findByRole("dialog", { name: "Change regular hours" });
       const sunday = within(drawer).getAllByRole("checkbox", { name: "Sunday" });
       expect(sunday.every((box) => (box as HTMLInputElement).checked)).toBe(true);
     });

@@ -145,7 +145,7 @@ beforeEach(() => {
   save.mockResolvedValue({ version: 8, changeId: "chg" });
 });
 
-describe("Change regular week previews before saving (F-UW.2)", () => {
+describe("Change regular hours previews before saving (F-UW.2)", () => {
   const renderWeek = (state = stateOf()) =>
     render(
       withClient(
@@ -239,7 +239,7 @@ describe("Compare services previews before saving (F-X.3)", () => {
   });
 });
 
-describe("Use schedule previews before saving (F-MS)", () => {
+describe("Use seasonal hours previews before saving (F-MS)", () => {
   it("previews the chosen schedule over the selected dates", async () => {
     render(
       withClient(
@@ -332,7 +332,9 @@ describe("dates that reach a schedule through a use_schedule rule (#7982 review)
 
   it("previews a schedule that only a use_schedule rule uses", async () => {
     editor("ruleonly");
-    fireEvent.change(screen.getByLabelText(/Schedule name/), { target: { value: "Rule only 2" } });
+    fireEvent.change(screen.getByLabelText(/Seasonal hours name/), {
+      target: { value: "Rule only 2" },
+    });
     expect(
       await screen.findByText("1 booking would fall outside these hours", {}, WAIT)
     ).toBeInTheDocument();
@@ -362,7 +364,7 @@ describe("what the preview says when it has nothing to show (#7982 review)", () 
         />
       )
     );
-    fireEvent.change(screen.getByLabelText(/Schedule name/), { target: { value: "Quiet" } });
+    fireEvent.change(screen.getByLabelText(/Seasonal hours name/), { target: { value: "Quiet" } });
     expect(await screen.findByText(/No dates use this yet/)).toBeInTheDocument();
     expect(screen.queryByText(/Make a change to see/)).not.toBeInTheDocument();
   });
@@ -381,17 +383,17 @@ describe("what the preview says when it has nothing to show (#7982 review)", () 
     );
     fireEvent.change(screen.getByLabelText("Starting"), { target: { value: "2026-11-03" } });
     fireEvent.change(screen.getByLabelText("Ending"), { target: { value: "2026-11-30" } });
-    fireEvent.change(screen.getByLabelText(/Schedule name/), { target: { value: "Winter" } });
+    fireEvent.change(screen.getByLabelText(/Seasonal hours name/), { target: { value: "Winter" } });
     await screen.findByText("Guest preview", {}, WAIT);
     fireEvent.click(screen.getByRole("combobox", { name: "Party" }));
     fireEvent.click(screen.getByRole("option", { name: "4" }));
     await waitFor(() => expect(lastBody().partySize).toBe(4), WAIT);
 
-    fireEvent.change(screen.getByLabelText(/Schedule name/), { target: { value: "" } });
+    fireEvent.change(screen.getByLabelText(/Seasonal hours name/), { target: { value: "" } });
     expect(await screen.findByText(/Fill in the required fields/)).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Party" })).toHaveTextContent("4");
     previewConfig.mockClear();
-    fireEvent.change(screen.getByLabelText(/Schedule name/), { target: { value: "Winter" } });
+    fireEvent.change(screen.getByLabelText(/Seasonal hours name/), { target: { value: "Winter" } });
     await waitFor(() => expect(lastBody()).toBeDefined(), WAIT);
     expect(lastBody().partySize).toBe(4);
   });
@@ -410,7 +412,7 @@ describe("what the preview says when it has nothing to show (#7982 review)", () 
     );
     fireEvent.change(screen.getByLabelText("Starting"), { target: { value: "2026-11-03" } });
     fireEvent.change(screen.getByLabelText("Ending"), { target: { value: "2026-11-30" } });
-    fireEvent.change(screen.getByLabelText(/Schedule name/), { target: { value: "Winter" } });
+    fireEvent.change(screen.getByLabelText(/Seasonal hours name/), { target: { value: "Winter" } });
     await screen.findByText("Guest preview", {}, WAIT);
     fireEvent.click(screen.getByRole("button", { name: "Add another service" }));
     const rows = screen.getAllByRole("group", { name: /^Service \d$/ });
@@ -430,7 +432,7 @@ describe("Compare's Save (#7982 review)", () => {
     render(withClient(<CompareServices {...common} onStale={vi.fn()} state={twoSchedules()} />));
     fireEvent.click(screen.getByRole("combobox", { name: "Weeknight · Booking" }));
     fireEvent.click(screen.getByRole("option", { name: "Phone only" }));
-    const saveButton = screen.getByRole("button", { name: "Save 1 schedule" });
+    const saveButton = screen.getByRole("button", { name: "Save 1 seasonal hours" });
     const preview = await screen.findByText("Guest preview");
     expect(
       saveButton.compareDocumentPosition(preview) & Node.DOCUMENT_POSITION_FOLLOWING
@@ -438,7 +440,7 @@ describe("Compare's Save (#7982 review)", () => {
   });
 });
 
-describe("Retry in Use schedule (#7982 review)", () => {
+describe("Retry in Use seasonal hours (#7982 review)", () => {
   it("keeps focus on Retry while it retries, and after it fails again", async () => {
     previewConfig.mockRejectedValue(new Error("boom"));
     render(
@@ -471,7 +473,7 @@ describe("Retry in Use schedule (#7982 review)", () => {
   });
 });
 
-describe("Use schedule has no review step, so it does not promise one (#7982 review)", () => {
+describe("Use seasonal hours has no review step, so it does not promise one (#7982 review)", () => {
   it("says the hours moved on without saying Save will ask for a review", async () => {
     previewConfig.mockResolvedValue(result({ version: 9 }));
     render(

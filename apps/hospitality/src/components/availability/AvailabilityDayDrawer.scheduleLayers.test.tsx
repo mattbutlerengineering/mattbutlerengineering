@@ -61,7 +61,7 @@ function withSummer(config: AvailabilityConfig, rules: DateRule[]): Availability
   };
 }
 
-/** A rule that sends the date to Summer hours: the Use schedule rule the drawer and the bar write. */
+/** A rule that sends the date to Summer hours: the Use seasonal hours rule the drawer and the bar write. */
 const USE_SUMMER: DateRule = {
   id: "r-use",
   kind: "use_schedule",
@@ -141,7 +141,7 @@ describe("AvailabilityDayDrawer: dated-schedule layers (#7981)", () => {
     ).toBeInTheDocument();
   });
 
-  it("offers nothing for the superseded old week after Change regular week with no end", () => {
+  it("offers nothing for the superseded old week after Change regular hours with no end", () => {
     // F-UW: the old week is kind "regular", cut off the day before the new one starts.
     const base = fixtureConfig();
     const config: AvailabilityConfig = {
@@ -213,7 +213,7 @@ describe("AvailabilityDayDrawer: dated-schedule layers (#7981)", () => {
   it("keeps the schedule and saves nothing when the confirm is declined", () => {
     const { onFinished } = renderDrawer();
     fireEvent.click(screen.getByRole("button", { name: /Remove Summer hours/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Keep schedule" }));
+    fireEvent.click(screen.getByRole("button", { name: "Keep seasonal hours" }));
     expect(save).not.toHaveBeenCalled();
     expect(onFinished).not.toHaveBeenCalled();
   });
@@ -285,12 +285,12 @@ describe("AvailabilityDayDrawer: dated-schedule layers (#7981)", () => {
     expect(screen.getByRole("button", { name: /Remove Summer hours/ })).toBeInTheDocument();
   });
 
-  describe("a Use schedule rule on the date", () => {
+  describe("a Use seasonal hours rule on the date", () => {
     it("removes the rule after a confirm, and the drawer closes", async () => {
       const { onFinished } = renderDrawer({ rules: [USE_SUMMER], dated: false });
       fireEvent.click(screen.getByRole("button", { name: /Remove “Use Summer hours”/ }));
       const confirm = screen.getByRole("alertdialog");
-      expect(confirm).toHaveTextContent(/goes back to the schedule that covers it/i);
+      expect(confirm).toHaveTextContent(/goes back to the seasonal hours that cover it/i);
       fireEvent.click(within(confirm).getByRole("button", { name: "Remove" }));
       await waitFor(() => expect(onFinished).toHaveBeenCalledWith(true));
       expect(save).toHaveBeenCalledWith({
@@ -306,32 +306,36 @@ describe("AvailabilityDayDrawer: dated-schedule layers (#7981)", () => {
     it("starts the Edit button's name with its visible text (WCAG 2.5.3)", () => {
       renderDrawer({ rules: [USE_SUMMER], dated: false });
       // Strict name, not axe: in jsdom axe's `label-content-name-mismatch` reports `incomplete`.
-      const change = screen.getByRole("button", { name: /^Edit the schedule/ });
+      const change = screen.getByRole("button", { name: /^Edit the seasonal hours/ });
       expect(change).toHaveTextContent(/^Edit$/);
-      expect(change).toHaveAccessibleName("Edit the schedule for Fri, Oct 30");
+      expect(change).toHaveAccessibleName("Edit the seasonal hours for Fri, Oct 30");
     });
 
-    it("changes the schedule through the Use schedule dialog, on this date", () => {
+    it("changes the schedule through the Use seasonal hours dialog, on this date", () => {
       renderDrawer({ rules: [USE_SUMMER], dated: false });
-      fireEvent.click(screen.getByRole("button", { name: "Edit the schedule for Fri, Oct 30" }));
+      fireEvent.click(
+        screen.getByRole("button", { name: "Edit the seasonal hours for Fri, Oct 30" })
+      );
       expect(
-        screen.getByRole("dialog", { name: "Use a schedule on Friday, Oct 30" })
+        screen.getByRole("dialog", { name: "Use seasonal hours on Friday, Oct 30" })
       ).toBeInTheDocument();
     });
 
     it("will not change the schedule under an all-day closure, and says why", () => {
       renderDrawer({ rules: [USE_SUMMER, VENUE_CLOSURE], dated: false });
-      const change = screen.getByRole("button", { name: "Edit the schedule for Fri, Oct 30" });
+      const change = screen.getByRole("button", {
+        name: "Edit the seasonal hours for Fri, Oct 30",
+      });
       expect(change).toHaveAttribute("aria-disabled", "true");
       expect(change).toHaveAccessibleDescription(/closed all day/i);
       fireEvent.click(change);
-      expect(screen.queryByRole("dialog", { name: /Use a schedule/ })).toBeNull();
+      expect(screen.queryByRole("dialog", { name: /Use seasonal hours/ })).toBeNull();
     });
 
     it("names the whole rule and offers no Edit when it covers many dates", () => {
       const range: DateRule = { ...USE_SUMMER, endsOn: "2026-11-15" };
       renderDrawer({ rules: [range], dated: false });
-      expect(screen.queryByRole("button", { name: /Edit the schedule/ })).toBeNull();
+      expect(screen.queryByRole("button", { name: /Edit the seasonal hours/ })).toBeNull();
       fireEvent.click(screen.getByRole("button", { name: /Remove Use Summer hours/ }));
       expect(screen.getByRole("alertdialog")).toHaveTextContent(/every date it covers/i);
     });

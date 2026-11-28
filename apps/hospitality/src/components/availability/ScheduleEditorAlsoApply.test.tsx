@@ -130,7 +130,7 @@ describe("Also apply to in the schedule editor (F-X step 4)", () => {
     expect([closes["ss-dinner"], closes["ss-dinner-wk"]]).toEqual([1410, 1410]);
     await waitFor(() => expect(toast).toHaveBeenCalledTimes(1));
     expect(toast.mock.calls[0]?.[0].title ?? toast.mock.calls[0]?.[0].message).toContain(
-      "2 schedules updated"
+      "2 seasonal hours updated"
     );
   });
 
@@ -156,9 +156,9 @@ describe("Also apply to in the schedule editor (F-X step 4)", () => {
     closeDinnerLater();
     expect(screen.queryByText(/^Changes \d+ schedules/)).not.toBeInTheDocument();
     fireEvent.click(within(group()).getByRole("checkbox", { name: "Weeknight" }));
-    expect(screen.getByText(/^Changes 2 schedules · \d+ future dates$/)).toBeInTheDocument();
+    expect(screen.getByText(/^Changes 2 seasonal hours · \d+ future dates$/)).toBeInTheDocument();
     fireEvent.click(within(group()).getByRole("checkbox", { name: "Summer" }));
-    expect(screen.getByText(/^Changes 3 schedules · \d+ future dates$/)).toBeInTheDocument();
+    expect(screen.getByText(/^Changes 3 seasonal hours · \d+ future dates$/)).toBeInTheDocument();
   });
 
   it("asks keep or replace over the dates of every schedule written", () => {

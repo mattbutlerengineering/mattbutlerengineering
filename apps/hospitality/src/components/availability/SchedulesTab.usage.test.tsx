@@ -85,7 +85,9 @@ function usageOf(config: AvailabilityConfig): string {
       </main>
     </ToastProvider>
   );
-  const row = within(screen.getByRole("region", { name: "Other schedules" })).getByRole("listitem");
+  const row = within(screen.getByRole("region", { name: "Other seasonal hours" })).getByRole(
+    "listitem"
+  );
   const name = within(row).getByText("Summer");
   return name.nextElementSibling?.textContent ?? "";
 }
@@ -125,9 +127,9 @@ describe("SchedulesTab: where a schedule applies", () => {
     );
   });
 
-  it("counts the Use schedule rules when nothing else uses it", () => {
+  it("counts the Use seasonal hours rules when nothing else uses it", () => {
     expect(usageOf(withSummer([], [useSummerOn("u1", "2026-12-24")]))).toBe(
-      "Used by 1 Use schedule rule"
+      "Used by 1 Use seasonal hours rule"
     );
   });
 });
@@ -174,12 +176,12 @@ describe("SchedulesTab: a superseded regular week (#8688)", () => {
 
   it("is not listed once its last day is before the service date", () => {
     renderWith(withOldWeek("2026-10-24"));
-    expect(screen.queryByRole("region", { name: "Other schedules" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Other seasonal hours" })).toBeNull();
   });
 
   it("stays listed while it still covers the service date", () => {
     renderWith(withOldWeek("2026-10-25"));
-    const region = screen.getByRole("region", { name: "Other schedules" });
-    expect(within(region).getByText("Regular week")).toBeInTheDocument();
+    const region = screen.getByRole("region", { name: "Other seasonal hours" });
+    expect(within(region).getByText("Regular hours")).toBeInTheDocument();
   });
 });

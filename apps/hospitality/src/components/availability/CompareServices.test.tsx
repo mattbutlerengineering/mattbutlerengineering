@@ -144,7 +144,7 @@ describe("CompareServices against a colleague's change to the same row (#7999)",
     const { rerender } = render(ui(atV5));
     editWeekendBooking();
     rerender(ui(atV6));
-    fireEvent.click(screen.getByRole("button", { name: "Save 1 schedule" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save 1 seasonal hours" }));
 
     await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
     const body = save.mock.calls[0]?.[0].body;
@@ -161,7 +161,7 @@ describe("CompareServices against a colleague's change to the same row (#7999)",
       save.mockResolvedValueOnce({ version: 6, changeId: "chg-own" });
       const utils = render(ui(atV5, venue));
       editWeekendBooking();
-      fireEvent.click(screen.getByRole("button", { name: "Save 1 schedule" }));
+      fireEvent.click(screen.getByRole("button", { name: "Save 1 seasonal hours" }));
       await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
       await listClosed();
       return utils;
@@ -227,7 +227,7 @@ describe("CompareServices against a colleague's change to the same row (#7999)",
       fireEvent.click(await screen.findByRole("option", { name: "1:45 PM" }));
       // The time list takes close to a second to leave the DOM (its exit animation), and nothing
       // below reads it, so this does not wait for it.
-      fireEvent.click(screen.getByRole("button", { name: "Save 1 schedule" }));
+      fireEvent.click(screen.getByRole("button", { name: "Save 1 seasonal hours" }));
 
       await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
       const body = save.mock.calls[1]?.[0].body;
@@ -249,7 +249,7 @@ describe("CompareServices against a colleague's change to the same row (#7999)",
         </ToastProvider>
       );
       editWeekendBooking();
-      fireEvent.click(screen.getByRole("button", { name: "Save 1 schedule" }));
+      fireEvent.click(screen.getByRole("button", { name: "Save 1 seasonal hours" }));
       const reload = await screen.findByRole("button", { name: "Reload hours" }, { timeout: 4000 });
       fireEvent.click(reload);
       expect(onStale).toHaveBeenCalled();
@@ -259,12 +259,12 @@ describe("CompareServices against a colleague's change to the same row (#7999)",
       save.mockResolvedValueOnce({ version: 100, changeId: "chg-a" });
       const { rerender } = render(ui({ ...atV5, version: 99 }, "hold-d"));
       editWeekendBooking();
-      fireEvent.click(screen.getByRole("button", { name: "Save 1 schedule" }));
+      fireEvent.click(screen.getByRole("button", { name: "Save 1 seasonal hours" }));
       await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
       await listClosed();
       rerender(ui(atV5, "hold-f"));
       editWeekendBooking();
-      fireEvent.click(screen.getByRole("button", { name: "Save 1 schedule" }));
+      fireEvent.click(screen.getByRole("button", { name: "Save 1 seasonal hours" }));
       await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
       expect(save.mock.calls[1]?.[0].body.expectedVersion).toBe(5);
     });
@@ -275,13 +275,13 @@ describe("CompareServices against a colleague's change to the same row (#7999)",
     const { rerender } = render(ui(atV5));
     editWeekendBooking();
     rerender(ui(atV6));
-    fireEvent.click(screen.getByRole("button", { name: "Save 1 schedule" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save 1 seasonal hours" }));
 
     fireEvent.click(await screen.findByRole("button", { name: "Review their change" }));
     expect(screen.getByText("Hours changed: Weekend")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Reapply my changes" }));
-    fireEvent.click(screen.getByRole("button", { name: "Save 1 schedule" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save 1 seasonal hours" }));
 
     await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
     const body = save.mock.calls[1]?.[0].body;
@@ -302,14 +302,14 @@ describe("CompareServices against a colleague's change to the same row (#7999)",
     await listClosed();
     // ...and the colleague undoes it (v7).
     rerender(ui({ ...atV5, version: 7 }));
-    fireEvent.click(screen.getByRole("button", { name: "Save 2 schedules" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save 2 seasonal hours" }));
 
     fireEvent.click(await screen.findByRole("button", { name: "Review their change" }));
     expect(save.mock.calls[0]?.[0].body.expectedVersion).toBe(5);
     expect(screen.getByText("Hours changed: Weeknight")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Reapply my changes" }));
-    fireEvent.click(screen.getByRole("button", { name: "Save 2 schedules" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save 2 seasonal hours" }));
     await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
     const body = save.mock.calls[1]?.[0].body;
     expect(body.expectedVersion).toBe(7);
@@ -325,7 +325,7 @@ describe("CompareServices against a colleague's change to the same row (#7999)",
     const { rerender } = render(ui(atV5));
     editWeekendBooking();
     rerender(ui(atV6));
-    fireEvent.click(screen.getByRole("button", { name: "Save 1 schedule" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save 1 seasonal hours" }));
 
     fireEvent.click(await screen.findByRole("button", { name: "Discard mine" }));
     await waitFor(() =>
@@ -333,7 +333,7 @@ describe("CompareServices against a colleague's change to the same row (#7999)",
         screen.queryByRole("dialog", { name: "Someone changed availability first" })
       ).toBeNull()
     );
-    expect(screen.getByRole("button", { name: "Save 0 schedules" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save 0 seasonal hours" })).toBeDisabled();
     expect(screen.queryByText("Loading the latest version…")).not.toBeInTheDocument();
   });
 
@@ -346,7 +346,7 @@ describe("CompareServices against a colleague's change to the same row (#7999)",
     const { rerender } = render(ui(atV5));
     editWeekendBooking();
     rerender(ui(atV6));
-    fireEvent.click(screen.getByRole("button", { name: "Save 1 schedule" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save 1 seasonal hours" }));
 
     const overwrite = await screen.findByRole("button", { name: "Overwrite" });
     expect(overwrite).toBeDisabled();
@@ -362,7 +362,7 @@ describe("CompareServices against a colleague's change to the same row (#7999)",
     const { rerender } = render(ui(atV5));
     editWeekendBooking();
     rerender(ui(atV6));
-    fireEvent.click(screen.getByRole("button", { name: "Save 1 schedule" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save 1 seasonal hours" }));
 
     fireEvent.click(await screen.findByRole("button", { name: "Back to my draft" }));
     await waitFor(() =>
@@ -371,7 +371,7 @@ describe("CompareServices against a colleague's change to the same row (#7999)",
       ).toBeNull()
     );
     save.mockRejectedValueOnce(conflict);
-    fireEvent.click(screen.getByRole("button", { name: "Save 1 schedule" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save 1 seasonal hours" }));
     await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
     expect(save.mock.calls[1]?.[0].body.expectedVersion).toBe(5);
     expect(
@@ -397,7 +397,7 @@ describe("CompareServices against a colleague's change to the same row (#7999)",
     editBooking("Weeknight", "Online only");
     await listClosed();
     rerender(ui(archived));
-    fireEvent.click(screen.getByRole("button", { name: /^Save \d+ schedule/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Save \d+ seasonal hours/ }));
 
     fireEvent.click(await screen.findByRole("button", { name: "Review their change" }));
     expect(screen.getByText("Removed: Weeknight")).toBeInTheDocument();
@@ -420,7 +420,7 @@ describe("CompareServices against a colleague's change to the same row (#7999)",
     editBooking("Weeknight", "Online only");
     await listClosed();
     rerender(ui(gone));
-    fireEvent.click(screen.getByRole("button", { name: /^Save \d+ schedule/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Save \d+ seasonal hours/ }));
 
     fireEvent.click(await screen.findByRole("button", { name: "Review their change" }));
     expect(screen.getByText("Removed: Weekend")).toBeInTheDocument();
@@ -444,7 +444,7 @@ describe("CompareServices against a colleague's change to the same row (#7999)",
     rerender(ui(reordered));
 
     expect(screen.getByRole("combobox", { name: "Service" })).toHaveTextContent("Lunch");
-    fireEvent.click(screen.getByRole("button", { name: "Save 1 schedule" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save 1 seasonal hours" }));
     await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
     const rows = save.mock.calls[0]?.[0].body.changes.upsert.scheduleServices;
     expect(rows.map((r: ScheduleService) => r.id)).toEqual(["ss-lunch"]);
@@ -455,10 +455,10 @@ describe("CompareServices against a colleague's change to the same row (#7999)",
     const { rerender } = render(ui(atV5));
     editWeekendBooking();
     rerender(ui(atV6));
-    fireEvent.click(screen.getByRole("button", { name: "Save 1 schedule" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save 1 seasonal hours" }));
     fireEvent.click(await screen.findByRole("button", { name: "Review their change" }));
     fireEvent.click(screen.getByRole("button", { name: "Start over" }));
-    expect(screen.getByRole("button", { name: "Save 0 schedules" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save 0 seasonal hours" })).toBeDisabled();
     await waitFor(() =>
       expect(
         screen.queryByRole("dialog", { name: "Someone changed availability first" })

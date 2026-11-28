@@ -82,7 +82,7 @@ describe("AvailabilitySelectionBar", () => {
     expect(screen.getByRole("button", { name: "Clear selection" })).toBeInTheDocument();
   });
 
-  it("offers Use another day's hours with one schedule and Use schedule with several", () => {
+  it("offers Use another day's hours with one schedule and Use seasonal hours with several", () => {
     const onUseSchedule = vi.fn();
     const { rerender } = renderBar({ onUseSchedule, multipleSchedules: false });
     fireEvent.click(screen.getByRole("button", { name: "Use another day’s hours" }));
@@ -99,7 +99,7 @@ describe("AvailabilitySelectionBar", () => {
         />
       </main>
     );
-    expect(screen.getByRole("button", { name: "Use schedule" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Use seasonal hours" })).toBeInTheDocument();
   });
 
   it("opens Clear changes when the selection has changes of its own", () => {

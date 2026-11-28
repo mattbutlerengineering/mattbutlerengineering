@@ -16,8 +16,8 @@ const layers = () => screen.getAllByRole("radio").map((r) => r.textContent);
 describe("AvailabilityScheduleControls", () => {
   it("lists the layers Schedules, Calendar, Special dates to a Manager", () => {
     renderControls();
-    expect(layers()).toEqual(["Schedules", "Calendar", "Special dates"]);
-    expect(screen.getByRole("radio", { name: "Schedules" })).toBeChecked();
+    expect(layers()).toEqual(["Seasonal hours", "Calendar", "Special dates"]);
+    expect(screen.getByRole("radio", { name: "Seasonal hours" })).toBeChecked();
   });
 
   it("never offers the Schedules layer to a Host", () => {
@@ -31,7 +31,7 @@ describe("AvailabilityScheduleControls", () => {
     expect(onTabChange).toHaveBeenCalledWith("special");
   });
 
-  it("no longer carries a Change regular week… button", () => {
+  it("no longer carries a Change regular hours… button", () => {
     renderControls(true, "calendar");
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });

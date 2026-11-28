@@ -147,7 +147,7 @@ describe("AvailabilityDayDrawer", () => {
   it("explains a closed day with no layers", () => {
     renderDrawer({ day: CLOSED });
     expect(
-      screen.getByText("Closed. Your regular week has no hours on Friday.")
+      screen.getByText("Closed. Your regular hours don't include Friday.")
     ).toBeInTheDocument();
   });
 

@@ -107,7 +107,7 @@ describe("AvailabilityHistoryDrawer", () => {
     loaded([
       entry({
         id: "chg-4",
-        summary: "Regular week changed on Fri from 2026-11-06: 0 added, 1 changed, 0 removed",
+        summary: "Regular hours changed on Fri from 2026-11-06: 0 added, 1 changed, 0 removed",
         detail: { code: "regular_week_changed", startsOn: "2026-11-06", weekdays: [5] },
       }),
       entry({
@@ -118,7 +118,7 @@ describe("AvailabilityHistoryDrawer", () => {
     ]);
     renderDrawer();
     const rows = within(screen.getByRole("dialog", { name: "History" })).getAllByRole("listitem");
-    expect(rows[0]).toHaveTextContent("Changed regular week from Nov 6: Fri");
+    expect(rows[0]).toHaveTextContent("Changed regular hours from Nov 6: Fri");
     expect(rows[1]).toHaveTextContent("Something a newer server says");
   });
 

@@ -99,7 +99,7 @@ describe("ChangeRegularWeekDrawer on a varied week", () => {
 
   it("needs only a start date to save with no end, and asks for no name", async () => {
     renderDrawer();
-    expect(screen.queryByLabelText(/Schedule name/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Seasonal hours name/)).not.toBeInTheDocument();
     expect(saveButton()).toBeDisabled();
     expect(screen.getByText("Choose a start date to save.")).toBeInTheDocument();
     chooseStart("2026-11-06");
@@ -133,23 +133,27 @@ describe("ChangeRegularWeekDrawer on a varied week", () => {
     renderDrawer();
     chooseStart("2026-11-06");
     fireEvent.change(screen.getByLabelText("Ending"), { target: { value: "2026-11-30" } });
-    expect(screen.getByLabelText(/Schedule name/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Seasonal hours name/)).toBeInTheDocument();
     expect(saveButton()).toBeDisabled();
     expect(screen.getByText("Name this period to save.")).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText(/Schedule name/), { target: { value: "Holiday" } });
+    fireEvent.change(screen.getByLabelText(/Seasonal hours name/), {
+      target: { value: "Holiday" },
+    });
     expect(saveButton()).toBeEnabled();
   });
 
   it("the Applies to line and the impact count follow the days the services run", () => {
     renderDrawer();
     chooseStart("2026-11-02");
-    expect(screen.getByText("This becomes your regular week: open every day.")).toBeInTheDocument();
+    expect(
+      screen.getByText("This becomes your regular hours: open every day.")
+    ).toBeInTheDocument();
     expect(screen.getByText("Applies to 366 future dates")).toBeInTheDocument();
 
     // Lunch stops running on Monday: nothing runs that day any more.
     const lunchDays = screen.getByRole("group", { name: "Lunch runs on" });
     fireEvent.click(within(lunchDays).getByRole("checkbox", { name: "Monday" }));
-    expect(screen.getByText("This becomes your regular week: open Tue–Sun.")).toBeInTheDocument();
+    expect(screen.getByText("This becomes your regular hours: open Tue–Sun.")).toBeInTheDocument();
     expect(screen.getByText("Monday is closed.")).toBeInTheDocument();
     // 366 dates from a Monday hold 53 Mondays.
     expect(screen.getByText("Applies to 313 future dates")).toBeInTheDocument();

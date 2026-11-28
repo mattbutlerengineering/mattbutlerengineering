@@ -168,7 +168,7 @@ describe("UseScheduleDialog", () => {
 
   it("applies a chosen schedule to every selected date when there are several", async () => {
     const { onFinished } = renderUse(stateOf([EARLY_DINNER], true));
-    fireEvent.click(screen.getByRole("combobox", { name: "Schedule" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Seasonal hours" }));
     fireEvent.click(screen.getByRole("option", { name: "Summer hours" }));
     fireEvent.click(screen.getByRole("button", { name: "Apply to 2 dates" }));
     await waitFor(() => expect(onFinished).toHaveBeenCalledOnce());

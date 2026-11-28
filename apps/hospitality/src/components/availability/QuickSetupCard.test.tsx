@@ -35,7 +35,7 @@ const announced = () =>
 describe("QuickSetupCard", () => {
   it("starts empty: no name, times or days", () => {
     renderCard();
-    expect(screen.getByRole("heading", { name: "Set your regular week" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Set your regular hours" })).toBeInTheDocument();
     expect(screen.getByLabelText("Service name")).toHaveValue("");
     for (const day of [
       "Monday",

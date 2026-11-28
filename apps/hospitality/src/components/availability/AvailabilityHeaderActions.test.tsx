@@ -38,15 +38,15 @@ describe("AvailabilityHeaderActions", () => {
 
   // Booking rules is the hub's row 5 (availability-hub C2.5) and History the hub's History link
   // (C2.6), no longer entries here.
-  it("the ⋯ menu holds Compare services, Duplicate regular week…, Go to date", () => {
+  it("the ⋯ menu holds Compare services, Duplicate regular hours…, Go to date", () => {
     renderActions();
     fireEvent.click(screen.getByRole("button", { name: "More actions" }));
-    expect(menuItems()).toEqual(["Compare services", "Duplicate regular week…", "Go to date"]);
+    expect(menuItems()).toEqual(["Compare services", "Duplicate regular hours…", "Go to date"]);
   });
 
   it.each([
     ["Compare services", "onCompareServices"],
-    ["Duplicate regular week…", "onDuplicateRegularWeek"],
+    ["Duplicate regular hours…", "onDuplicateRegularWeek"],
     ["Go to date", "onGoToDate"],
   ] as const)("%s runs after the menu has closed", async (label, handler) => {
     const on = renderActions();
@@ -70,10 +70,10 @@ describe("AvailabilityHeaderActions", () => {
     expect(screen.queryByRole("button", { name: "Pause online booking" })).not.toBeInTheDocument();
   });
 
-  it("leaves Duplicate regular week… out when there is no regular week", () => {
+  it("leaves Duplicate regular hours… out when there is no regular week", () => {
     renderActions({ onDuplicateRegularWeek: undefined });
     fireEvent.click(screen.getByRole("button", { name: "More actions" }));
-    expect(menuItems()).not.toContain("Duplicate regular week…");
+    expect(menuItems()).not.toContain("Duplicate regular hours…");
   });
 
   it("renders disabled while the role or the config is being read", () => {

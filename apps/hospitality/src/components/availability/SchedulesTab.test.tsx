@@ -97,12 +97,14 @@ describe("SchedulesTab", () => {
     venueSettings.value = undefined;
   });
 
-  it("heads the layer Regular week and lists only the other schedules under Other schedules", () => {
+  it("heads the layer Regular hours and lists only the other schedules under Other seasonal hours", () => {
     renderWith(<Layer state={state()} />);
-    expect(screen.getByRole("heading", { level: 2, name: "Regular week" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 2, name: "Other schedules" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Regular hours" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Other seasonal hours" })
+    ).toBeInTheDocument();
     // Weeknight and Spare are rows; the regular week ("Weekend") is the panel above, not a row.
-    const other = screen.getByRole("region", { name: "Other schedules" });
+    const other = screen.getByRole("region", { name: "Other seasonal hours" });
     expect(within(other).getAllByRole("listitem")).toHaveLength(2);
     expect(screen.getByText("Mon–Thu")).toBeInTheDocument();
     expect(screen.getByText("Not used yet")).toBeInTheDocument();
@@ -110,18 +112,18 @@ describe("SchedulesTab", () => {
     expect(screen.queryByRole("button", { name: "Duplicate Weekend" })).not.toBeInTheDocument();
   });
 
-  it("has no Other schedules group when the regular week is the only schedule", () => {
+  it("has no Other seasonal hours group when the regular week is the only schedule", () => {
     const only = state();
     const config = { ...only.config, schedules: only.config.schedules.filter((s) => s.isRegular) };
     renderWith(<Layer state={{ ...only, config }} />);
-    expect(screen.queryByRole("heading", { name: "Other schedules" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Other seasonal hours" })).not.toBeInTheDocument();
   });
 
-  it("opens the seeded add flow from Add a schedule…, and names no 'New schedule' button", () => {
+  it("opens the seeded add flow from Add seasonal hours…, and names no 'New seasonal hours' button", () => {
     const onEditorChange = vi.fn();
     renderWith(<Layer state={state()} onEditorChange={onEditorChange} />);
-    expect(screen.queryByRole("button", { name: "New schedule" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Add a schedule…" }));
+    expect(screen.queryByRole("button", { name: "New seasonal hours" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Add seasonal hours…" }));
     expect(onEditorChange).toHaveBeenCalledWith({ mode: "new", seed: "regular" });
   });
 
@@ -130,7 +132,7 @@ describe("SchedulesTab", () => {
     renderWith(<Layer state={state()} />);
     expect(
       screen.getByText(
-        "Your usual week. Other schedules and special dates change it on the days they cover."
+        "Your usual week. Other seasonal hours and special dates change it on the days they cover."
       )
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Booking: / })).not.toBeInTheDocument();
@@ -175,7 +177,7 @@ describe("SchedulesTab", () => {
   it("Starting later… leaves no id shared by the panel's form and the drawer's, so both are labelled", () => {
     renderWith(<Layer state={state()} />);
     fireEvent.click(screen.getByRole("button", { name: "Starting later…" }));
-    const drawer = screen.getByRole("dialog", { name: "Change regular week" });
+    const drawer = screen.getByRole("dialog", { name: "Change regular hours" });
     const ids = Array.from(document.querySelectorAll("[id]")).map((el) => el.id);
     expect(ids.filter((id, i) => ids.indexOf(id) !== i)).toEqual([]);
     expect(within(drawer).getAllByRole("textbox", { name: /Service name/ }).length).toBeGreaterThan(
@@ -187,10 +189,10 @@ describe("SchedulesTab", () => {
     expect(panelBody.getAllByRole("textbox", { name: /Service name/ }).length).toBeGreaterThan(0);
   });
 
-  it("Starting later… opens Change regular week with Starting empty", () => {
+  it("Starting later… opens Change regular hours with Starting empty", () => {
     renderWith(<Layer state={state()} />);
     fireEvent.click(screen.getByRole("button", { name: "Starting later…" }));
-    expect(screen.getByRole("dialog", { name: "Change regular week" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Change regular hours" })).toBeInTheDocument();
   });
 
   it("shows short actions and keeps the schedule's name in what is spoken (#7980)", () => {
@@ -224,7 +226,9 @@ describe("SchedulesTab", () => {
   it("starts a duplicate named as a copy", () => {
     renderWith(<Layer state={state()} />);
     fireEvent.click(screen.getByRole("button", { name: "Duplicate Weeknight" }));
-    expect(screen.getByRole("textbox", { name: /Schedule name/ })).toHaveValue("Weeknight (copy)");
+    expect(screen.getByRole("textbox", { name: /Seasonal hours name/ })).toHaveValue(
+      "Weeknight (copy)"
+    );
   });
 });
 
@@ -236,7 +240,7 @@ describe("CompareServices", () => {
 
   it("ties why Save is off to the button, so a screen reader hears it there (#7979)", () => {
     renderWith(<CompareServices {...common} state={state()} />);
-    const save = screen.getByRole("button", { name: /^Save 0 schedules$/ });
+    const save = screen.getByRole("button", { name: /^Save 0 seasonal hours$/ });
     expect(save).toBeDisabled();
     expect(save).toHaveAccessibleDescription("Change a row to save.");
   });
@@ -252,10 +256,10 @@ describe("CompareServices", () => {
 
     expect(screen.getAllByRole("status")).toHaveLength(1);
     expect(screen.getByRole("status")).toHaveTextContent(
-      /^Changes 2 schedules · \d+ future dates$/
+      /^Changes 2 seasonal hours · \d+ future dates$/
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Save 2 schedules" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save 2 seasonal hours" }));
     await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
     const body = save.mock.calls[0]?.[0].body;
     expect(body.expectedVersion).toBe(7);
@@ -269,6 +273,6 @@ describe("CompareServices", () => {
 
   it("does not offer a save until something changed", () => {
     renderWith(<CompareServices {...common} state={state()} />);
-    expect(screen.getByRole("button", { name: "Save 0 schedules" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save 0 seasonal hours" })).toBeDisabled();
   });
 });
