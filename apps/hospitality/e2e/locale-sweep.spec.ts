@@ -731,6 +731,54 @@ async function mockGatedRoutes(page: Page, route: string): Promise<void> {
   for (const [pattern, data] of answers) {
     await page.route(pattern, (r) => r.fulfill(ok(data)));
   }
+  // `availability/explain` (#10047) reads the engine's trace for the date and party its address
+  // names, so the answer echoes the request. One bookable time and two removed for different
+  // reasons (the shape availability-explain-day.spec.ts serves), so the reason copy is swept.
+  await page.route(/\/api\/v1\/venues\/[^/?]+\/availability\/trace(\?.*)?$/, (r) => {
+    const params = new URL(r.request().url()).searchParams;
+    const serviceDate = params.get("date") ?? day;
+    const partySize = Number(params.get("partySize") ?? 2);
+    const at = (minute: number, rest: Record<string, unknown> = {}) => ({
+      serviceId: "vs-dinner",
+      serviceName: "Dinner",
+      minute,
+      time: `${Math.floor(minute / 60)}:00`,
+      startsAt: null,
+      outcome: "bookable",
+      ...rest,
+    });
+    return r.fulfill(
+      ok({
+        serviceDate,
+        partySize,
+        channel: "online",
+        basis: "current_rules",
+        day: {
+          serviceDate,
+          scheduleId: "regular",
+          services: [],
+          closures: [],
+          bookingOpen: { online: true, phone: true, waitlist: false },
+          explanation: [],
+        },
+        times: [
+          at(1020),
+          at(1140, {
+            outcome: "removed",
+            reason: {
+              code: "pacing",
+              scope: "venue",
+              limit: 3,
+              windowMinutes: 15,
+              covers: 3,
+              partySize,
+            },
+          }),
+          at(1200, { outcome: "removed", reason: { code: "no_free_table", suitableTables: 4 } }),
+        ],
+      })
+    );
+  });
   if (route === "floor-plans/:id") {
     await page.route(/\/api\/v1\/floor-plans\/[^/?]+(\?.*)?$/, (r) => r.fulfill(ok(EDITOR_PLAN)));
   }
