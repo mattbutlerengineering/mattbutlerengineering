@@ -77,10 +77,14 @@ describe("reservation block text contrast (#10036)", () => {
 describe("now label placement and contrast (#10036)", () => {
   const rules = parseRules("TimelineGrid.module.css");
 
-  it("is centred in the header band, clear of the first table row", () => {
+  // #10062: centred in the 40px header band, the opaque chip covered the hour heading beside it
+  // ('7 PM' at 19:10). Below the band it can never meet a heading.
+  it("sits below the hour header band, so it never covers an hour heading", () => {
     const declarations = rule(rules, ".currentTimeLabel");
-    expect(declarations.get("inset-block-start")).toBe("calc(var(--timeline-header-height) / 2)");
-    expect(declarations.get("transform")).toBe("translateY(-50%)");
+    expect(declarations.get("inset-block-start")).toBe(
+      "calc(var(--timeline-header-height) + var(--rialto-space-2xs))"
+    );
+    expect(declarations.has("transform")).toBe(false);
   });
 
   it("is layered above the sticky header, so it covers an hour heading instead of mixing with it", () => {
