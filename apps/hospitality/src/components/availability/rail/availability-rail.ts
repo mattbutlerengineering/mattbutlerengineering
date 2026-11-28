@@ -21,7 +21,8 @@ export type RailKey =
   | "availabilityHub.hub.closures.title"
   | "availabilityHub.routes.bookingRules"
   | "availabilityHub.routes.calendar"
-  | "availabilityHub.routes.history";
+  | "availabilityHub.routes.history"
+  | "availabilityHub.guide.title";
 
 /** A fixed node is named by a catalog key; a record (a service, a schedule, a plan) by its name. */
 export type RailLabel = { readonly key: RailKey } | { readonly text: string };
@@ -52,6 +53,9 @@ export interface RailInput {
 
 /** Until floor plans move under Availability (#9944 S3), a plan opens where it is edited today. */
 const floorPlanPath = (id: string): string => `/floor-plans/${encodeURIComponent(id)}`;
+
+/** The "How availability works" guide (#10034); not an Availability address, so no address builder. */
+const GUIDE_PATH = "/help/availability";
 
 function regularServices(config: AvailabilityConfig, serviceDate: string): RailNode[] {
   const regular = visibleSchedules(config, serviceDate).find((s) => s.isRegular);
@@ -156,6 +160,11 @@ export function buildAvailabilityRail(input: RailInput): RailGroup[] {
           id: "history",
           label: { key: "availabilityHub.routes.history" },
           to: availabilityPath({ view: "history" }),
+        },
+        {
+          id: "help",
+          label: { key: "availabilityHub.guide.title" },
+          to: GUIDE_PATH,
         },
       ],
     },

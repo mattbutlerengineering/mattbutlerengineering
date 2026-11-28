@@ -118,8 +118,17 @@ describe("buildAvailabilityRail", () => {
     // The floor plan editor is Manager-only too (until S3 gives a Host a plan to view).
     expect(hostIds.some((id) => id.startsWith("floorPlan:"))).toBe(false);
     expect(hostIds).toEqual(
-      expect.arrayContaining(["overview", "closures", "calendar", "history"])
+      expect.arrayContaining(["overview", "closures", "calendar", "history", "help"])
     );
+  });
+
+  it("links the How availability works guide after History in the views group", () => {
+    const views = rail().find((g) => g.id === "views");
+    expect(views?.nodes.map((n) => n.id)).toEqual(["calendar", "history", "help"]);
+    expect(find(all(rail()), "help")).toMatchObject({
+      label: { key: "availabilityHub.guide.title" },
+      to: "/help/availability",
+    });
   });
 });
 
