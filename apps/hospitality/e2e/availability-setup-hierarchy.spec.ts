@@ -252,8 +252,8 @@ test.describe("Setup hierarchy: the layered Availability page", () => {
     await rail(page).getByRole("link", { name: "Booking rules" }).click();
     await expect(page).toHaveURL(/\/availability\/booking-rules$/);
     await expect(page.getByTestId("booking-rules-page")).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(page.getByTestId("booking-rules-page")).toHaveCount(0);
+    await page.getByTestId("booking-rules-page").getByRole("button", { name: "Cancel" }).click();
+    await expect(page).toHaveURL(/\/availability$/);
   });
 
   test("(a) editors per resource type: before on 7c051456f, after is one primary editor each", async ({
@@ -310,7 +310,6 @@ test.describe("Setup hierarchy: the layered Availability page", () => {
     await page.goto("availability/booking-rules");
     await expect(page.getByTestId("booking-rules-page")).toBeVisible();
     await visit(PRIMARY_BOOKING);
-    await page.keyboard.press("Escape");
     await page.goto("availability/floor-plans");
     await page.getByRole("button", { name: /New Floor Plan/i }).click();
     await expect(page.getByRole("dialog", { name: /floor plan/i })).toBeVisible();
@@ -408,8 +407,8 @@ test.describe("Setup hierarchy: the layered Availability page", () => {
     await page.goto("availability");
     await page.getByRole("link", { name: "Edit Booking rules" }).click();
     await expect(page.getByTestId("booking-rules-page")).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(page.getByTestId("booking-rules-page")).toHaveCount(0);
+    await page.getByTestId("booking-rules-page").getByRole("button", { name: "Cancel" }).click();
+    await expect(page).toHaveURL(/\/availability$/);
     // History: the hub's History link, a drawer at its own address (availability-hub C2.6).
     // Its own Close button, not Escape: Escape pressed before the drawer has taken focus is lost.
     await page.route(/\/api\/v1\/venues\/[^/?]+\/availability\/changes(\?|$)/, (route) =>
