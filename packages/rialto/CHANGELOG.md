@@ -1,5 +1,11 @@
 # @mattbutlerengineering/rialto
 
+## 3.1.18
+
+### Patch Changes
+
+- [#10242](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/10242) [`76130f7`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/76130f7e91766be4190653192c5ff38c6b3ac417) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - SegmentedControl segments take an optional `ariaLabel`, so a segment whose visible `label` is shortened to fit still gives a screen reader its full name.
+
 ## 3.1.17
 
 ### Patch Changes
