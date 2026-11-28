@@ -51,7 +51,7 @@ State transitions (`ready`/`in-progress`/`has-pr`/`agent-failed`/`agent-skip`) a
 **Probe main's strictness every iteration** (branch protection is repo state, not code) with `scripts/main-strictness.mjs` and pass the result as `strictMain`. The probe fails closed: only a successfully parsed literal `strict: false` yields `strictMain: false`; an error, non-JSON, or missing field yields `true`. When `strictMain` is `false`, a zone may admit further issues whose extracted file paths are non-empty and prefix-aware disjoint from those already admitted in that zone; the per-zone merge-train lock still serializes the merges themselves. Even when `strictMain` is `false`, `selectZoneSpreadBatch` admits at most one issue per shared registry path — `.claude/rules/gotchas.md`, `CLAUDE.md`, `.claude/settings.json`, `.claude/implement-queue.md`, `docs/scheduled-tasks.md`, `scripts/routine-manifest.mjs`, `docs/factory/costs.jsonl` — and per `.github/workflows/*.yml` file, across zones.
 
 ```js
-import { selectZoneSpreadBatch, issueZone } from "./scripts/issue-zone.mjs";
+import { selectZoneSpreadBatch, fillZoneWorkerBatches } from "./scripts/issue-zone.mjs";
 import { probeMainStrictness } from "./scripts/main-strictness.mjs";
 
 // `ready` = candidates already priority-sorted (Sort above) and
@@ -64,24 +64,9 @@ const batch = selectZoneSpreadBatch(ready, { maxWorkers: 3, strictMain });
 // in priority order, so one worker opens one PR for the whole zone batch.
 // Never fill with a `security` or `tier:sensitive` issue, an issue with an
 // open `Depends on:`, or a global (`null`) zone issue; those stay solo.
-const isSolo = (issue) =>
-  issueZone(issue) === null ||
-  issue.labels
-    .map((l) => (typeof l === "string" ? l : l?.name)) // gh --json labels gives objects
-    .some((name) => name === "security" || name === "tier:sensitive");
-const claimed = new Set(batch.map((issue) => issue.number));
-const workerBatches = batch.map((lead) => {
-  const group = [lead];
-  if (isSolo(lead)) return group;
-  for (const issue of ready) {
-    if (group.length === 3) break;
-    if (claimed.has(issue.number) || isSolo(issue)) continue;
-    if (issueZone(issue) !== issueZone(lead)) continue;
-    claimed.add(issue.number);
-    group.push(issue);
-  }
-  return group;
-});
+// A fill is also skipped when it lists a shared-registry path or workflow
+// file that another worker batch already holds (#10217).
+const workerBatches = fillZoneWorkerBatches(batch, ready, { maxPerWorker: 3 });
 ```
 
 Each issue's zone is estimated from its conventional-commit scope via `issueZone(issue)`, which reuses the shared zone vocabulary (`scripts/zone-vocabulary.mjs`, `WORKSPACE_ROOTS` + `zoneForPath`) — there is no second, divergent zone list.
