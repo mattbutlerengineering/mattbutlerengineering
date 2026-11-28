@@ -4,7 +4,13 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { REPO_AUDIT_CHECKS } from "../run-repo-audit.mjs";
-import { findConflictingIssues, UNVERIFIED_EXIT_CODES } from "../check-ready-label-exclusive.mjs";
+import {
+  findConflictingIssues,
+  readyIssuesFromRestPages,
+  READY_ISSUES_GH_ARGS,
+  READY_ISSUES_REST_PATH,
+  UNVERIFIED_EXIT_CODES,
+} from "../check-ready-label-exclusive.mjs";
 
 const SCRIPT = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -58,15 +64,57 @@ describe("wiring", () => {
   });
 });
 
-// #9922: the check reads live GitHub state, and `gh` cannot answer in a CCR
-// session (GraphQL blocked) or in CI's Build job (no token). It used to exit 0
-// there, so repo-audit printed `PASS` for a gate that never ran.
+/**
+ * The gate reads GitHub over REST. `gh issue list` is GraphQL-backed and
+ * GitHub GraphQL answers `403` from a Claude Code session, so the gate could
+ * only ever resolve on a developer machine or in CI's Build job -- never in
+ * the cloud routines that decide what the `ready` queue hands to an agent.
+ */
+describe("ready-issue reader", () => {
+  it("queries the REST issues endpoint, not a GraphQL-backed gh subcommand", () => {
+    expect(READY_ISSUES_GH_ARGS[0]).toBe("api");
+    expect(READY_ISSUES_GH_ARGS).not.toContain("issue");
+    expect(READY_ISSUES_REST_PATH).toMatch(/^repos\/\{owner\}\/\{repo\}\/issues\?/);
+    expect(READY_ISSUES_REST_PATH).toContain("state=open");
+    expect(READY_ISSUES_REST_PATH).toContain("labels=ready");
+  });
+
+  it("pages, so a queue longer than one page is still fully read", () => {
+    expect(READY_ISSUES_GH_ARGS).toContain("--paginate");
+    expect(READY_ISSUES_GH_ARGS).toContain("--slurp");
+  });
+});
+
+describe("readyIssuesFromRestPages", () => {
+  it("flattens the pages `gh api --paginate --slurp` returns", () => {
+    const pages = [[issue(1, ["ready"]), issue(2, ["ready"])], [issue(3, ["ready"])]];
+
+    expect(readyIssuesFromRestPages(pages).map((i) => i.number)).toEqual([1, 2, 3]);
+  });
+
+  it("drops pull requests, which the REST issues endpoint returns as issues", () => {
+    const pr = { ...issue(4, ["ready", "ready-for-human"]), pull_request: { url: "u" } };
+    const pages = [[issue(5, ["ready"]), pr]];
+
+    expect(readyIssuesFromRestPages(pages).map((i) => i.number)).toEqual([5]);
+    expect(findConflictingIssues(readyIssuesFromRestPages(pages)).findings).toEqual([]);
+  });
+
+  it("accepts an already-flat response and an empty one", () => {
+    expect(readyIssuesFromRestPages([issue(6, ["ready"])]).map((i) => i.number)).toEqual([6]);
+    expect(readyIssuesFromRestPages([])).toEqual([]);
+  });
+});
+
+// #9922: the check reads live GitHub state, and `gh` cannot always answer --
+// offline, or with no token in the environment. It used to exit 0 there, so
+// repo-audit printed `PASS` for a gate that never ran.
 describe("unreachable GitHub", () => {
   it("exits with the declared unverified code rather than 0", () => {
     const result = spawnSync(process.execPath, [SCRIPT], {
       encoding: "utf8",
       // `gh` resolves nowhere, so the query throws ENOENT -- the same path a
-      // missing token or a GraphQL-blocked session takes.
+      // missing token or an offline runner takes.
       env: { ...process.env, PATH: dirname(process.execPath) },
     });
 
