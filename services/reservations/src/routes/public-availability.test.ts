@@ -450,10 +450,14 @@ describe("GET /public/v1/venues/:slug/availability", () => {
       };
       const DATES = "/public/v1/venues/the-oak-table/availability/dates";
       // Real clock (a faked one skews the shared rate-limit store): dates are venue-local offsets from today.
-      const inDays = (n: number) =>
-        new Date(Date.now() + n * 86_400_000).toLocaleDateString("en-CA", {
-          timeZone: "America/Los_Angeles",
-        });
+      // Calendar-day arithmetic, like bookingWindow: adding 24 h per day drifts a date across a DST change.
+      const inDays = (n: number) => {
+        const [y, m, d] = new Date()
+          .toLocaleDateString("en-CA", { timeZone: "America/Los_Angeles" })
+          .split("-")
+          .map(Number);
+        return new Date(Date.UTC(y!, m! - 1, d! + n)).toISOString().slice(0, 10);
+      };
       const lastRange = () => vi.mocked(availabilityService.getClosedDates).mock.calls.at(-1);
 
       beforeEach(() => {
