@@ -19,6 +19,12 @@
   border: 1px solid var(--rialto-border);
 }
 
+/* Centering shrinks the Meter to its content, collapsing its space-between
+   label row ("Cancellation Rate25%", #10037): stretch it to the tile width. */
+.meterTile {
+  align-items: stretch;
+}
+
 .figure {
   color: var(--rialto-text-primary);
 }
