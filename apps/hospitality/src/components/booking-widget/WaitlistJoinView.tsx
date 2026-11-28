@@ -106,7 +106,7 @@ export function WaitlistJoinView({
       </div>
 
       <div className={styles.noAvailability}>
-        <Heading className={styles.noAvailabilityHeading}>
+        <Heading level={3} size={5} className={styles.noAvailabilityHeading}>
           {t("bookingWidget.waitlist.noTablesHeading")}
         </Heading>
         <Text className={styles.noAvailabilityDetail}>

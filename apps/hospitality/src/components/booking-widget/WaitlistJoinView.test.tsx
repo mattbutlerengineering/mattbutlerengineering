@@ -45,7 +45,14 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     </div>
   ),
   Text: ({ children, className }: any) => <span className={className}>{children}</span>,
-  Heading: ({ children, className }: any) => <h3 className={className}>{children}</h3>,
+  Heading: ({ children, className, level = 2, size }: any) => {
+    const Tag = `h${level}` as any;
+    return (
+      <Tag className={className} data-size={size ?? level}>
+        {children}
+      </Tag>
+    );
+  },
 }));
 
 const mockApi = {
@@ -81,6 +88,14 @@ describe("WaitlistJoinView", () => {
     render(<WaitlistJoinView {...DEFAULT_PROPS} />);
     expect(screen.getAllByText(/No tables available/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/~30 min/i)).toBeDefined();
+  });
+
+  it("titles no-availability with a small h3 under the card's h2, and says it once (#9998)", () => {
+    render(<WaitlistJoinView {...DEFAULT_PROPS} />);
+    const heading = screen.getByRole("heading", { name: /No tables available/i });
+    expect(heading.tagName).toBe("H3");
+    expect(heading.getAttribute("data-size")).toBe("5");
+    expect(screen.getAllByText(/No tables available/i)).toHaveLength(1);
   });
 
   it("shows the requested date in the no-availability message without a fabricated time", () => {

@@ -7,7 +7,7 @@ function fakePrisma(existingSchedules = 0, existingPlan = false, existingMenus =
     $executeRaw: vi.fn().mockResolvedValue(1),
     $executeRawUnsafe: vi.fn().mockResolvedValue(0),
     venueGroup: { upsert: vi.fn().mockResolvedValue({ id: "g1" }) },
-    venue: { upsert: vi.fn().mockResolvedValue({ id: DEMO_VENUE_ID }) },
+    venue: { upsert: vi.fn().mockResolvedValue({ id: DEMO_VENUE_ID }), update: vi.fn() },
     schedule: {
       count: vi.fn().mockResolvedValue(existingSchedules),
       createMany: vi.fn(),
@@ -47,6 +47,30 @@ describe("ensureDemoVenue", () => {
     expect(args.where).toEqual({ id: DEMO_VENUE_ID });
     expect(args.create.slug).toBe("demo-bistro");
     expect(args.update).toEqual({});
+  });
+
+  it("seeds a fictional 555-01xx phone so the 12+ party call link has a number (#9998)", async () => {
+    const { prisma, tx } = fakePrisma();
+    await ensureDemoVenue(prisma);
+    const args = tx.venue.upsert.mock.calls[0]?.[0];
+    expect(args.create.settings.phone).toMatch(/555-01\d\d$/);
+  });
+
+  it("backfills the phone onto an already-seeded demo venue that has none, keeping its other settings (#9998)", async () => {
+    const { prisma, tx } = fakePrisma();
+    tx.venue.upsert.mockResolvedValue({ id: DEMO_VENUE_ID, settings: { maxPartySize: 12 } });
+    await ensureDemoVenue(prisma);
+    expect(tx.venue.update).toHaveBeenCalledWith({
+      where: { id: DEMO_VENUE_ID },
+      data: { settings: { maxPartySize: 12, phone: "(206) 555-0142" } },
+    });
+  });
+
+  it("leaves a phone an operator already set on the demo venue untouched", async () => {
+    const { prisma, tx } = fakePrisma();
+    tx.venue.upsert.mockResolvedValue({ id: DEMO_VENUE_ID, settings: { phone: "(206) 555-0199" } });
+    await ensureDemoVenue(prisma);
+    expect(tx.venue.update).not.toHaveBeenCalled();
   });
 
   it("writes availability rows once and skips them when already present", async () => {

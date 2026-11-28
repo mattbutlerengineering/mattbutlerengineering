@@ -1559,9 +1559,9 @@
     },
     "waitlist": {
       "noTablesHeading": "No hay mesas disponibles",
-      "noTablesDetail_one": "No hay mesas disponibles el {{date}} para {{count}} persona.",
-      "noTablesDetail_many": "No hay mesas disponibles el {{date}} para {{count}} de personas.",
-      "noTablesDetail_other": "No hay mesas disponibles el {{date}} para {{count}} personas.",
+      "noTablesDetail_one": "Todo reservado el {{date}} para {{count}} persona.",
+      "noTablesDetail_many": "Todo reservado el {{date}} para {{count}} de personas.",
+      "noTablesDetail_other": "Todo reservado el {{date}} para {{count}} personas.",
       "joinPrompt": "¿Unirte a la lista de espera?",
       "name": "Nombre",
       "namePlaceholder": "Tu nombre",
