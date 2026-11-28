@@ -10,6 +10,7 @@ import { cn } from "../../utils/class-composer";
 import { Checkbox } from "../Checkbox/Checkbox";
 import styles from "./DataTable.module.css";
 import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
+import { useOverflowingX } from "../Table/useOverflowingX";
 
 /* ── Types ───────────────────────────────────── */
 export type SortDirection = "asc" | "desc";
@@ -311,6 +312,15 @@ function DataTableInner<T extends Record<string, unknown>>(
 ) {
   const { messages } = useRialtoLocale();
   const emptyMessage = emptyMessageProp ?? messages.noData;
+  const [setScrollNode, scrollable] = useOverflowingX();
+  const setWrapperRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      setScrollNode(node);
+      if (typeof ref === "function") ref(node);
+      else if (ref) ref.current = node;
+    },
+    [ref, setScrollNode]
+  );
   const [sort, setSort] = useControllable<SortState | null>(sortProp, defaultSort, onSortChange);
   const [selected, setSelected] = useControllable<RowKey[]>(
     selectedKeysProp,
@@ -346,7 +356,14 @@ function DataTableInner<T extends Record<string, unknown>>(
   const totalCols = columns.length + (hasSelection ? 1 : 0);
 
   return (
-    <div ref={ref} className={cn(styles.wrapper, className)}>
+    <div
+      ref={setWrapperRef}
+      className={cn(styles.wrapper, className)}
+      // Same rule as Table: a tab stop only while the grid really scrolls.
+      {...(scrollable
+        ? { tabIndex: 0, role: "group", "aria-label": label ?? messages.scrollableContent }
+        : {})}
+    >
       <table
         className={cn(styles.table, densityClass)}
         role="grid"

@@ -281,7 +281,13 @@ export function TapeChartPage() {
           />
 
           <Card variant="flat">
+            {/* Scrolls sideways on narrow screens: keyboard-reachable and named (axe
+                scrollable-region-focusable). A role is needed for aria-label to be allowed. */}
             <pre
+              // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- scroll container must be focusable for keyboard scrolling
+              tabIndex={0}
+              role="group"
+              aria-label="classifyOverlap code sample"
               style={{
                 margin: 0,
                 fontFamily: "var(--rialto-font-mono)",
