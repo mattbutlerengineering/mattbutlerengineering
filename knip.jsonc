@@ -43,7 +43,6 @@
         ".claude/hooks/hook-input.mjs",
         ".claude/hooks/secret-scan.mjs",
         ".claude/skills/sentry-triage/scripts/fetch-issues.mjs",
-        ".claude/skills/sentry-triage/scripts/triage.mjs",
       ],
     },
     "apps/*": {
@@ -125,7 +124,6 @@
       "ignoreDependencies": [
         "@prisma/client",
         "@prisma/client-runtime-utils",
-        "@mbe/sentry",
         "@fastify/rate-limit",
       ],
     },
