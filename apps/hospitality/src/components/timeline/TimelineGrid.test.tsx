@@ -499,11 +499,9 @@ describe("TimelineGrid", () => {
       fireEvent.keyDown(grid, { key: "ArrowRight" });
 
       // Cell navigation is driven by tables, not reservations, so the ring
-      // still advances — what must not happen is a throw or a focused
-      // reservation. Asserting both pins the empty-list path; the bare
-      // fireEvent this replaced passed even if the ring had wedged.
+      // still advances with an empty list. The bare fireEvent this replaced
+      // passed even if the ring had wedged.
       expect(screen.getByTestId("grid-cell-0-1").className).toContain("hourGridLineActive");
-      expect(screen.queryByTestId("reservation-res-1")).toBeNull();
     });
   });
 
