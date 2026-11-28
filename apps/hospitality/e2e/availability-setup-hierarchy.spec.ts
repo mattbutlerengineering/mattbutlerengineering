@@ -311,12 +311,12 @@ test.describe("Setup hierarchy: the layered Availability page", () => {
     await expect(page.getByRole("dialog", { name: "Booking rules" })).toBeVisible();
     await visit(PRIMARY_BOOKING);
     await page.keyboard.press("Escape");
-    await page.goto("floor-plans");
+    await page.goto("availability/floor-plans");
     await page.getByRole("button", { name: /New Floor Plan/i }).click();
     await expect(page.getByRole("dialog", { name: /floor plan/i })).toBeVisible();
     await visit(PRIMARY_NEW_FLOOR_PLAN);
     await page.keyboard.press("Escape");
-    await page.goto("floor-plans/fp_e2e_001");
+    await page.goto("availability/floor-plans/fp_e2e_001");
     await expect(page.getByRole("button", { name: /Add Table/i })).toBeVisible();
     await visit(PRIMARY_FLOOR_PLAN_EDITOR);
     await mockEmptyVenue(page, { derive: true });

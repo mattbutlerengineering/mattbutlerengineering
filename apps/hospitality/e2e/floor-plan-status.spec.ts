@@ -104,7 +104,7 @@ test.describe("Floor plan: live table status colors (#3803)", () => {
     const sse = await mockApi(page);
     await mockTableStatuses(page, "available");
 
-    await page.goto("floor-plans/fp_e2e_001");
+    await page.goto("availability/floor-plans/fp_e2e_001");
     await expect(page.getByRole("heading", { name: "Main Floor" })).toBeVisible();
     await expect(page.locator("canvas").first()).toBeVisible();
 

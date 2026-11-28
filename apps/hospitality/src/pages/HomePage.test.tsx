@@ -672,7 +672,7 @@ describe("HomePage", () => {
     // Walk-in carries the URL intent the Timeline consumes (ux.md Flow 5): today's grid, dialog open.
     expect(mockNavigate.mock.calls.map((call) => call[0])).toEqual([
       "/timeline?walkin=true",
-      "/floor-plans",
+      "/availability/floor-plans",
       "/guests",
       "/booking-widget",
     ]);

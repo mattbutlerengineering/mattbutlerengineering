@@ -36,6 +36,7 @@ import { REHEARSAL_PARAM } from "../utils/timeline-intent.js";
 import { useTableStatuses } from "../hooks/useSSESync.js";
 import { useTableGuestSignalBadges } from "../hooks/useTableGuestSignalBadges.js";
 import styles from "./FloorPlanEditorPage.module.css";
+import { availabilityPath } from "../components/availability/availability-address.js";
 
 function LiveFloorPlanEditorPage() {
   const { t } = useTranslation();
@@ -292,7 +293,10 @@ function LiveFloorPlanEditorPage() {
           error={displayError ?? t("floorPlan.editor.notFound")}
           onRetry={refetch}
         />
-        <Button onClick={() => navigate("/floor-plans")} className={styles.backLink}>
+        <Button
+          onClick={() => navigate(availabilityPath({ view: "floorPlans" }))}
+          className={styles.backLink}
+        >
           {t("floorPlan.editor.backToList")}
         </Button>
       </div>
@@ -305,7 +309,7 @@ function LiveFloorPlanEditorPage() {
       <div className={styles.header}>
         <div className={styles.headerLeft}>
           <Button
-            onClick={() => navigate("/floor-plans")}
+            onClick={() => navigate(availabilityPath({ view: "floorPlans" }))}
             className={styles.backButton}
             aria-label={t("floorPlan.editor.backAria")}
           >

@@ -171,7 +171,7 @@ describe("AvailabilityExplainPage", () => {
     );
     expect(screen.getByRole("link", { name: "Edit the floor plan, for 8:00 PM" })).toHaveAttribute(
       "href",
-      "/floor-plans"
+      "/availability/floor-plans"
     );
   });
 

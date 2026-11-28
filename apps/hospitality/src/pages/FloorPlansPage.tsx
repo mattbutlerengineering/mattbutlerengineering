@@ -25,6 +25,7 @@ import { useFloorPlans, useCloneFloorPlan, useDeleteFloorPlan } from "../hooks/u
 import { useApiClient } from "../hooks/useApiClient.js";
 import { useVenueFormat } from "../hooks/useVenueFormat.js";
 import styles from "./FloorPlansPage.module.css";
+import { availabilityPath } from "../components/availability/availability-address.js";
 
 /* ── Loading skeleton ───────────────────────── */
 
@@ -101,7 +102,7 @@ export function FloorPlansPage() {
       try {
         const cloned = await cloneMutation.mutateAsync(id);
         setLiveMessage(t("floorPlan.list.cloned", { name: cloned.name }));
-        navigate(`/floor-plans/${cloned.id}`);
+        navigate(availabilityPath({ view: "floorPlans", floorPlanId: cloned.id }));
       } catch (err) {
         setActionFailure(cloneFailureFrom(err, t));
       }
@@ -130,7 +131,7 @@ export function FloorPlansPage() {
 
   const handleCreated = useCallback(
     (floorPlan: FloorPlan) => {
-      navigate(`/floor-plans/${floorPlan.id}`);
+      navigate(availabilityPath({ view: "floorPlans", floorPlanId: floorPlan.id }));
     },
     [navigate]
   );
@@ -235,7 +236,9 @@ export function FloorPlansPage() {
               <article key={floorPlan.id} className={styles.card}>
                 <Button
                   variant="ghost"
-                  onClick={() => navigate(`/floor-plans/${floorPlan.id}`)}
+                  onClick={() =>
+                    navigate(availabilityPath({ view: "floorPlans", floorPlanId: floorPlan.id }))
+                  }
                   className={styles.cardOpenButton}
                   type="button"
                 >

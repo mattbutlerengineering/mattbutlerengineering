@@ -131,7 +131,7 @@ test.describe("Explain this day", () => {
     ).toHaveAttribute("href", /\/availability\/booking-rules$/);
     await expect(
       rows.nth(2).getByRole("link", { name: "Edit the floor plan, for 8:00 PM" })
-    ).toHaveAttribute("href", /\/floor-plans$/);
+    ).toHaveAttribute("href", /\/availability\/floor-plans$/);
     expect(urls.some((url) => url.includes(`date=${DATE}`))).toBe(true);
   });
 

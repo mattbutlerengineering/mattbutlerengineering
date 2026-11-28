@@ -218,7 +218,7 @@ describe("AvailabilityLayout", () => {
       expect(within(rail()).getByText("Where guests sit")).toBeInTheDocument();
       expect(within(rail()).getByRole("link", { name: "Main floor" })).toHaveAttribute(
         "href",
-        "/floor-plans/fp-1"
+        "/availability/floor-plans/fp-1"
       );
     });
 
