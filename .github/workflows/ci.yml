@@ -254,20 +254,29 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-turbo-${{ hashFiles('pnpm-lock.yaml') }}-
 
-      - name: Lint
-        run: pnpm lint
+      # #10009: one turbo invocation, not `pnpm lint` then `pnpm typecheck`.
+      # Both task graphs end in a long single-package tail (the big apps), so
+      # running them in series left most of the 4-core runner idle twice;
+      # together turbo schedules one graph's tail against the other's queue.
+      # Measured locally on 4 cores (`turbo run ... --only --force`, two
+      # trials): 257 s / 236 s in series versus 217 s / 216 s combined.
+      #
+      # `--continue` keeps the protection the two `if: ${{ !cancelled() }}`
+      # steps gave: every package's lint AND typecheck still runs after one of
+      # them fails, so one round reports every error, and the step still exits
+      # non-zero (a planted TS2322 exits 2, a planted `no-debugger` exits 1,
+      # both with every other task still executed).
+      - name: Lint and Typecheck
+        run: pnpm turbo run lint typecheck --continue
 
       # #6887: dead code / unused deps fail the gate. knip needs no build
       # output (knip.jsonc lists rialto-web's entries explicitly instead of
-      # loading its manifest-reading vite config). A bare command, so a
-      # non-zero exit fails the step.
+      # loading its manifest-reading vite config). Its own step, not folded
+      # into the turbo run above: knip is memory-heavy and is not a turbo task.
+      # A bare command, so a non-zero exit fails the step.
       - name: Dead code and unused dependencies (knip)
         if: ${{ !cancelled() }}
         run: pnpm check:knip
-
-      - name: Typecheck
-        if: ${{ !cancelled() }}
-        run: pnpm typecheck
 
       - name: Architecture Audit - build CLI and its dependencies
         if: ${{ !cancelled() }}
