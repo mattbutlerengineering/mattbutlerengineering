@@ -183,7 +183,7 @@ describe("registerHealthRoutes", () => {
     appWithHighErrors.decorate("rateLimitMonitor", mockRateLimitMonitor);
     appWithHighErrors.decorate("latencyTracker", mockLatencyTracker);
     appWithHighErrors.decorate("getErrorRates", () => ({
-      endpoints: [{ endpoint: "/api/v1/test", total: 20, errors: 5, rate: 0.25 }],
+      endpoints: [{ endpoint: "/api/v1/test", total: 20, errors: 5, clientErrors: 0, rate: 0.25 }],
       degraded: true,
     }));
     await appWithHighErrors.register(registerHealthRoutes, createTestOptions());
@@ -260,6 +260,33 @@ describe("registerHealthRoutes", () => {
 
     expect(body.error_rates).toBeDefined();
     expect(body.error_rates.endpoints).toBeDefined();
+  });
+
+  it("serializes clientErrors per endpoint and stays ok when only client errors occurred", async () => {
+    mockPrisma.$queryRaw.mockResolvedValueOnce([{ "?column?": 1 }]);
+    const appWith401s = Fastify({ logger: false });
+    appWith401s.decorate("apiVersion", "v1");
+    appWith401s.decorate("sunsetDate", "2027-01-01");
+    appWith401s.decorate("rateLimitMonitor", mockRateLimitMonitor);
+    appWith401s.decorate("latencyTracker", mockLatencyTracker);
+    appWith401s.decorate("getErrorRates", () => ({
+      endpoints: [{ endpoint: "/api/v1/venues", total: 6, errors: 0, clientErrors: 6, rate: 0 }],
+      degraded: false,
+    }));
+    await appWith401s.register(registerHealthRoutes, createTestOptions());
+    await appWith401s.ready();
+
+    const response = await appWith401s.inject({ method: "GET", url: "/health" });
+    const body = JSON.parse(response.body);
+
+    expect(body.status).toBe("ok");
+    expect(body.error_rates.endpoints[0]).toEqual({
+      endpoint: "/api/v1/venues",
+      total: 6,
+      errors: 0,
+      clientErrors: 6,
+      rate: 0,
+    });
   });
 
   it("includes apiVersion and sunsetDate from server decorators", async () => {

@@ -95,7 +95,11 @@ const healthSchema = {
                 properties: {
                   endpoint: { type: "string" },
                   total: { type: "number" },
-                  errors: { type: "number" },
+                  errors: { type: "number", description: "Server errors (5xx) only" },
+                  clientErrors: {
+                    type: "number",
+                    description: "Client errors (4xx except 408/429/499); never degrades",
+                  },
                   rate: { type: "number" },
                 },
               },

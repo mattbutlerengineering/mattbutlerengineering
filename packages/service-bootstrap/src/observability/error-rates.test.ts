@@ -51,16 +51,91 @@ describe("createErrorRateTracker", () => {
     expect(entry.rate).toBe(1);
   });
 
-  it("treats status >= 400 as an error", () => {
+  it("treats 5xx as a server error", () => {
     const tracker = createErrorRateTracker();
-    [400, 401, 403, 404, 422, 500, 503].forEach((code) => {
+    [500, 502, 503, 504].forEach((code) => {
       tracker.record(`/api/${code}`, code);
     });
 
     const snap = tracker.snapshot();
+    expect(snap.endpoints).toHaveLength(4);
     for (const ep of snap.endpoints) {
       expect(ep.errors).toBe(1);
+      expect(ep.clientErrors).toBe(0);
     }
+  });
+
+  it("counts 4xx as client errors, not server errors", () => {
+    const tracker = createErrorRateTracker();
+    [400, 401, 403, 404, 422].forEach((code) => {
+      tracker.record(`/api/${code}`, code);
+    });
+
+    const snap = tracker.snapshot();
+    expect(snap.endpoints).toHaveLength(5);
+    for (const ep of snap.endpoints) {
+      expect(ep.errors).toBe(0);
+      expect(ep.rate).toBe(0);
+      expect(ep.clientErrors).toBe(1);
+    }
+  });
+
+  it("counts 408, 429 and 499 as neither server nor client errors", () => {
+    const tracker = createErrorRateTracker();
+    [408, 429, 499].forEach((code) => {
+      tracker.record(`/api/${code}`, code);
+    });
+
+    const snap = tracker.snapshot();
+    expect(snap.endpoints).toHaveLength(3);
+    for (const ep of snap.endpoints) {
+      expect(ep.total).toBe(1);
+      expect(ep.errors).toBe(0);
+      expect(ep.clientErrors).toBe(0);
+    }
+  });
+
+  it("does not degrade on six 401s on one endpoint, and reports them as client errors", () => {
+    const tracker = createErrorRateTracker();
+    for (let i = 0; i < 6; i++) tracker.record("/api/v1/venues", 401);
+
+    const snap = tracker.snapshot();
+    expect(snap.degraded).toBe(false);
+    expect(snap.endpoints).toEqual([
+      { endpoint: "/api/v1/venues", total: 6, errors: 0, clientErrors: 6, rate: 0 },
+    ]);
+  });
+
+  it("degrades on six 500s on one endpoint", () => {
+    const tracker = createErrorRateTracker();
+    for (let i = 0; i < 6; i++) tracker.record("/api/v1/venues", 500);
+
+    const snap = tracker.snapshot();
+    expect(snap.degraded).toBe(true);
+    expect(snap.endpoints[0]).toMatchObject({ errors: 6, clientErrors: 0, rate: 1 });
+  });
+
+  it("does not degrade on a burst of 429s or 404s", () => {
+    const tracker = createErrorRateTracker();
+    for (let i = 0; i < 10; i++) tracker.record("/api/v1/a", 429);
+    for (let i = 0; i < 10; i++) tracker.record("/api/v1/b", 404);
+
+    expect(tracker.snapshot().degraded).toBe(false);
+  });
+
+  it("does not let client errors dilute or add to the server error rate", () => {
+    const tracker = createErrorRateTracker();
+    // 1 server error in 10 requests (6 x 200, 3 x 401) = exactly 10%: not degraded
+    for (let i = 0; i < 6; i++) tracker.record("/api/v1/mix", 200);
+    for (let i = 0; i < 3; i++) tracker.record("/api/v1/mix", 401);
+    tracker.record("/api/v1/mix", 500);
+    expect(tracker.snapshot().degraded).toBe(false);
+
+    // one more server error: 2 in 11 = 18% > 10%
+    tracker.record("/api/v1/mix", 503);
+    const snap = tracker.snapshot();
+    expect(snap.degraded).toBe(true);
+    expect(snap.endpoints[0]).toMatchObject({ total: 11, errors: 2, clientErrors: 3 });
   });
 
   it("treats status < 400 as success", () => {
@@ -242,7 +317,7 @@ describe("createErrorRateTracker", () => {
 describe("createErrorRateHealthCheck", () => {
   it("returns status ok when no degraded endpoints", () => {
     const snapshot = {
-      endpoints: [{ endpoint: "/api/v1/users", total: 10, errors: 0, rate: 0 }],
+      endpoints: [{ endpoint: "/api/v1/users", total: 10, errors: 0, clientErrors: 0, rate: 0 }],
       degraded: false,
     };
     const result = createErrorRateHealthCheck(snapshot);
@@ -252,7 +327,7 @@ describe("createErrorRateHealthCheck", () => {
 
   it("returns status degraded when degraded=true", () => {
     const snapshot = {
-      endpoints: [{ endpoint: "/api/v1/users", total: 10, errors: 2, rate: 0.2 }],
+      endpoints: [{ endpoint: "/api/v1/users", total: 10, errors: 2, clientErrors: 0, rate: 0.2 }],
       degraded: true,
     };
     const result = createErrorRateHealthCheck(snapshot);
@@ -262,8 +337,8 @@ describe("createErrorRateHealthCheck", () => {
   it("returns message listing degraded endpoints with percentages", () => {
     const snapshot = {
       endpoints: [
-        { endpoint: "/api/v1/users", total: 10, errors: 2, rate: 0.2 },
-        { endpoint: "/api/v1/ok", total: 10, errors: 0, rate: 0 },
+        { endpoint: "/api/v1/users", total: 10, errors: 2, clientErrors: 0, rate: 0.2 },
+        { endpoint: "/api/v1/ok", total: 10, errors: 0, clientErrors: 0, rate: 0 },
       ],
       degraded: true,
     };
@@ -274,7 +349,7 @@ describe("createErrorRateHealthCheck", () => {
 
   it("passes through endpoints from the snapshot", () => {
     const snapshot = {
-      endpoints: [{ endpoint: "/api/v1/test", total: 5, errors: 1, rate: 0.2 }],
+      endpoints: [{ endpoint: "/api/v1/test", total: 5, errors: 1, clientErrors: 0, rate: 0.2 }],
       degraded: true,
     };
     const result = createErrorRateHealthCheck(snapshot);
@@ -291,7 +366,7 @@ describe("createErrorRateHealthCheck", () => {
   it("low-sample: returns ok even with 100% error rate if fewer than 5 requests", () => {
     // The degraded flag comes from the tracker — if tracker says not degraded, health check says ok
     const snapshot = {
-      endpoints: [{ endpoint: "/api/v1/new", total: 3, errors: 3, rate: 1.0 }],
+      endpoints: [{ endpoint: "/api/v1/new", total: 3, errors: 3, clientErrors: 0, rate: 1.0 }],
       degraded: false,
     };
     const result = createErrorRateHealthCheck(snapshot);
@@ -314,6 +389,38 @@ describe("errorRatePlugin_", () => {
     const snapshot = app.getErrorRates();
     expect(snapshot.degraded).toBe(false);
     expect(snapshot.endpoints.map((e) => e.endpoint)).toEqual(["/things"]);
+    await app.close();
+  });
+
+  it("counts 401s on a matched route as client errors without degrading", async () => {
+    const app = Fastify();
+    await app.register(errorRatePlugin_);
+    app.get("/secure", async (_req, reply) => reply.code(401).send());
+    await app.ready();
+
+    for (let i = 0; i < 6; i += 1) {
+      await app.inject({ method: "GET", url: "/secure" });
+    }
+
+    const snapshot = app.getErrorRates();
+    expect(snapshot.degraded).toBe(false);
+    expect(snapshot.endpoints).toEqual([
+      { endpoint: "/secure", total: 6, errors: 0, clientErrors: 6, rate: 0 },
+    ]);
+    await app.close();
+  });
+
+  it("still skips ignored paths", async () => {
+    const app = Fastify();
+    await app.register(errorRatePlugin_);
+    app.get("/health", async (_req, reply) => reply.code(503).send());
+    await app.ready();
+
+    for (let i = 0; i < 6; i += 1) {
+      await app.inject({ method: "GET", url: "/health" });
+    }
+
+    expect(app.getErrorRates().endpoints).toEqual([]);
     await app.close();
   });
 });

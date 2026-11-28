@@ -15,15 +15,20 @@ declare module "fastify" {
  * in health check responses.
  */
 
+type RequestOutcome = "ok" | "server-error" | "client-error";
+
 interface RequestRecord {
   readonly timestamp: number;
-  readonly isError: boolean;
+  readonly outcome: RequestOutcome;
 }
 
 export interface EndpointErrorRate {
   readonly endpoint: string;
   readonly total: number;
+  /** Server errors (5xx) only. Drives `rate` and degradation. */
   readonly errors: number;
+  /** Client errors (4xx except 408/429/499). Observable, never degrades. */
+  readonly clientErrors: number;
   readonly rate: number;
 }
 
@@ -42,13 +47,23 @@ const WINDOW_MS = 5 * 60 * 1000; // 5 minutes
 const DEGRADATION_THRESHOLD = 0.1; // 10% error rate
 const IGNORED_PATHS = new Set(["/health", "/docs", "/reference"]);
 
+// 408 (client timeout), 429 (the rate limiter working) and 499 (client closed
+// the request) are not faults the service or the caller's input caused.
+const NEUTRAL_CLIENT_STATUSES = new Set([408, 429, 499]);
+
+function classify(statusCode: number): RequestOutcome {
+  if (statusCode >= 500) return "server-error";
+  if (statusCode >= 400 && !NEUTRAL_CLIENT_STATUSES.has(statusCode)) return "client-error";
+  return "ok";
+}
+
 function createErrorRateTracker() {
   const records = new Map<string, RequestRecord[]>();
 
   function record(endpoint: string, statusCode: number): void {
     const entry: RequestRecord = {
       timestamp: Date.now(),
-      isError: statusCode >= 400,
+      outcome: classify(statusCode),
     };
 
     const existing = records.get(endpoint) ?? [];
@@ -75,10 +90,17 @@ function createErrorRateTracker() {
 
     for (const [endpoint, entries] of records) {
       const total = entries.length;
-      const errors = entries.filter((r) => r.isError).length;
+      const errors = entries.filter((r) => r.outcome === "server-error").length;
+      const clientErrors = entries.filter((r) => r.outcome === "client-error").length;
       const rate = total > 0 ? errors / total : 0;
 
-      endpoints.push({ endpoint, total, errors, rate: Math.round(rate * 1000) / 1000 });
+      endpoints.push({
+        endpoint,
+        total,
+        errors,
+        clientErrors,
+        rate: Math.round(rate * 1000) / 1000,
+      });
 
       if (rate > DEGRADATION_THRESHOLD && total >= 5) {
         degraded = true;
