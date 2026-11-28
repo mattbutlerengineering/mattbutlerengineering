@@ -10,6 +10,7 @@ import { siteCopyright, siteFooterColumns } from "@mbe/site-nav";
 import { AppNav } from "./components/AppNav.js";
 import { currentHostConfig } from "./lib/host-brand.js";
 import { useRobotsMeta } from "./hooks/useRobotsMeta.js";
+import { useIsNotFoundRoute } from "./hooks/useIsNotFoundRoute.js";
 import { useTheme } from "./hooks/use-theme";
 import { LoadingPage } from "./pages/LoadingPage";
 import { LoginGate } from "./components/LoginGate";
@@ -76,6 +77,11 @@ function UnauthenticatedShell({
   );
 }
 
+// Only an unknown URL renders it, and main.tsx already splits it into its own chunk.
+const NotFoundPage = lazy(() =>
+  import("./pages/NotFoundPage.js").then((m) => ({ default: m.NotFoundPage }))
+);
+
 // Signed-in only; lazy so the venue/query hooks stay off the public landing (#9976).
 const ThemeServerSync = lazy(() =>
   import("./components/ThemeServerSync.js").then((m) => ({ default: m.ThemeServerSync }))
@@ -128,6 +134,7 @@ function showsShowcaseLanding(
 export function App() {
   const gate = useAuthGate();
   const { pathname } = useLocation();
+  const notFound = useIsNotFoundRoute();
   const [navSky, setNavSky] = useState<NavSky>(null);
   // Only the public showcase landing is indexable; everything else behind App is not.
   useRobotsMeta(gate.phase !== "ready" && showsShowcaseLanding(gate, pathname));
@@ -160,6 +167,17 @@ export function App() {
         <UnauthenticatedShell nav={nav} landing>
           <Suspense fallback={<LoadingPage />}>
             <ShowcaseLanding onSkyChange={setNavSky} preferredTheme={resolved} />
+          </Suspense>
+        </UnauthenticatedShell>
+      );
+    }
+    // An unknown URL is not a staff deep link: a guest who mistypes a booking or
+    // menu link gets a not-found page with a way home, not the sign-in gate (#9990).
+    if (gate.phase === "signed-out" && notFound) {
+      return (
+        <UnauthenticatedShell nav={nav}>
+          <Suspense fallback={<LoadingPage />}>
+            <NotFoundPage guest />
           </Suspense>
         </UnauthenticatedShell>
       );

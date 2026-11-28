@@ -1772,7 +1772,11 @@
   },
   "notFound": {
     "message": "Cette table n'est pas sur le plan de salle de ce soir. Cette page n'a jamais été inscrite au livre des réservations.",
-    "back": "Retour au service de ce soir"
+    "back": "Retour au service de ce soir",
+    "guestTitle": "Page introuvable",
+    "guestMessage": "Il n’y a rien à cette adresse. Le lien est peut-être mal saisi, ou la page a été déplacée.",
+    "guestHome": "Aller à la page d’accueil",
+    "guestDocumentTitle": "Page introuvable - {{brand}}"
   },
   "chat": {
     "title": "Clavardage",

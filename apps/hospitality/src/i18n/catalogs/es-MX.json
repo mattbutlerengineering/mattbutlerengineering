@@ -1772,7 +1772,11 @@
   },
   "notFound": {
     "message": "Esta mesa no está en el plano de esta noche. Esa página nunca llegó al libro de reservas.",
-    "back": "Volver al servicio de esta noche"
+    "back": "Volver al servicio de esta noche",
+    "guestTitle": "Página no encontrada",
+    "guestMessage": "No hay nada en esta dirección. Puede que el enlace esté mal escrito o que la página se haya movido.",
+    "guestHome": "Ir a la página de inicio",
+    "guestDocumentTitle": "Página no encontrada - {{brand}}"
   },
   "chat": {
     "title": "Chat",

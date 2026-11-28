@@ -1733,7 +1733,11 @@
   },
   "notFound": {
     "message": "This table's not on tonight's floor plan. That page never made the reservation book.",
-    "back": "Back to tonight's service"
+    "back": "Back to tonight's service",
+    "guestTitle": "Page not found",
+    "guestMessage": "There's nothing at this address. The link may be mistyped, or the page may have moved.",
+    "guestHome": "Go to the home page",
+    "guestDocumentTitle": "Page not found - {{brand}}"
   },
   "chat": {
     "title": "Chat",
