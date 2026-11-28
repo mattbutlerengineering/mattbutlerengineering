@@ -227,4 +227,24 @@ describe("hospitality visual spec — every row lands where it asked, on a popul
     expect(spec).toMatch(/permissions:\s*\["admin"\]/);
     expect(spec).toMatch(/route === "admin"/);
   });
+
+  it("captures `availability/special-dates` with a closure and a special-hours date, for that route only", () => {
+    // The shared config has no date rules, which baselines the page's empty state (#10260).
+    const fixture = spec.slice(
+      spec.indexOf("function specialDatesConfigFixture()"),
+      spec.indexOf("/** A route whose populated state needs a query string")
+    );
+    expect(fixture).toMatch(/kind: "closure"/);
+    expect(fixture).toMatch(/kind: "special_hours"/);
+    // Fixed dates after FIXED_NOW's day: an upcoming row, the same on every run.
+    const day = spec.match(/const FIXED_NOW = new Date\("([0-9-]+)T/)[1];
+    const dates = [...fixture.matchAll(/(?:startsOn|endsOn): "(\d{4}-\d{2}-\d{2})"/g)].map(
+      (m) => m[1]
+    );
+    expect(dates.length).toBeGreaterThanOrEqual(4);
+    for (const date of dates) expect(date > day).toBe(true);
+    expect(body).toMatch(
+      /if \(route === "availability\/special-dates"\) \{[\s\S]*?specialDatesConfigFixture\(\)/
+    );
+  });
 });
