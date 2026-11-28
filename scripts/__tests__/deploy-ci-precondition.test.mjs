@@ -9,6 +9,7 @@ import {
   rerunTarget,
   shouldFailFast,
   shouldFailFastAfterRerun,
+  classifyRerun,
   CI_RUN_STATES,
 } from "../deploy-ci-precondition.mjs";
 
@@ -205,8 +206,49 @@ describe("CLI --after-rerun", () => {
     ).toEqual({ state: "running", failFast: false });
   });
 
+  it("keeps polling a concurrency-held rerun instead of breaking on the first poll", () => {
+    // Verbatim shape of the REST payload the workflow pipes in for a run
+    // `ci.yml`'s concurrency group is holding.
+    expect(
+      cli(["--after-rerun", JSON.stringify([{ status: "pending", conclusion: null }])])
+    ).toEqual({ state: "running", failFast: false });
+  });
+
   it("reports no failFast for an empty or unparseable rerun query", () => {
     expect(cli(["--after-rerun", "[]"])).toEqual({ state: "absent", failFast: false });
+  });
+});
+
+describe("classifyRerun", () => {
+  // The `--after-rerun` query reads the REST run object directly, whose
+  // `status` vocabulary is wider than `gh run list`'s. A run held by
+  // `ci.yml`'s concurrency group reports `pending` or `requested`, neither of
+  // which `classifyCiRun` knows -- it would call them `absent`, the verify
+  // loop would read that as "settled", break on its first poll, and fall
+  // straight through to the 1800s wait the loop exists to avoid.
+  it("treats a concurrency-held run as still running, not absent", () => {
+    expect(classifyRerun([{ status: "pending", conclusion: null }])).toBe("running");
+    expect(classifyRerun([{ status: "requested", conclusion: null }])).toBe("running");
+  });
+
+  it("agrees with classifyCiRun on every status it already knew", () => {
+    expect(classifyRerun([{ status: "queued", conclusion: null }])).toBe("running");
+    expect(classifyRerun([{ status: "in_progress", conclusion: null }])).toBe("running");
+    expect(classifyRerun([{ status: "waiting", conclusion: null }])).toBe("running");
+    expect(classifyRerun([done("cancelled")])).toBe("cancelled");
+    expect(classifyRerun([done("success")])).toBe("success");
+    expect(classifyRerun([done("failure")])).toBe("failed");
+  });
+
+  it("still reports absent for an empty query, so an unanswered read fails open", () => {
+    expect(classifyRerun([])).toBe("absent");
+  });
+
+  it("does not widen classifyCiRun itself, which would break the #5663 fail-fast", () => {
+    // shouldFailFast fires on `absent` + workflow_dispatch. If `pending`
+    // became `running` there, a dispatch on a commit with no CI run would
+    // stop failing fast and burn the full discovery timeout again.
+    expect(classifyCiRun([{ status: "pending", conclusion: null }])).toBe("absent");
   });
 });
 
@@ -366,13 +408,18 @@ describe("deploy-services workflow wiring", () => {
   });
 
   it("stops the job on a re-cancelled rerun, before the 1800s wait", () => {
-    const idx = DEPLOY_WORKFLOW_CODE.indexOf("RERUN_VERDICT");
-    expect(idx).toBeGreaterThan(-1);
-    expect(idx).toBeLessThan(DEPLOY_WORKFLOW_CODE.indexOf("lewagon/wait-on-check-action"));
-    const block = DEPLOY_WORKFLOW_CODE.slice(
-      idx,
-      DEPLOY_WORKFLOW_CODE.indexOf("lewagon/wait-on-check-action")
+    // Slice from the step NAME, not from the `RERUN_VERDICT` env key: the
+    // conventional position for `continue-on-error` is the line right after
+    // `- name:`, which precedes the env block, so a slice starting at the env
+    // key would stay green with this step made non-blocking.
+    const start = DEPLOY_WORKFLOW_CODE.indexOf(
+      "Fail fast when the re-run CI run was cancelled again"
     );
+    const end = DEPLOY_WORKFLOW_CODE.indexOf("lewagon/wait-on-check-action");
+    expect(start).toBeGreaterThan(-1);
+    expect(start).toBeLessThan(end);
+    const block = DEPLOY_WORKFLOW_CODE.slice(start, end);
+    expect(block).toContain("RERUN_VERDICT");
     expect(block).toMatch(/exit 1/);
     expect(block).not.toContain("continue-on-error");
   });
@@ -384,8 +431,17 @@ describe("deploy-services workflow wiring", () => {
     );
     expect(assess).toMatch(/RERUN_VERIFY_SECONDS=\d+/);
     const budget = Number(assess.match(/RERUN_VERIFY_SECONDS=(\d+)/)[1]);
-    expect(budget).toBeGreaterThanOrEqual(60);
-    expect(budget).toBeLessThanOrEqual(300);
+    // Measured attempt-2 eviction latencies on main, 2026-11-28 (run id:
+    // seconds from the rerun being created to it being cancelled):
+    // 46108205241 50s, 46083667306 121s, 46106352432 174s, 46112197323 261s,
+    // 46098634732 537s. A budget under the slowest of those expires with
+    // verdict `running` and burns the full 1800s wait anyway, so it must
+    // cover the distribution. Waiting here is near-free: the job is already
+    // willing to wait 1800s, and this budget is spent instead of, not on top
+    // of, that wait.
+    expect(budget).toBeGreaterThanOrEqual(537);
+    // Still well inside the wait step's own 1800s discovery timeout.
+    expect(budget).toBeLessThanOrEqual(900);
   });
 
   it("documents that a fail-fast here does not re-trip the circuit breaker (#5662 narrowed it to the deploy job's own conclusion)", () => {

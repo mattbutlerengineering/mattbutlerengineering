@@ -154,12 +154,21 @@ jobs:
             # CI 46108205241 attempt 2), after which the wait below burns its
             # whole 1800s discovery timeout for nothing.
             #
-            # Bounded and deliberately short. A rerun merely waiting on a
-            # runner is one that is working — CI queue p90 is ~20 min under
-            # the account's cap — so `queued` at the end of this budget means
-            # "still unknown" and falls through to the normal wait, exactly as
-            # today. Only an observed re-cancellation stops the job.
-            RERUN_VERIFY_SECONDS=150
+            # Sized against the measured eviction latency, not guessed:
+            # attempt-2 reruns on main were cancelled 50s, 121s, 174s, 261s
+            # and 537s after being created (runs 46108205241, 46083667306,
+            # 46106352432, 46112197323, 46098634732; median 174s). A budget
+            # below the slowest of those expires with verdict `running` and
+            # burns the full 1800s wait anyway, so it covers the distribution.
+            #
+            # Waiting here is near-free: it is spent instead of, not on top
+            # of, the wait below, and the wait's own 1800s discovery timeout
+            # starts fresh afterwards. A rerun merely waiting on a runner is
+            # one that is working (CI queue p90 ~20 min under the account's
+            # cap), so an undecided rerun at the end of this budget falls
+            # through to the normal wait exactly as today. Only an observed
+            # re-cancellation stops the job.
+            RERUN_VERIFY_SECONDS=600
             rerun_verdict=""
             deadline=$(( SECONDS + RERUN_VERIFY_SECONDS ))
             while [ "$SECONDS" -lt "$deadline" ]; do

@@ -40,7 +40,10 @@
  * issued the rerun, then burned the full 1800s discovery timeout and failed
  * at ~30.5 min (CI 46108205241 attempt 2: started 04:54:04Z, cancelled
  * 04:54:55Z, zero jobs). So the rerun's own outcome is checked first; a
- * re-cancelled one fails in ~a minute with the real reason. Only the speed of
+ * re-cancelled one fails as soon as that is observable instead of at 30 min.
+ * Eviction lands 50s-537s after the rerun is created (median 174s, measured
+ * over five attempt-2 reruns on 2026-11-28), which is what the workflow's
+ * verification budget is sized against. Only the speed of
  * that failure changes — the deploy still requires a green `Build`. Widening
  * main's concurrency group would remove the cause instead, but it adds
  * concurrent CI to an account whose runner cap is already the top queue
@@ -126,6 +129,41 @@ export function classifyCiRun(runs) {
  */
 export function shouldRerun(state) {
   return state === "cancelled";
+}
+
+/**
+ * REST run statuses that mean "this rerun has not been decided yet".
+ *
+ * `--after-rerun` reads `/actions/runs/<id>` directly, whose `status`
+ * vocabulary is wider than the `gh run list` output `classifyCiRun` was
+ * written for. A run held by `ci.yml`'s concurrency group reports `pending`
+ * or `requested`, and `classifyCiRun` would call both `absent` -- which the
+ * verify loop reads as "settled", breaking on its first poll and falling
+ * through to the very 1800s wait it exists to avoid.
+ */
+const RERUN_UNDECIDED_STATUSES = new Set([
+  "pending",
+  "requested",
+  "queued",
+  "waiting",
+  "in_progress",
+]);
+
+/**
+ * Classify the rerun alone, from the REST run object.
+ *
+ * Deliberately a separate function rather than a wider `classifyCiRun`:
+ * `shouldFailFast` fires on `absent` + `workflow_dispatch`, so teaching
+ * `classifyCiRun` that `pending` means `running` would stop #5663's fail-fast
+ * from firing and put that 30-minute burn back.
+ *
+ * @param {Array<{status?: string, conclusion?: string|null}>} runs
+ * @returns {"absent"|"running"|"success"|"failed"|"cancelled"}
+ */
+export function classifyRerun(runs) {
+  if (!Array.isArray(runs) || runs.length === 0) return "absent";
+  if (runs.some((run) => RERUN_UNDECIDED_STATUSES.has(run?.status))) return "running";
+  return classifyCiRun(runs);
 }
 
 /**
@@ -218,7 +256,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   if (process.argv[2] === "--after-rerun") {
     let state;
     try {
-      state = classifyCiRun(JSON.parse(process.argv[3] ?? "[]"));
+      state = classifyRerun(JSON.parse(process.argv[3] ?? "[]"));
     } catch {
       // An unparseable query is "unverified", never "verified re-cancelled".
       state = "absent";
