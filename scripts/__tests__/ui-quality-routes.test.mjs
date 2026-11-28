@@ -47,9 +47,9 @@ describe("hospitality adapter", () => {
   const rows = extractApp("hospitality", io);
   const byRoute = Object.fromEntries(rows.map((r) => [r.route, r]));
 
-  it("yields 42 route templates (40 leaf paths + 3 index routes, one of which shares `onboarding`)", () => {
-    expect(rows).toHaveLength(42);
-    expect(new Set(rows.map((r) => r.route)).size).toBe(42);
+  it("yields 43 route templates (41 leaf paths + 3 index routes, one of which shares `onboarding`)", () => {
+    expect(rows).toHaveLength(43);
+    expect(new Set(rows.map((r) => r.route)).size).toBe(43);
   });
 
   it("reads the closing summary at `night` (#9483)", () => {
@@ -113,15 +113,15 @@ describe("hospitality adapter", () => {
     expect(byRoute["reservations/manage"].auth).toBe("public");
     expect(byRoute["timeline"].auth).toBe("auth0");
     expect(byRoute["/"].auth).toBe("auth0");
-    expect(rows.filter((r) => r.auth === "auth0")).toHaveLength(37);
+    expect(rows.filter((r) => r.auth === "auth0")).toHaveLength(38);
   });
 
   it("classifies callback as a redirect and * as not-found", () => {
     expect(byRoute["callback"].kind).toBe("redirect");
     expect(byRoute["*"].kind).toBe("not-found");
     expect(byRoute["timeline"].kind).toBe("page");
-    // 33 since the Availability map became a redirect (#10032); 34 with Explain this day (#10047), 35 with Terminology (#10031); the floor-plan routes moved under Availability and the old two became redirects, still 35 (#9944 S3).
-    expect(rows.filter((r) => r.kind === "page")).toHaveLength(35);
+    // 33 since the Availability map became a redirect (#10032); 34 with Explain this day (#10047), 35 with Terminology (#10031); the floor-plan routes moved under Availability and the old two became redirects, still 35 (#9944 S3); 36 with Special dates (#9944 S2c).
+    expect(rows.filter((r) => r.kind === "page")).toHaveLength(36);
     // /setup/hours moved to the Availability page (#7513); the old path stays as a <Navigate>.
     expect(byRoute["setup/hours"].kind).toBe("redirect");
     // /setup moved to the Availability map (#8864), then the hub (#10032); it stays a redirect.
@@ -267,7 +267,7 @@ describe("routes.mjs all", () => {
       .trimEnd()
       .split("\n")
       .map((l) => JSON.parse(l));
-    expect(rows).toHaveLength(42 + 12 + 134);
+    expect(rows).toHaveLength(43 + 12 + 134);
     const keys = rows.map((r) => `${r.app}\u0000${r.route}`);
     expect(keys).toEqual([...keys].sort());
     expect([...new Set(rows.map((r) => r.app))]).toEqual([
