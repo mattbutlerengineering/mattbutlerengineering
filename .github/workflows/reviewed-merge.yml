@@ -38,7 +38,7 @@ permissions:
 #     which enumerates every `reviewed` PR, so a newer pending run supersedes an
 #     older one without losing work.
 # Never `cancel-in-progress: true`: that would kill a run mid-merge.
-# Pinned by scripts/__tests__/workflow-pending-run-starvation.test.mjs.
+# Pinned by scripts/__tests__/reviewed-merge-concurrency.test.mjs.
 concurrency:
   group: ${{ (github.event_name == 'pull_request_target' && github.event.label.name != 'reviewed' && format('reviewed-merge-noop-{0}', github.run_id)) || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion != 'success' && format('reviewed-merge-noop-{0}', github.run_id)) || (github.event_name == 'pull_request_target' && format('reviewed-merge-pr-{0}', github.event.pull_request.number)) || (github.event_name == 'schedule' && 'reviewed-merge-schedule') || 'reviewed-merge' }}
   cancel-in-progress: false
