@@ -27,8 +27,13 @@ on:
   # still completes and reports CI Gate on the dispatched ref's head SHA.
   workflow_dispatch:
 
+# Each push to `main` gets its own group (keyed on the SHA). A shared `main`
+# group made every merge discard the previous merge's PENDING run, even with
+# `cancel-in-progress: false`: no job ever started, so no merged SHA got a CI
+# result and Deploy Services' "Wait for CI" starved (#10194). PR refs still
+# share a group per ref and cancel in progress.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
