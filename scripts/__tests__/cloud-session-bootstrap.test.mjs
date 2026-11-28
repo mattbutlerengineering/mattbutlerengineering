@@ -105,8 +105,9 @@ describe("runCloudSessionBootstrap", () => {
   // #8169 gated the install on `node_modules` being absent. The container
   // image ships a pre-baked `node_modules`, so a cloud session whose checkout
   // moved past the image skipped the install and ran its gates against a stale
-  // tree: `pnpm lint` and `pnpm typecheck` both failed with TS2307 in
-  // `services/agent` after 02f1946 changed the lockfile.
+  // tree: `pnpm lint` and `pnpm typecheck` both failed with 13 TS2307s in
+  // `services/agent`, whose `@modelcontextprotocol/sdk` dependency arrived in
+  // 01373cd (#9734) after the image was baked.
   test("cloud session with a stale pre-baked node_modules installs and builds", () => {
     const exec = vi.fn();
     const log = vi.fn();
