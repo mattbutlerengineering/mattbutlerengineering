@@ -281,6 +281,7 @@ export function ReservationsPage() {
             ref={newReservationButtonRef}
             variant="primary"
             size="sm"
+            className={styles.newReservation}
             onClick={() => setShowNewReservationDialog(true)}
             disabled={!selectedVenueId}
           >

@@ -88,6 +88,14 @@
   flex-wrap: wrap;
 }
 
+/* The compact button keeps a 44px target on touch and phone/tablet widths, like the
+   SegmentedControl beside it (a fine-pointer browser resized narrow gets no coarse match). */
+@media (pointer: coarse), (max-width: 1024px) {
+  .newReservation {
+    min-block-size: 44px;
+  }
+}
+
 /* Table */
 .tableWrapper {
   /* Columns are wider than a phone: scroll, never clip them away. */

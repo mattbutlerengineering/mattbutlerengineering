@@ -3941,6 +3941,11 @@
       "dinner": "Dinner ({{range}})",
       "late": "Late (from {{hour}})"
     },
+    "segmentsCompact": {
+      "early": "Before {{hour}}",
+      "dinner": "{{range}}",
+      "late": "From {{hour}}"
+    },
     "noSeatings": {
       "early": "No early seatings tonight.",
       "dinner": "No dinner seatings tonight.",

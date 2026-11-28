@@ -62,6 +62,13 @@
   }
 }
 
+/* Phone: two half-width fields clip the phone placeholder at 375; stack name above phone. */
+@media (max-width: 767px) {
+  .fieldRow {
+    flex-direction: column;
+  }
+}
+
 /* Row controls stay finger-sized on touch screens and tablet-width viewports (NF INCLUSIVE, ≥ 44 × 44). */
 @media (pointer: coarse), (max-width: 1024px) {
   .actions > button {

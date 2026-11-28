@@ -86,6 +86,11 @@ describe("WaitlistPage row layout on phone and tablet (#10035)", () => {
     expect(touch[".partySizeRow > button"]?.["min-inline-size"]).toBe("44px");
   });
 
+  it("stacks the name and phone fields on a phone so the phone placeholder is not clipped", () => {
+    const phone = sheet.media["@media (max-width: 767px)"] ?? {};
+    expect(phone[".fieldRow"]?.["flex-direction"]).toBe("column");
+  });
+
   it("never introduces horizontal scroll", () => {
     expect(CSS).not.toMatch(/overflow-x:\s*(auto|scroll)/);
   });
@@ -96,6 +101,10 @@ describe("WaitlistPage row layout on desktop", () => {
     expect(sheet.rules[".row"]?.["flex-wrap"]).toBeUndefined();
     expect(sheet.rules[".actions"]?.["flex-wrap"]).toBeUndefined();
     expect(sheet.rules[".actions"]?.["flex-basis"]).toBeUndefined();
+  });
+
+  it("keeps the name and phone fields side by side", () => {
+    expect(sheet.rules[".fieldRow"]?.["flex-direction"]).toBeUndefined();
   });
 
   it("keeps the party-size chips at their compact desktop size", () => {

@@ -4051,6 +4051,11 @@
       "dinner": "Souper ({{range}})",
       "late": "Tard (à partir de {{hour}})"
     },
+    "segmentsCompact": {
+      "early": "Avant {{hour}}",
+      "dinner": "{{range}}",
+      "late": "Dès {{hour}}"
+    },
     "noSeatings": {
       "early": "Aucun service tôt ce soir.",
       "dinner": "Aucun service de souper ce soir.",
