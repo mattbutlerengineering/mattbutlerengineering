@@ -122,7 +122,10 @@ export function PrivacyPage() {
           Questions about this policy? Reach out at{" "}
           <a
             href="mailto:hello@mattbutlerengineering.com"
-            style={{ color: "var(--rialto-link-color)" }}
+            style={{
+              color: "var(--rialto-text-primary)",
+              textDecoration: "underline",
+            }}
           >
             hello@mattbutlerengineering.com
           </a>
