@@ -574,14 +574,8 @@ test.describe("Why this day: Remove and Edit special hours (#7981)", () => {
             )
           )
           .toBe(true);
-        // rialto's destructive ConfirmDialog button is #1a1918 on #b84a3c, 3.41:1 (below AA). That is
-        // the component's own colour pair, not this change's, so axe skips the one button and still
-        // reads the rest of the dialog; the defect is reported on #7981.
-        const confirm = ask.getByRole("button", { name: c.confirm, exact: true });
-        await confirm.evaluate((el) => el.setAttribute("data-axe-skip", ""));
         const askAxe = await new AxeBuilder({ page: mockedPage })
           .include('[role="alertdialog"]')
-          .exclude("[data-axe-skip]")
           .analyze();
         expect(askAxe.violations).toEqual([]);
         await ask.getByRole("button", { name: c.confirm, exact: true }).click();

@@ -38,7 +38,7 @@
 
 .confirm.destructive {
   background: var(--rialto-error);
-  color: var(--rialto-text-on-accent);
+  color: var(--rialto-text-on-error);
 }
 
 .confirm.destructive:hover {

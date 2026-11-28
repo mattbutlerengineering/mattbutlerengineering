@@ -28,10 +28,12 @@
   --rialto-text-primary: #1a1918;
   /* Descriptions, helper text, secondary labels (5.27:1 on surface — WCAG AA) */
   --rialto-text-secondary: #6b6660;
-  /* Placeholders, disabled text, timestamps (4.53:1 on surface — WCAG AA minimum) */
-  --rialto-text-tertiary: #747070;
+  /* Placeholders, disabled text, timestamps (5.10:1 on surface, 4.58:1 on recessed — WCAG AA) */
+  --rialto-text-tertiary: #6c6868;
   /* Text on accent-filled backgrounds (primary buttons, badges) */
   --rialto-text-on-accent: #1a1918;
+  /* Text on error-filled backgrounds (destructive buttons; 5.86:1 on error) */
+  --rialto-text-on-error: #fdfcfa;
 
   /* ── Border ───────────────────────────────────── */
   /* Default borders for cards, inputs, dividers (3.06:1 on surface — WCAG AA UI) */
@@ -73,7 +75,7 @@
 
   /* ── Semantic ─────────────────────────────────── */
   /* Error text, destructive button fills, invalid borders */
-  --rialto-error: #b84a3c;
+  --rialto-error: #a94134;
   /* Error alert backgrounds, error badge tints */
   --rialto-error-muted: rgb(184 74 60 / 0.1);
   /* Warning text, caution banners, pending states */
@@ -123,6 +125,7 @@
   --rialto-text-secondary: rgb(253 252 250 / 0.6);
   --rialto-text-tertiary: rgb(253 252 250 / 0.5);
   --rialto-text-on-accent: #1a1918;
+  --rialto-text-on-error: #1a1918;
 
   /* ── Border ───────────────────────────────────── */
   --rialto-border: rgb(255 255 255 / 0.4);
@@ -198,10 +201,12 @@
   --rialto-text-primary: #1a1918;
   /* Descriptions, helper text, secondary labels (5.27:1 on surface — WCAG AA) */
   --rialto-text-secondary: #6b6660;
-  /* Placeholders, disabled text, timestamps (4.53:1 on surface — WCAG AA minimum) */
-  --rialto-text-tertiary: #747070;
+  /* Placeholders, disabled text, timestamps (5.10:1 on surface, 4.58:1 on recessed — WCAG AA) */
+  --rialto-text-tertiary: #6c6868;
   /* Text on accent-filled backgrounds (primary buttons, badges) */
   --rialto-text-on-accent: #1a1918;
+  /* Text on error-filled backgrounds (destructive buttons; 5.86:1 on error) */
+  --rialto-text-on-error: #fdfcfa;
 
   /* ── Border ───────────────────────────────────── */
   /* Default borders for cards, inputs, dividers (3.06:1 on surface — WCAG AA UI) */
@@ -243,7 +248,7 @@
 
   /* ── Semantic ─────────────────────────────────── */
   /* Error text, destructive button fills, invalid borders */
-  --rialto-error: #b84a3c;
+  --rialto-error: #a94134;
   /* Error alert backgrounds, error badge tints */
   --rialto-error-muted: rgb(184 74 60 / 0.1);
   /* Warning text, caution banners, pending states */

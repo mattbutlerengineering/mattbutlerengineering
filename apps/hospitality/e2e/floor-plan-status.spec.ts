@@ -148,7 +148,7 @@ test.describe("Floor plan: live table status colors (#3803)", () => {
     const seatedColor = await sampleTableColor(page);
 
     // "seated" is rialto's error token — red-dominant in both themes
-    // (light #b84a3c, dark #e06050): red channel exceeds green, the
+    // (light #a94134, dark #e06050): red channel exceeds green, the
     // opposite of the "available" sample above.
     expect(seatedColor[0]).toBeGreaterThan(seatedColor[1]);
   });
