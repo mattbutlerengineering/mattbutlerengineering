@@ -21,6 +21,7 @@
  * Public API:
  *   issueZone(issue)                         → string | null   (estimated zone)
  *   selectZoneSpreadBatch(candidates, opts)  → issue[]         (spread batch)
+ *   fillZoneWorkerBatches(leads, ready, opts) → issue[][]      (same-zone fill)
  *   SCOPE_ZONE_MAP                           → Map<scope, zone> (scope → zone)
  *   buildScopeZoneMap(repoRoot?)             → Map<scope, zone> (rescan helper)
  *
@@ -471,4 +472,78 @@ function selectZoneSpreadBatch(
   return batch;
 }
 
-export { issueZone, selectZoneSpreadBatch, SCOPE_ZONE_MAP };
+// Issues per worker batch: the lead plus up to two same-zone fills (#10188).
+const DEFAULT_MAX_PER_WORKER = 3;
+
+const SOLO_LABELS = new Set(["security", "tier:sensitive"]);
+
+/**
+ * True when the issue carries a label that keeps it out of a shared batch.
+ * `gh --json labels` yields `{ name }` objects; plain strings are accepted too.
+ *
+ * @param {{ labels?: unknown }} issue
+ * @returns {boolean}
+ */
+function hasSoloLabel(issue) {
+  const labels = issue && typeof issue === "object" ? issue.labels : undefined;
+  if (!Array.isArray(labels)) return false;
+  return labels.some((label) => SOLO_LABELS.has(typeof label === "string" ? label : label?.name));
+}
+
+/**
+ * Fills each lead's worker batch with same-zone surplus from `ready`.
+ *
+ * `leads` is the `selectZoneSpreadBatch` result; each lead takes further
+ * `ready` issues from its own zone, in priority order, up to `maxPerWorker`
+ * issues per batch, so one worker opens one PR for the whole zone batch. A
+ * global (`null`) zone issue and any issue `isSolo` flags (default: a
+ * `security` or `tier:sensitive` label) never share a batch.
+ *
+ * Hotspot locks (see `hotspotLocks`) apply to fills exactly as they do to
+ * leads: every lead holds its locks for its own batch, a candidate whose lock
+ * another batch holds is skipped, and a picked candidate's locks are held by
+ * its batch from then on. Sharing a lock inside one batch is fine: that is one
+ * worker and one PR.
+ *
+ * Pure and deterministic: no I/O, no mutation of inputs.
+ *
+ * @param {Array<object>} leads — lead issues, one per worker batch
+ * @param {Array<object>} ready — fill candidates in priority order (may include the leads)
+ * @param {{ maxPerWorker?: number, isSolo?: (issue: object) => boolean }} [opts]
+ * @returns {Array<Array<object>>} one batch per lead, lead first
+ */
+function fillZoneWorkerBatches(
+  leads,
+  ready,
+  { maxPerWorker = DEFAULT_MAX_PER_WORKER, isSolo = hasSoloLabel } = {}
+) {
+  if (!Array.isArray(leads)) return [];
+  const pool = Array.isArray(ready) ? ready : [];
+  const solo = (issue) => issueZone(issue) === null || isSolo(issue);
+  const locksOf = (issue) =>
+    hotspotLocks(extractPathsFromBody(issue && typeof issue === "object" ? issue.body : undefined));
+  const claimed = new Set(leads.map((lead) => lead.number));
+  const lockOwner = new Map(); // hotspot lock → index of the batch holding it
+  leads.forEach((lead, owner) => {
+    for (const lock of locksOf(lead)) if (!lockOwner.has(lock)) lockOwner.set(lock, owner);
+  });
+
+  return leads.map((lead, owner) => {
+    const group = [lead];
+    if (solo(lead)) return group;
+    const zone = issueZone(lead);
+    for (const issue of pool) {
+      if (group.length >= maxPerWorker) break;
+      if (claimed.has(issue.number) || solo(issue)) continue;
+      if (issueZone(issue) !== zone) continue;
+      const locks = locksOf(issue);
+      if (locks.some((lock) => lockOwner.has(lock) && lockOwner.get(lock) !== owner)) continue;
+      for (const lock of locks) lockOwner.set(lock, owner);
+      claimed.add(issue.number);
+      group.push(issue);
+    }
+    return group;
+  });
+}
+
+export { fillZoneWorkerBatches, issueZone, selectZoneSpreadBatch, SCOPE_ZONE_MAP };

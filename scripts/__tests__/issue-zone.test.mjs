@@ -1,5 +1,10 @@
 import { describe, test, expect } from "vitest";
-import { issueZone, selectZoneSpreadBatch, SCOPE_ZONE_MAP } from "../issue-zone.mjs";
+import {
+  fillZoneWorkerBatches,
+  issueZone,
+  selectZoneSpreadBatch,
+  SCOPE_ZONE_MAP,
+} from "../issue-zone.mjs";
 
 // Small helper: builds an issue-shaped object from a title (+ optional extras).
 const issue = (title, extra = {}) => ({ title, labels: [], body: "", ...extra });
@@ -638,6 +643,119 @@ describe("selectZoneSpreadBatch — shared-registry locks", () => {
       { strictMain: false }
     );
     expect(numbers(batch)).toEqual([1, 3]);
+  });
+});
+
+describe("fillZoneWorkerBatches — same-zone fill honours hotspot locks (#10217)", () => {
+  const filesBody = (...paths) =>
+    `## Files to Modify/Create\n\n${paths.map((p) => `- ${p}`).join("\n")}\n`;
+  const numbers = (batches) => batches.map((group) => group.map((i) => i.number));
+  const GOTCHAS = ".claude/rules/gotchas.md";
+  const leadA = issue("fix(scripts): a", {
+    number: 1,
+    body: filesBody("scripts/a.mjs", GOTCHAS),
+  });
+  const leadB = issue("fix(reservations): b", {
+    number: 2,
+    body: filesBody("services/reservations/src/b.ts"),
+  });
+  const b2 = issue("fix(reservations): b2", {
+    number: 3,
+    body: filesBody("services/reservations/src/b2.ts", GOTCHAS),
+  });
+  const b3 = issue("fix(reservations): b3", {
+    number: 4,
+    body: filesBody("services/reservations/src/b3.ts"),
+  });
+
+  test("a fill candidate whose hotspot lock another batch's lead holds is skipped", () => {
+    const leads = [leadA, leadB];
+    const batches = fillZoneWorkerBatches(leads, [leadA, leadB, b2]);
+    expect(numbers(batches)).toEqual([[1], [2]]);
+  });
+
+  test("a non-colliding same-zone candidate takes the slot instead", () => {
+    const batches = fillZoneWorkerBatches([leadA, leadB], [leadA, leadB, b2, b3]);
+    expect(numbers(batches)).toEqual([[1], [2, 4]]);
+  });
+
+  test("a candidate sharing a hotspot with its own lead is allowed", () => {
+    const lead = issue("fix(reservations): lead", {
+      number: 1,
+      body: filesBody("services/reservations/src/a.ts", GOTCHAS),
+    });
+    const batches = fillZoneWorkerBatches([lead], [lead, b2]);
+    expect(numbers(batches)).toEqual([[1, 3]]);
+  });
+
+  test("a fill pick takes its locks, so a later batch cannot fill with the same hotspot", () => {
+    const hospLead = issue("feat(hospitality): lead", {
+      number: 10,
+      body: filesBody("apps/hospitality/src/a.ts"),
+    });
+    const hosp2 = issue("feat(hospitality): two", {
+      number: 11,
+      body: filesBody("apps/hospitality/src/b.ts", GOTCHAS),
+    });
+    const ready = [hospLead, leadB, hosp2, b2, b3];
+    const batches = fillZoneWorkerBatches([hospLead, leadB], ready);
+    expect(numbers(batches)).toEqual([
+      [10, 11],
+      [2, 4],
+    ]);
+  });
+
+  test("fills same-zone only, skips claimed leads, and caps each worker", () => {
+    const more = [5, 6, 7].map((n) =>
+      issue(`fix(reservations): r${n}`, {
+        number: n,
+        body: filesBody(`services/reservations/src/r${n}.ts`),
+      })
+    );
+    const other = issue("fix(rialto): elsewhere", { number: 8 });
+    const ready = [leadA, leadB, other, ...more];
+    expect(numbers(fillZoneWorkerBatches([leadA, leadB], ready))).toEqual([[1], [2, 5, 6]]);
+    expect(numbers(fillZoneWorkerBatches([leadA, leadB], ready, { maxPerWorker: 2 }))).toEqual([
+      [1],
+      [2, 5],
+    ]);
+  });
+
+  test("security, tier:sensitive and global-zone issues stay solo", () => {
+    const sec = issue("fix(reservations): sec", { number: 5, labels: [{ name: "security" }] });
+    const sens = issue("fix(reservations): sens", { number: 6, labels: ["tier:sensitive"] });
+    const global = issue("tidy everything", { number: 7 });
+    const globalLead = issue("tidy more", { number: 8 });
+    const secLead = issue("fix(hospitality): sec lead", { number: 9, labels: ["security"] });
+    const hosp = issue("fix(hospitality): plain", { number: 10 });
+    const ready = [leadB, globalLead, secLead, sec, sens, global, hosp, b3];
+    expect(numbers(fillZoneWorkerBatches([leadB, globalLead, secLead], ready))).toEqual([
+      [2, 4],
+      [8],
+      [9],
+    ]);
+  });
+
+  test("a caller-supplied isSolo replaces the label rule", () => {
+    const batches = fillZoneWorkerBatches([leadB], [leadB, b3], {
+      isSolo: (candidate) => candidate.number === 4,
+    });
+    expect(numbers(batches)).toEqual([[2]]);
+  });
+
+  test("does not mutate its inputs and returns new arrays", () => {
+    const leads = Object.freeze([leadA, leadB].map((i) => Object.freeze({ ...i })));
+    const ready = Object.freeze([...leads, Object.freeze({ ...b3 })]);
+    const batches = fillZoneWorkerBatches(leads, ready);
+    expect(numbers(batches)).toEqual([[1], [2, 4]]);
+    expect(batches).not.toBe(leads);
+    expect(leads).toHaveLength(2);
+    expect(ready).toHaveLength(3);
+  });
+
+  test("non-array input yields no batches", () => {
+    expect(fillZoneWorkerBatches(undefined, [])).toEqual([]);
+    expect(numbers(fillZoneWorkerBatches([leadB], undefined))).toEqual([[2]]);
   });
 });
 
