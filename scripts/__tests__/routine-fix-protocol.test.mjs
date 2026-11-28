@@ -68,6 +68,38 @@ describe("fix protocol (#9947)", () => {
     expect(protocol).toMatch(/File an issue only when/);
   });
 
+  it("re-checks open and merged PRs by touched path right before opening the PR (#10195)", () => {
+    const fix = /## 2\. Fix it([\s\S]*?)\n## 3\./.exec(protocol);
+    expect(fix, "section 2").not.toBeNull();
+    expect(fix[1]).toMatch(/Immediately before you open the pull request/);
+    expect(fix[1]).toContain("git diff --name-only origin/main...HEAD");
+    expect(fix[1]).toContain("pulls?state=open");
+    expect(fix[1]).toContain("pulls?state=closed&sort=updated&direction=desc");
+    expect(fix[1]).toContain("pulls/<N>/files");
+    expect(fix[1]).toMatch(/not on issue numbers or titles/);
+    expect(fix[1]).toMatch(/already landed/);
+    expect(fix[1]).toMatch(/comments-only/);
+  });
+
+  it("never pushes a review-driven fix to a PR that has closed or merged (#10184)", () => {
+    const review = /## 3\. Review, then hand off([\s\S]*?)\n## 4\./.exec(protocol);
+    expect(review, "section 3").not.toBeNull();
+    expect(review[1]).toMatch(/confirm the PR is still open/);
+    expect(review[1]).toContain("pulls/<N>' --jq");
+    expect(review[1]).toContain("`open false`");
+    expect(review[1]).toContain(".head.sha");
+    expect(review[1]).toMatch(/follow-up pull request/);
+    // Captured verbatim from the push that lost e9c6431 (#10184): a push to a
+    // deleted branch succeeds and reads exactly like a first push.
+    expect(review[1]).toContain("`* [new branch]`");
+    expect(review[1]).toContain("git merge-base --is-ancestor");
+    expect(review[1]).toContain("origin/main");
+  });
+
+  it("gives routines no GraphQL-backed gh call, which answers 403 in cloud sessions", () => {
+    expect(protocol).not.toMatch(/gh (pr|issue) (list|view)/);
+  });
+
   it.each(FIXING_ROUTINES)("%s's prompt points at the protocol", (name) => {
     expect(promptOf(name)).toContain(PROTOCOL);
   });
