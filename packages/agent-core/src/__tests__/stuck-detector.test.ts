@@ -81,12 +81,13 @@ describe("StuckDetector", () => {
     });
 
     it("returns null when actions repeat fewer times than threshold", () => {
-      // Default threshold is 4, so 3 repeats should be fine
+      // Default threshold is 4, so 3 repeats must not trip the detector. Every
+      // ingest is asserted, not just the last: a detector that fired early
+      // would otherwise be masked by a later null.
       for (let i = 0; i < 3; i++) {
-        detector.ingest(makeAssistantToolUse("Read", { file_path: "/a.ts" }));
-        detector.ingest(makeUserToolResult("same content"));
+        expect(detector.ingest(makeAssistantToolUse("Read", { file_path: "/a.ts" }))).toBeNull();
+        expect(detector.ingest(makeUserToolResult("same content"))).toBeNull();
       }
-      // No detection at 3 repeats
     });
   });
 

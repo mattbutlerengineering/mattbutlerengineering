@@ -196,8 +196,14 @@ vi.mock("../components/PromptBar.js", () => ({
   ),
 }));
 
+// Rendered as a stub, but one that reflects `open` — this page test's job is
+// the wiring (Templates button → session.openGallery → the gallery's `open`
+// prop), and a flat `() => null` made that unobservable, which is why
+// "opens templates gallery" below could assert nothing. The gallery's own
+// behaviour is covered by TemplateGallery.test.tsx.
 vi.mock("../components/TemplateGallery.js", () => ({
-  TemplateGallery: () => null,
+  TemplateGallery: ({ open }: { open: boolean }) =>
+    open ? <div data-testid="template-gallery" /> : null,
 }));
 
 vi.mock("../components/KeyboardShortcuts.js", () => ({
@@ -379,7 +385,12 @@ describe("PlaygroundPage — wiring", () => {
 
   it("opens templates gallery", () => {
     render(<PlaygroundPage />);
+
+    expect(screen.queryByTestId("template-gallery")).toBeNull();
+
     fireEvent.click(screen.getByText("Templates"));
+
+    expect(screen.getByTestId("template-gallery")).toBeTruthy();
   });
 
   it("shows a completion toast when the generation stream completes", () => {

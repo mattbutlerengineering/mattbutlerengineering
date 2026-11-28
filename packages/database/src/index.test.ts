@@ -304,6 +304,49 @@ describe("createDatabase", () => {
     expect(db.getServiceStatus()).toBe("degraded");
   });
 
+  // The slow-query arm of getServiceStatus() (`count5min > MAX_SLOW_QUERIES`)
+  // was the only branch of the health signal with no test: both other
+  // "degraded" cases above come from the pool. The one test that named this
+  // behaviour — `services/agent/src/services/database.test.ts`'s "reports
+  // degraded status when slow queries exceed threshold" — had a body of four
+  // comments and no assertion, so it passed whatever the branch did.
+  // Pool fixtures stay healthy here (active 2 of 5, nobody waiting) so only
+  // the slow-query count can move the status.
+  it("getServiceStatus returns degraded once slow queries pass the 10-per-5-min threshold", async () => {
+    const { createDatabase } = await import("./index.js");
+    const db = createDatabase(createMockPrismaClient() as never);
+
+    expect(db.getServiceStatus()).toBe("ok");
+
+    const allOps = (capturedExtension!.query as Record<string, unknown>).$allOperations as (
+      ctx: Record<string, unknown>
+    ) => Promise<unknown>;
+
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    // 11 concurrent slow queries: one window's worth of latency, not eleven.
+    const SLOW_QUERIES_OVER_THRESHOLD = 11;
+    await Promise.all(
+      Array.from({ length: SLOW_QUERIES_OVER_THRESHOLD }, () =>
+        allOps({
+          model: "Post",
+          operation: "findMany",
+          args: {},
+          query: vi.fn().mockImplementation(async () => {
+            await new Promise((r) => setTimeout(r, QUERY_WINDOW_ADVANCE_MS));
+            return [];
+          }),
+        })
+      )
+    );
+
+    expect(db.getSlowQueryStats().count5min).toBe(SLOW_QUERIES_OVER_THRESHOLD);
+    expect(db.getPoolMetrics().isDegraded).toBe(false);
+    expect(db.getServiceStatus()).toBe("degraded");
+
+    vi.restoreAllMocks();
+  });
+
   it("getSlowQueryStats is idempotent — a stale entry that just crossed the window boundary is not observable after first call prunes it", async () => {
     const { createDatabase } = await import("./index.js");
     const db = createDatabase(createMockPrismaClient() as never);
