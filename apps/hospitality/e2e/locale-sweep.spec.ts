@@ -36,7 +36,7 @@ import { frCA as rialtoFrCA } from "@mattbutlerengineering/rialto/locales/fr-CA"
 import { atLocal, localDay } from "./local-day.js";
 import { test, expect } from "./fixtures.js";
 import { pickBookingDate } from "./booking-date.js";
-import { hasReadableLiteral } from "./fixtures/locale-sweep-readable.js";
+import { hasReadableLiteral, matcherFor } from "./fixtures/locale-sweep-readable.js";
 
 // A third of the suite, so CI's shards would come out 241 and 115 tests if it
 // stayed whole (#8038). Runs still use one worker, so nothing here overlaps;
@@ -104,15 +104,6 @@ const SAME_AS_EN_US: Record<Locale, ReadonlySet<string>> = {
 };
 
 const normalize = (text: string) => text.replace(/\s+/g, " ").trim();
-
-/** A catalog value as a full-text matcher; `{{placeholders}}` match any run of text. */
-function matcherFor(value: string): RegExp {
-  const source = normalize(value)
-    .split(/\{\{\w+\}\}/)
-    .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
-    .join(".+?");
-  return new RegExp(`^${source}$`);
-}
 
 /** en-US values the locale must not show: translated differently, or reverted without an acknowledgement. */
 function forbiddenEnglish(
