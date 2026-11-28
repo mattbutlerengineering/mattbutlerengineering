@@ -3,6 +3,7 @@ import type { CommandItem } from "@mattbutlerengineering/rialto";
 import type { NavSection } from "../nav-sections.js";
 import type { NavAction } from "../nav-actions.js";
 import { useViewport } from "./useViewport.js";
+import { availabilityPath } from "../components/availability/availability-address.js";
 
 /* ── Types ──────────────────────────────────────── */
 
@@ -63,7 +64,7 @@ function buildActionItems(
       id: "action-new-floor-plan",
       label: "New Floor Plan",
       group: "Actions",
-      onSelect: () => runAction({ type: "route", path: "/floor-plans" }),
+      onSelect: () => runAction({ type: "route", path: availabilityPath({ view: "floorPlans" }) }),
     },
     {
       id: "action-toggle-theme",

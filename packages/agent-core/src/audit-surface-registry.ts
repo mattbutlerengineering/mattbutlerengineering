@@ -142,7 +142,7 @@ export const SURFACE_REGISTRY: readonly AuditSurface[] = [
     "hospitality:floor-plans",
     "hospitality",
     "page",
-    "/hospitality/floor-plans",
+    "/hospitality/availability/floor-plans",
     ["apps/hospitality/src/pages/FloorPlansPage.tsx"],
     "auth0"
   ),

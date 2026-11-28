@@ -162,6 +162,6 @@ describe("destinations", () => {
     expect(destinationPath("calendar", time, "2026-12-04")).toBe(
       "/availability/calendar?date=2026-12-04"
     );
-    expect(destinationPath("floorPlan", time, "2026-12-04")).toBe("/floor-plans");
+    expect(destinationPath("floorPlan", time, "2026-12-04")).toBe("/availability/floor-plans");
   });
 });

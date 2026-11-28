@@ -51,9 +51,6 @@ export interface RailInput {
   readonly isManager: boolean;
 }
 
-/** Until floor plans move under Availability (#9944 S3), a plan opens where it is edited today. */
-const floorPlanPath = (id: string): string => `/floor-plans/${encodeURIComponent(id)}`;
-
 /** The "How availability works" guide (#10034); not an Availability address, so no address builder. */
 const GUIDE_PATH = "/help/availability";
 
@@ -144,7 +141,7 @@ export function buildAvailabilityRail(input: RailInput): RailGroup[] {
       nodes: (isManager ? (floorPlans ?? []) : []).map((p) => ({
         id: `floorPlan:${p.id}`,
         label: { text: p.name },
-        to: floorPlanPath(p.id),
+        to: availabilityPath({ view: "floorPlans", floorPlanId: p.id }),
       })),
     },
     {

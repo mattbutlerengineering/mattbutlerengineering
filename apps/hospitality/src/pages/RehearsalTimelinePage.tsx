@@ -9,6 +9,7 @@ import { useNow } from "../hooks/useNow.js";
 import { useTables } from "../hooks/useTables.js";
 import { deviceDate } from "../utils/service-day.js";
 import styles from "./TimelinePage.module.css";
+import { availabilityPath } from "../components/availability/availability-address.js";
 
 /**
  * Rehearsal mode (`?rehearsal=true`, Dress Rehearsal): the floor plan's tables are read, then a
@@ -45,7 +46,10 @@ export function RehearsalTimelinePage() {
               heading={t("timeline.page.noTablesHeading")}
               description={t("timeline.page.noTablesDescription")}
               action={
-                <Link to="/floor-plans" className={styles.emptyStateLink}>
+                <Link
+                  to={availabilityPath({ view: "floorPlans" })}
+                  className={styles.emptyStateLink}
+                >
                   {t("timeline.page.floorPlans")}
                 </Link>
               }

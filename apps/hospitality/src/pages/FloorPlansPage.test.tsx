@@ -258,7 +258,7 @@ describe("FloorPlansPage", () => {
     expect(activeBadge).toBeDefined();
   });
 
-  it("clicking card navigates to /floor-plans/:id", async () => {
+  it("clicking card navigates to /availability/floor-plans/:id", async () => {
     renderPage();
 
     await waitFor(() => {
@@ -268,7 +268,7 @@ describe("FloorPlansPage", () => {
     const cardButton = screen.getByRole("button", { name: /^Main Dining\b/ });
     fireEvent.click(cardButton);
 
-    expect(mockNavigate).toHaveBeenCalledWith("/floor-plans/fp-1");
+    expect(mockNavigate).toHaveBeenCalledWith("/availability/floor-plans/fp-1");
   });
 
   it("New Floor Plan button opens dialog", async () => {
@@ -325,7 +325,7 @@ describe("FloorPlansPage", () => {
     });
 
     expect(mockFloorPlansClone).toHaveBeenCalledWith("fp-1");
-    expect(mockNavigate).toHaveBeenCalledWith("/floor-plans/fp-3");
+    expect(mockNavigate).toHaveBeenCalledWith("/availability/floor-plans/fp-3");
   });
 
   it("clone error shows a visible alert, not just the sr-only live region", async () => {

@@ -28,7 +28,9 @@ const GROUPS: RailGroup[] = [
   {
     id: "sit",
     heading: "availabilityHub.rail.groups.sit",
-    nodes: [{ id: "floorPlan:m", label: { text: "Main floor" }, to: "/floor-plans/m" }],
+    nodes: [
+      { id: "floorPlan:m", label: { text: "Main floor" }, to: "/availability/floor-plans/m" },
+    ],
   },
   { id: "views", heading: "availabilityHub.rail.groups.views", nodes: [] },
 ];
@@ -57,7 +59,7 @@ describe("AvailabilityRail", () => {
     );
     expect(within(nav).getByRole("link", { name: "Main floor" })).toHaveAttribute(
       "href",
-      "/floor-plans/m"
+      "/availability/floor-plans/m"
     );
   });
 

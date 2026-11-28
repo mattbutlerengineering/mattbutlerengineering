@@ -19,6 +19,7 @@ import { I18nextProvider } from "react-i18next";
 import { localeRuntime, LocaleBridge } from "./i18n/runtime.js";
 import { ToastLocaleOverride } from "./components/booking-widget/ToastLocaleOverride.js";
 import { availabilityPath } from "./components/availability/availability-address.js";
+import { FloorPlansRedirect } from "./components/availability/FloorPlansRedirect.js";
 import { SetupRedirect } from "./components/availability/SetupRedirect.js";
 import { NOT_FOUND_ROUTE_HANDLE } from "./hooks/useIsNotFoundRoute.js";
 
@@ -358,24 +359,13 @@ const router = createBrowserRouter(
               ),
             },
             {
+              // Moved under Availability (#9944 S3): old links land on the same plan there.
               path: "floor-plans",
-              element: (
-                <RequireManager>
-                  <Suspense fallback={<LoadingPage />}>
-                    <FloorPlansPage />
-                  </Suspense>
-                </RequireManager>
-              ),
+              element: <FloorPlansRedirect />,
             },
             {
               path: "floor-plans/:id",
-              element: (
-                <RequireManager>
-                  <Suspense fallback={<LoadingPage />}>
-                    <FloorPlanEditorPage />
-                  </Suspense>
-                </RequireManager>
-              ),
+              element: <FloorPlansRedirect />,
             },
             {
               // One child route per job (availability-hub). The hub is the index; today's page
@@ -467,6 +457,27 @@ const router = createBrowserRouter(
                     <RequireManager redirectTo={availabilityPath({ view: "hub" })}>
                       <Suspense fallback={<LoadingPage />}>
                         <AvailabilitySeasonalEditorPage />
+                      </Suspense>
+                    </RequireManager>
+                  ),
+                },
+                {
+                  // An editor's list: a Host who loads it lands on the hub.
+                  path: "floor-plans",
+                  element: (
+                    <RequireManager redirectTo={availabilityPath({ view: "hub" })}>
+                      <Suspense fallback={<LoadingPage />}>
+                        <FloorPlansPage />
+                      </Suspense>
+                    </RequireManager>
+                  ),
+                },
+                {
+                  path: "floor-plans/:id",
+                  element: (
+                    <RequireManager redirectTo={availabilityPath({ view: "hub" })}>
+                      <Suspense fallback={<LoadingPage />}>
+                        <FloorPlanEditorPage />
                       </Suspense>
                     </RequireManager>
                   ),

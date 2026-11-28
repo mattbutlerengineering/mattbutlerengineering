@@ -555,7 +555,7 @@ const SHARED_TABLE_NAMES = new Set(
 
 /** Typed values to mask on a route: the editor shows only EDITOR_PLAN's tables. */
 function userTextFor(route: string): readonly string[] {
-  if (route !== "floor-plans/:id") return USER_TEXT;
+  if (route !== "availability/floor-plans/:id") return USER_TEXT;
   return [
     ...USER_TEXT.filter((value) => !SHARED_TABLE_NAMES.has(value)),
     ...EDITOR_PLAN.tables.map((table) => normalize(table.name)),
@@ -779,7 +779,7 @@ async function mockGatedRoutes(page: Page, route: string): Promise<void> {
       })
     );
   });
-  if (route === "floor-plans/:id") {
+  if (route === "availability/floor-plans/:id") {
     await page.route(/\/api\/v1\/floor-plans\/[^/?]+(\?.*)?$/, (r) => r.fulfill(ok(EDITOR_PLAN)));
   }
 }

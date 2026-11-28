@@ -49,6 +49,8 @@ type AvailabilityView =
     }
   | { readonly view: "bookingRules" }
   | { readonly view: "history" }
+  /** The floor plans ("Where guests sit"); `floorPlanId` opens one plan's editor. */
+  | { readonly view: "floorPlans"; readonly floorPlanId?: string }
   /** Explain this day: `date` and `partySize` ride in the address so the page can be shared. */
   | { readonly view: "explain"; readonly date?: string; readonly partySize?: number }
   | { readonly view: "map" };
@@ -123,6 +125,7 @@ const PAGE_TAB: Readonly<Record<AvailabilityView["view"], AvailabilityTab | unde
   calendar: "calendar",
   bookingRules: undefined,
   history: undefined,
+  floorPlans: undefined,
   explain: undefined,
   map: undefined,
 };
@@ -153,6 +156,9 @@ export const isHistoryPage = (pathname: string): boolean =>
 
 /** The Seasonal hours list, its editor at `new` and `:scheduleId`. Compare is not built yet (E4.7). */
 const SEASONAL = `${ROUTE}/seasonal`;
+
+/** The floor plans, a page of its own; a plan's editor at `:id`. Managers only (#9944 S3). */
+const FLOOR_PLANS = `${ROUTE}/floor-plans`;
 
 /** Closures and pauses, a page of its own. */
 const CLOSURES = `${ROUTE}/closures`;
@@ -242,6 +248,14 @@ function setOverlay(params: URLSearchParams, target: AvailabilityTarget): void {
   if (target.from) params.set("from", target.from);
 }
 
+/** The floor plan list, or one plan's editor; `undefined` for any other view. */
+function floorPlansPath(target: AvailabilityTarget): string | undefined {
+  if (target.view !== "floorPlans") return undefined;
+  return target.floorPlanId
+    ? `${FLOOR_PLANS}/${encodeURIComponent(target.floorPlanId)}`
+    : FLOOR_PLANS;
+}
+
 /** The Seasonal hours list and its editor; `undefined` for any other view, and for compare. */
 function seasonalPath(target: AvailabilityTarget): string | undefined {
   if (target.view !== "seasonal") return undefined;
@@ -260,7 +274,7 @@ function seasonalPath(target: AvailabilityTarget): string | undefined {
  */
 export function availabilityPath(target: AvailabilityTarget): string {
   const params = new URLSearchParams();
-  const ownPath = seasonalPath(target) ?? OWN_PATHS[target.view];
+  const ownPath = seasonalPath(target) ?? floorPlansPath(target) ?? OWN_PATHS[target.view];
   if (ownPath) {
     if (target.view === "hours" && target.service) params.set("service", target.service);
     if (target.view === "seasonal" && target.screen === "new" && target.copy) {

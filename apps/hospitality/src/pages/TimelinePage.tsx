@@ -90,6 +90,7 @@ import {
 import { RehearsalTimelinePage } from "./RehearsalTimelinePage.js";
 import { ChevronLeftIcon, ChevronRightIcon, CloseIcon } from "./timeline-icons.js";
 import styles from "./TimelinePage.module.css";
+import { availabilityPath } from "../components/availability/availability-address.js";
 
 /** Longer than the 4 s default: this reports something the Host did not see happen. */
 const LATE_FAILURE_TOAST_MS = 8000;
@@ -542,7 +543,7 @@ function LiveTimelinePage() {
           heading={t("timeline.page.noTablesHeading")}
           description={t("timeline.page.noTablesDescription")}
           action={
-            <Link to="/floor-plans" className={styles.emptyStateLink}>
+            <Link to={availabilityPath({ view: "floorPlans" })} className={styles.emptyStateLink}>
               {t("timeline.page.floorPlans")}
             </Link>
           }
